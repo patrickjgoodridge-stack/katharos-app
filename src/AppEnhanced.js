@@ -43,12 +43,14 @@ export default function Marlowe() {
  // Background analysis state - allows navigation while processing
  const [backgroundAnalysis, setBackgroundAnalysis] = useState({
    isRunning: false,
+   isComplete: false,
    caseId: null,
    caseName: '',
    currentStep: '',
    stepNumber: 0,
    totalSteps: 10,
-   progress: 0
+   progress: 0,
+   pendingAnalysis: null // Stores completed analysis until user clicks to view
  });
 
  // Investigation mode state
@@ -278,6 +280,26 @@ export default function Marlowe() {
  setSelectedEntity(null);
  setChatOpen(false);
  setCurrentPage('newCase');
+ };
+
+ // View completed analysis results
+ const viewAnalysisResults = () => {
+   if (backgroundAnalysis.pendingAnalysis) {
+     setAnalysis(backgroundAnalysis.pendingAnalysis);
+     setActiveTab('overview');
+     // Reset the background analysis state
+     setBackgroundAnalysis({
+       isRunning: false,
+       isComplete: false,
+       caseId: null,
+       caseName: '',
+       currentStep: '',
+       stepNumber: 0,
+       totalSteps: 10,
+       progress: 0,
+       pendingAnalysis: null
+     });
+   }
  };
 
  // Go back to Noir landing
@@ -2859,86 +2881,73 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
 
  // Use multi-step pipeline for files with substantial content
  if (files.length > 0 && files.some(f => f.content.length > 500)) {
- try {
- setAnalysisError(null);
+try {
+setAnalysisError(null);
 
- // Update progress: Extracting entities
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Extracting entities...',
-   stepNumber: 1,
-   progress: 15
- }));
+// Progress callback for precise pipeline step updates
+const handlePipelineProgress = (progressInfo) => {
+  setBackgroundAnalysis(prev => ({
+    ...prev,
+    currentStep: progressInfo.currentStep + '...',
+    stepNumber: progressInfo.stepNumber,
+    totalSteps: progressInfo.totalSteps,
+    progress: Math.round(progressInfo.progress * 0.85) // Pipeline is 85% of total
+  }));
+} finally {
+setIsAnalyzing(false);
+}
+};
 
- const finalAnalysis = await runAnalysisPipeline(files, caseDescription);
+const finalAnalysis = await runAnalysisPipeline(files, caseDescription, handlePipelineProgress);
 
- // Update progress: Building timeline
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Building timeline...',
-   stepNumber: 2,
-   progress: 40
- }));
+// Update progress: Post-processing
+setBackgroundAnalysis(prev => ({
+  ...prev,
+  currentStep: 'Compiling results...',
+  stepNumber: 10,
+  progress: 88
+}));
 
- // Process the analysis through automated investigation
- const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
+// Process the analysis through automated investigation
+const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
 
- // Update progress: Generating hypotheses
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Generating hypotheses...',
-   stepNumber: 3,
-   progress: 60
- }));
+// Auto-generate case name based on analysis if not already set
+let finalCaseName = caseName;
+if (!caseName || caseName === '') {
+const primaryEntities = enhancedAnalysis.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
+const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
+const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+setCaseName(finalCaseName);
+}
 
- await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+// Update progress: Finalizing
+setBackgroundAnalysis(prev => ({
+  ...prev,
+  caseName: finalCaseName,
+  currentStep: 'Preparing report...',
+  stepNumber: 11,
+  progress: 95
+}));
 
- // Update progress: Identifying patterns
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Identifying patterns...',
-   stepNumber: 4,
-   progress: 80
- }));
+await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause before showing results
 
- await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+// Complete - show "Results ready" and store pending analysis
+setBackgroundAnalysis(prev => ({
+  ...prev,
+  isRunning: false,
+  isComplete: true,
+  progress: 100,
+  currentStep: 'Analysis complete',
+  pendingAnalysis: enhancedAnalysis
+}));
 
- // Auto-generate case name based on analysis if not already set
- let finalCaseName = caseName;
- if (!caseName || caseName === '') {
- const primaryEntities = enhancedAnalysis.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
- const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
- const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
- setCaseName(finalCaseName);
- }
+// Save the case but don't navigate yet - user will click to view
+saveCase(enhancedAnalysis);
 
- // Update progress: Finalizing
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   caseName: finalCaseName,
-   currentStep: 'Finalizing analysis...',
-   stepNumber: 5,
-   progress: 95
- }));
+return; // Pipeline succeeded, exit
 
- await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause before showing results
-
- // Complete - hide progress card and show results
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   isRunning: false,
-   progress: 100,
-   currentStep: 'Complete'
- }));
-
- setAnalysis(enhancedAnalysis);
- setActiveTab('overview');
- saveCase(enhancedAnalysis);
-
- return; // Pipeline succeeded, exit
-
- } catch (error) {
+} catch (error) {
  console.error('Pipeline analysis error:', error);
  setAnalysisError(`Analysis pipeline error: ${error.message}. Falling back to single-step analysis.`);
  // Fall through to traditional analysis below
@@ -3652,17 +3661,17 @@ Respond with a JSON object in this exact structure:
 
  await new Promise(resolve => setTimeout(resolve, 300));
 
- // Complete - hide progress card
+ // Complete - show "Results ready" and store pending analysis
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
+   isComplete: true,
    progress: 100,
-   currentStep: 'Complete'
+   currentStep: 'Analysis complete',
+   pendingAnalysis: parsed
  }));
 
- // Set analysis and show results immediately
- setAnalysis(parsed);
- setActiveTab('overview');
+ // Save the case but don't navigate yet - user will click to view
  saveCase(parsed);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
@@ -3691,16 +3700,9 @@ Respond with a JSON object in this exact structure:
  setAnalysisError(`Error connecting to analysis service: ${error.message}`);
  
  } finally {
- setIsAnalyzing(false);
-// Reset progress card on completion or error
-setBackgroundAnalysis(prev => ({
-  ...prev,
-  isRunning: false,
-  progress: 100,
-  currentStep: 'Complete'
-}));
- }
- };
+setIsAnalyzing(false);
+}
+};
 
  const getRiskColor = (level) => {
  switch (level?.toUpperCase()) {
@@ -3941,6 +3943,15 @@ ${analysisContext}`;
  10% { opacity: 1; }
  90% { opacity: 1; }
  100% { opacity: 0; }
+ }
+
+ @keyframes slideUp {
+ 0% { opacity: 0; transform: translateY(20px); }
+ 100% { opacity: 1; transform: translateY(0); }
+ }
+
+ .animate-slideUp {
+ animation: slideUp 0.3s ease-out forwards;
  }
  `}</style>
 
@@ -6064,18 +6075,24 @@ ${analysisContext}`;
  )}
  </section>
 
- {/* Progress Card - Shows during analysis */}
- {backgroundAnalysis.isRunning && (
+ {/* Progress Card - Shows during analysis or when complete */}
+ {(backgroundAnalysis.isRunning || backgroundAnalysis.isComplete) && (
    <div className="mt-4">
-     <div className="bg-white/50 backdrop-blur-sm border border-gray-200 rounded-2xl p-6">
+     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'}`}>
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
-         <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-           <Briefcase className="w-5 h-5 text-amber-600" />
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+           {backgroundAnalysis.isComplete ? (
+             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+           ) : (
+             <Briefcase className="w-5 h-5 text-amber-600" />
+           )}
          </div>
          <div>
            <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'Processing...'}</h3>
-           <p className="text-xs text-gray-500 mono tracking-wide">CASE ANALYSIS IN PROGRESS</p>
+           <p className={`text-xs mono tracking-wide ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-500'}`}>
+             {backgroundAnalysis.isComplete ? 'ANALYSIS COMPLETE' : 'CASE ANALYSIS IN PROGRESS'}
+           </p>
          </div>
        </div>
 
@@ -6083,27 +6100,37 @@ ${analysisContext}`;
        <div className="mb-4">
          <div className="flex justify-between items-center mb-2">
            <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
-           <span className="text-sm font-medium text-amber-600">{backgroundAnalysis.progress}%</span>
+           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{backgroundAnalysis.progress}%</span>
          </div>
          <div className="w-full bg-gray-100 rounded-full h-2">
            <div
-             className="bg-amber-500 h-2 rounded-full transition-all duration-500 ease-out"
+             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-amber-500'}`}
              style={{ width: `${backgroundAnalysis.progress}%` }}
            />
          </div>
        </div>
 
-       {/* Time Remaining */}
-       <div className="flex items-center justify-between text-sm">
-         <div className="flex items-center gap-2 text-gray-500">
-           <Clock className="w-4 h-4" />
-           <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+       {/* Time Remaining or View Results Button */}
+       {backgroundAnalysis.isComplete ? (
+         <button
+           onClick={viewAnalysisResults}
+           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+         >
+           <Eye className="w-4 h-4" />
+           View Results
+         </button>
+       ) : (
+         <div className="flex items-center justify-between text-sm">
+           <div className="flex items-center gap-2 text-gray-500">
+             <Clock className="w-4 h-4" />
+             <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+           </div>
+           <div className="flex items-center gap-1.5">
+             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+             <span className="text-gray-600 mono text-xs">ANALYZING</span>
+           </div>
          </div>
-         <div className="flex items-center gap-1.5">
-           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-           <span className="text-gray-600 mono text-xs">ANALYZING</span>
-         </div>
-       </div>
+       )}
      </div>
    </div>
  )}
@@ -7705,6 +7732,39 @@ ${analysisContext}`;
  </div>
  )}
  </>
+ )}
+
+ {/* Floating Results Ready Notification - shows when on other pages */}
+ {backgroundAnalysis.isComplete && currentPage !== 'newCase' && (
+   <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
+     <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
+       <div className="flex items-start gap-3">
+         <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+         </div>
+         <div className="flex-1 min-w-0">
+           <h4 className="font-semibold text-gray-900 text-sm">Analysis Complete</h4>
+           <p className="text-xs text-gray-500 truncate">{backgroundAnalysis.caseName}</p>
+         </div>
+         <button
+           onClick={() => setBackgroundAnalysis(prev => ({ ...prev, isComplete: false, pendingAnalysis: null }))}
+           className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+         >
+           <X className="w-4 h-4 text-gray-400" />
+         </button>
+       </div>
+       <button
+         onClick={() => {
+           viewAnalysisResults();
+           setCurrentPage('newCase');
+         }}
+         className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+       >
+         <Eye className="w-4 h-4" />
+         View Results
+       </button>
+     </div>
+   </div>
  )}
 
  {/* Footer */}
