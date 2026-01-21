@@ -3270,12 +3270,17 @@ Respond with a JSON object in this exact structure:
 
  progressInterval = setInterval(() => {
    if (progressIndex < progressSteps.length) {
-     setBackgroundAnalysis(prev => ({
-       ...prev,
-       currentStep: progressSteps[progressIndex].step,
-       progress: progressSteps[progressIndex].progress
-     }));
+     const currentStep = progressSteps[progressIndex];
+     if (currentStep) {
+       setBackgroundAnalysis(prev => ({
+         ...prev,
+         currentStep: currentStep.step,
+         progress: currentStep.progress
+       }));
+     }
      progressIndex++;
+   } else {
+     clearInterval(progressInterval);
    }
  }, 3000); // Update every 3 seconds
 
