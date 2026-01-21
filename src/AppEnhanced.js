@@ -196,7 +196,7 @@ export default function Marlowe() {
  }
  }, [showModeDropdown, showUploadDropdown]);
 
- // Save case after analysis completes
+ // Save case after analysis completes (does NOT navigate - user clicks popup to view)
  const saveCase = (analysisData) => {
  const newCase = {
  id: Math.random().toString(36).substr(2, 9),
@@ -210,7 +210,7 @@ export default function Marlowe() {
  };
  setCases(prev => [newCase, ...prev]);
  setActiveCase(newCase);
- setCurrentPage('activeCase');
+ // Don't navigate here - user will click popup to view results
 
  // Save to reference database for AI learning (HIGH or CRITICAL cases only)
  if (analysisData?.executiveSummary?.riskLevel === 'HIGH' ||
