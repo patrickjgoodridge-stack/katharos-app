@@ -25,7 +25,7 @@ export default function Marlowe() {
  const [entityImages, setEntityImages] = useState({}); // eslint-disable-line no-unused-vars
  const [dragActive, setDragActive] = useState(false);
  const [expandedHypotheses, setExpandedHypotheses] = useState({});
- const [expandedInvestigations, setExpandedInvestigations] = useState({});
+ const [expandedInvestigations, setExpandedInvestigations] = useState({}); // eslint-disable-line no-unused-vars
  const [chatOpen, setChatOpen] = useState(false);
  const [chatMessages, setChatMessages] = useState([]);
  const [chatInput, setChatInput] = useState('');
