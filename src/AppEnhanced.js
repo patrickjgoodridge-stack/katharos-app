@@ -2884,6 +2884,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
 
  // Mark background analysis as complete BEFORE setting analysis
  // This ensures the progress card remains visible
+ console.log('PIPELINE COMPLETE: Setting progress to 100');
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
@@ -2891,13 +2892,11 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    currentStep: 'Complete'
  }));
 
- // Small delay to ensure state update is processed
- await new Promise(resolve => setTimeout(resolve, 50));
+ // Store enhanced analysis but DON'T call setAnalysis or saveCase yet
+ // The completion card click handler will do that
+ window._pendingAnalysis = enhancedAnalysis;
 
- setAnalysis(enhancedAnalysis);
- // Don't auto-switch to overview - let user click the completion card
- // setActiveTab('overview');
- saveCase(enhancedAnalysis);
+ console.log('PIPELINE COMPLETE: Analysis ready, waiting for user to click card');
 
  return; // Pipeline succeeded, exit
 
@@ -3584,6 +3583,7 @@ Respond with a JSON object in this exact structure:
 
  // Mark background analysis as complete BEFORE setting analysis
  // This ensures the progress card remains visible
+ console.log('SINGLE-STEP COMPLETE: Setting progress to 100');
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
@@ -3591,13 +3591,11 @@ Respond with a JSON object in this exact structure:
    currentStep: 'Complete'
  }));
 
- // Small delay to ensure state update is processed
- await new Promise(resolve => setTimeout(resolve, 50));
+ // Store analysis but DON'T call setAnalysis or saveCase yet
+ // The completion card click handler will do that
+ window._pendingAnalysis = parsed;
 
- setAnalysis(parsed);
- // Don't auto-switch to overview - let user click the completion card
- // setActiveTab('overview');
- saveCase(parsed);
+ console.log('SINGLE-STEP COMPLETE: Analysis ready, waiting for user to click card');
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  console.error('First 1000 chars of JSON:', jsonStr.substring(0, 1000));
@@ -5994,8 +5992,8 @@ ${analysisContext}`;
            : 'border-amber-200'
        }`}
        onClick={() => {
-         if (backgroundAnalysis.progress === 100 && analysis) {
-           setBackgroundAnalysis(prev => ({ ...prev, progress: 0 })); // Hide the card
+         if (backgroundAnalysis.progress === 100) {
+           const pendingAnalysis = window._pendingAnalysis; if (pendingAnalysis) { setAnalysis(pendingAnalysis); saveCase(pendingAnalysis); window._pendingAnalysis = null; } setBackgroundAnalysis(prev => ({ ...prev, progress: 0 })); // Hide the card
            setActiveTab('overview');
          }
        }}
@@ -7662,12 +7660,12 @@ ${analysisContext}`;
  )}
 
  {/* Floating Analysis Complete Card - shows when analysis finishes */}
- {backgroundAnalysis.progress === 100 && analysis && (
+ {backgroundAnalysis.progress === 100 && (
    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[500px] max-w-[90vw]">
      <div
        className="bg-white border-2 border-emerald-400 rounded-xl p-5 shadow-xl cursor-pointer hover:border-emerald-500 hover:shadow-2xl transition-all"
        onClick={() => {
-         setBackgroundAnalysis(prev => ({ ...prev, progress: 0 }));
+         const pendingAnalysis = window._pendingAnalysis; if (pendingAnalysis) { setAnalysis(pendingAnalysis); saveCase(pendingAnalysis); window._pendingAnalysis = null; } setBackgroundAnalysis(prev => ({ ...prev, progress: 0 }));
          setActiveTab('overview');
        }}
      >
