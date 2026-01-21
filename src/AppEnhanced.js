@@ -2830,8 +2830,20 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  // CIPHER MODE: Run analysis
  console.log('CIPHER MODE: Starting analysis');
 
- // Generate initial case name for display
- const displayCaseName = caseName || 'New Investigation';
+ // Generate initial case name from user input
+ let displayCaseName = caseName;
+ if (!displayCaseName) {
+   if (caseDescription.trim()) {
+     // Use first 60 chars of description, cut at word boundary
+     const desc = caseDescription.trim();
+     displayCaseName = desc.length > 60 ? desc.substring(0, 60).replace(/\s+\S*$/, '...') : desc;
+   } else if (files.length > 0) {
+     // Use file names
+     displayCaseName = files.slice(0, 2).map(f => f.name.replace(/\.[^.]+$/, '')).join(', ');
+   } else {
+     displayCaseName = 'New Investigation';
+   }
+ }
 
  // Start progress tracking
  setBackgroundAnalysis({
@@ -6054,8 +6066,8 @@ ${analysisContext}`;
 
  {/* Progress Card - Shows during analysis */}
  {backgroundAnalysis.isRunning && (
-   <div className="mt-8 max-w-2xl mx-auto">
-     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
+   <div className="mt-4">
+     <div className="bg-white/50 backdrop-blur-sm border border-gray-200 rounded-2xl p-6">
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
          <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
