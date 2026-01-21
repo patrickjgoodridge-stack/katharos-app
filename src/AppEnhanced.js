@@ -2830,30 +2830,99 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  // CIPHER MODE: Run analysis
  console.log('CIPHER MODE: Starting analysis');
 
+ // Generate initial case name for display
+ const displayCaseName = caseName || 'New Investigation';
+
+ // Start progress tracking
+ setBackgroundAnalysis({
+   isRunning: true,
+   caseId: `case_${Date.now()}`,
+   caseName: displayCaseName,
+   currentStep: 'Initializing analysis...',
+   stepNumber: 1,
+   totalSteps: 5,
+   progress: 5
+ });
+ setIsAnalyzing(false); // Hide full-screen loader, show progress card instead
+
  // Use multi-step pipeline for files with substantial content
  if (files.length > 0 && files.some(f => f.content.length > 500)) {
  try {
  setAnalysisError(null);
 
+ // Update progress: Extracting entities
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Extracting entities...',
+   stepNumber: 1,
+   progress: 15
+ }));
+
  const finalAnalysis = await runAnalysisPipeline(files, caseDescription);
+
+ // Update progress: Building timeline
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Building timeline...',
+   stepNumber: 2,
+   progress: 40
+ }));
 
  // Process the analysis through automated investigation
  const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
 
+ // Update progress: Generating hypotheses
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Generating hypotheses...',
+   stepNumber: 3,
+   progress: 60
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+
+ // Update progress: Identifying patterns
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Identifying patterns...',
+   stepNumber: 4,
+   progress: 80
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 300)); // Brief pause for UX
+
  // Auto-generate case name based on analysis if not already set
+ let finalCaseName = caseName;
  if (!caseName || caseName === '') {
  const primaryEntities = enhancedAnalysis.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
  const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- const autoName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
- setCaseName(autoName);
+ finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+ setCaseName(finalCaseName);
  }
 
- // Set analysis and show results immediately
+ // Update progress: Finalizing
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   caseName: finalCaseName,
+   currentStep: 'Finalizing analysis...',
+   stepNumber: 5,
+   progress: 95
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause before showing results
+
+ // Complete - hide progress card and show results
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   isRunning: false,
+   progress: 100,
+   currentStep: 'Complete'
+ }));
+
  setAnalysis(enhancedAnalysis);
  setActiveTab('overview');
  saveCase(enhancedAnalysis);
- setIsAnalyzing(false);
 
  return; // Pipeline succeeded, exit
 
@@ -2866,6 +2935,14 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
 
  // Text-only or fallback: Single-step analysis
  console.log('Starting single-step analysis...');
+
+ // Update progress for single-step
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Analyzing content...',
+   stepNumber: 1,
+   progress: 20
+ }));
 
  // Traditional single-step analysis
  // Limit content to avoid rate limits - truncate each file to ~3000 chars
@@ -3522,14 +3599,54 @@ Respond with a JSON object in this exact structure:
  // Continue even if automated investigation fails
  }
 
+ // Update progress: Building timeline
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Building timeline...',
+   stepNumber: 2,
+   progress: 50
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 200));
+
+ // Update progress: Generating hypotheses
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Generating hypotheses...',
+   stepNumber: 3,
+   progress: 70
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 200));
+
  // Auto-generate case name based on analysis if not already set
+ let finalCaseName = caseName;
  if (!caseName || caseName === '') {
  const primaryEntities = parsed.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
  const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- const autoName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
- setCaseName(autoName);
+ finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+ setCaseName(finalCaseName);
  }
+
+ // Update progress: Finalizing
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   caseName: finalCaseName,
+   currentStep: 'Finalizing analysis...',
+   stepNumber: 4,
+   progress: 90
+ }));
+
+ await new Promise(resolve => setTimeout(resolve, 300));
+
+ // Complete - hide progress card
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   isRunning: false,
+   progress: 100,
+   currentStep: 'Complete'
+ }));
 
  // Set analysis and show results immediately
  setAnalysis(parsed);
@@ -3563,6 +3680,13 @@ Respond with a JSON object in this exact structure:
  
  } finally {
  setIsAnalyzing(false);
+// Reset progress card on completion or error
+setBackgroundAnalysis(prev => ({
+  ...prev,
+  isRunning: false,
+  progress: 100,
+  currentStep: 'Complete'
+}));
  }
  };
 
@@ -5927,6 +6051,50 @@ ${analysisContext}`;
  </div>
  )}
  </section>
+
+ {/* Progress Card - Shows during analysis */}
+ {backgroundAnalysis.isRunning && (
+   <div className="mt-8 max-w-2xl mx-auto">
+     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
+       {/* Case Name */}
+       <div className="flex items-center gap-3 mb-4">
+         <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+           <Briefcase className="w-5 h-5 text-amber-600" />
+         </div>
+         <div>
+           <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'Processing...'}</h3>
+           <p className="text-xs text-gray-500 mono tracking-wide">CASE ANALYSIS IN PROGRESS</p>
+         </div>
+       </div>
+
+       {/* Progress Bar */}
+       <div className="mb-4">
+         <div className="flex justify-between items-center mb-2">
+           <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
+           <span className="text-sm font-medium text-amber-600">{backgroundAnalysis.progress}%</span>
+         </div>
+         <div className="w-full bg-gray-100 rounded-full h-2">
+           <div
+             className="bg-amber-500 h-2 rounded-full transition-all duration-500 ease-out"
+             style={{ width: `${backgroundAnalysis.progress}%` }}
+           />
+         </div>
+       </div>
+
+       {/* Time Remaining */}
+       <div className="flex items-center justify-between text-sm">
+         <div className="flex items-center gap-2 text-gray-500">
+           <Clock className="w-4 h-4" />
+           <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+         </div>
+         <div className="flex items-center gap-1.5">
+           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+           <span className="text-gray-600 mono text-xs">ANALYZING</span>
+         </div>
+       </div>
+     </div>
+   </div>
+ )}
           </div>
           </>
  )}
