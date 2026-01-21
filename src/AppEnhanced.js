@@ -5982,82 +5982,51 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* Analysis Progress Card - shows during analysis and when complete */}
- {(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
-   <div className="mt-8">
-     <div
-       className={`bg-white border rounded-xl p-6 shadow-sm transition-all ${
-         backgroundAnalysis.progress === 100
-           ? 'border-emerald-300 cursor-pointer hover:border-emerald-400 hover:shadow-md'
-           : 'border-amber-200'
-       }`}
-       onClick={() => {
-         if (backgroundAnalysis.progress === 100) {
-           const pendingAnalysis = window._pendingAnalysis; if (pendingAnalysis) { setAnalysis(pendingAnalysis); saveCase(pendingAnalysis); window._pendingAnalysis = null; } setBackgroundAnalysis(prev => ({ ...prev, progress: 0 })); // Hide the card
-           setActiveTab('overview');
-         }
-       }}
-     >
-       <div className="flex items-start justify-between mb-4">
-         <div>
-           <div className="flex items-center gap-2 mb-1">
-             {backgroundAnalysis.progress === 100 ? (
-               <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-             ) : (
-               <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-             )}
-             <h3 className="font-semibold text-gray-900">
-               {backgroundAnalysis.progress === 100 ? 'Analysis Complete' : 'Analysis in Progress'}
-             </h3>
-           </div>
-           <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'New Investigation'}</p>
-         </div>
-         <div className="text-right">
-           <p className={`text-2xl font-bold mono ${backgroundAnalysis.progress === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-             {backgroundAnalysis.progress}%
-           </p>
-           {backgroundAnalysis.progress < 100 && (
-             <p className="text-xs text-gray-500 mono">Step {backgroundAnalysis.stepNumber} of {backgroundAnalysis.totalSteps}</p>
-           )}
-         </div>
-       </div>
 
-       {/* Progress Bar */}
-       <div className="mb-4">
-         <div className="w-full bg-gray-100 rounded-full h-3">
-           <div
-             className={`h-3 rounded-full transition-all duration-500 ease-out ${
-               backgroundAnalysis.progress === 100
-                 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                 : 'bg-gradient-to-r from-amber-500 to-amber-400'
-             }`}
-             style={{ width: `${backgroundAnalysis.progress}%` }}
-           />
-         </div>
-       </div>
+{/* Inline Progress Card */}
+{(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+  <div
+    className={`bg-slate-900 border border-slate-800 rounded-xl p-6 mt-6 ${
+      backgroundAnalysis.progress === 100 ? 'cursor-pointer hover:border-slate-700 transition-colors' : ''
+    }`}
+    onClick={() => {
+      if (backgroundAnalysis.progress === 100) {
+        const pendingAnalysis = window._pendingAnalysis;
+        if (pendingAnalysis) {
+          setAnalysis(pendingAnalysis);
+          saveCase(pendingAnalysis);
+          window._pendingAnalysis = null;
+        }
+        setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
+        setActiveTab('overview');
+      }
+    }}
+  >
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="font-semibold text-white">{backgroundAnalysis.caseName || 'New Investigation'}</h3>
+      <span className="text-sm text-slate-400">
+        {backgroundAnalysis.progress === 100
+          ? 'Click to view results'
+          : `~${Math.max(1, Math.round((100 - backgroundAnalysis.progress) / 3))}s remaining`}
+      </span>
+    </div>
 
-       {/* Current Step or Completion Message */}
-       <div className="flex items-center justify-between">
-         {backgroundAnalysis.progress === 100 ? (
-           <>
-             <span className="text-sm text-emerald-700 font-medium">Click to view results</span>
-             <ArrowRight className="w-4 h-4 text-emerald-500" />
-           </>
-         ) : (
-           <>
-             <div className="flex items-center gap-2">
-               <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
-               <span className="text-sm text-gray-700">{backgroundAnalysis.currentStep}</span>
-             </div>
-             <span className="text-xs text-gray-500 mono">
-               ~{Math.max(1, Math.round((backgroundAnalysis.totalSteps - backgroundAnalysis.stepNumber) * 0.5))} min remaining
-             </span>
-           </>
-         )}
-       </div>
-     </div>
-   </div>
- )}
+    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+      <div
+        className={`h-full transition-all duration-500 ${
+          backgroundAnalysis.progress === 100 ? 'bg-emerald-500' : 'bg-amber-500'
+        }`}
+        style={{ width: `${backgroundAnalysis.progress}%` }}
+      />
+    </div>
+
+    <p className="text-sm text-slate-400">
+      {backgroundAnalysis.progress === 100
+        ? '✓ Analysis complete'
+        : backgroundAnalysis.currentStep}
+    </p>
+  </div>
+)}
  </section>
           </div>
           </>
@@ -7657,35 +7626,6 @@ ${analysisContext}`;
  </div>
  )}
  </>
- )}
-
- {/* Floating Analysis Complete Card - shows when analysis finishes */}
- {backgroundAnalysis.progress === 100 && (
-   <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[500px] max-w-[90vw]">
-     <div
-       className="bg-white border-2 border-emerald-400 rounded-xl p-5 shadow-xl cursor-pointer hover:border-emerald-500 hover:shadow-2xl transition-all"
-       onClick={() => {
-         const pendingAnalysis = window._pendingAnalysis; if (pendingAnalysis) { setAnalysis(pendingAnalysis); saveCase(pendingAnalysis); window._pendingAnalysis = null; } setBackgroundAnalysis(prev => ({ ...prev, progress: 0 }));
-         setActiveTab('overview');
-       }}
-     >
-       <div className="flex items-center justify-between">
-         <div className="flex items-center gap-3">
-           <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-             <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-           </div>
-           <div>
-             <h3 className="font-semibold text-gray-900">Analysis Complete</h3>
-             <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'Investigation'}</p>
-           </div>
-         </div>
-         <div className="flex items-center gap-2 text-emerald-600">
-           <span className="text-sm font-medium">View Results</span>
-           <ArrowRight className="w-5 h-5" />
-         </div>
-       </div>
-     </div>
-   </div>
  )}
 
  {/* Footer */}
