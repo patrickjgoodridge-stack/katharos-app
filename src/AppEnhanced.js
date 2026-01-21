@@ -2827,48 +2827,15 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  return;
  }
 
- // CIPHER MODE: All investigations use background progress tracking
- console.log('CIPHER MODE: Setting up background analysis');
- // Generate a temporary case ID for tracking
- const tempCaseId = `case_${Date.now()}`;
- const displayCaseName = caseName || 'New Investigation';
-
- // Start background analysis - allow user to navigate
- console.log('Setting backgroundAnalysis state...');
- setBackgroundAnalysis({
-   isRunning: true,
-   caseId: tempCaseId,
-   caseName: displayCaseName,
-   currentStep: 'Initializing...',
-   stepNumber: 1,
-   totalSteps: files.length > 0 ? 10 : 3, // Fewer steps for text-only
-   progress: 5
- });
- console.log('backgroundAnalysis state set');
-
- // Allow the UI to update before starting heavy processing
- setIsAnalyzing(false);
-
- // Give React a moment to render the progress card
- await new Promise(resolve => setTimeout(resolve, 100));
+ // CIPHER MODE: Run analysis
+ console.log('CIPHER MODE: Starting analysis');
 
  // Use multi-step pipeline for files with substantial content
  if (files.length > 0 && files.some(f => f.content.length > 500)) {
  try {
  setAnalysisError(null);
 
- // Progress callback to update the floating indicator
- const onProgress = (progressData) => {
-   setBackgroundAnalysis(prev => ({
-     ...prev,
-     currentStep: progressData.currentStep,
-     stepNumber: progressData.stepNumber,
-     totalSteps: progressData.totalSteps,
-     progress: progressData.progress
-   }));
- };
-
- const finalAnalysis = await runAnalysisPipeline(files, caseDescription, onProgress);
+ const finalAnalysis = await runAnalysisPipeline(files, caseDescription);
 
  // Process the analysis through automated investigation
  const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
@@ -2882,18 +2849,11 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  setCaseName(autoName);
  }
 
- // Mark background analysis as complete
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   isRunning: false,
-   progress: 0,
-   currentStep: ''
- }));
-
  // Set analysis and show results immediately
  setAnalysis(enhancedAnalysis);
  setActiveTab('overview');
  saveCase(enhancedAnalysis);
+ setIsAnalyzing(false);
 
  return; // Pipeline succeeded, exit
 
@@ -2904,15 +2864,8 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  }
  }
 
- // Text-only or fallback: Single-step analysis with progress tracking
+ // Text-only or fallback: Single-step analysis
  console.log('Starting single-step analysis...');
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Sending to AI...',
-   stepNumber: 1,
-   totalSteps: 3,
-   progress: 20
- }));
 
  // Traditional single-step analysis
  // Limit content to avoid rate limits - truncate each file to ~3000 chars
@@ -3578,14 +3531,6 @@ Respond with a JSON object in this exact structure:
  setCaseName(autoName);
  }
 
- // Mark background analysis as complete
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   isRunning: false,
-   progress: 0,
-   currentStep: ''
- }));
-
  // Set analysis and show results immediately
  setAnalysis(parsed);
  setActiveTab('overview');
@@ -3605,17 +3550,17 @@ Respond with a JSON object in this exact structure:
  }
 
  setAnalysisError(`Error parsing analysis results. ${parseError.message}. Please try again or simplify your investigation scope.`);
- setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
+ 
  }
  } else {
  console.error('No JSON found in response:', text.substring(0, 500));
  setAnalysisError('No structured results returned. The AI did not return valid JSON.');
- setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
+ 
  }
  } catch (error) {
  console.error('Analysis error:', error);
  setAnalysisError(`Error connecting to analysis service: ${error.message}`);
- setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
+ 
  } finally {
  setIsAnalyzing(false);
  }
