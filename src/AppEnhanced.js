@@ -96,7 +96,7 @@ export default function Marlowe() {
 
  // Rotating placeholder examples - different for each mode
  const cipherPlaceholderExamples = [
- "What are possible signs of fraud in these quarterly financials...",
+ "Evaluate possible signs of fraud in these quarterly financials...",
  "What are the money laundering risks of the entities mentioned in this email chain...",
  "Analyze these cap tables for possible sanctions exposure...",
  "Identify potential red flags in this employee expense report...",
