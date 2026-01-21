@@ -518,7 +518,7 @@ HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
 - ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
 - VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (EU/UK/Canada/etc. Feb 2022): State control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%)
+- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
 
 SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
 
@@ -2569,7 +2569,7 @@ HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
 - ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
 - VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (EU/UK/Canada/etc. Feb 2022): State control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%)
+- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
 
 SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
 
@@ -2729,7 +2729,7 @@ HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
 - ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
 - VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (EU/UK/Canada/etc. Feb 2022): State control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%)
+- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
 
 SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
 
@@ -2988,7 +2988,7 @@ HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
 - ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
 - VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (EU/UK/Canada/etc. Feb 2022): State control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%)
+- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
 
 SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
 
