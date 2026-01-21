@@ -2882,21 +2882,18 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  setCaseName(autoName);
  }
 
- // Mark background analysis as complete BEFORE setting analysis
- // This ensures the progress card remains visible
- console.log('PIPELINE COMPLETE: Setting progress to 100');
+ // Mark background analysis as complete
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
-   progress: 100,
-   currentStep: 'Complete'
+   progress: 0,
+   currentStep: ''
  }));
 
- // Store enhanced analysis but DON'T call setAnalysis or saveCase yet
- // The completion card click handler will do that
- window._pendingAnalysis = enhancedAnalysis;
-
- console.log('PIPELINE COMPLETE: Analysis ready, waiting for user to click card');
+ // Set analysis and show results immediately
+ setAnalysis(enhancedAnalysis);
+ setActiveTab('overview');
+ saveCase(enhancedAnalysis);
 
  return; // Pipeline succeeded, exit
 
@@ -3581,21 +3578,18 @@ Respond with a JSON object in this exact structure:
  setCaseName(autoName);
  }
 
- // Mark background analysis as complete BEFORE setting analysis
- // This ensures the progress card remains visible
- console.log('SINGLE-STEP COMPLETE: Setting progress to 100');
+ // Mark background analysis as complete
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
-   progress: 100,
-   currentStep: 'Complete'
+   progress: 0,
+   currentStep: ''
  }));
 
- // Store analysis but DON'T call setAnalysis or saveCase yet
- // The completion card click handler will do that
- window._pendingAnalysis = parsed;
-
- console.log('SINGLE-STEP COMPLETE: Analysis ready, waiting for user to click card');
+ // Set analysis and show results immediately
+ setAnalysis(parsed);
+ setActiveTab('overview');
+ saveCase(parsed);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  console.error('First 1000 chars of JSON:', jsonStr.substring(0, 1000));
@@ -5740,7 +5734,7 @@ ${analysisContext}`;
  )}
 
  {/* New Case / Evidence Upload Section */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
@@ -5981,59 +5975,13 @@ ${analysisContext}`;
  </div>
  </div>
  )}
-
-
-{/* Inline Progress Card */}
-{(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
-  <div
-    className={`bg-white border border-gray-200 rounded-xl p-6 mt-6 shadow-sm ${
-      backgroundAnalysis.progress === 100 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-md transition-all' : ''
-    }`}
-    onClick={() => {
-      if (backgroundAnalysis.progress === 100) {
-        const pendingAnalysis = window._pendingAnalysis;
-        if (pendingAnalysis) {
-          setAnalysis(pendingAnalysis);
-          saveCase(pendingAnalysis);
-          window._pendingAnalysis = null;
-        }
-        setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
-        setActiveTab('overview');
-      }
-    }}
-  >
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'New Investigation'}</h3>
-      <span className="text-sm text-gray-500">
-        {backgroundAnalysis.progress === 100
-          ? 'Click to view results'
-          : `~${Math.max(1, Math.round((100 - backgroundAnalysis.progress) / 3))}s remaining`}
-      </span>
-    </div>
-
-    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
-      <div
-        className={`h-full transition-all duration-500 ${
-          backgroundAnalysis.progress === 100 ? 'bg-emerald-500' : 'bg-amber-500'
-        }`}
-        style={{ width: `${backgroundAnalysis.progress}%` }}
-      />
-    </div>
-
-    <p className="text-sm text-gray-500">
-      {backgroundAnalysis.progress === 100
-        ? '✓ Analysis complete'
-        : backgroundAnalysis.currentStep}
-    </p>
-  </div>
-)}
  </section>
           </div>
           </>
  )}
 
  {/* Analysis Results */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && backgroundAnalysis.progress !== 100 && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && (
  <>
  {/* Top Left Navigation Buttons */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
