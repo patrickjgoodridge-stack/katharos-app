@@ -5871,11 +5871,11 @@ ${analysisContext}`;
  </div>
 
  {/* Start Investigation Button */}
+ <div className="relative group">
  <button
  onClick={analyzeEvidence}
  disabled={isAnalyzing || backgroundAnalysis.isRunning || (!caseDescription.trim() && files.length === 0)}
  className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
- title={isAnalyzing || backgroundAnalysis.isRunning ? "Analyzing..." : "Start Investigation"}
  >
  {(isAnalyzing || backgroundAnalysis.isRunning) ? (
  <Loader2 className="w-4 h-4 animate-spin" />
@@ -5883,6 +5883,12 @@ ${analysisContext}`;
  <ArrowRight className="w-4 h-4" />
  )}
  </button>
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+ {isAnalyzing ? 'Analyzing...' : 'Begin Analysis'}
+ </div>
+ </div>
+ </div>
  </div>
  </div>
  </div>
