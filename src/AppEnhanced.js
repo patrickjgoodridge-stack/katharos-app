@@ -6213,7 +6213,7 @@ ${analysisContext}`;
  </div>
  </div>
 
- <div className="fade-in flex pt-24 px-36">
+ <div className="fade-in flex pt-24 pl-12 pr-36">
  {/* Left Navigation Panel - Scrolls with page */}
  <div className="w-48 flex-shrink-0 pl-2 pr-1 py-8">
  <div className="sticky top-8 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl p-4">
