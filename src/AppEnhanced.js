@@ -3721,8 +3721,8 @@ ${analysisContext}`;
 
  @keyframes fadeInOut {
  0% { opacity: 0; }
- 5% { opacity: 1; }
- 95% { opacity: 1; }
+ 10% { opacity: 1; }
+ 90% { opacity: 1; }
  100% { opacity: 0; }
  }
  `}</style>
