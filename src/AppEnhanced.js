@@ -40,6 +40,17 @@ export default function Marlowe() {
  
  const [analysisError, setAnalysisError] = useState(null);
 
+ // Background analysis state - allows navigation while processing
+ const [backgroundAnalysis, setBackgroundAnalysis] = useState({
+   isRunning: false,
+   caseId: null,
+   caseName: '',
+   currentStep: '',
+   stepNumber: 0,
+   totalSteps: 10,
+   progress: 0
+ });
+
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
  const [showModeDropdown, setShowModeDropdown] = useState(false);
@@ -624,7 +635,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 4000,
  messages: [
  { role: "user", content: systemPrompt + "\n\n" + userPrompt }
@@ -815,7 +826,7 @@ Make it professional and suitable for compliance records. Use clear headers and 
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 4000,
  messages: [{ role: "user", content: pdfPrompt }]
  })
@@ -933,7 +944,7 @@ Format the report professionally with clear headers, bullet points where appropr
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 8000,
  messages: [{ role: "user", content: reportPrompt }]
  })
@@ -1314,7 +1325,7 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 2000,
  messages: [
  ...conversationHistory,
@@ -1571,7 +1582,7 @@ If this is a scanned document, please use OCR software to convert it to searchab
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
- model: 'claude-opus-4-20250514',
+ model: 'claude-sonnet-4-20250514',
  max_tokens: attempt === maxRetries ? 12000 : 16000, // Reduce tokens on final retry
  temperature: 0.3,
  messages: [{ role: 'user', content: enhancedPrompt }]
@@ -1606,17 +1617,31 @@ If this is a scanned document, please use OCR software to convert it to searchab
  };
 
  // Multi-step analysis pipeline
- const runAnalysisPipeline = async (files, caseDescription) => { // eslint-disable-line no-unused-vars
- const steps = [ // eslint-disable-line no-unused-vars
- { name: 'Document Understanding', progress: 12.5 },
- { name: 'Entity Extraction', progress: 25 },
- { name: 'Entity Resolution', progress: 37.5 },
+ const runAnalysisPipeline = async (files, caseDescription, onProgress) => { // eslint-disable-line no-unused-vars
+ const steps = [
+ { name: 'Document Understanding', progress: 10 },
+ { name: 'Entity Extraction', progress: 20 },
+ { name: 'Sanctions Screening', progress: 30 },
+ { name: 'Entity Resolution', progress: 40 },
  { name: 'Relationship Mapping', progress: 50 },
- { name: 'Timeline Construction', progress: 62.5 },
- { name: 'Pattern Detection', progress: 75 },
- { name: 'Hypothesis Generation', progress: 87.5 },
- { name: 'Synthesis', progress: 100 }
+ { name: 'Timeline Construction', progress: 60 },
+ { name: 'Pattern Detection', progress: 70 },
+ { name: 'Hypothesis Generation', progress: 80 },
+ { name: 'Final Synthesis', progress: 90 },
+ { name: 'Completing Analysis', progress: 100 }
  ];
+
+ // Helper to update progress
+ const updateProgress = (stepIndex) => {
+   if (onProgress) {
+     onProgress({
+       currentStep: steps[stepIndex].name,
+       stepNumber: stepIndex + 1,
+       totalSteps: steps.length,
+       progress: steps[stepIndex].progress
+     });
+   }
+ };
 
  // JSON formatting reminder for all prompts
  const jsonReminder = `
@@ -1686,10 +1711,12 @@ Respond with JSON:
  ]
 }${jsonReminder}`;
 
+ updateProgress(0); // Document Understanding
  const step1JSON = await callClaudeWithRetry(step1Prompt);
  pipelineData.documentSummaries = step1JSON.documentSummaries || [];
 
  // STEP 2: Entity Extraction
+ updateProgress(1);
 
  const step2Prompt = `STEP 2: ENTITY EXTRACTION & INTELLIGENCE GATHERING
 
@@ -1768,6 +1795,7 @@ Respond with JSON:
  pipelineData.rawEntities = step2JSON.rawEntities || [];
 
  // STEP 2B: Screen all extracted entities for sanctions
+ updateProgress(2);
 
  const sanctionsPrompt = `You are a sanctions compliance expert with comprehensive knowledge of:
 - OFAC SDN List (US Treasury)
@@ -1865,6 +1893,7 @@ Return JSON:
  }
 
  // STEP 3: Entity Resolution
+ updateProgress(3);
 
  const step3Prompt = `STEP 3: ENTITY RESOLUTION & IDENTITY ANALYSIS
 
@@ -1919,6 +1948,7 @@ Respond with JSON:
  pipelineData.resolvedEntities = step3JSON.resolvedEntities || [];
 
  // STEP 4: Relationship Mapping
+ updateProgress(4);
 
  const step4Prompt = `STEP 4: RELATIONSHIP MAPPING & NETWORK ANALYSIS
 
@@ -1982,6 +2012,7 @@ Respond with JSON:
  pipelineData.ownershipChains = step4JSON.ownershipChains || [];
 
  // STEP 5: Timeline Construction
+ updateProgress(5);
 
  const step5Prompt = `STEP 5: TIMELINE CONSTRUCTION
 
@@ -2027,6 +2058,7 @@ Respond with JSON:
  pipelineData.timelineAnalysis = step5JSON.timelineAnalysis || {};
 
  // STEP 6: Pattern Detection
+ updateProgress(6);
 
  const step6Prompt = `STEP 6: PATTERN DETECTION & TYPOLOGY ANALYSIS
 
@@ -2174,6 +2206,7 @@ Respond with JSON:
  pipelineData.typologies = step6JSON.typologies || [];
 
  // STEP 7: Hypothesis Generation
+ updateProgress(7);
 
  const step7Prompt = `STEP 7: HYPOTHESIS GENERATION & INVESTIGATIVE THEORIZATION
 
@@ -2231,6 +2264,7 @@ Respond with JSON:
  pipelineData.contradictions = step7JSON.contradictions || [];
 
  // STEP 8: Synthesis
+ updateProgress(8);
 
  const investigationContext = caseDescription.trim()
  ? `INVESTIGATION CONTEXT:\n${caseDescription}\n\n`
@@ -2369,8 +2403,10 @@ Respond with JSON matching the full investigation format:
 
 IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership verification as next steps - these are automated. Only suggest: document requests, interviews, legal consultations, subpoenas, registry filings, transaction analysis.`;
 
+ updateProgress(8); // Final Synthesis in progress
  const finalAnalysis = await callClaudeWithRetry(step8Prompt);
 
+ updateProgress(9); // Completing Analysis
  return finalAnalysis;
  };
 
@@ -2578,7 +2614,7 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 8000,
  messages: [
  { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
@@ -2728,7 +2764,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 8000,
  messages: [
  { role: "user", content: scoutPrompt }
@@ -2789,11 +2825,39 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
 
  // CIPHER MODE: USE MULTI-STEP PIPELINE for files with substantial content
  if (files.length > 0 && files.some(f => f.content.length > 500)) {
+ // Generate a temporary case ID for tracking
+ const tempCaseId = `case_${Date.now()}`;
+ const displayCaseName = caseName || 'New Investigation';
+
+ // Start background analysis - allow user to navigate
+ setBackgroundAnalysis({
+   isRunning: true,
+   caseId: tempCaseId,
+   caseName: displayCaseName,
+   currentStep: 'Initializing...',
+   stepNumber: 0,
+   totalSteps: 10,
+   progress: 0
+ });
+
+ // Allow the UI to update before starting heavy processing
+ setIsAnalyzing(false);
+
  try {
  setAnalysisError(null);
 
- const finalAnalysis = await runAnalysisPipeline(files, caseDescription);
+ // Progress callback to update the floating indicator
+ const onProgress = (progressData) => {
+   setBackgroundAnalysis(prev => ({
+     ...prev,
+     currentStep: progressData.currentStep,
+     stepNumber: progressData.stepNumber,
+     totalSteps: progressData.totalSteps,
+     progress: progressData.progress
+   }));
+ };
 
+ const finalAnalysis = await runAnalysisPipeline(files, caseDescription, onProgress);
 
  // Process the analysis through automated investigation
  const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
@@ -2811,12 +2875,19 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  setActiveTab('overview');
  saveCase(enhancedAnalysis);
 
+ // Mark background analysis as complete
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   isRunning: false,
+   progress: 100,
+   currentStep: 'Complete'
+ }));
+
  } catch (error) {
  console.error('Pipeline analysis error:', error);
  setAnalysisError(`Analysis pipeline error: ${error.message}. Falling back to single-step analysis.`);
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false }));
  // Fall through to traditional analysis below
- } finally {
- setIsAnalyzing(false);
  }
 
  if (!analysisError) {
@@ -3122,7 +3193,7 @@ Respond with a JSON object in this exact structure:
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 4000,
  messages: [
  { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
@@ -3572,7 +3643,7 @@ ${analysisContext}`;
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-opus-4-20250514",
+ model: "claude-sonnet-4-20250514",
  max_tokens: 2000,
  messages: [
  ...conversationHistory,
@@ -5857,6 +5928,82 @@ ${analysisContext}`;
  </div>
  </div>
  )}
+
+ {/* Analysis Progress Card - shows during analysis and when complete */}
+ {(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+   <div
+     className={`mt-8 bg-white border rounded-xl p-6 shadow-sm transition-all ${
+       backgroundAnalysis.progress === 100
+         ? 'border-emerald-300 cursor-pointer hover:border-emerald-400 hover:shadow-md'
+         : 'border-amber-200'
+     }`}
+     onClick={() => {
+       if (backgroundAnalysis.progress === 100 && analysis) {
+         setActiveTab('overview');
+         // Scroll to results
+         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+       }
+     }}
+   >
+     <div className="flex items-start justify-between mb-4">
+       <div>
+         <div className="flex items-center gap-2 mb-1">
+           {backgroundAnalysis.progress === 100 ? (
+             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+           ) : (
+             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+           )}
+           <h3 className="font-semibold text-gray-900">
+             {backgroundAnalysis.progress === 100 ? 'Analysis Complete' : 'Analysis in Progress'}
+           </h3>
+         </div>
+         <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'New Investigation'}</p>
+       </div>
+       <div className="text-right">
+         <p className={`text-2xl font-bold mono ${backgroundAnalysis.progress === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+           {backgroundAnalysis.progress}%
+         </p>
+         {backgroundAnalysis.progress < 100 && (
+           <p className="text-xs text-gray-500 mono">Step {backgroundAnalysis.stepNumber} of {backgroundAnalysis.totalSteps}</p>
+         )}
+       </div>
+     </div>
+
+     {/* Progress Bar */}
+     <div className="mb-4">
+       <div className="w-full bg-gray-100 rounded-full h-3">
+         <div
+           className={`h-3 rounded-full transition-all duration-500 ease-out ${
+             backgroundAnalysis.progress === 100
+               ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+               : 'bg-gradient-to-r from-amber-500 to-amber-400'
+           }`}
+           style={{ width: `${backgroundAnalysis.progress}%` }}
+         />
+       </div>
+     </div>
+
+     {/* Current Step or Completion Message */}
+     <div className="flex items-center justify-between">
+       {backgroundAnalysis.progress === 100 ? (
+         <>
+           <span className="text-sm text-emerald-700 font-medium">Click to view results</span>
+           <ArrowRight className="w-4 h-4 text-emerald-500" />
+         </>
+       ) : (
+         <>
+           <div className="flex items-center gap-2">
+             <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+             <span className="text-sm text-gray-700">{backgroundAnalysis.currentStep}</span>
+           </div>
+           <span className="text-xs text-gray-500 mono">
+             ~{Math.max(1, Math.round((backgroundAnalysis.totalSteps - backgroundAnalysis.stepNumber) * 0.5))} min remaining
+           </span>
+         </>
+       )}
+     </div>
+   </div>
+ )}
  </section>
           </div>
           </>
@@ -6407,12 +6554,7 @@ ${analysisContext}`;
  />
  )}
  <div className="flex-1 min-w-0">
- <div className="flex items-center justify-between mb-1">
- <span className="font-medium text-sm leading-tight truncate">{entity.name}</span>
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(entity.riskLevel)}`}>
- {entity.riskLevel}
- </span>
- </div>
+ <span className="font-medium text-sm leading-tight block">{entity.name}</span>
  <span className="text-xs mono text-gray-500 tracking-wide">{entity.type}</span>
  </div>
  </div>
