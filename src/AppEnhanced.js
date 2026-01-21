@@ -5063,7 +5063,7 @@ ${analysisContext}`;
  Reduce investigation time from hours to minutes
  </p>
  <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
- Close 10x more cases per week
+ Close up to 10x more cases per week
  </p>
 
  {/* CTAs */}
@@ -5243,19 +5243,19 @@ ${analysisContext}`;
  <ul className="space-y-3 text-sm text-gray-600">
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Automated entity extraction and network mapping</span>
+ <span>Narrative & Timeline Formation</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Timeline reconstruction from financial documents</span>
+ <span>Automated Entity Extraction and Ownership Mapping</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Pattern detection across transactions</span>
+ <span>Advanced Typology Detection</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Hypothesis generation for investigative leads</span>
+ <span>Hypothesis & Lead Generation</span>
  </li>
  </ul>
  </div>
@@ -5272,7 +5272,11 @@ ${analysisContext}`;
  <ul className="space-y-3 text-sm text-gray-600">
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>OFAC, EU, UK, UN sanctions screening</span>
+ <span>Advanced adverse media analysis</span>
+ </li>
+ <li className="flex items-start gap-2">
+ <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
+ <span>Global sanctions coverage</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
@@ -5280,11 +5284,7 @@ ${analysisContext}`;
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Beneficial ownership and 50% rule analysis</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Adverse media categorization and risk scoring</span>
+ <span>Customer risk scoring & decision support</span>
  </li>
  </ul>
  </div>
@@ -5435,12 +5435,9 @@ ${analysisContext}`;
  {/* CTA Section */}
  <div className="py-24 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto text-center">
- <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 text-white leading-tight">
+ <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-10 text-white leading-tight">
  Ready to accelerate your investigations?
  </h2>
- <p className="text-xl text-gray-400 mb-10 leading-relaxed">
- Join compliance teams using Marlowe to detect fraud and screen sanctions exposure.
- </p>
  <button
  onClick={startNewCase}
  className="group bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/20 inline-flex items-center gap-2"
