@@ -2510,8 +2510,13 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  };
 
  const analyzeEvidence = async () => {
- if (files.length === 0 && !caseDescription.trim()) return;
+ console.log('analyzeEvidence called', { files: files.length, caseDescription: caseDescription.substring(0, 50) });
+ if (files.length === 0 && !caseDescription.trim()) {
+   console.log('No files or description, returning early');
+   return;
+ }
 
+ console.log('Starting analysis...');
  setIsAnalyzing(true);
  setAnalysis(null); // Clear previous analysis
 
@@ -2823,11 +2828,13 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  }
 
  // CIPHER MODE: All investigations use background progress tracking
+ console.log('CIPHER MODE: Setting up background analysis');
  // Generate a temporary case ID for tracking
  const tempCaseId = `case_${Date.now()}`;
  const displayCaseName = caseName || 'New Investigation';
 
  // Start background analysis - allow user to navigate
+ console.log('Setting backgroundAnalysis state...');
  setBackgroundAnalysis({
    isRunning: true,
    caseId: tempCaseId,
@@ -2837,6 +2844,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    totalSteps: files.length > 0 ? 10 : 3, // Fewer steps for text-only
    progress: 0
  });
+ console.log('backgroundAnalysis state set');
 
  // Allow the UI to update before starting heavy processing
  setIsAnalyzing(false);
