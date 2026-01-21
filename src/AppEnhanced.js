@@ -5112,6 +5112,90 @@ ${analysisContext}`;
  </div>
  </div>
 
+ {/* Investigation Pipeline Graphic */}
+ <div className="py-20 px-6 bg-gray-100">
+ <div className="max-w-5xl mx-auto">
+ <div className="text-center mb-12">
+ <h2 className="text-4xl font-bold tracking-tight mb-4">The investigation pipeline</h2>
+ <p className="text-lg text-gray-600">Earlier stages have been automated. Marlowe tackles the hard part.</p>
+ </div>
+
+ {/* Pipeline Graphic */}
+ <div className="relative">
+ {/* Connection line */}
+ <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-amber-400 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
+
+ <div className="grid grid-cols-2 md:grid-cols-6 gap-4 relative">
+ {/* Already Automated - Collection */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Collection</span>
+ <span className="text-xs text-emerald-600 mt-1">Automated</span>
+ </div>
+
+ {/* Already Automated - Processing */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Processing</span>
+ <span className="text-xs text-emerald-600 mt-1">Automated</span>
+ </div>
+
+ {/* Already Automated - Basic Analysis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
+ <span className="text-xs text-emerald-600 mt-1">Automated</span>
+ </div>
+
+ {/* Marlowe - Advanced Analysis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
+ <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
+ </div>
+
+ {/* Marlowe - Synthesis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
+ <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
+ </div>
+
+ {/* Marlowe - Interpretation */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
+ <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
+ </div>
+ </div>
+ </div>
+
+ {/* Legend */}
+ <div className="flex justify-center gap-8 mt-10">
+ <div className="flex items-center gap-2">
+ <div className="w-4 h-4 rounded-full bg-emerald-400" />
+ <span className="text-sm text-gray-600">Already automated by existing tools</span>
+ </div>
+ <div className="flex items-center gap-2">
+ <div className="w-4 h-4 rounded-full bg-amber-500" />
+ <span className="text-sm text-gray-600">Now automated by Marlowe</span>
+ </div>
+ </div>
+ </div>
+ </div>
+
  {/* How It Works Section */}
  <div className="py-20 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto">
