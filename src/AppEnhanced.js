@@ -5042,10 +5042,11 @@ ${analysisContext}`;
  {/* Marlowe Logo */}
  <div className="mb-8">
  <span
- className="text-4xl md:text-5xl font-bold tracking-tight text-amber-500"
+ className="text-5xl md:text-6xl font-black tracking-tight text-amber-500"
  style={{
- textShadow: '0 0 40px rgba(245, 158, 11, 0.4), 0 0 80px rgba(245, 158, 11, 0.2)',
- letterSpacing: '0.05em'
+ textShadow: '0 2px 4px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 40px rgba(245, 158, 11, 0.5), 0 0 80px rgba(245, 158, 11, 0.3), 0 0 120px rgba(245, 158, 11, 0.2)',
+ letterSpacing: '0.02em',
+ WebkitTextStroke: '1px rgba(180, 83, 9, 0.3)'
  }}
  >
  Marlowe
