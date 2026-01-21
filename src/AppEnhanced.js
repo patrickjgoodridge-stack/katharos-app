@@ -5740,7 +5740,7 @@ ${analysisContext}`;
  )}
 
  {/* New Case / Evidence Upload Section */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning) && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
@@ -7657,6 +7657,35 @@ ${analysisContext}`;
  </div>
  )}
  </>
+ )}
+
+ {/* Floating Analysis Complete Card - shows when analysis finishes */}
+ {backgroundAnalysis.progress === 100 && analysis && (
+   <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[500px] max-w-[90vw]">
+     <div
+       className="bg-white border-2 border-emerald-400 rounded-xl p-5 shadow-xl cursor-pointer hover:border-emerald-500 hover:shadow-2xl transition-all"
+       onClick={() => {
+         setBackgroundAnalysis(prev => ({ ...prev, progress: 0 }));
+         setActiveTab('overview');
+       }}
+     >
+       <div className="flex items-center justify-between">
+         <div className="flex items-center gap-3">
+           <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+             <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+           </div>
+           <div>
+             <h3 className="font-semibold text-gray-900">Analysis Complete</h3>
+             <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'Investigation'}</p>
+           </div>
+         </div>
+         <div className="flex items-center gap-2 text-emerald-600">
+           <span className="text-sm font-medium">View Results</span>
+           <ArrowRight className="w-5 h-5" />
+         </div>
+       </div>
+     </div>
+   </div>
  )}
 
  {/* Footer */}
