@@ -5042,10 +5042,9 @@ ${analysisContext}`;
  {/* Marlowe Logo */}
  <div className="mb-8">
  <span
- className="text-5xl md:text-6xl font-black tracking-tight text-amber-500"
+ className="text-5xl md:text-6xl font-bold tracking-tight text-amber-500"
  style={{
- textShadow: '0 2px 4px rgba(0, 0, 0, 0.15), 0 0 30px rgba(245, 158, 11, 0.2)',
- letterSpacing: '0.02em'
+ textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
  }}
  >
  Marlowe
