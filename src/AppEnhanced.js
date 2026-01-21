@@ -5986,8 +5986,8 @@ ${analysisContext}`;
 {/* Inline Progress Card */}
 {(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
   <div
-    className={`bg-slate-900 border border-slate-800 rounded-xl p-6 mt-6 ${
-      backgroundAnalysis.progress === 100 ? 'cursor-pointer hover:border-slate-700 transition-colors' : ''
+    className={`bg-white border border-gray-200 rounded-xl p-6 mt-6 shadow-sm ${
+      backgroundAnalysis.progress === 100 ? 'cursor-pointer hover:border-emerald-300 hover:shadow-md transition-all' : ''
     }`}
     onClick={() => {
       if (backgroundAnalysis.progress === 100) {
@@ -6003,15 +6003,15 @@ ${analysisContext}`;
     }}
   >
     <div className="flex items-center justify-between mb-4">
-      <h3 className="font-semibold text-white">{backgroundAnalysis.caseName || 'New Investigation'}</h3>
-      <span className="text-sm text-slate-400">
+      <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'New Investigation'}</h3>
+      <span className="text-sm text-gray-500">
         {backgroundAnalysis.progress === 100
           ? 'Click to view results'
           : `~${Math.max(1, Math.round((100 - backgroundAnalysis.progress) / 3))}s remaining`}
       </span>
     </div>
 
-    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
       <div
         className={`h-full transition-all duration-500 ${
           backgroundAnalysis.progress === 100 ? 'bg-emerald-500' : 'bg-amber-500'
@@ -6020,7 +6020,7 @@ ${analysisContext}`;
       />
     </div>
 
-    <p className="text-sm text-slate-400">
+    <p className="text-sm text-gray-500">
       {backgroundAnalysis.progress === 100
         ? '✓ Analysis complete'
         : backgroundAnalysis.currentStep}
