@@ -5353,7 +5353,6 @@ ${analysisContext}`;
  <div className="max-w-5xl mx-auto">
  <div className="text-center mb-12">
  <h2 className="text-4xl font-bold tracking-tight mb-4">The investigation pipeline</h2>
- <p className="text-lg text-gray-600">Marlowe tackles the toughest parts of getting to the truth.</p>
  </div>
 
  {/* Pipeline Graphic */}
