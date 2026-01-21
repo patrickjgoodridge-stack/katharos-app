@@ -5018,8 +5018,8 @@ ${analysisContext}`;
  {/* Noir Landing Page */}
  {currentPage === 'noirLanding' && (
  <div className="fade-in min-h-screen -mt-24">
- {/* Hero Section */}
- <div className="py-24 px-6">
+ {/* Hero Section - Full viewport height */}
+ <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
  {/* Badge */}
  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-8">
@@ -5052,6 +5052,12 @@ ${analysisContext}`;
  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
  </button>
  </div>
+ </div>
+
+ {/* Scroll indicator */}
+ <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-400 animate-bounce">
+ <span className="text-sm font-medium">Learn more</span>
+ <ChevronDown className="w-5 h-5" />
  </div>
  </div>
 
