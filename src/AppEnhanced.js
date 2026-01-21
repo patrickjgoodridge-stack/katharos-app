@@ -5132,7 +5132,6 @@ ${analysisContext}`;
  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Collection</span>
- <span className="text-xs text-emerald-600 mt-1">Automated</span>
  </div>
 
  {/* Already Automated - Processing */}
@@ -5141,7 +5140,6 @@ ${analysisContext}`;
  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Processing</span>
- <span className="text-xs text-emerald-600 mt-1">Automated</span>
  </div>
 
  {/* Already Automated - Basic Analysis */}
@@ -5150,7 +5148,6 @@ ${analysisContext}`;
  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
- <span className="text-xs text-emerald-600 mt-1">Automated</span>
  </div>
 
  {/* Marlowe - Advanced Analysis */}
@@ -5159,7 +5156,6 @@ ${analysisContext}`;
  <Zap className="w-8 h-8 text-amber-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
- <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
  </div>
 
  {/* Marlowe - Synthesis */}
@@ -5168,7 +5164,6 @@ ${analysisContext}`;
  <Zap className="w-8 h-8 text-amber-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
- <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
  </div>
 
  {/* Marlowe - Interpretation */}
@@ -5177,7 +5172,6 @@ ${analysisContext}`;
  <Zap className="w-8 h-8 text-amber-500" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
- <span className="text-xs text-amber-600 font-semibold mt-1">Marlowe</span>
  </div>
  </div>
  </div>
