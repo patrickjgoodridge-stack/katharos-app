@@ -5091,15 +5091,15 @@ ${analysisContext}`;
  <div className="py-20 px-6 bg-white">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">The investigation bottleneck</h2>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">Investigative Tech for the AI Age</h2>
  <p className="text-lg text-gray-600">We've automated everything except what matters most</p>
  </div>
- <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8">
+ <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
  <p className="text-gray-700 leading-relaxed mb-6">
- Ask any financial crimes analyst to show you their latest case. You'll see browser tabs open to three different screening platforms. A folder of 50 screenshots from corporate registries. Countless spreadsheets of transaction data. A running Google Doc where the analyst is trying to connect everything.
+ Ask any financial crimes analyst to show you their latest case. You'll see browser tabs open to three different screening platforms. A folder of 50 screenshots from corporate registries and social media. Countless spreadsheets of transaction data. A running Google Doc where the analyst is trying to connect everything.
  </p>
  <p className="text-gray-700 leading-relaxed mb-6">
- We have incredible tools for <span className="font-semibold text-gray-900">capturing</span> information. But those tools don't tell investigators what it all <span className="font-semibold text-gray-900">means</span>. The synthesis, timeline formation, pattern recognition, hypothesis generation—that's all on the investigator's shoulders.
+ We have incredible tools for <span className="font-semibold text-gray-900">capturing</span> information. But those tools don't tell investigators what it all <span className="font-semibold text-gray-900">means</span>. The hardest part of investigating—the analysis—is still painstakingly manual. Investigators deserve better.
  </p>
  <div className="bg-white border border-gray-200 rounded-xl p-6">
  <div className="text-center">
@@ -5117,7 +5117,7 @@ ${analysisContext}`;
  <div className="max-w-5xl mx-auto">
  <div className="text-center mb-12">
  <h2 className="text-4xl font-bold tracking-tight mb-4">The investigation pipeline</h2>
- <p className="text-lg text-gray-600">Earlier stages have been automated. Marlowe tackles the hard part.</p>
+ <p className="text-lg text-gray-600">Marlowe tackles the toughest parts of getting to the truth.</p>
  </div>
 
  {/* Pipeline Graphic */}
@@ -5194,14 +5194,13 @@ ${analysisContext}`;
  <div className="py-20 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4 text-white">AI expertise meets human judgement</h2>
- <p className="text-lg text-gray-400">Marlowe is AI that reasons like an expert investigator</p>
+ <h2 className="text-4xl font-bold tracking-tight mb-4 text-white">AI that reasons like an expert investigator</h2>
  </div>
  <div className="grid md:grid-cols-2 gap-8 mb-12">
  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
  <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
  <p className="text-gray-300 leading-relaxed mb-4">
- An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, extracting entities into a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
+ An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
  </p>
  <div className="flex items-center gap-2 text-rose-400">
  <div className="w-2 h-2 rounded-full bg-rose-400" />
@@ -5211,7 +5210,7 @@ ${analysisContext}`;
  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
  <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
  <p className="text-gray-300 leading-relaxed mb-4">
- Marlowe processes the same documents in minutes and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
+ Marlowe processes the same documents <span className="text-white font-semibold">in minutes</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
  </p>
  <div className="flex items-center gap-2 text-emerald-400">
  <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -5272,19 +5271,19 @@ ${analysisContext}`;
  <ul className="space-y-3 text-sm text-gray-600">
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Advanced adverse media analysis</span>
+ <span>Advanced Adverse Media Analysis</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Global sanctions coverage</span>
+ <span>Global Sanctions Coverage</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>PEP identification and relationship mapping</span>
+ <span>PEP Identification and Relationship Mapping</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Customer risk scoring & decision support</span>
+ <span>Customer Risk Scoring & Decision Support</span>
  </li>
  </ul>
  </div>
