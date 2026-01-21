@@ -2511,10 +2511,9 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  const analyzeEvidence = async () => {
  if (files.length === 0 && !caseDescription.trim()) return;
- 
+
  setIsAnalyzing(true);
- // Don't clear analysis until we have new results
- // setAnalysis(null);
+ setAnalysis(null); // Clear previous analysis
 
  // Check if this is a screening request
  const isScreening = caseDescription.startsWith('[SCREENING]');
