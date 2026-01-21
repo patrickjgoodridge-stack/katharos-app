@@ -92,6 +92,7 @@ export default function Marlowe() {
  const [hasVisitedLanding, setHasVisitedLanding] = useState(false);
  const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
+ const [hasScrolled, setHasScrolled] = useState(false);
 
  // Rotating placeholder examples - different for each mode
  const cipherPlaceholderExamples = [
@@ -142,6 +143,23 @@ export default function Marlowe() {
  }
  }, [currentPage, hasVisitedLanding]);
 
+ // Hide scroll indicator once user has scrolled
+ useEffect(() => {
+ const handleScroll = () => {
+ if (window.scrollY > 100) {
+ setHasScrolled(true);
+ }
+ };
+ window.addEventListener('scroll', handleScroll);
+ return () => window.removeEventListener('scroll', handleScroll);
+ }, []);
+
+ // Reset scroll indicator when returning to landing page
+ useEffect(() => {
+ if (currentPage === 'noirLanding') {
+ setHasScrolled(false);
+ }
+ }, [currentPage]);
 
  // Close mode dropdown when clicking outside
  useEffect(() => {
@@ -5054,11 +5072,13 @@ ${analysisContext}`;
  </div>
  </div>
 
- {/* Scroll indicator */}
- <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-400 animate-bounce">
+ {/* Scroll indicator - hides after scrolling */}
+ {!hasScrolled && (
+ <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-400 animate-bounce transition-opacity duration-500">
  <span className="text-sm font-medium">Learn more</span>
  <ChevronDown className="w-5 h-5" />
  </div>
+ )}
  </div>
 
  {/* Problem Section */}
