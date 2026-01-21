@@ -1641,16 +1641,16 @@ If this is a scanned document, please use OCR software to convert it to searchab
  // Multi-step analysis pipeline
  const runAnalysisPipeline = async (files, caseDescription, onProgress) => { // eslint-disable-line no-unused-vars
  const steps = [
- { name: 'Document Understanding', progress: 10 },
- { name: 'Entity Extraction', progress: 20 },
- { name: 'Sanctions Screening', progress: 30 },
- { name: 'Entity Resolution', progress: 40 },
- { name: 'Relationship Mapping', progress: 50 },
- { name: 'Timeline Construction', progress: 60 },
- { name: 'Pattern Detection', progress: 70 },
- { name: 'Hypothesis Generation', progress: 80 },
- { name: 'Final Synthesis', progress: 90 },
- { name: 'Completing Analysis', progress: 100 }
+ { name: 'Extracting entities', progress: 10 },
+ { name: 'Analyzing documents', progress: 20 },
+ { name: 'Screening sanctions', progress: 30 },
+ { name: 'Resolving identities', progress: 40 },
+ { name: 'Mapping relationships', progress: 50 },
+ { name: 'Building timeline', progress: 60 },
+ { name: 'Identifying patterns', progress: 70 },
+ { name: 'Generating hypotheses', progress: 80 },
+ { name: 'Synthesizing findings', progress: 90 },
+ { name: 'Finalizing analysis', progress: 100 }
  ];
 
  // Helper to update progress
@@ -1677,7 +1677,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments. Follow these 
 
  let pipelineData = {};
 
- // STEP 1: Document Understanding
+ // STEP 1: Extracting entities
 
  const evidenceContext = files.map((f, idx) => {
  const truncatedContent = f.content.length > 3000
@@ -1733,11 +1733,11 @@ Respond with JSON:
  ]
 }${jsonReminder}`;
 
- updateProgress(0); // Document Understanding
+ updateProgress(0); // Extracting entities
  const step1JSON = await callClaudeWithRetry(step1Prompt);
  pipelineData.documentSummaries = step1JSON.documentSummaries || [];
 
- // STEP 2: Entity Extraction
+ // STEP 2: Analyzing documents
  updateProgress(1);
 
  const step2Prompt = `STEP 2: ENTITY EXTRACTION & INTELLIGENCE GATHERING
@@ -1914,7 +1914,7 @@ Return JSON:
    pipelineData.rawEntities.push(...sanctionsJSON.additionalEntities);
  }
 
- // STEP 3: Entity Resolution
+ // STEP 3: Resolving identities
  updateProgress(3);
 
  const step3Prompt = `STEP 3: ENTITY RESOLUTION & IDENTITY ANALYSIS
@@ -1969,7 +1969,7 @@ Respond with JSON:
  const step3JSON = await callClaudeWithRetry(step3Prompt);
  pipelineData.resolvedEntities = step3JSON.resolvedEntities || [];
 
- // STEP 4: Relationship Mapping
+ // STEP 4: Mapping relationships
  updateProgress(4);
 
  const step4Prompt = `STEP 4: RELATIONSHIP MAPPING & NETWORK ANALYSIS
@@ -2033,7 +2033,7 @@ Respond with JSON:
  pipelineData.relationships = step4JSON.relationships || [];
  pipelineData.ownershipChains = step4JSON.ownershipChains || [];
 
- // STEP 5: Timeline Construction
+ // STEP 5: Building timeline
  updateProgress(5);
 
  const step5Prompt = `STEP 5: TIMELINE CONSTRUCTION
@@ -2079,7 +2079,7 @@ Respond with JSON:
  pipelineData.timeline = step5JSON.timeline || [];
  pipelineData.timelineAnalysis = step5JSON.timelineAnalysis || {};
 
- // STEP 6: Pattern Detection
+ // STEP 6: Identifying patterns
  updateProgress(6);
 
  const step6Prompt = `STEP 6: PATTERN DETECTION & TYPOLOGY ANALYSIS
@@ -2227,7 +2227,7 @@ Respond with JSON:
  pipelineData.patterns = step6JSON.patterns || [];
  pipelineData.typologies = step6JSON.typologies || [];
 
- // STEP 7: Hypothesis Generation
+ // STEP 7: Generating hypotheses
  updateProgress(7);
 
  const step7Prompt = `STEP 7: HYPOTHESIS GENERATION & INVESTIGATIVE THEORIZATION
@@ -2425,10 +2425,10 @@ Respond with JSON matching the full investigation format:
 
 IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership verification as next steps - these are automated. Only suggest: document requests, interviews, legal consultations, subpoenas, registry filings, transaction analysis.`;
 
- updateProgress(8); // Final Synthesis in progress
+ updateProgress(8); // Synthesizing findings in progress
  const finalAnalysis = await callClaudeWithRetry(step8Prompt);
 
- updateProgress(9); // Completing Analysis
+ updateProgress(9); // Finalizing analysis
  return finalAnalysis;
  };
 
@@ -2741,8 +2741,8 @@ DOCUMENTS:
 ${evidenceContext}
 
 Perform a LIGHTWEIGHT SCREENING focusing on:
-1. Entity Extraction - Identify key persons and organizations
-2. Sanctions Screening - Check against sanctions lists
+1. Analyzing documents - Identify key persons and organizations
+2. Screening sanctions - Check against sanctions lists
 3. Risk Assessment - Evaluate overall risk level
 
 Respond with JSON:
@@ -4968,7 +4968,7 @@ ${analysisContext}`;
  )}
  </div>
  <div>
- <h4 className="font-semibold">Direct Sanctions Screening</h4>
+ <h4 className="font-semibold">Direct Screening sanctions</h4>
  <p className={`text-sm ${
  kycResults.sanctions?.status === 'CLEAR' ? 'text-emerald-600' : 'text-rose-600'
  }`}>
@@ -5453,7 +5453,7 @@ ${analysisContext}`;
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Automated Entity Extraction and Ownership Mapping</span>
+ <span>Automated Analyzing documents and Ownership Mapping</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
@@ -5486,7 +5486,7 @@ ${analysisContext}`;
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>PEP Identification and Relationship Mapping</span>
+ <span>PEP Identification and Mapping relationships</span>
  </li>
  <li className="flex items-start gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
@@ -5498,12 +5498,12 @@ ${analysisContext}`;
 
  {/* Additional Feature Cards */}
  <div className="grid md:grid-cols-4 gap-6">
- {/* Entity Extraction Card */}
+ {/* Analyzing documents Card */}
  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-blue-500/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Users className="w-6 h-6 text-blue-500" />
  </div>
- <h4 className="font-bold text-gray-900 mb-2">Entity Extraction</h4>
+ <h4 className="font-bold text-gray-900 mb-2">Analyzing documents</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Automatically identify people, companies, and relationships from unstructured documents</p>
  </div>
 
@@ -5543,16 +5543,16 @@ ${analysisContext}`;
  <p className="text-sm text-gray-600 leading-relaxed">Process emails, financials, contracts, and corporate filings in any format</p>
  </div>
 
- {/* Hypothesis Generation Card */}
+ {/* Generating hypotheses Card */}
  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-yellow-500/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Lightbulb className="w-6 h-6 text-yellow-600" />
  </div>
- <h4 className="font-bold text-gray-900 mb-2">Hypothesis Generation</h4>
+ <h4 className="font-bold text-gray-900 mb-2">Generating hypotheses</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Generate investigative leads and theories based on pattern analysis</p>
  </div>
 
- {/* Sanctions Screening Card */}
+ {/* Screening sanctions Card */}
  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-red-500/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Globe className="w-6 h-6 text-red-500" />
@@ -6727,7 +6727,7 @@ ${analysisContext}`;
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
  <Shield className="w-4 h-4" />
- Sanctions Screening
+ Screening sanctions
  </h4>
  <div className={`p-5 rounded-lg border-2 ${
  selectedEntity.sanctionStatus === 'MATCH' ? 'bg-red-600/10 border-red-600' :
