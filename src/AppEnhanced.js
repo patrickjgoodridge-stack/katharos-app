@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, TrendingUp, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, AlertOctagon, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, FileSearch, Scale, Flag, Download, FolderPlus, History, MoreVertical, Tag, Play, Cloud, Moon, Sun, Briefcase } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -19,7 +19,7 @@ export default function Marlowe() {
  const [activeTab, setActiveTab] = useState('overview');
  const [selectedEvent, setSelectedEvent] = useState(null);
  const [selectedEntity, setSelectedEntity] = useState(null);
- const [entityImages, setEntityImages] = useState({});
+ const [entityImages, setEntityImages] = useState({}); // eslint-disable-line no-unused-vars
  const [dragActive, setDragActive] = useState(false);
  const [expandedHypotheses, setExpandedHypotheses] = useState({});
  const [expandedInvestigations, setExpandedInvestigations] = useState({});
@@ -83,11 +83,11 @@ export default function Marlowe() {
  const uploadDropdownRef = useRef(null);
 
  // Landing page state
- const [showLandingCards, setShowLandingCards] = useState(false);
- const [hoveredCard, setHoveredCard] = useState(null);
- const [showLandingContent, setShowLandingContent] = useState(false);
+ const [showLandingCards, setShowLandingCards] = useState(false); // eslint-disable-line no-unused-vars
+ const [hoveredCard, setHoveredCard] = useState(null); // eslint-disable-line no-unused-vars
+ const [showLandingContent, setShowLandingContent] = useState(false); // eslint-disable-line no-unused-vars
  const [hasVisitedLanding, setHasVisitedLanding] = useState(false);
- const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // 'large', 'fadeOut', 'small'
+ const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
 
  // Rotating placeholder examples - different for each mode
@@ -261,7 +261,7 @@ export default function Marlowe() {
  };
 
  // Go back to product selection
- const goToProductSelect = () => {
+ const goToProductSelect = () => { // eslint-disable-line no-unused-vars
  if (activeCase && chatMessages.length > 0) {
  setCases(prev => prev.map(c => 
  c.id === activeCase.id 
@@ -825,7 +825,7 @@ Make it professional and suitable for compliance records. Use clear headers and 
  };
 
  // Generate full case investigation report
- const generateCaseReport = async () => {
+ const generateCaseReport = async () => { // eslint-disable-line no-unused-vars
  if (!analysis || !activeCase) return;
  
  setIsGeneratingCaseReport(true);
@@ -1580,8 +1580,8 @@ If this is a scanned document, please use OCR software to convert it to searchab
  };
 
  // Multi-step analysis pipeline
- const runAnalysisPipeline = async (files, caseDescription) => {
- const steps = [
+ const runAnalysisPipeline = async (files, caseDescription) => { // eslint-disable-line no-unused-vars
+ const steps = [ // eslint-disable-line no-unused-vars
  { name: 'Document Understanding', progress: 12.5 },
  { name: 'Entity Extraction', progress: 25 },
  { name: 'Entity Resolution', progress: 37.5 },
