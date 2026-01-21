@@ -2893,9 +2893,6 @@ const handlePipelineProgress = (progressInfo) => {
     totalSteps: progressInfo.totalSteps,
     progress: Math.round(progressInfo.progress * 0.85) // Pipeline is 85% of total
   }));
-} finally {
-setIsAnalyzing(false);
-}
 };
 
 const finalAnalysis = await runAnalysisPipeline(files, caseDescription, handlePipelineProgress);
