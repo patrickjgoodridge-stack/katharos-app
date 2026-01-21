@@ -5141,36 +5141,7 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- <div className="text-center">
- <p className="text-gray-400 mb-6">Marlowe doesn't just search, it analyzes:</p>
- <div className="grid grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Extracts entities and relationships</span>
- </div>
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Builds chronological timelines</span>
- </div>
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Maps corporate structures</span>
- </div>
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Identifies contradictions</span>
- </div>
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Generates hypotheses</span>
- </div>
- <div className="flex items-start gap-3">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
- <span className="text-sm text-gray-300">Provides citations</span>
- </div>
- </div>
- </div>
- </div>
+  </div>
  </div>
 
  {/* Features Section */}
