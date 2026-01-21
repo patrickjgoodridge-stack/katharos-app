@@ -624,7 +624,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 4000,
  messages: [
  { role: "user", content: systemPrompt + "\n\n" + userPrompt }
@@ -815,7 +815,7 @@ Make it professional and suitable for compliance records. Use clear headers and 
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 4000,
  messages: [{ role: "user", content: pdfPrompt }]
  })
@@ -933,7 +933,7 @@ Format the report professionally with clear headers, bullet points where appropr
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 8000,
  messages: [{ role: "user", content: reportPrompt }]
  })
@@ -1314,7 +1314,7 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 2000,
  messages: [
  ...conversationHistory,
@@ -1571,7 +1571,7 @@ If this is a scanned document, please use OCR software to convert it to searchab
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
- model: 'claude-sonnet-4-20250514',
+ model: 'claude-opus-4-20250514',
  max_tokens: attempt === maxRetries ? 12000 : 16000, // Reduce tokens on final retry
  temperature: 0.3,
  messages: [{ role: 'user', content: enhancedPrompt }]
@@ -2578,7 +2578,7 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 8000,
  messages: [
  { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
@@ -3122,7 +3122,7 @@ Respond with a JSON object in this exact structure:
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 4000,
  messages: [
  { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
@@ -3572,7 +3572,7 @@ ${analysisContext}`;
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
+ model: "claude-opus-4-20250514",
  max_tokens: 2000,
  messages: [
  ...conversationHistory,
