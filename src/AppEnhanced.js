@@ -111,6 +111,11 @@ export default function Marlowe() {
 
  const placeholderExamples = investigationMode === 'scout' ? scoutPlaceholderExamples : cipherPlaceholderExamples;
 
+ // Reset placeholder index when mode changes to avoid out-of-bounds
+ useEffect(() => {
+ setPlaceholderIndex(0);
+ }, [investigationMode]);
+
  // Rotate placeholder with fade timing - synchronized with CSS animation
  useEffect(() => {
  // Start interval immediately to sync with CSS animation
@@ -3711,13 +3716,13 @@ ${analysisContext}`;
  }
  
  .animate-fadeInOut {
-            animation: fadeInOut 7s ease-in-out;
+            animation: fadeInOut 7s ease-in-out forwards;
  }
 
  @keyframes fadeInOut {
  0% { opacity: 0; }
- 10% { opacity: 1; }
- 90% { opacity: 1; }
+ 5% { opacity: 1; }
+ 95% { opacity: 1; }
  100% { opacity: 0; }
  }
  `}</style>
