@@ -53,6 +53,9 @@ export default function Marlowe() {
    pendingAnalysis: null // Stores completed analysis until user clicks to view
  });
 
+ // Track if floating notification has been dismissed (separate from completion card)
+ const [notificationDismissed, setNotificationDismissed] = useState(false);
+
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
  const [showModeDropdown, setShowModeDropdown] = useState(false);
@@ -2879,6 +2882,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    progress: 5,
    pendingAnalysis: null
  });
+ setNotificationDismissed(false); // Reset notification dismissed state for new analysis
  setIsAnalyzing(false); // Hide full-screen loader, show progress card instead
 
  // Use multi-step pipeline for files with substantial content
@@ -7756,8 +7760,8 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Floating Results Ready Notification - shows when on other pages */}
- {backgroundAnalysis.isComplete && currentPage !== 'newCase' && (
+ {/* Floating Results Ready Notification - shows when on other pages and not dismissed */}
+ {backgroundAnalysis.isComplete && currentPage !== 'newCase' && !notificationDismissed && (
    <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
      <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
        <div className="flex items-start gap-3">
@@ -7769,7 +7773,7 @@ ${analysisContext}`;
            <p className="text-xs text-gray-500 truncate">{backgroundAnalysis.caseName}</p>
          </div>
          <button
-           onClick={() => setBackgroundAnalysis(prev => ({ ...prev, isComplete: false, pendingAnalysis: null }))}
+           onClick={() => setNotificationDismissed(true)}
            className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
          >
            <X className="w-4 h-4 text-gray-400" />
@@ -7779,6 +7783,7 @@ ${analysisContext}`;
          onClick={() => {
            viewAnalysisResults();
            setCurrentPage('newCase');
+           setNotificationDismissed(false); // Reset for next time
          }}
          className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
        >
