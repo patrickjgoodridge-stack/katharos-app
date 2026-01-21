@@ -38,7 +38,7 @@ export default function Marlowe() {
  const [isEditingCaseName, setIsEditingCaseName] = useState(false);
  const [tempCaseName, setTempCaseName] = useState('');
  
- const [analysisError, setAnalysisError] = useState(null);
+ const [analysisError, setAnalysisError] = useState(null); // eslint-disable-line no-unused-vars
 
  // Background analysis state - allows navigation while processing
  const [backgroundAnalysis, setBackgroundAnalysis] = useState({
