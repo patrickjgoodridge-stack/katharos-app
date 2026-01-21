@@ -106,7 +106,7 @@ export default function Marlowe() {
 
  const scoutPlaceholderExamples = [
  "Screen an individual (Try \"Oleg Deripaska\" or \"Fetullah Gulen\")",
- "Check an entity: \"EN+ Group\" or \"COSCO Shipping\""
+ "Check an entity (Try \"EN+ Group\" or \"COSCO Shipping\")"
  ];
 
  const placeholderExamples = investigationMode === 'scout' ? scoutPlaceholderExamples : cipherPlaceholderExamples;
