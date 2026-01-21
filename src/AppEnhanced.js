@@ -7760,8 +7760,8 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Floating Results Ready Notification - shows when on other pages and not dismissed */}
- {backgroundAnalysis.isComplete && currentPage !== 'newCase' && !notificationDismissed && (
+ {/* Floating Results Ready Notification - shows when on other pages (not newCase or activeCase) and not dismissed */}
+ {backgroundAnalysis.isComplete && currentPage !== 'newCase' && currentPage !== 'activeCase' && !notificationDismissed && (
    <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
      <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
        <div className="flex items-start gap-3">
