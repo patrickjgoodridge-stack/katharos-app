@@ -5039,10 +5039,17 @@ ${analysisContext}`;
  {/* Hero Section - Full viewport height */}
  <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
- {/* Badge */}
- <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 mb-8">
- <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
- <span className="text-sm font-semibold text-amber-500 tracking-wide">AI-Powered Intelligence Platform</span>
+ {/* Marlowe Logo */}
+ <div className="mb-8">
+ <span
+ className="text-4xl md:text-5xl font-bold tracking-tight text-amber-500"
+ style={{
+ textShadow: '0 0 40px rgba(245, 158, 11, 0.4), 0 0 80px rgba(245, 158, 11, 0.2)',
+ letterSpacing: '0.05em'
+ }}
+ >
+ Marlowe
+ </span>
  </div>
 
  {/* Headline */}
