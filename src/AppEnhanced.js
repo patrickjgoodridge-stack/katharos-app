@@ -2882,17 +2882,21 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  setCaseName(autoName);
  }
 
- setAnalysis(enhancedAnalysis);
- setActiveTab('overview');
- saveCase(enhancedAnalysis);
-
- // Mark background analysis as complete
+ // Mark background analysis as complete BEFORE setting analysis
+ // This ensures the progress card remains visible
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
    progress: 100,
    currentStep: 'Complete'
  }));
+
+ // Small delay to ensure state update is processed
+ await new Promise(resolve => setTimeout(resolve, 50));
+
+ setAnalysis(enhancedAnalysis);
+ setActiveTab('overview');
+ saveCase(enhancedAnalysis);
 
  return; // Pipeline succeeded, exit
 
@@ -3577,17 +3581,21 @@ Respond with a JSON object in this exact structure:
  setCaseName(autoName);
  }
 
- setAnalysis(parsed);
- setActiveTab('overview');
- saveCase(parsed);
-
- // Mark background analysis as complete
+ // Mark background analysis as complete BEFORE setting analysis
+ // This ensures the progress card remains visible
  setBackgroundAnalysis(prev => ({
    ...prev,
    isRunning: false,
    progress: 100,
    currentStep: 'Complete'
  }));
+
+ // Small delay to ensure state update is processed
+ await new Promise(resolve => setTimeout(resolve, 50));
+
+ setAnalysis(parsed);
+ setActiveTab('overview');
+ saveCase(parsed);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  console.error('First 1000 chars of JSON:', jsonStr.substring(0, 1000));
