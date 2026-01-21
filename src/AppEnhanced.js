@@ -2895,7 +2895,8 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  await new Promise(resolve => setTimeout(resolve, 50));
 
  setAnalysis(enhancedAnalysis);
- setActiveTab('overview');
+ // Don't auto-switch to overview - let user click the completion card
+ // setActiveTab('overview');
  saveCase(enhancedAnalysis);
 
  return; // Pipeline succeeded, exit
@@ -3594,7 +3595,8 @@ Respond with a JSON object in this exact structure:
  await new Promise(resolve => setTimeout(resolve, 50));
 
  setAnalysis(parsed);
- setActiveTab('overview');
+ // Don't auto-switch to overview - let user click the completion card
+ // setActiveTab('overview');
  saveCase(parsed);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
@@ -5740,7 +5742,7 @@ ${analysisContext}`;
  )}
 
  {/* New Case / Evidence Upload Section */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning) && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
@@ -6064,7 +6066,7 @@ ${analysisContext}`;
  )}
 
  {/* Analysis Results */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && backgroundAnalysis.progress !== 100 && (
  <>
  {/* Top Left Navigation Buttons */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
