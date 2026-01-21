@@ -2822,8 +2822,7 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  return;
  }
 
- // CIPHER MODE: USE MULTI-STEP PIPELINE for files with substantial content
- if (files.length > 0 && files.some(f => f.content.length > 500)) {
+ // CIPHER MODE: All investigations use background progress tracking
  // Generate a temporary case ID for tracking
  const tempCaseId = `case_${Date.now()}`;
  const displayCaseName = caseName || 'New Investigation';
@@ -2835,13 +2834,15 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    caseName: displayCaseName,
    currentStep: 'Initializing...',
    stepNumber: 0,
-   totalSteps: 10,
+   totalSteps: files.length > 0 ? 10 : 3, // Fewer steps for text-only
    progress: 0
  });
 
  // Allow the UI to update before starting heavy processing
  setIsAnalyzing(false);
 
+ // Use multi-step pipeline for files with substantial content
+ if (files.length > 0 && files.some(f => f.content.length > 500)) {
  try {
  setAnalysisError(null);
 
@@ -2882,19 +2883,25 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    currentStep: 'Complete'
  }));
 
+ return; // Pipeline succeeded, exit
+
  } catch (error) {
  console.error('Pipeline analysis error:', error);
  setAnalysisError(`Analysis pipeline error: ${error.message}. Falling back to single-step analysis.`);
- setBackgroundAnalysis(prev => ({ ...prev, isRunning: false }));
  // Fall through to traditional analysis below
  }
-
- if (!analysisError) {
- return; // Pipeline succeeded, exit
- }
  }
 
- // Fallback: Traditional single-step analysis
+ // Text-only or fallback: Single-step analysis with progress tracking
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Analyzing...',
+   stepNumber: 1,
+   totalSteps: 3,
+   progress: 33
+ }));
+
+ // Traditional single-step analysis
  // Limit content to avoid rate limits - truncate each file to ~3000 chars
  const evidenceContext = files.map((f, idx) => {
  const truncatedContent = f.content.length > 3000
@@ -3213,7 +3220,15 @@ Respond with a JSON object in this exact structure:
 
  const data = await response.json();
  const text = data.content?.map(item => item.text || "").join("\n") || "";
- 
+
+ // Update progress - processing response
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Processing results...',
+   stepNumber: 2,
+   progress: 66
+ }));
+
  // Extract JSON from response - handle markdown code blocks
  let jsonStr = text;
 
@@ -3545,6 +3560,14 @@ Respond with a JSON object in this exact structure:
  setAnalysis(parsed);
  setActiveTab('overview');
  saveCase(parsed);
+
+ // Mark background analysis as complete
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   isRunning: false,
+   progress: 100,
+   currentStep: 'Complete'
+ }));
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  console.error('First 1000 chars of JSON:', jsonStr.substring(0, 1000));
@@ -3560,14 +3583,17 @@ Respond with a JSON object in this exact structure:
  }
 
  setAnalysisError(`Error parsing analysis results. ${parseError.message}. Please try again or simplify your investigation scope.`);
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
  }
  } else {
  console.error('No JSON found in response:', text.substring(0, 500));
  setAnalysisError('No structured results returned. The AI did not return valid JSON.');
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
  }
  } catch (error) {
  console.error('Analysis error:', error);
  setAnalysisError(`Error connecting to analysis service: ${error.message}`);
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, progress: 0 }));
  } finally {
  setIsAnalyzing(false);
  }
