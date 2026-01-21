@@ -8,6 +8,9 @@ import ForceGraph2D from 'react-force-graph-2d';
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
+// API base URL - uses local server in development, relative paths in production
+const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
+
 // Main Marlowe Component
 export default function Marlowe() {
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
@@ -328,7 +331,7 @@ export default function Marlowe() {
  // Step 1: Get REAL sanctions screening data from backend
  setScreeningStep('Step 1/5: Querying global sanctions databases...');
  setScreeningProgress(15);
- const sanctionsResponse = await fetch("/api/screen-sanctions", {
+ const sanctionsResponse = await fetch(`${API_BASE}/api/screen-sanctions`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -343,7 +346,7 @@ export default function Marlowe() {
  // Step 2: Get ownership network (bidirectional)
  setScreeningStep('Step 2/5: Analyzing beneficial ownership structure...');
  setScreeningProgress(35);
- const networkResponse = await fetch("/api/ownership-network", {
+ const networkResponse = await fetch(`${API_BASE}/api/ownership-network`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -594,7 +597,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  setScreeningStep('Step 4/5: Running AI-powered risk analysis...');
  setScreeningProgress(65);
 
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -785,7 +788,7 @@ Format the report with these sections:
 Make it professional and suitable for compliance records. Use clear headers and bullet points where appropriate.`;
 
  try {
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -903,7 +906,7 @@ Create a detailed report with these sections:
 Format the report professionally with clear headers, bullet points where appropriate, and maintain all evidence citations in [Doc X] format. This report should be suitable for regulatory submission or law enforcement referral.`;
 
  try {
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -1284,7 +1287,7 @@ ${selectedHistoryItem?.country ? `- Country: ${selectedHistoryItem.country}` : '
 ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yearOfBirth}` : ''}`;
 
  try {
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -2548,7 +2551,7 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
 
  try {
  setAnalysisError(null);
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -2698,7 +2701,7 @@ Respond with JSON:
 
 CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
 
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -3092,7 +3095,7 @@ Respond with a JSON object in this exact structure:
  setAnalysisError(null);
 
  // Reduce token limit to avoid rate limits
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -3158,7 +3161,7 @@ Respond with a JSON object in this exact structure:
  const enrichedEntities = await Promise.all(parsed.entities.map(async (entity) => {
  try {
  // Screen entity against real sanctions database
- const sanctionsResponse = await fetch("/api/screen-sanctions", {
+ const sanctionsResponse = await fetch(`${API_BASE}/api/screen-sanctions`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -3173,7 +3176,7 @@ Respond with a JSON object in this exact structure:
  entity.sanctionStatus = sanctionsData.status;
 
  // Get ownership network for this entity (bidirectional)
- const networkResponse = await fetch("/api/ownership-network", {
+ const networkResponse = await fetch(`${API_BASE}/api/ownership-network`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
@@ -3195,7 +3198,7 @@ Respond with a JSON object in this exact structure:
 
  // If it's an organization, get real ownership analysis
  if (entity.type === 'ORGANIZATION') {
- const ownershipResponse = await fetch("/api/analyze-ownership", {
+ const ownershipResponse = await fetch(`${API_BASE}/api/analyze-ownership`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({ entityName: entity.name })
@@ -3542,7 +3545,7 @@ YOUR PREVIOUS ANALYSIS:
 ${analysisContext}`;
 
  try {
- const response = await fetch("/api/messages", {
+ const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
