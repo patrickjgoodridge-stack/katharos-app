@@ -2870,12 +2870,14 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  // Start progress tracking
  setBackgroundAnalysis({
    isRunning: true,
+   isComplete: false,
    caseId: `case_${Date.now()}`,
    caseName: displayCaseName,
    currentStep: 'Initializing analysis...',
    stepNumber: 1,
    totalSteps: 5,
-   progress: 5
+   progress: 5,
+   pendingAnalysis: null
  });
  setIsAnalyzing(false); // Hide full-screen loader, show progress card instead
 
@@ -3252,16 +3254,30 @@ Respond with a JSON object in this exact structure:
  ]
 }`;
 
+ // Simulated progress updates during API call
+ const progressSteps = [
+   { step: 'Extracting entities...', progress: 25 },
+   { step: 'Building timeline...', progress: 35 },
+   { step: 'Identifying patterns...', progress: 45 },
+   { step: 'Generating hypotheses...', progress: 55 }
+ ];
+
+ let progressIndex = 0;
+ let progressInterval = null;
+
  try {
  setAnalysisError(null);
 
- // Update progress before API call
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   currentStep: 'Analyzing with AI...',
-   stepNumber: 1,
-   progress: 30
- }));
+ progressInterval = setInterval(() => {
+   if (progressIndex < progressSteps.length) {
+     setBackgroundAnalysis(prev => ({
+       ...prev,
+       currentStep: progressSteps[progressIndex].step,
+       progress: progressSteps[progressIndex].progress
+     }));
+     progressIndex++;
+   }
+ }, 3000); // Update every 3 seconds
 
  // Reduce token limit to avoid rate limits
  const response = await fetch(`${API_BASE}/api/messages`, {
@@ -3275,6 +3291,9 @@ Respond with a JSON object in this exact structure:
  ]
  })
  });
+
+ // Clear the progress interval once API call completes
+ clearInterval(progressInterval);
 
  if (!response.ok) {
  const errorText = await response.text();
@@ -3697,6 +3716,7 @@ Respond with a JSON object in this exact structure:
  setAnalysisError(`Error connecting to analysis service: ${error.message}`);
  
  } finally {
+if (progressInterval) clearInterval(progressInterval);
 setIsAnalyzing(false);
 }
 };
