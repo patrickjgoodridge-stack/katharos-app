@@ -2840,14 +2840,17 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
    caseId: tempCaseId,
    caseName: displayCaseName,
    currentStep: 'Initializing...',
-   stepNumber: 0,
+   stepNumber: 1,
    totalSteps: files.length > 0 ? 10 : 3, // Fewer steps for text-only
-   progress: 0
+   progress: 5
  });
  console.log('backgroundAnalysis state set');
 
  // Allow the UI to update before starting heavy processing
  setIsAnalyzing(false);
+
+ // Give React a moment to render the progress card
+ await new Promise(resolve => setTimeout(resolve, 100));
 
  // Use multi-step pipeline for files with substantial content
  if (files.length > 0 && files.some(f => f.content.length > 500)) {
@@ -2901,12 +2904,13 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  }
 
  // Text-only or fallback: Single-step analysis with progress tracking
+ console.log('Starting single-step analysis...');
  setBackgroundAnalysis(prev => ({
    ...prev,
-   currentStep: 'Analyzing...',
+   currentStep: 'Sending to AI...',
    stepNumber: 1,
    totalSteps: 3,
-   progress: 33
+   progress: 20
  }));
 
  // Traditional single-step analysis
@@ -3201,6 +3205,14 @@ Respond with a JSON object in this exact structure:
 
  try {
  setAnalysisError(null);
+
+ // Update progress before API call
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   currentStep: 'Analyzing with AI...',
+   stepNumber: 1,
+   progress: 30
+ }));
 
  // Reduce token limit to avoid rate limits
  const response = await fetch(`${API_BASE}/api/messages`, {
