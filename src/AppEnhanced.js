@@ -5687,7 +5687,7 @@ ${analysisContext}`;
  )}
 
  {/* New Case / Evidence Upload Section */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && (!analysis || backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
@@ -5881,11 +5881,11 @@ ${analysisContext}`;
  {/* Start Investigation Button */}
  <button
  onClick={analyzeEvidence}
- disabled={isAnalyzing || (!caseDescription.trim() && files.length === 0)}
+ disabled={isAnalyzing || backgroundAnalysis.isRunning || (!caseDescription.trim() && files.length === 0)}
  className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
- title={isAnalyzing ? "Analyzing..." : "Start Investigation"}
+ title={isAnalyzing || backgroundAnalysis.isRunning ? "Analyzing..." : "Start Investigation"}
  >
- {isAnalyzing ? (
+ {(isAnalyzing || backgroundAnalysis.isRunning) ? (
  <Loader2 className="w-4 h-4 animate-spin" />
  ) : (
  <ArrowRight className="w-4 h-4" />
@@ -5929,14 +5929,9 @@ ${analysisContext}`;
  </div>
  )}
 
- </section>
-          </div>
-          </>
- )}
-
  {/* Analysis Progress Card - shows during analysis and when complete */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && (backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
-   <div className="px-48 pt-8">
+ {(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+   <div className="mt-8">
      <div
        className={`bg-white border rounded-xl p-6 shadow-sm transition-all ${
          backgroundAnalysis.progress === 100
@@ -6009,6 +6004,10 @@ ${analysisContext}`;
        </div>
      </div>
    </div>
+ )}
+ </section>
+          </div>
+          </>
  )}
 
  {/* Analysis Results */}
@@ -7362,29 +7361,6 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Loading State */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && isAnalyzing && (
- <div className="fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-50 flex items-start justify-center pt-32">
- <div className="text-center">
- <div className="relative w-24 h-24 mx-auto mb-6">
- <div className="absolute inset-0 border-4 border-amber-500/30 rounded-full animate-ping" />
- <div className="absolute inset-2 border-4 border-amber-500/50 rounded-full animate-pulse" />
- <div className="absolute inset-4 bg-amber-500 rounded-full flex items-center justify-center">
- <Search className="w-8 h-8 text-gray-900 animate-bounce" />
- </div>
- </div>
- <h3 className="text-xl font-bold tracking-tight mb-2 leading-tight">Marlowe is Analyzing</h3>
- <p className="text-gray-600 max-w-md mx-auto">
- Extracting entities, building timeline, generating hypotheses, and identifying patterns...
- </p>
- <div className="mt-6 flex items-center justify-center gap-2">
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
- </div>
- </div>
- </div>
- )}
  </main>
 
  {/* Chat Panel - Only visible when analysis is complete */}
