@@ -5929,84 +5929,86 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* Analysis Progress Card - shows during analysis and when complete */}
- {(backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
-   <div
-     className={`mt-8 bg-white border rounded-xl p-6 shadow-sm transition-all ${
-       backgroundAnalysis.progress === 100
-         ? 'border-emerald-300 cursor-pointer hover:border-emerald-400 hover:shadow-md'
-         : 'border-amber-200'
-     }`}
-     onClick={() => {
-       if (backgroundAnalysis.progress === 100 && analysis) {
-         setActiveTab('overview');
-         // Scroll to results
-         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-       }
-     }}
-   >
-     <div className="flex items-start justify-between mb-4">
-       <div>
-         <div className="flex items-center gap-2 mb-1">
-           {backgroundAnalysis.progress === 100 ? (
-             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-           ) : (
-             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-           )}
-           <h3 className="font-semibold text-gray-900">
-             {backgroundAnalysis.progress === 100 ? 'Analysis Complete' : 'Analysis in Progress'}
-           </h3>
-         </div>
-         <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'New Investigation'}</p>
-       </div>
-       <div className="text-right">
-         <p className={`text-2xl font-bold mono ${backgroundAnalysis.progress === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-           {backgroundAnalysis.progress}%
-         </p>
-         {backgroundAnalysis.progress < 100 && (
-           <p className="text-xs text-gray-500 mono">Step {backgroundAnalysis.stepNumber} of {backgroundAnalysis.totalSteps}</p>
-         )}
-       </div>
-     </div>
-
-     {/* Progress Bar */}
-     <div className="mb-4">
-       <div className="w-full bg-gray-100 rounded-full h-3">
-         <div
-           className={`h-3 rounded-full transition-all duration-500 ease-out ${
-             backgroundAnalysis.progress === 100
-               ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-               : 'bg-gradient-to-r from-amber-500 to-amber-400'
-           }`}
-           style={{ width: `${backgroundAnalysis.progress}%` }}
-         />
-       </div>
-     </div>
-
-     {/* Current Step or Completion Message */}
-     <div className="flex items-center justify-between">
-       {backgroundAnalysis.progress === 100 ? (
-         <>
-           <span className="text-sm text-emerald-700 font-medium">Click to view results</span>
-           <ArrowRight className="w-4 h-4 text-emerald-500" />
-         </>
-       ) : (
-         <>
-           <div className="flex items-center gap-2">
-             <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
-             <span className="text-sm text-gray-700">{backgroundAnalysis.currentStep}</span>
-           </div>
-           <span className="text-xs text-gray-500 mono">
-             ~{Math.max(1, Math.round((backgroundAnalysis.totalSteps - backgroundAnalysis.stepNumber) * 0.5))} min remaining
-           </span>
-         </>
-       )}
-     </div>
-   </div>
- )}
  </section>
           </div>
           </>
+ )}
+
+ {/* Analysis Progress Card - shows during analysis and when complete */}
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && (backgroundAnalysis.isRunning || backgroundAnalysis.progress === 100) && (
+   <div className="px-48 pt-8">
+     <div
+       className={`bg-white border rounded-xl p-6 shadow-sm transition-all ${
+         backgroundAnalysis.progress === 100
+           ? 'border-emerald-300 cursor-pointer hover:border-emerald-400 hover:shadow-md'
+           : 'border-amber-200'
+       }`}
+       onClick={() => {
+         if (backgroundAnalysis.progress === 100 && analysis) {
+           setBackgroundAnalysis(prev => ({ ...prev, progress: 0 })); // Hide the card
+           setActiveTab('overview');
+         }
+       }}
+     >
+       <div className="flex items-start justify-between mb-4">
+         <div>
+           <div className="flex items-center gap-2 mb-1">
+             {backgroundAnalysis.progress === 100 ? (
+               <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+             ) : (
+               <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+             )}
+             <h3 className="font-semibold text-gray-900">
+               {backgroundAnalysis.progress === 100 ? 'Analysis Complete' : 'Analysis in Progress'}
+             </h3>
+           </div>
+           <p className="text-sm text-gray-600">{backgroundAnalysis.caseName || 'New Investigation'}</p>
+         </div>
+         <div className="text-right">
+           <p className={`text-2xl font-bold mono ${backgroundAnalysis.progress === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+             {backgroundAnalysis.progress}%
+           </p>
+           {backgroundAnalysis.progress < 100 && (
+             <p className="text-xs text-gray-500 mono">Step {backgroundAnalysis.stepNumber} of {backgroundAnalysis.totalSteps}</p>
+           )}
+         </div>
+       </div>
+
+       {/* Progress Bar */}
+       <div className="mb-4">
+         <div className="w-full bg-gray-100 rounded-full h-3">
+           <div
+             className={`h-3 rounded-full transition-all duration-500 ease-out ${
+               backgroundAnalysis.progress === 100
+                 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                 : 'bg-gradient-to-r from-amber-500 to-amber-400'
+             }`}
+             style={{ width: `${backgroundAnalysis.progress}%` }}
+           />
+         </div>
+       </div>
+
+       {/* Current Step or Completion Message */}
+       <div className="flex items-center justify-between">
+         {backgroundAnalysis.progress === 100 ? (
+           <>
+             <span className="text-sm text-emerald-700 font-medium">Click to view results</span>
+             <ArrowRight className="w-4 h-4 text-emerald-500" />
+           </>
+         ) : (
+           <>
+             <div className="flex items-center gap-2">
+               <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+               <span className="text-sm text-gray-700">{backgroundAnalysis.currentStep}</span>
+             </div>
+             <span className="text-xs text-gray-500 mono">
+               ~{Math.max(1, Math.round((backgroundAnalysis.totalSteps - backgroundAnalysis.stepNumber) * 0.5))} min remaining
+             </span>
+           </>
+         )}
+       </div>
+     </div>
+   </div>
  )}
 
  {/* Analysis Results */}
