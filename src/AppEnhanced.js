@@ -7781,8 +7781,8 @@ ${analysisContext}`;
        </div>
        <button
          onClick={() => {
+           setCurrentPage('newCase'); // Navigate to results page
            viewAnalysisResults();
-           setCurrentPage('newCase');
            setNotificationDismissed(false); // Reset for next time
          }}
          className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
