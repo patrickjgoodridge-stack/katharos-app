@@ -6393,7 +6393,7 @@ ${analysisContext}`;
  </div>
  </div>
 
- <div className="fade-in pt-24 px-24">
+ <div className="fade-in pt-12 px-24">
  <div className="flex items-center justify-between mb-8">
  <div>
  <h2 className="text-2xl font-bold tracking-tight leading-tight">Case Management</h2>
@@ -6819,7 +6819,7 @@ ${analysisContext}`;
           </div>
  </div>
 
-          <div className="min-h-[calc(100vh-200px)] flex flex-col justify-start pt-24 px-48">
+          <div className="min-h-[calc(100vh-200px)] flex flex-col justify-start pt-12 px-48">
  <section className="mb-8 fade-in">
  {/* Main Prompt Box - Claude-style */}
  <div className="bg-white/50 backdrop-blur-sm border border-gray-200 rounded-2xl p-6 mb-6">
@@ -7143,7 +7143,7 @@ ${analysisContext}`;
  </div>
  </div>
 
- <div className="fade-in flex pt-24 pl-12 pr-36">
+ <div className="fade-in flex pt-12 pl-12 pr-36">
  {/* Left Navigation Panel - Scrolls with page */}
  <div className="w-48 flex-shrink-0 pl-2 pr-1 py-8">
  <div className="sticky top-8 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl p-4">
