@@ -92,7 +92,14 @@ export default function Marlowe() {
  // Upload dropdown state
  const [showUploadDropdown, setShowUploadDropdown] = useState(false);
  const [isKycChatLoading, setIsKycChatLoading] = useState(false);
- 
+
+ // Conversational interface state
+ const [conversationMessages, setConversationMessages] = useState([]);
+ const [conversationInput, setConversationInput] = useState('');
+ const [isStreaming, setIsStreaming] = useState(false);
+ const [streamingText, setStreamingText] = useState('');
+ const conversationEndRef = useRef(null);
+
  const kycChatEndRef = useRef(null);
 
  const chatEndRef = useRef(null);
@@ -2637,6 +2644,126 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  return parsed;
  };
+
+ // Streaming conversation function - Claude-like interface
+ const sendConversationMessage = async (userMessage, attachedFiles = []) => {
+   if (!userMessage.trim() && attachedFiles.length === 0) return;
+
+   // Add user message to conversation
+   const newUserMessage = {
+     role: 'user',
+     content: userMessage,
+     files: attachedFiles.map(f => f.name),
+     timestamp: new Date().toISOString()
+   };
+   setConversationMessages(prev => [...prev, newUserMessage]);
+   setConversationInput('');
+   setIsStreaming(true);
+   setStreamingText('');
+
+   // Build context from files
+   let evidenceContext = '';
+   if (attachedFiles.length > 0 || files.length > 0) {
+     const allFiles = attachedFiles.length > 0 ? attachedFiles : files;
+     evidenceContext = allFiles.map((file, idx) =>
+       `[Doc ${idx + 1}: ${file.name}]\n${file.content?.substring(0, 8000) || ''}`
+     ).join('\n\n---\n\n');
+   }
+
+   // Build conversation history
+   const history = conversationMessages.map(msg => ({
+     role: msg.role,
+     content: msg.content
+   }));
+
+   const systemPrompt = `You are Marlowe, an expert financial crimes investigator. You help compliance officers and investigators analyze documents, screen entities, and identify risks.
+
+Your personality:
+- Direct and clear, never hedge when you're confident
+- You think out loud: "What strikes me here is..." "The concerning part is..."
+- You quote evidence directly and explain what it means in plain terms
+- You're helpful but honest about limitations and uncertainties
+
+When analyzing documents:
+- Pull specific quotes that matter
+- Explain what they mean in plain English
+- Identify red flags clearly
+- Note what's missing or what you'd want to know more about
+
+Current case context:
+${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
+${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
+
+   try {
+     const response = await fetch(`${API_BASE}/api/stream`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         model: investigationMode === 'scout' ? 'claude-sonnet-4-20250514' : 'claude-opus-4-20250514',
+         max_tokens: 4096,
+         system: systemPrompt,
+         messages: [...history, { role: 'user', content: userMessage }]
+       })
+     });
+
+     if (!response.ok) {
+       throw new Error('Stream request failed');
+     }
+
+     const reader = response.body.getReader();
+     const decoder = new TextDecoder();
+     let fullText = '';
+
+     while (true) {
+       const { done, value } = await reader.read();
+       if (done) break;
+
+       const chunk = decoder.decode(value, { stream: true });
+       const lines = chunk.split('\n');
+
+       for (const line of lines) {
+         if (line.startsWith('data: ')) {
+           const data = line.slice(6);
+           if (data === '[DONE]') {
+             break;
+           }
+           try {
+             const parsed = JSON.parse(data);
+             if (parsed.text) {
+               fullText += parsed.text;
+               setStreamingText(fullText);
+             }
+           } catch (e) {
+             // Skip unparseable
+           }
+         }
+       }
+     }
+
+     // Add assistant message to conversation
+     setConversationMessages(prev => [...prev, {
+       role: 'assistant',
+       content: fullText,
+       timestamp: new Date().toISOString()
+     }]);
+     setStreamingText('');
+
+   } catch (error) {
+     console.error('Streaming error:', error);
+     setConversationMessages(prev => [...prev, {
+       role: 'assistant',
+       content: 'Sorry, I encountered an error. Please try again.',
+       timestamp: new Date().toISOString()
+     }]);
+   } finally {
+     setIsStreaming(false);
+   }
+ };
+
+ // Scroll conversation to bottom
+ useEffect(() => {
+   conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+ }, [conversationMessages, streamingText]);
 
  const analyzeEvidence = async () => {
  console.log('analyzeEvidence called', { files: files.length, caseDescription: caseDescription.substring(0, 50) });
@@ -6323,8 +6450,172 @@ ${analysisContext}`;
  </>
  )}
 
- {/* New Case / Evidence Upload Section */}
+ {/* New Case - Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ <div className="h-screen flex flex-col bg-gray-50">
+ {/* Top Bar */}
+ <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+ <div className="flex items-center gap-4">
+ <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+ <Home className="w-4 h-4 text-gray-500" />
+ </button>
+ <button onClick={() => setCurrentPage('existingCases')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+ <FolderOpen className="w-4 h-4 text-gray-500" />
+ </button>
+ </div>
+ <div className="flex items-center gap-2">
+ <span className="text-sm text-gray-500">Marlowe</span>
+ <span className={`text-xs px-2 py-1 rounded-full ${investigationMode === 'cipher' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+ {investigationMode === 'cipher' ? 'Cipher' : 'Scout'}
+ </span>
+ </div>
+ <button onClick={() => setDarkMode(!darkMode)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+ {darkMode ? <Sun className="w-4 h-4 text-gray-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
+ </button>
+ </div>
+
+ {/* Chat Messages Area */}
+ <div className="flex-1 overflow-y-auto px-4 md:px-8 lg:px-16 xl:px-32 py-8">
+ <div className="max-w-3xl mx-auto space-y-6">
+ {/* Welcome message if no conversation yet */}
+ {conversationMessages.length === 0 && !isStreaming && (
+ <div className="text-center py-16">
+ <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+ <Shield className="w-8 h-8 text-amber-600" />
+ </div>
+ <h2 className="text-2xl font-semibold text-gray-900 mb-2">Marlowe</h2>
+ <p className="text-gray-500 mb-8 max-w-md mx-auto">
+ I'm your financial crimes investigator. Tell me what you're looking into, or upload some documents and I'll analyze them.
+ </p>
+ <div className="flex flex-wrap justify-center gap-2">
+ {[
+ "Screen Oleg Deripaska for sanctions exposure",
+ "What should I look for in a suspicious wire transfer?",
+ "Help me understand the OFAC 50% rule"
+ ].map((suggestion, idx) => (
+ <button
+ key={idx}
+ onClick={() => setConversationInput(suggestion)}
+ className="text-sm bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 px-4 py-2 rounded-full text-gray-600 transition-colors"
+ >
+ {suggestion}
+ </button>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* Conversation Messages */}
+ {conversationMessages.map((msg, idx) => (
+ <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+ <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200'} rounded-2xl px-5 py-4`}>
+ {msg.files && msg.files.length > 0 && (
+ <div className="flex flex-wrap gap-2 mb-2">
+ {msg.files.map((fileName, fIdx) => (
+ <span key={fIdx} className="text-xs bg-black/10 px-2 py-1 rounded flex items-center gap-1">
+ <FileText className="w-3 h-3" />
+ {fileName}
+ </span>
+ ))}
+ </div>
+ )}
+ <div className={`whitespace-pre-wrap leading-relaxed ${msg.role === 'user' ? '' : 'text-gray-800'}`}>
+ {msg.content}
+ </div>
+ </div>
+ </div>
+ ))}
+
+ {/* Streaming response */}
+ {isStreaming && (
+ <div className="flex justify-start">
+ <div className="max-w-2xl bg-white border border-gray-200 rounded-2xl px-5 py-4">
+ <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+ {streamingText || (
+ <span className="flex items-center gap-2 text-gray-400">
+ <Loader2 className="w-4 h-4 animate-spin" />
+ Thinking...
+ </span>
+ )}
+ </div>
+ </div>
+ </div>
+ )}
+
+ <div ref={conversationEndRef} />
+ </div>
+ </div>
+
+ {/* Input Area - Fixed at Bottom */}
+ <div className="border-t border-gray-200 bg-white px-4 md:px-8 lg:px-16 xl:px-32 py-4">
+ <div className="max-w-3xl mx-auto">
+ {/* Attached Files */}
+ {files.length > 0 && (
+ <div className="flex flex-wrap gap-2 mb-3">
+ {files.map((file, idx) => (
+ <div key={idx} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+ <FileText className="w-4 h-4" />
+ <span className="max-w-32 truncate">{file.name}</span>
+ <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500">
+ <X className="w-3 h-3" />
+ </button>
+ </div>
+ ))}
+ </div>
+ )}
+
+ <div className="flex items-end gap-3">
+ {/* File Upload */}
+ <input
+ type="file"
+ ref={fileInputRef}
+ onChange={handleFileUpload}
+ multiple
+ accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
+ className="hidden"
+ />
+ <button
+ onClick={() => fileInputRef.current?.click()}
+ className="p-3 hover:bg-gray-100 rounded-xl transition-colors text-gray-500 hover:text-gray-700"
+ title="Attach files"
+ >
+ <Upload className="w-5 h-5" />
+ </button>
+
+ {/* Input */}
+ <div className="flex-1 relative">
+ <textarea
+ value={conversationInput}
+ onChange={(e) => setConversationInput(e.target.value)}
+ onKeyDown={(e) => {
+ if (e.key === 'Enter' && !e.shiftKey) {
+ e.preventDefault();
+ sendConversationMessage(conversationInput, files);
+ }
+ }}
+ placeholder="Ask Marlowe anything..."
+ rows={1}
+ className="w-full resize-none bg-gray-100 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-amber-500 text-gray-900"
+ style={{ minHeight: '48px', maxHeight: '200px' }}
+ />
+ </div>
+
+ {/* Send Button */}
+ <button
+ onClick={() => sendConversationMessage(conversationInput, files)}
+ disabled={isStreaming || (!conversationInput.trim() && files.length === 0)}
+ className="p-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl transition-colors"
+ >
+ <Send className="w-5 h-5" />
+ </button>
+ </div>
+ </div>
+ </div>
+ </div>
+ )}
+
+ {/* OLD: New Case / Evidence Upload Section - keeping for fallback */}
+ {false && (currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
