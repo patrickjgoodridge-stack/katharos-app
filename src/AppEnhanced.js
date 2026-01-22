@@ -2777,6 +2777,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      const reader = response.body.getReader();
      const decoder = new TextDecoder();
      let fullText = '';
+     let streamError = null;
 
      while (true) {
        const { done, value } = await reader.read();
@@ -2793,6 +2794,12 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
            }
            try {
              const parsed = JSON.parse(data);
+             if (parsed.error) {
+               // Handle error from stream
+               streamError = parsed.error;
+               console.error('Stream error:', parsed.error);
+               break;
+             }
              if (parsed.text) {
                fullText += parsed.text;
                setStreamingText(fullText);
@@ -2802,21 +2809,30 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
            }
          }
        }
+       if (streamError) break;
      }
 
      // Add assistant message to conversation
-     setConversationMessages(prev => [...prev, {
-       role: 'assistant',
-       content: fullText,
-       timestamp: new Date().toISOString()
-     }]);
+     if (streamError) {
+       setConversationMessages(prev => [...prev, {
+         role: 'assistant',
+         content: `I encountered an error: ${typeof streamError === 'string' ? streamError : JSON.stringify(streamError)}. Please try again.`,
+         timestamp: new Date().toISOString()
+       }]);
+     } else if (fullText) {
+       setConversationMessages(prev => [...prev, {
+         role: 'assistant',
+         content: fullText,
+         timestamp: new Date().toISOString()
+       }]);
+     }
      setStreamingText('');
 
    } catch (error) {
      console.error('Streaming error:', error);
      setConversationMessages(prev => [...prev, {
        role: 'assistant',
-       content: 'Sorry, I encountered an error. Please try again.',
+       content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
        timestamp: new Date().toISOString()
      }]);
    } finally {
