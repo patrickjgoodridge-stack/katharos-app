@@ -6569,7 +6569,7 @@ ${analysisContext}`;
  <input
  type="file"
  ref={fileInputRef}
- onChange={handleFileUpload}
+ onChange={handleFileInput}
  multiple
  accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
  className="hidden"
