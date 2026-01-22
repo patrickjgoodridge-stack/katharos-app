@@ -2689,13 +2689,15 @@ You must respond with a JSON object that will be converted into an investigative
  "nextSteps": [
  {
  "priority": "HIGH|MEDIUM|LOW",
- "action": "recommended action",
- "rationale": "why"
+ "action": "Short action (max 15 words)",
+ "source": "https://... (optional URL to OFAC announcement or regulatory guidance)"
  }
  ]
 }
 
-Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PEP status, adverse media, and ownership analysis. Return detailed findings.`;
+Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PEP status, adverse media, and ownership analysis. Return detailed findings.
+
+NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
 
  const userPrompt = `Screen this subject: ${screeningSubject}`;
 
@@ -3568,8 +3570,8 @@ Respond with a JSON object in this exact structure:
  "nextSteps": [
  {
  "priority": "HIGH|MEDIUM|LOW",
- "action": "Simple, practical next step",
- "rationale": "Brief explanation"
+ "action": "Short action (max 15 words) - link to Marlowe if data needed",
+ "source": "https://... (optional URL to relevant OFAC announcement, press release, or regulatory guidance)"
  }
  ]
 }
@@ -3582,28 +3584,21 @@ CRITICAL INSTRUCTIONS:
 - HYPOTHESES: Generate multiple competing hypotheses (3-5) with detailed supporting/contradicting evidence
 - Every claim must cite specific documents using [Doc X] format
 
-RECOMMENDED ACTIONS - CRITICAL GUIDANCE:
-The user is a compliance officer deciding whether to ONBOARD a customer or proceed with a transaction. Your recommendations must answer: "Should I do business with this person/entity?"
+NEXT STEPS - CRITICAL GUIDANCE:
+Keep next steps SHORT and ACTIONABLE. Max 15 words each. Include source links when relevant.
 
-FIRST recommendation MUST be a clear DECISION:
-- "REJECT: Do not onboard - [specific reason, e.g., 'direct SDN sanctions match', 'PEP with corruption allegations']"
-- "APPROVE WITH CONDITIONS: May proceed if [specific conditions]"
-- "ESCALATE: Requires senior compliance/legal review before decision"
+Format: "[DECISION/ACTION]: Brief statement → upload to Marlowe for X" + source URL
 
-REMAINING recommendations should be DOCUMENTS TO REQUEST from the customer, then UPLOAD TO MARLOWE for deeper analysis:
-- "Request certified beneficial ownership documentation - upload to Marlowe Cipher for deep ownership mapping"
-- "Request audited financial statements for past 3 years - upload to Marlowe to detect suspicious patterns"
-- "Request source of funds documentation - upload to Marlowe Cipher for flow-of-funds analysis"
-- "Request bank statements showing transaction history - upload to Marlowe for transaction pattern detection"
-- "Request corporate registry documents - upload to Marlowe to screen each subsidiary"
-- "Request organizational chart with all affiliates - upload to Marlowe for comprehensive sanctions screening"
+EXAMPLES OF GOOD NEXT STEPS:
+- "REJECT: SDN-listed entity, prohibited party" + source: OFAC announcement URL
+- "Request beneficial ownership docs → upload to Marlowe for ownership mapping"
+- "Obtain 3 years financials → upload to Marlowe for pattern analysis"
+- "ESCALATE: PEP with corruption allegations requires senior review" + source: news article URL
 
-NEVER suggest these (Marlowe already did them or user can't do them):
-- "Screen against sanctions lists" - ALREADY DONE by Marlowe
-- "Map ownership network" - tell them to GET ownership docs, Marlowe will map it
-- "Analyze financial flows" - tell them to GET bank statements, Marlowe will analyze
-- "Interview the subject" - not a compliance function
-- "Subpoena records" - users can't do this`
+NEVER SUGGEST (Marlowe already did these):
+- "Screen against sanctions" - DONE
+- "Map ownership network" - GET the docs, Marlowe maps it
+- "Analyze transactions" - GET bank statements, Marlowe analyzes`
  : `${investigationContext}Based on the investigation description provided, create an initial investigative framework with preliminary analysis.
 
 Since no evidence documents have been uploaded yet, focus on:
@@ -3661,8 +3656,8 @@ Respond with a JSON object in this exact structure:
  "nextSteps": [
  {
  "priority": "HIGH",
- "action": "Evidence collection priority",
- "rationale": "Why this is important"
+ "action": "Short action (max 15 words)",
+ "source": "https://... (optional URL)"
  }
  ]
 }`;
@@ -6849,26 +6844,20 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
  <ArrowRight className="w-5 h-5 text-amber-500" />
- Investigative Next Steps
+ Next Steps
  </h3>
- <div className="space-y-3">
+ <div className="space-y-2">
  {analysis.nextSteps.map((step, idx) => (
- <div
- key={idx}
- className={`p-5 rounded-lg border-l-4 ${getRiskBorder(step.priority)} bg-gray-100/50`}
- >
- <div className="flex items-start gap-3 mb-3">
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide mono tracking-wide ${getRiskColor(step.priority)} shrink-0`}>
+ <div key={idx} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0">
+ <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide mono shrink-0 ${getRiskColor(step.priority)}`}>
  {step.priority}
  </span>
- <p className="font-medium tracking-wide text-gray-900 leading-relaxed">{step.action}</p>
- </div>
- <p className="text-base text-gray-900 leading-relaxed mb-3 pl-0">{step.rationale}</p>
- {step.expectedOutcome && (
- <div className="text-sm text-gray-600 leading-relaxed pl-0 pt-3 border-t border-gray-300">
- <span className="text-gray-500 font-medium tracking-wide">Expected Outcome:</span> {step.expectedOutcome}
- </div>
+ <div className="flex-1 text-sm text-gray-900">
+ {step.action}
+ {step.source && (
+ <a href={step.source} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline">[Source]</a>
  )}
+ </div>
  </div>
  ))}
  </div>
