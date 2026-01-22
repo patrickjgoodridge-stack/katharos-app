@@ -3695,6 +3695,28 @@ Red Flag Indicators to Watch:
 
 ${evidenceContext}
 
+DOCUMENT INTELLIGENCE REQUIREMENTS:
+1. CROSS-REFERENCE DOCUMENTS: Compare information across all documents. Look for:
+   - Dates that don't match (invoice dated March but wire transfer in January)
+   - Amounts that don't reconcile (contract says $100K but payment was $150K)
+   - Names/entities that appear differently (Company A in one doc, Company A Ltd in another)
+   - Conflicting statements about ownership, roles, or relationships
+
+2. ENTITY RESOLUTION: When the same person/company appears with different names:
+   - "J. Smith", "John Smith", "J.S.", "Smith, John" → consolidate as one entity
+   - Track all aliases/variations found across documents
+   - Note which documents use which name variation
+
+3. TIMELINE RECONSTRUCTION: Extract ALL dates from documents and build a chronology:
+   - Contract signing dates, payment dates, incorporation dates
+   - Email timestamps, meeting dates, filing dates
+   - Flag timeline gaps or suspicious timing (payment before contract, etc.)
+
+4. CONTRADICTIONS: Actively look for information that doesn't add up:
+   - Different ownership percentages in different docs
+   - Conflicting addresses or jurisdictions
+   - Statements that contradict each other
+
 Respond with a JSON object in this exact structure:
 {
  "executiveSummary": {
@@ -3720,7 +3742,8 @@ Respond with a JSON object in this exact structure:
  "entities": [
  {
  "id": "e1",
- "name": "Entity Name",
+ "name": "Entity Name (canonical/most complete form)",
+ "aliases": ["J. Smith", "John S.", "JS", "other variations found in documents"],
  "type": "PERSON|ORGANIZATION|ACCOUNT",
  "role": "Brief role in the case",
  "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
@@ -3761,11 +3784,24 @@ Respond with a JSON object in this exact structure:
  "instances": ["Specific instance 1 [Doc X]", "Instance 2 [Doc Y]", "Instance 3 [Doc Z]"]
  }
  ],
+ "documentCrossReferences": [
+ {
+ "id": "dcr1",
+ "finding": "What the cross-reference reveals (e.g., 'Invoice date doesn't match wire transfer')",
+ "doc1": {"name": "Doc 1 name", "quote": "Exact quote from doc 1", "citation": "Doc 1"},
+ "doc2": {"name": "Doc 2 name", "quote": "Exact quote from doc 2", "citation": "Doc 2"},
+ "significance": "Why this matters - what it suggests about the case",
+ "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL"
+ }
+ ],
  "contradictions": [
  {
+ "id": "c1",
+ "title": "Short title (e.g., 'Conflicting ownership claims')",
  "description": "Specific contradiction in the evidence",
- "source1": "First piece of conflicting evidence [Doc X]",
- "source2": "Second piece of conflicting evidence [Doc Y]",
+ "source1": {"quote": "Exact quote", "citation": "Doc X", "context": "What this document claims"},
+ "source2": {"quote": "Conflicting quote", "citation": "Doc Y", "context": "What this document claims"},
+ "significance": "Why this contradiction matters",
  "resolution": "Possible explanation or what's needed to resolve"
  }
  ],
@@ -7119,10 +7155,15 @@ ${analysisContext}`;
  { id: 'hypotheses', label: 'Hypotheses', icon: Lightbulb },
  { id: 'network', label: 'Network', icon: Network },
  { id: 'timeline', label: 'Timeline', icon: Clock },
+ { id: 'crossref', label: 'Cross-References', icon: Link2 },
  { id: 'evidence', label: 'Evidence', icon: FileText },
  ].filter(tab => {
  // Hide Timeline tab if there are no timeline events
  if (tab.id === 'timeline' && (!analysis.timeline || analysis.timeline.length === 0)) {
+ return false;
+ }
+ // Hide Cross-References tab if no cross-refs or contradictions
+ if (tab.id === 'crossref' && (!analysis.documentCrossReferences || analysis.documentCrossReferences.length === 0) && (!analysis.contradictions || analysis.contradictions.length === 0)) {
  return false;
  }
  return true;
@@ -7281,11 +7322,12 @@ ${analysisContext}`;
  )}
 
  {/* Stats Grid */}
- <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+ <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
  {[
  { label: 'Entities', value: analysis.entities?.length || 0, icon: Users, color: 'text-blue-600' },
  { label: 'Red Flags', value: analysis.redFlags?.length || 0, icon: AlertTriangle, color: 'text-red-600' },
  { label: 'Timeline Events', value: analysis.timeline?.length || 0, icon: Clock, color: 'text-emerald-600' },
+ { label: 'Cross-Refs', value: (analysis.documentCrossReferences?.length || 0) + (analysis.contradictions?.length || 0), icon: Link2, color: 'text-purple-600' },
  { label: 'Hypotheses', value: analysis.hypotheses?.length || 0, icon: Lightbulb, color: 'text-amber-600' },
  ].map(stat => (
  <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -7388,6 +7430,158 @@ ${analysisContext}`;
  ))}
  </div>
  </div>
+ </div>
+ )}
+
+ {/* Cross-References Tab - Document Intelligence */}
+ {activeTab === 'crossref' && (
+ <div className="space-y-6">
+ {/* Cross-Document References */}
+ {analysis.documentCrossReferences && analysis.documentCrossReferences.length > 0 && (
+ <div className="bg-white border border-gray-200 rounded-xl p-6">
+ <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
+ <Link2 className="w-5 h-5 text-amber-500" />
+ Cross-Document Findings
+ </h3>
+ <p className="text-sm text-gray-600 mb-6">Information that connects or conflicts across multiple documents</p>
+
+ <div className="space-y-4">
+ {analysis.documentCrossReferences.map((ref, idx) => (
+ <div key={ref.id || idx} className={`border-l-4 ${
+   ref.riskLevel === 'CRITICAL' ? 'border-red-500 bg-red-50' :
+   ref.riskLevel === 'HIGH' ? 'border-rose-400 bg-rose-50' :
+   ref.riskLevel === 'MEDIUM' ? 'border-amber-400 bg-amber-50' :
+   'border-blue-400 bg-blue-50'
+ } rounded-r-lg p-4`}>
+ <div className="flex items-start justify-between mb-3">
+   <h4 className="font-semibold text-gray-900">{ref.finding}</h4>
+   <span className={`px-2 py-0.5 rounded text-xs font-bold ${getRiskColor(ref.riskLevel)}`}>
+     {ref.riskLevel}
+   </span>
+ </div>
+
+ <div className="grid md:grid-cols-2 gap-4 mb-3">
+   <div className="bg-white/70 rounded-lg p-3">
+     <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">{ref.doc1?.citation || 'Document 1'}</p>
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-gray-300 pl-3">
+       "{ref.doc1?.quote}"
+     </blockquote>
+   </div>
+   <div className="bg-white/70 rounded-lg p-3">
+     <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">{ref.doc2?.citation || 'Document 2'}</p>
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-gray-300 pl-3">
+       "{ref.doc2?.quote}"
+     </blockquote>
+   </div>
+ </div>
+
+ <p className="text-sm text-gray-700"><span className="font-medium">Significance:</span> {ref.significance}</p>
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* Contradictions */}
+ {analysis.contradictions && analysis.contradictions.length > 0 && (
+ <div className="bg-white border border-gray-200 rounded-xl p-6">
+ <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
+ <AlertTriangle className="w-5 h-5 text-rose-500" />
+ Contradictions Detected
+ </h3>
+ <p className="text-sm text-gray-600 mb-6">Information that directly conflicts between documents</p>
+
+ <div className="space-y-4">
+ {analysis.contradictions.map((contradiction, idx) => (
+ <div key={contradiction.id || idx} className="border border-rose-200 bg-rose-50 rounded-lg p-4">
+ <h4 className="font-semibold text-gray-900 mb-3">{contradiction.title || contradiction.description}</h4>
+
+ <div className="grid md:grid-cols-2 gap-4 mb-3">
+   <div className="bg-white rounded-lg p-3 border border-rose-100">
+     <p className="text-xs font-medium text-rose-600 mono uppercase tracking-wider mb-1">
+       {contradiction.source1?.citation || 'Source 1'}
+     </p>
+     {contradiction.source1?.context && (
+       <p className="text-xs text-gray-500 mb-1">{contradiction.source1.context}</p>
+     )}
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-rose-300 pl-3">
+       "{contradiction.source1?.quote || contradiction.source1}"
+     </blockquote>
+   </div>
+   <div className="bg-white rounded-lg p-3 border border-rose-100">
+     <p className="text-xs font-medium text-rose-600 mono uppercase tracking-wider mb-1">
+       {contradiction.source2?.citation || 'Source 2'}
+     </p>
+     {contradiction.source2?.context && (
+       <p className="text-xs text-gray-500 mb-1">{contradiction.source2.context}</p>
+     )}
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-rose-300 pl-3">
+       "{contradiction.source2?.quote || contradiction.source2}"
+     </blockquote>
+   </div>
+ </div>
+
+ {contradiction.significance && (
+   <p className="text-sm text-gray-700 mb-2"><span className="font-medium">Why this matters:</span> {contradiction.significance}</p>
+ )}
+ {contradiction.resolution && (
+   <p className="text-sm text-gray-600"><span className="font-medium">To resolve:</span> {contradiction.resolution}</p>
+ )}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* Entity Aliases - Entity Resolution */}
+ {analysis.entities && analysis.entities.some(e => e.aliases && e.aliases.length > 0) && (
+ <div className="bg-white border border-gray-200 rounded-xl p-6">
+ <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
+ <Users className="w-5 h-5 text-blue-500" />
+ Entity Resolution
+ </h3>
+ <p className="text-sm text-gray-600 mb-6">Same entities appearing under different names across documents</p>
+
+ <div className="space-y-3">
+ {analysis.entities.filter(e => e.aliases && e.aliases.length > 0).map((entity, idx) => (
+ <div key={entity.id || idx} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
+   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+     entity.type === 'PERSON' ? 'bg-blue-100' : 'bg-purple-100'
+   }`}>
+     {entity.type === 'PERSON' ? (
+       <Users className="w-5 h-5 text-blue-600" />
+     ) : (
+       <Building2 className="w-5 h-5 text-purple-600" />
+     )}
+   </div>
+   <div className="flex-1">
+     <p className="font-semibold text-gray-900">{entity.name}</p>
+     <div className="flex flex-wrap gap-2 mt-2">
+       {entity.aliases.map((alias, aidx) => (
+         <span key={aidx} className="text-xs bg-white border border-gray-200 px-2 py-1 rounded">
+           {alias}
+         </span>
+       ))}
+     </div>
+     {entity.citations && (
+       <p className="text-xs text-gray-500 mt-2">Found in: {entity.citations.join(', ')}</p>
+     )}
+   </div>
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* Empty state */}
+ {(!analysis.documentCrossReferences || analysis.documentCrossReferences.length === 0) &&
+  (!analysis.contradictions || analysis.contradictions.length === 0) && (
+ <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+ <Link2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+ <h3 className="text-lg font-semibold text-gray-900 mb-2">No Cross-References Detected</h3>
+ <p className="text-gray-600">Upload multiple documents to enable cross-document analysis</p>
+ </div>
+ )}
  </div>
  )}
 
