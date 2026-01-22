@@ -2759,7 +2759,8 @@ ${caseDescription ? `Case description: ${caseDescription}` : 'No case descriptio
 ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
    try {
-     const response = await fetch(`${API_BASE}/api/stream`, {
+     // Use existing messages endpoint (non-streaming but reliable)
+     const response = await fetch(`${API_BASE}/api/messages`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
@@ -2772,55 +2773,14 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
      if (!response.ok) {
        const errorText = await response.text();
-       throw new Error(`Stream request failed (${response.status}): ${errorText}`);
+       throw new Error(`Request failed (${response.status}): ${errorText}`);
      }
 
-     const reader = response.body.getReader();
-     const decoder = new TextDecoder();
-     let fullText = '';
-     let streamError = null;
-
-     while (true) {
-       const { done, value } = await reader.read();
-       if (done) break;
-
-       const chunk = decoder.decode(value, { stream: true });
-       const lines = chunk.split('\n');
-
-       for (const line of lines) {
-         if (line.startsWith('data: ')) {
-           const data = line.slice(6);
-           if (data === '[DONE]') {
-             break;
-           }
-           try {
-             const parsed = JSON.parse(data);
-             if (parsed.error) {
-               // Handle error from stream
-               streamError = parsed.error;
-               console.error('Stream error:', parsed.error);
-               break;
-             }
-             if (parsed.text) {
-               fullText += parsed.text;
-               setStreamingText(fullText);
-             }
-           } catch (e) {
-             // Skip unparseable
-           }
-         }
-       }
-       if (streamError) break;
-     }
+     const data = await response.json();
+     const fullText = data.content?.map(item => item.text || '').join('\n') || '';
 
      // Add assistant message to conversation
-     if (streamError) {
-       setConversationMessages(prev => [...prev, {
-         role: 'assistant',
-         content: `I encountered an error: ${typeof streamError === 'string' ? streamError : JSON.stringify(streamError)}. Please try again.`,
-         timestamp: new Date().toISOString()
-       }]);
-     } else if (fullText) {
+     if (fullText) {
        setConversationMessages(prev => [...prev, {
          role: 'assistant',
          content: fullText,
