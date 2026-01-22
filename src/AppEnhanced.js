@@ -2763,7 +2763,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
-         model: investigationMode === 'scout' ? 'claude-sonnet-4-20250514' : 'claude-opus-4-20250514',
+         model: 'claude-sonnet-4-20250514',
          max_tokens: 4096,
          system: systemPrompt,
          messages: [...history, { role: 'user', content: userMessage }]
