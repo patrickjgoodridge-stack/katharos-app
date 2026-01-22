@@ -2711,6 +2711,63 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
  try {
  setAnalysisError(null);
 
+ // Generate case name from user input for Scout
+ let displayCaseName = caseName;
+ if (!displayCaseName) {
+   if (caseDescription.trim()) {
+     const desc = caseDescription.trim();
+     displayCaseName = desc.length > 60 ? desc.substring(0, 60).replace(/\s+\S*$/, '...') : desc;
+   } else if (files.length > 0) {
+     displayCaseName = files.map(f => f.name.replace(/\.[^/.]+$/, '')).join(', ');
+     if (displayCaseName.length > 60) {
+       displayCaseName = displayCaseName.substring(0, 60) + '...';
+     }
+   } else {
+     displayCaseName = `Scout Screening ${new Date().toLocaleDateString()}`;
+   }
+ }
+
+ // Initialize background analysis state for Scout
+ setBackgroundAnalysis({
+   isRunning: true,
+   isComplete: false,
+   caseId: null,
+   caseName: displayCaseName,
+   currentStep: 'Initializing screening...',
+   stepNumber: 0,
+   totalSteps: 5,
+   progress: 0,
+   pendingAnalysis: null
+ });
+ setNotificationDismissed(false);
+
+ // Scout progress steps
+ const scoutProgressSteps = [
+   { step: 'Analyzing documents...', progress: 20 },
+   { step: 'Extracting entities...', progress: 40 },
+   { step: 'Screening sanctions...', progress: 60 },
+   { step: 'Assessing risk levels...', progress: 80 },
+   { step: 'Finalizing screening...', progress: 95 }
+ ];
+
+ let progressIndex = 0;
+ const progressInterval = setInterval(() => {
+   if (progressIndex < scoutProgressSteps.length) {
+     const currentStep = scoutProgressSteps[progressIndex];
+     if (currentStep) {
+       setBackgroundAnalysis(prev => ({
+         ...prev,
+         currentStep: currentStep.step,
+         progress: currentStep.progress,
+         stepNumber: progressIndex + 1
+       }));
+     }
+     progressIndex++;
+   } else {
+     clearInterval(progressInterval);
+   }
+ }, 2000);
+
  const evidenceContext = files.map((f, idx) => {
  const truncatedContent = f.content.length > 3000
  ? f.content.substring(0, 3000) + '\n\n[... content truncated ...]'
@@ -2820,32 +2877,51 @@ CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments.`;
  }
  }
 
+ // Clear progress interval
+ clearInterval(progressInterval);
+
  if (jsonStr && jsonStr.startsWith('{')) {
  try {
  const parsed = JSON.parse(jsonStr);
 
  // Auto-generate case name based on analysis if not already set
+ let finalCaseName = displayCaseName;
  if (!caseName || caseName === '') {
  const primaryEntities = parsed.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
  const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- const autoName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
- setCaseName(autoName);
+ finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+ setCaseName(finalCaseName);
  }
 
- setAnalysis(parsed);
- setActiveTab('overview');
+ await new Promise(resolve => setTimeout(resolve, 300));
+
+ // Complete - show "Results ready" popup and store pending analysis
+ setBackgroundAnalysis(prev => ({
+   ...prev,
+   isRunning: false,
+   isComplete: true,
+   progress: 100,
+   currentStep: 'Screening complete',
+   caseName: finalCaseName,
+   pendingAnalysis: parsed
+ }));
+
+ // Save the case but don't navigate yet
  saveCase(parsed);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  setAnalysisError(`Error parsing Scout results: ${parseError.message}`);
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, isComplete: false }));
  }
  } else {
  setAnalysisError('No structured results returned from Scout screening.');
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, isComplete: false }));
  }
  } catch (error) {
  console.error('Scout analysis error:', error);
  setAnalysisError(`Scout analysis error: ${error.message}`);
+ setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, isComplete: false }));
  } finally {
  setIsAnalyzing(false);
  }
