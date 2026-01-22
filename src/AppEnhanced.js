@@ -4258,19 +4258,19 @@ ${analysisContext}`;
  };
 
  return (
- <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "dark bg-slate-950 text-gray-100" : "bg-gray-50 text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
  {/* Import fonts */}
  <style>{`
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
- 
+
  .mono {  font-family: 'JetBrains Mono', monospace; }
- 
+
  .grid-bg {
- background-image: 
+ background-image:
  radial-gradient(circle at 1px 1px, rgba(6, 182, 212, 0.08) 1px, transparent 1px);
  background-size: 24px 24px;
  }
- 
+
  .glow-cyan {
  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
  }
@@ -4282,18 +4282,230 @@ ${analysisContext}`;
  .glow-red {
  box-shadow: 0 0 20px rgba(244, 63, 94, 0.4), 0 0 40px rgba(244, 63, 94, 0.2);
  }
- 
+
  .glass-card {
  background: rgba(15, 23, 42, 0.7);
  backdrop-filter: blur(20px) saturate(180%);
  border: 1px solid rgba(6, 182, 212, 0.2);
  }
- 
+
  .glass-strong {
  background: rgba(255, 255, 255, 0.95);
  backdrop-filter: blur(24px) saturate(200%);
  border: 1px solid rgba(6, 182, 212, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+ }
+
+ /* Dark mode styles */
+ .dark .dark\\:card {
+   background: rgba(30, 41, 59, 0.8) !important;
+   border-color: rgba(71, 85, 105, 0.5) !important;
+ }
+
+ .dark .dark\\:card-elevated {
+   background: rgba(51, 65, 85, 0.9) !important;
+   border-color: rgba(100, 116, 139, 0.4) !important;
+ }
+
+ .dark .bg-white {
+   background: rgb(30, 41, 59) !important;
+ }
+
+ .dark .bg-gray-50 {
+   background: rgb(15, 23, 42) !important;
+ }
+
+ .dark .bg-gray-100 {
+   background: rgb(30, 41, 59) !important;
+ }
+
+ .dark .bg-gray-100\\/50 {
+   background: rgba(30, 41, 59, 0.5) !important;
+ }
+
+ .dark .border-gray-200 {
+   border-color: rgb(51, 65, 85) !important;
+ }
+
+ .dark .border-gray-300 {
+   border-color: rgb(71, 85, 105) !important;
+ }
+
+ .dark .text-gray-900 {
+   color: rgb(241, 245, 249) !important;
+ }
+
+ .dark .text-gray-800 {
+   color: rgb(226, 232, 240) !important;
+ }
+
+ .dark .text-gray-700 {
+   color: rgb(203, 213, 225) !important;
+ }
+
+ .dark .text-gray-600 {
+   color: rgb(148, 163, 184) !important;
+ }
+
+ .dark .text-gray-500 {
+   color: rgb(100, 116, 139) !important;
+ }
+
+ .dark .text-gray-400 {
+   color: rgb(148, 163, 184) !important;
+ }
+
+ .dark .hover\\:bg-gray-100:hover {
+   background: rgb(51, 65, 85) !important;
+ }
+
+ .dark .hover\\:bg-gray-200:hover {
+   background: rgb(71, 85, 105) !important;
+ }
+
+ .dark .hover\\:border-gray-300:hover {
+   border-color: rgb(100, 116, 139) !important;
+ }
+
+ .dark .hover\\:border-gray-400:hover {
+   border-color: rgb(148, 163, 184) !important;
+ }
+
+ .dark .bg-white\\/50 {
+   background: rgba(30, 41, 59, 0.5) !important;
+ }
+
+ .dark .bg-white\\/95 {
+   background: rgba(30, 41, 59, 0.95) !important;
+ }
+
+ .dark .bg-gray-50\\/80 {
+   background: rgba(15, 23, 42, 0.8) !important;
+ }
+
+ .dark footer {
+   background: rgba(15, 23, 42, 0.9) !important;
+   border-color: rgb(51, 65, 85) !important;
+ }
+
+ /* Dark mode for specific components */
+ .dark .bg-amber-50 {
+   background: rgba(245, 158, 11, 0.15) !important;
+ }
+
+ .dark .bg-amber-100 {
+   background: rgba(245, 158, 11, 0.2) !important;
+ }
+
+ .dark .border-amber-200 {
+   border-color: rgba(245, 158, 11, 0.4) !important;
+ }
+
+ .dark .bg-emerald-50 {
+   background: rgba(16, 185, 129, 0.15) !important;
+ }
+
+ .dark .bg-emerald-100 {
+   background: rgba(16, 185, 129, 0.2) !important;
+ }
+
+ .dark .border-emerald-200 {
+   border-color: rgba(16, 185, 129, 0.4) !important;
+ }
+
+ .dark .bg-rose-50 {
+   background: rgba(244, 63, 94, 0.15) !important;
+ }
+
+ .dark .border-rose-200 {
+   border-color: rgba(244, 63, 94, 0.4) !important;
+ }
+
+ .dark .bg-red-600\\/20 {
+   background: rgba(220, 38, 38, 0.25) !important;
+ }
+
+ .dark .bg-purple-100 {
+   background: rgba(168, 85, 247, 0.2) !important;
+ }
+
+ .dark .border-purple-200 {
+   border-color: rgba(168, 85, 247, 0.4) !important;
+ }
+
+ .dark .bg-blue-50 {
+   background: rgba(59, 130, 246, 0.15) !important;
+ }
+
+ .dark input,
+ .dark textarea {
+   background: rgb(30, 41, 59) !important;
+   border-color: rgb(71, 85, 105) !important;
+   color: rgb(241, 245, 249) !important;
+ }
+
+ .dark input:focus,
+ .dark textarea:focus {
+   border-color: rgb(245, 158, 11) !important;
+ }
+
+ .dark input::placeholder,
+ .dark textarea::placeholder {
+   color: rgb(100, 116, 139) !important;
+ }
+
+ .dark pre {
+   background: rgb(15, 23, 42) !important;
+   color: rgb(148, 163, 184) !important;
+ }
+
+ .dark .shadow-xl {
+   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+ }
+
+ .dark .shadow-lg {
+   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+ }
+
+ /* Amber accent colors stay vibrant in dark mode */
+ .dark .bg-amber-500 {
+   background: rgb(245, 158, 11) !important;
+ }
+
+ .dark .hover\\:bg-amber-400:hover {
+   background: rgb(251, 191, 36) !important;
+ }
+
+ .dark .text-amber-500 {
+   color: rgb(251, 191, 36) !important;
+ }
+
+ .dark .text-amber-600 {
+   color: rgb(245, 158, 11) !important;
+ }
+
+ /* Chart and graph backgrounds */
+ .dark .recharts-wrapper {
+   background: transparent !important;
+ }
+
+ /* Scrollbar styling for dark mode */
+ .dark ::-webkit-scrollbar {
+   width: 8px;
+   height: 8px;
+ }
+
+ .dark ::-webkit-scrollbar-track {
+   background: rgb(30, 41, 59);
+ }
+
+ .dark ::-webkit-scrollbar-thumb {
+   background: rgb(71, 85, 105);
+   border-radius: 4px;
+ }
+
+ .dark ::-webkit-scrollbar-thumb:hover {
+   background: rgb(100, 116, 139);
  }
  
  .gradient-border {
