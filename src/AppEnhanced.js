@@ -98,7 +98,10 @@ export default function Marlowe() {
  const [conversationInput, setConversationInput] = useState('');
  const [isStreaming, setIsStreaming] = useState(false);
  const [streamingText, setStreamingText] = useState('');
+ const [conversationStarted, setConversationStarted] = useState(false); // Input centered until first message
+ const [sidebarOpen, setSidebarOpen] = useState(true); // Left sidebar for case navigation
  const conversationEndRef = useRef(null);
+ const mainInputRef = useRef(null);
 
  const kycChatEndRef = useRef(null);
 
@@ -389,6 +392,39 @@ export default function Marlowe() {
    }
 
    return entityName || desc.substring(0, 50);
+ };
+
+ // Format analysis text as styled HTML
+ const formatAnalysisAsHtml = (text) => {
+   if (!text) return '';
+
+   let html = text
+     // OVERALL RISK with colored badge
+     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-red-600 text-white">OVERALL RISK: CRITICAL</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-red-100 text-red-700">OVERALL RISK: HIGH</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-amber-100 text-amber-700">OVERALL RISK: MEDIUM</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-green-100 text-green-700">OVERALL RISK: LOW</span></div>')
+     // Section headers
+     .replace(/^(CRITICAL RED FLAGS|RED FLAGS|KEY FINDINGS|TYPOLOGIES PRESENT|ONBOARDING DECISION|DOCUMENTS TO REQUEST|THE MEMO|NEXT STEPS)/gm, '<h3 class="text-lg font-bold text-gray-900 mt-6 mb-3 border-b border-gray-200 pb-2">$1</h3>')
+     // Numbered items with bold titles
+     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*/gm, '<div class="mt-4"><span class="font-bold text-gray-900">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mt-4"><span class="font-bold text-gray-900">$1. $2</span></div>')
+     // Blockquotes with red left border for red flags
+     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="border-l-4 border-red-400 pl-4 my-3 py-2 bg-red-50 text-gray-700 italic rounded-r">"$1"</blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 text-gray-600 italic">"$1"</blockquote>')
+     // Translation lines
+     .replace(/^Translation:\s*(.+)$/gm, '<p class="text-gray-800 mt-2 ml-4"><span class="font-semibold text-gray-900">Translation:</span> $1</p>')
+     // Bold text
+     .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gray-900">$1</strong>')
+     // Bullet points
+     .replace(/^[-•]\s+(.+)$/gm, '<li class="ml-4 my-1">$1</li>')
+     // Wrap consecutive list items
+     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 my-2">$&</ul>')
+     // Line breaks
+     .replace(/\n\n/g, '</p><p class="mt-3">')
+     .replace(/\n/g, '<br/>');
+
+   return `<div class="text-gray-800 leading-relaxed">${html}</div>`;
  };
 
  // Go back to Noir landing
@@ -2684,11 +2720,39 @@ Your personality:
 - You quote evidence directly and explain what it means in plain terms
 - You're helpful but honest about limitations and uncertainties
 
-When analyzing documents:
-- Pull specific quotes that matter
-- Explain what they mean in plain English
-- Identify red flags clearly
-- Note what's missing or what you'd want to know more about
+OUTPUT FORMAT:
+When analyzing documents or entities for risks, structure your response like this:
+
+OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW]
+
+[Opening paragraph explaining your overall assessment conversationally]
+
+CRITICAL RED FLAGS
+
+1. **[Red Flag Title]**
+> "[Direct quote from the document or evidence]"
+Translation: [Plain English explanation of what this means and why it's concerning]
+
+2. **[Second Red Flag Title]**
+> "[Another concerning quote]"
+Translation: [Explanation]
+
+[Continue for each significant red flag]
+
+TYPOLOGIES PRESENT
+[List the financial crime patterns you see: Money laundering indicators, Fraud markers, Sanctions exposure, etc.]
+
+ONBOARDING DECISION
+[Your clear recommendation: REJECT, ENHANCED DUE DILIGENCE, or PROCEED WITH CAUTION, with brief rationale]
+
+DOCUMENTS TO REQUEST
+- [Specific document that would help clarify a red flag]
+- [Another document request]
+
+THE MEMO
+[A brief 2-3 sentence summary suitable for escalation to senior compliance]
+
+When conversing casually or answering follow-up questions, just respond naturally without this structure.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
@@ -6450,48 +6514,150 @@ ${analysisContext}`;
  </>
  )}
 
- {/* New Case - Conversational Interface (disabled - keeping for later) */}
- {false && (currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className="h-screen flex flex-col bg-gray-50">
- {/* Top Bar */}
- <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
- <div className="flex items-center gap-4">
- <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
- <Home className="w-4 h-4 text-gray-500" />
- </button>
- <button onClick={() => setCurrentPage('existingCases')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
- <FolderOpen className="w-4 h-4 text-gray-500" />
+ {/* Claude-like Conversational Interface */}
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ <div className="h-screen flex bg-white">
+ {/* Left Sidebar - Case History */}
+ <div className={`${sidebarOpen ? 'w-64' : 'w-0'} border-r border-gray-200 bg-gray-50 flex flex-col transition-all duration-300 overflow-hidden`}>
+ <div className="p-4 border-b border-gray-200">
+ <button
+ onClick={() => {
+ setConversationMessages([]);
+ setConversationStarted(false);
+ setFiles([]);
+ setCaseDescription('');
+ }}
+ className="w-full flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+ >
+ <Plus className="w-4 h-4" />
+ New Case
  </button>
  </div>
+ <div className="flex-1 overflow-y-auto p-2">
+ <div className="text-xs font-medium text-gray-400 px-3 py-2">Recent Cases</div>
+ {cases.slice(0, 20).map((caseItem) => (
+ <button
+ key={caseItem.id}
+ onClick={() => {
+ setActiveCase(caseItem);
+ if (caseItem.analysis) setAnalysis(caseItem.analysis);
+ if (caseItem.chatHistory) setConversationMessages(caseItem.chatHistory);
+ setConversationStarted(true);
+ }}
+ className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate hover:bg-gray-100 transition-colors ${activeCase?.id === caseItem.id ? 'bg-gray-100' : ''}`}
+ >
+ {caseItem.name || 'Untitled Case'}
+ </button>
+ ))}
+ </div>
+ </div>
+
+ {/* Main Content Area */}
+ <div className="flex-1 flex flex-col">
+ {/* Top Bar */}
+ <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
  <div className="flex items-center gap-2">
- <span className="text-sm text-gray-500">Marlowe</span>
+ <button
+ onClick={() => setSidebarOpen(!sidebarOpen)}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+ >
+ <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
+ </button>
+ <button
+ onClick={goToLanding}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="Home"
+ >
+ <Home className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+ </button>
+ <span className="text-sm font-medium text-gray-700">Marlowe</span>
+ </div>
+ <div className="flex items-center gap-2">
+ <button
+ onClick={() => setDarkMode(!darkMode)}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title={darkMode ? 'Light mode' : 'Dark mode'}
+ >
+ {darkMode ? <Sun className="w-4 h-4 text-gray-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
+ </button>
  <span className={`text-xs px-2 py-1 rounded-full ${investigationMode === 'cipher' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
  {investigationMode === 'cipher' ? 'Cipher' : 'Scout'}
  </span>
  </div>
- <button onClick={() => setDarkMode(!darkMode)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
- {darkMode ? <Sun className="w-4 h-4 text-gray-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
- </button>
  </div>
 
- {/* Chat Messages Area */}
- <div className="flex-1 overflow-y-auto px-4 md:px-8 lg:px-16 xl:px-32 py-8">
- <div className="max-w-3xl mx-auto space-y-6">
- {/* Welcome message if no conversation yet */}
- {conversationMessages.length === 0 && !isStreaming && (
- <div className="text-center py-16">
- <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
- <Shield className="w-8 h-8 text-amber-600" />
+ {/* Chat Area - Centered input before conversation starts, bottom after */}
+ {!conversationStarted ? (
+ /* Centered Input - Before Conversation */
+ <div className="flex-1 flex flex-col items-center justify-center px-4">
+ <div className="w-full max-w-2xl">
+ <h1 className="text-3xl font-semibold text-gray-900 text-center mb-8">What can I help you investigate?</h1>
+
+ {/* Centered Input Box */}
+ <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4">
+ {files.length > 0 && (
+ <div className="flex flex-wrap gap-2 mb-3">
+ {files.map((file, idx) => (
+ <div key={idx} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+ <FileText className="w-4 h-4" />
+ <span className="max-w-40 truncate">{file.name}</span>
+ <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500">
+ <X className="w-3 h-3" />
+ </button>
  </div>
- <h2 className="text-2xl font-semibold text-gray-900 mb-2">Marlowe</h2>
- <p className="text-gray-500 mb-8 max-w-md mx-auto">
- I'm your financial crimes investigator. Tell me what you're looking into, or upload some documents and I'll analyze them.
- </p>
- <div className="flex flex-wrap justify-center gap-2">
+ ))}
+ </div>
+ )}
+ <textarea
+ ref={mainInputRef}
+ value={conversationInput}
+ onChange={(e) => setConversationInput(e.target.value)}
+ onKeyDown={(e) => {
+ if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
+ e.preventDefault();
+ setConversationStarted(true);
+ // Auto-create case name from input
+ const newCaseName = extractEntityName(conversationInput) || 'New Investigation';
+ setCaseName(newCaseName);
+ sendConversationMessage(conversationInput, files);
+ }
+ }}
+ placeholder="Describe what you're investigating, or upload documents..."
+ rows={3}
+ className="w-full resize-none bg-transparent focus:outline-none text-gray-900 text-lg"
+ autoFocus
+ />
+ <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+ <div className="flex items-center gap-2">
+ <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
+ <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
+ <Upload className="w-5 h-5" />
+ </button>
+ </div>
+ <button
+ onClick={() => {
+ if (conversationInput.trim() || files.length > 0) {
+ setConversationStarted(true);
+ const newCaseName = extractEntityName(conversationInput) || 'New Investigation';
+ setCaseName(newCaseName);
+ sendConversationMessage(conversationInput, files);
+ }
+ }}
+ disabled={!conversationInput.trim() && files.length === 0}
+ className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl transition-colors flex items-center gap-2"
+ >
+ <Send className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
+
+ {/* Suggestions */}
+ <div className="flex flex-wrap justify-center gap-2 mt-6">
  {[
- "Screen Oleg Deripaska for sanctions exposure",
- "What should I look for in a suspicious wire transfer?",
- "Help me understand the OFAC 50% rule"
+ "What are the risks of this company?",
+ "Screen this entity for sanctions",
+ "Analyze this transaction pattern"
  ].map((suggestion, idx) => (
  <button
  key={idx}
@@ -6503,87 +6669,64 @@ ${analysisContext}`;
  ))}
  </div>
  </div>
- )}
-
- {/* Conversation Messages */}
+ </div>
+ ) : (
+ /* After Conversation Started - Messages with Bottom Input */
+ <>
+ <div className="flex-1 overflow-y-auto px-4 py-6">
+ <div className="max-w-3xl mx-auto space-y-6">
  {conversationMessages.map((msg, idx) => (
  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
- <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200'} rounded-2xl px-5 py-4`}>
- {msg.files && msg.files.length > 0 && (
+ <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white rounded-2xl px-5 py-3' : ''}`}>
+ {msg.role === 'user' && msg.files && msg.files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-2">
  {msg.files.map((fileName, fIdx) => (
- <span key={fIdx} className="text-xs bg-black/10 px-2 py-1 rounded flex items-center gap-1">
+ <span key={fIdx} className="text-xs bg-white/20 px-2 py-1 rounded flex items-center gap-1">
  <FileText className="w-3 h-3" />
  {fileName}
  </span>
  ))}
  </div>
  )}
- <div className={`whitespace-pre-wrap leading-relaxed ${msg.role === 'user' ? '' : 'text-gray-800'}`}>
- {msg.content}
+ <div className={`whitespace-pre-wrap leading-relaxed ${msg.role === 'assistant' ? 'prose prose-gray max-w-none' : ''}`}
+ dangerouslySetInnerHTML={msg.role === 'assistant' ? { __html: formatAnalysisAsHtml(msg.content) } : undefined}>
+ {msg.role === 'user' ? msg.content : null}
  </div>
  </div>
  </div>
  ))}
 
- {/* Streaming response */}
  {isStreaming && (
  <div className="flex justify-start">
- <div className="max-w-2xl bg-white border border-gray-200 rounded-2xl px-5 py-4">
- <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
- {streamingText || (
- <span className="flex items-center gap-2 text-gray-400">
- <Loader2 className="w-4 h-4 animate-spin" />
- Thinking...
- </span>
- )}
+ <div className="max-w-2xl">
+ <div className="prose prose-gray max-w-none whitespace-pre-wrap leading-relaxed"
+ dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(streamingText) || '<span class="text-gray-400 flex items-center gap-2"><span class="animate-pulse">●</span> Analyzing...</span>' }}>
  </div>
  </div>
  </div>
  )}
-
  <div ref={conversationEndRef} />
  </div>
  </div>
 
- {/* Input Area - Fixed at Bottom */}
- <div className="border-t border-gray-200 bg-white px-4 md:px-8 lg:px-16 xl:px-32 py-4">
+ {/* Bottom Input */}
+ <div className="border-t border-gray-200 px-4 py-4">
  <div className="max-w-3xl mx-auto">
- {/* Attached Files */}
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
  <div key={idx} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
  <FileText className="w-4 h-4" />
  <span className="max-w-32 truncate">{file.name}</span>
- <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500">
- <X className="w-3 h-3" />
- </button>
+ <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
  </div>
  ))}
  </div>
  )}
-
- <div className="flex items-end gap-3">
- {/* File Upload */}
- <input
- type="file"
- ref={fileInputRef}
- onChange={handleFileInput}
- multiple
- accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
- className="hidden"
- />
- <button
- onClick={() => fileInputRef.current?.click()}
- className="p-3 hover:bg-gray-100 rounded-xl transition-colors text-gray-500 hover:text-gray-700"
- title="Attach files"
- >
+ <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-200 p-2">
+ <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
  <Upload className="w-5 h-5" />
  </button>
-
- {/* Input */}
- <div className="flex-1 relative">
  <textarea
  value={conversationInput}
  onChange={(e) => setConversationInput(e.target.value)}
@@ -6593,29 +6736,29 @@ ${analysisContext}`;
  sendConversationMessage(conversationInput, files);
  }
  }}
- placeholder="Ask Marlowe anything..."
+ placeholder="Follow up..."
  rows={1}
- className="w-full resize-none bg-gray-100 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-amber-500 text-gray-900"
- style={{ minHeight: '48px', maxHeight: '200px' }}
+ className="flex-1 resize-none bg-transparent focus:outline-none text-gray-900 py-2"
+ style={{ minHeight: '24px', maxHeight: '150px' }}
  />
- </div>
-
- {/* Send Button */}
  <button
  onClick={() => sendConversationMessage(conversationInput, files)}
  disabled={isStreaming || (!conversationInput.trim() && files.length === 0)}
- className="p-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl transition-colors"
+ className="p-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg transition-colors"
  >
- <Send className="w-5 h-5" />
+ <Send className="w-4 h-4" />
  </button>
  </div>
  </div>
  </div>
+ </>
+ )}
+ </div>
  </div>
  )}
 
- {/* New Case / Evidence Upload Section */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ {/* New Case / Evidence Upload Section - DISABLED: Using Claude-like interface above */}
+ {false && (currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
