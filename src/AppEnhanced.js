@@ -6645,7 +6645,7 @@ ${analysisContext}`;
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
  <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
- <Upload className="w-5 h-5" />
+ <Plus className="w-5 h-5" />
  </button>
  </div>
  <button
@@ -6738,7 +6738,7 @@ ${analysisContext}`;
  )}
  <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-200 p-2">
  <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
- <Upload className="w-5 h-5" />
+ <Plus className="w-5 h-5" />
  </button>
  <textarea
  value={conversationInput}
