@@ -2771,7 +2771,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      });
 
      if (!response.ok) {
-       throw new Error('Stream request failed');
+       const errorText = await response.text();
+       throw new Error(`Stream request failed (${response.status}): ${errorText}`);
      }
 
      const reader = response.body.getReader();
