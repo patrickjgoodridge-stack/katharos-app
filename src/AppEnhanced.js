@@ -6508,18 +6508,30 @@ ${analysisContext}`;
  )}
  </section>
 
- {/* Progress Card - Shows only during analysis (popup shows when complete) */}
- {backgroundAnalysis.isRunning && (
+ {/* Progress Card - Shows during analysis AND when complete on New Case page */}
+ {(backgroundAnalysis.isRunning || backgroundAnalysis.isComplete) && (
    <div className="mt-4">
-     <div className="bg-white/50 backdrop-blur-sm border rounded-2xl p-6 border-gray-200">
+     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${
+       backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'
+     }`}>
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
-         <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-100">
-           <Briefcase className="w-5 h-5 text-amber-600" />
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+           backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-amber-100'
+         }`}>
+           {backgroundAnalysis.isComplete ? (
+             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+           ) : (
+             <Briefcase className="w-5 h-5 text-amber-600" />
+           )}
          </div>
          <div>
            <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'Processing...'}</h3>
-           <p className="text-xs mono tracking-wide text-gray-500">CASE ANALYSIS IN PROGRESS</p>
+           <p className={`text-xs mono tracking-wide ${
+             backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-500'
+           }`}>
+             {backgroundAnalysis.isComplete ? 'ANALYSIS COMPLETE' : 'CASE ANALYSIS IN PROGRESS'}
+           </p>
          </div>
        </div>
 
@@ -6527,27 +6539,41 @@ ${analysisContext}`;
        <div className="mb-4">
          <div className="flex justify-between items-center mb-2">
            <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
-           <span className="text-sm font-medium text-amber-600">{backgroundAnalysis.progress}%</span>
+           <span className={`text-sm font-medium ${
+             backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-amber-600'
+           }`}>{backgroundAnalysis.progress}%</span>
          </div>
          <div className="w-full bg-gray-100 rounded-full h-2">
            <div
-             className="h-2 rounded-full transition-all duration-500 ease-out bg-amber-500"
+             className={`h-2 rounded-full transition-all duration-500 ease-out ${
+               backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-amber-500'
+             }`}
              style={{ width: `${backgroundAnalysis.progress}%` }}
            />
          </div>
        </div>
 
-       {/* Time Remaining */}
-       <div className="flex items-center justify-between text-sm">
-         <div className="flex items-center gap-2 text-gray-500">
-           <Clock className="w-4 h-4" />
-           <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+       {/* Time Remaining OR View Results Button */}
+       {backgroundAnalysis.isComplete ? (
+         <button
+           onClick={viewAnalysisResults}
+           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+         >
+           <Eye className="w-4 h-4" />
+           View Results
+         </button>
+       ) : (
+         <div className="flex items-center justify-between text-sm">
+           <div className="flex items-center gap-2 text-gray-500">
+             <Clock className="w-4 h-4" />
+             <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+           </div>
+           <div className="flex items-center gap-1.5">
+             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+             <span className="text-gray-600 mono text-xs">ANALYZING</span>
+           </div>
          </div>
-         <div className="flex items-center gap-1.5">
-           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-           <span className="text-gray-600 mono text-xs">ANALYZING</span>
-         </div>
-       </div>
+       )}
      </div>
    </div>
  )}
@@ -8100,8 +8126,8 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Floating Results Ready Notification - shows on all pages when analysis is complete */}
- {backgroundAnalysis.isComplete && !notificationDismissed && (
+ {/* Floating Results Ready Notification - shows only on OTHER pages (not New Case where the card shows) */}
+ {backgroundAnalysis.isComplete && currentPage !== 'newCase' && !notificationDismissed && (
    <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
      <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
        <div className="flex items-start gap-3">
