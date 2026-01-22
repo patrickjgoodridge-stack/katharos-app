@@ -56,6 +56,9 @@ export default function Marlowe() {
  // Track if floating notification has been dismissed (separate from completion card)
  const [notificationDismissed, setNotificationDismissed] = useState(false);
 
+ // Highlighted document for citation clicks
+ const [highlightedDocId, setHighlightedDocId] = useState(null);
+
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
  const [showModeDropdown, setShowModeDropdown] = useState(false);
@@ -4077,6 +4080,84 @@ setIsAnalyzing(false);
  }
  };
 
+ // Parse text with citations like [Doc 1], [Doc 2] and make them clickable
+ const renderTextWithCitations = (text) => {
+   if (!text) return null;
+
+   // Match patterns like [Doc 1], [Doc 2], [Document 1], [DOCUMENT 1], etc.
+   const citationRegex = /\[(?:Doc(?:ument)?|DOCUMENT?)\s*(\d+)\]/gi;
+   const parts = [];
+   let lastIndex = 0;
+   let match;
+
+   while ((match = citationRegex.exec(text)) !== null) {
+     // Add text before the citation
+     if (match.index > lastIndex) {
+       parts.push(text.slice(lastIndex, match.index));
+     }
+
+     const docNum = parseInt(match[1], 10);
+     parts.push(
+       <button
+         key={`citation-${match.index}`}
+         onClick={() => {
+           setActiveTab('evidence');
+           setHighlightedDocId(docNum);
+           // Clear highlight after 3 seconds
+           setTimeout(() => setHighlightedDocId(null), 3000);
+         }}
+         className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded text-xs font-medium transition-colors cursor-pointer mx-0.5"
+       >
+         <FileText className="w-3 h-3" />
+         Doc {docNum}
+       </button>
+     );
+
+     lastIndex = match.index + match[0].length;
+   }
+
+   // Add remaining text
+   if (lastIndex < text.length) {
+     parts.push(text.slice(lastIndex));
+   }
+
+   return parts.length > 0 ? parts : text;
+ };
+
+ // Group entities by type for better organization
+ const groupEntitiesByType = (entities) => {
+   if (!entities || entities.length === 0) return {};
+
+   const groups = {
+     PERSON: [],
+     ORGANIZATION: [],
+     OTHER: []
+   };
+
+   entities.forEach(entity => {
+     const type = entity.type?.toUpperCase();
+     if (type === 'PERSON') {
+       groups.PERSON.push(entity);
+     } else if (type === 'ORGANIZATION' || type === 'COMPANY') {
+       groups.ORGANIZATION.push(entity);
+     } else {
+       groups.OTHER.push(entity);
+     }
+   });
+
+   // Sort each group by risk level (CRITICAL first, then HIGH, MEDIUM, LOW)
+   const riskOrder = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 };
+   Object.keys(groups).forEach(key => {
+     groups[key].sort((a, b) => {
+       const aRisk = riskOrder[a.riskLevel?.toUpperCase()] ?? 4;
+       const bRisk = riskOrder[b.riskLevel?.toUpperCase()] ?? 4;
+       return aRisk - bRisk;
+     });
+   });
+
+   return groups;
+ };
+
  // Scroll chat to bottom when new messages arrive
  useEffect(() => {
  if (chatEndRef.current) {
@@ -6638,7 +6719,7 @@ ${analysisContext}`;
  </div>
 
  <p className="text-gray-600 leading-relaxed mb-6">
- {analysis.executiveSummary?.overview}
+ {renderTextWithCitations(analysis.executiveSummary?.overview)}
  </p>
 
  {/* Sanctions-Related Ownership Findings */}
@@ -6692,7 +6773,7 @@ ${analysisContext}`;
  {analysis.executiveSummary?.primaryConcerns?.map((concern, idx) => (
  <li key={idx} className="flex items-start gap-2 text-sm">
  <ChevronRight className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
- <span>{concern}</span>
+ <span>{renderTextWithCitations(concern)}</span>
  </li>
  ))}
  </ul>
@@ -6706,7 +6787,7 @@ ${analysisContext}`;
  {analysis.executiveSummary?.recommendedActions?.map((action, idx) => (
  <li key={idx} className="flex items-start gap-2 text-sm">
  <ChevronRight className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span>{action}</span>
+ <span>{renderTextWithCitations(action)}</span>
  </li>
  ))}
  </ul>
@@ -6801,22 +6882,22 @@ ${analysisContext}`;
  </span>
  </div>
  
- <p className="font-medium text-gray-900 leading-relaxed mb-2">{event.event}</p>
- 
+ <p className="font-medium text-gray-900 leading-relaxed mb-2">{renderTextWithCitations(event.event)}</p>
+
  {selectedEvent?.id === event.id && (
  <div className="mt-4 pt-4 border-t border-gray-300 space-y-3 fade-in">
  <div>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">SIGNIFICANCE</p>
- <p className="text-base text-gray-900 leading-relaxed">{event.significance}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{renderTextWithCitations(event.significance)}</p>
  </div>
- 
+
  {event.citations && event.citations.length > 0 && (
  <div>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-2">CITATIONS</p>
  {event.citations.map((citation, cidx) => (
  <div key={cidx} className="flex items-start gap-2 text-sm bg-white p-2 rounded mb-1">
  <Link2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span className="text-gray-600">{citation}</span>
+ <span className="text-gray-600">{renderTextWithCitations(citation)}</span>
  </div>
  ))}
  </div>
@@ -6834,37 +6915,132 @@ ${analysisContext}`;
  {/* Entities Tab */}
  {activeTab === 'entities' && (
  <div className="grid lg:grid-cols-3 gap-6">
- {/* Entity List */}
+ {/* Entity List - Grouped by Type */}
  <div className="lg:col-span-1 bg-white border border-gray-200 rounded-xl p-4">
  <h3 className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-4">
  EXTRACTED ENTITIES ({analysis.entities?.length || 0})
  </h3>
- <div className="space-y-2 max-h-[600px] overflow-y-auto">
- {analysis.entities?.map((entity, idx) => (
- <button
- key={entity.id || idx}
- onClick={() => setSelectedEntity(entity)}
- className={`w-full text-left p-5 rounded-lg transition-all ${
- selectedEntity?.id === entity.id
- ? 'bg-amber-50 border border-amber-200 border border-amber-500'
- : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
- }`}
- >
- <div className="flex items-center gap-3">
- {entity.type === 'PERSON' && (
- <img
- src={`https://ui-avatars.com/api/?name=${encodeURIComponent(entity.name)}&background=d4af37&color=0a0a0f&size=64&bold=true`}
- alt={entity.name}
- className="w-10 h-10 rounded-full border border-gray-300"
- />
+ <div className="space-y-4 max-h-[600px] overflow-y-auto">
+ {/* Persons Group */}
+ {groupEntitiesByType(analysis.entities).PERSON?.length > 0 && (
+   <div>
+     <div className="flex items-center gap-2 mb-2 px-2">
+       <Users className="w-4 h-4 text-blue-500" />
+       <span className="text-xs font-medium text-blue-600 uppercase tracking-wider">
+         Persons ({groupEntitiesByType(analysis.entities).PERSON.length})
+       </span>
+     </div>
+     <div className="space-y-2">
+       {groupEntitiesByType(analysis.entities).PERSON.map((entity, idx) => (
+         <button
+           key={entity.id || `person-${idx}`}
+           onClick={() => setSelectedEntity(entity)}
+           className={`w-full text-left p-4 rounded-lg transition-all ${
+             selectedEntity?.id === entity.id
+               ? 'bg-amber-50 border-2 border-amber-500'
+               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
+           }`}
+         >
+           <div className="flex items-center gap-3">
+             <img
+               src={`https://ui-avatars.com/api/?name=${encodeURIComponent(entity.name)}&background=d4af37&color=0a0a0f&size=64&bold=true`}
+               alt={entity.name}
+               className="w-10 h-10 rounded-full border border-gray-300"
+             />
+             <div className="flex-1 min-w-0">
+               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
+               <div className="flex items-center gap-2 mt-1">
+                 <span className={`text-xs px-1.5 py-0.5 rounded ${getRiskColor(entity.riskLevel)}`}>
+                   {entity.riskLevel || 'UNKNOWN'}
+                 </span>
+                 {entity.sanctionStatus === 'MATCH' && (
+                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white">SANCTIONED</span>
+                 )}
+               </div>
+             </div>
+           </div>
+         </button>
+       ))}
+     </div>
+   </div>
  )}
- <div className="flex-1 min-w-0">
- <span className="font-medium text-sm leading-tight block">{entity.name}</span>
- <span className="text-xs mono text-gray-500 tracking-wide">{entity.type}</span>
- </div>
- </div>
- </button>
- ))}
+
+ {/* Organizations Group */}
+ {groupEntitiesByType(analysis.entities).ORGANIZATION?.length > 0 && (
+   <div>
+     <div className="flex items-center gap-2 mb-2 px-2">
+       <Building2 className="w-4 h-4 text-purple-500" />
+       <span className="text-xs font-medium text-purple-600 uppercase tracking-wider">
+         Organizations ({groupEntitiesByType(analysis.entities).ORGANIZATION.length})
+       </span>
+     </div>
+     <div className="space-y-2">
+       {groupEntitiesByType(analysis.entities).ORGANIZATION.map((entity, idx) => (
+         <button
+           key={entity.id || `org-${idx}`}
+           onClick={() => setSelectedEntity(entity)}
+           className={`w-full text-left p-4 rounded-lg transition-all ${
+             selectedEntity?.id === entity.id
+               ? 'bg-amber-50 border-2 border-amber-500'
+               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
+           }`}
+         >
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center">
+               <Building2 className="w-5 h-5 text-purple-600" />
+             </div>
+             <div className="flex-1 min-w-0">
+               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
+               <div className="flex items-center gap-2 mt-1">
+                 <span className={`text-xs px-1.5 py-0.5 rounded ${getRiskColor(entity.riskLevel)}`}>
+                   {entity.riskLevel || 'UNKNOWN'}
+                 </span>
+                 {entity.sanctionStatus === 'MATCH' && (
+                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white">SANCTIONED</span>
+                 )}
+               </div>
+             </div>
+           </div>
+         </button>
+       ))}
+     </div>
+   </div>
+ )}
+
+ {/* Other Entities Group */}
+ {groupEntitiesByType(analysis.entities).OTHER?.length > 0 && (
+   <div>
+     <div className="flex items-center gap-2 mb-2 px-2">
+       <FileText className="w-4 h-4 text-gray-500" />
+       <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+         Other ({groupEntitiesByType(analysis.entities).OTHER.length})
+       </span>
+     </div>
+     <div className="space-y-2">
+       {groupEntitiesByType(analysis.entities).OTHER.map((entity, idx) => (
+         <button
+           key={entity.id || `other-${idx}`}
+           onClick={() => setSelectedEntity(entity)}
+           className={`w-full text-left p-4 rounded-lg transition-all ${
+             selectedEntity?.id === entity.id
+               ? 'bg-amber-50 border-2 border-amber-500'
+               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
+           }`}
+         >
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+               <FileText className="w-5 h-5 text-gray-500" />
+             </div>
+             <div className="flex-1 min-w-0">
+               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
+               <span className="text-xs mono text-gray-500 tracking-wide">{entity.type}</span>
+             </div>
+           </div>
+         </button>
+       ))}
+     </div>
+   </div>
+ )}
  </div>
  </div>
 
@@ -6898,7 +7074,7 @@ ${analysisContext}`;
  <div className="space-y-6">
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2">Role in Investigation</h4>
- <p className="text-base text-gray-900 leading-relaxed">{selectedEntity.role}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{renderTextWithCitations(selectedEntity.role)}</p>
  </div>
 
  {/* Sanctions Status */}
@@ -7286,7 +7462,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.supportingEvidence?.map((evidence, eidx) => (
  <div key={eidx} className="text-sm bg-emerald-500/10 p-5 rounded-lg">
- {evidence}
+ {renderTextWithCitations(evidence)}
  </div>
  ))}
  </div>
@@ -7301,7 +7477,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.contradictingEvidence?.map((evidence, eidx) => (
  <div key={eidx} className="text-sm bg-rose-500/10 p-5 rounded-lg">
- {evidence}
+ {renderTextWithCitations(evidence)}
  </div>
  )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
  </div>
@@ -7316,7 +7492,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.investigativeGaps?.map((gap, gidx) => (
  <div key={gidx} className="text-sm bg-amber-500/10 p-5 rounded-lg">
- {gap}
+ {renderTextWithCitations(gap)}
  </div>
  )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
  </div>
@@ -7629,10 +7805,24 @@ ${analysisContext}`;
  </h3>
  <div className="space-y-4">
  {files.map((file, idx) => (
- <div key={file.id} className="border border-gray-300 rounded-lg overflow-hidden">
- <div className="bg-gray-100 px-4 py-3 flex items-center justify-between">
+ <div
+   key={file.id}
+   id={`doc-${idx + 1}`}
+   className={`border rounded-lg overflow-hidden transition-all duration-500 ${
+     highlightedDocId === idx + 1
+       ? 'border-amber-500 border-2 ring-4 ring-amber-200 shadow-lg'
+       : 'border-gray-300'
+   }`}
+ >
+ <div className={`px-4 py-3 flex items-center justify-between ${
+   highlightedDocId === idx + 1 ? 'bg-amber-100' : 'bg-gray-100'
+ }`}>
  <div className="flex items-center gap-3">
- <span className="w-8 h-8 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-center mono tracking-wide text-amber-500 text-sm font-bold">
+ <span className={`w-8 h-8 rounded-lg flex items-center justify-center mono tracking-wide text-sm font-bold ${
+   highlightedDocId === idx + 1
+     ? 'bg-amber-500 text-white border border-amber-600'
+     : 'bg-amber-50 border border-amber-200 text-amber-500'
+ }`}>
  {idx + 1}
  </span>
  <div>
