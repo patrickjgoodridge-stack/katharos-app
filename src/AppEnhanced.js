@@ -6450,8 +6450,8 @@ ${analysisContext}`;
  </>
  )}
 
- {/* New Case - Conversational Interface */}
- {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ {/* New Case - Conversational Interface (disabled - keeping for later) */}
+ {false && (currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
  <div className="h-screen flex flex-col bg-gray-50">
  {/* Top Bar */}
  <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
@@ -6614,8 +6614,8 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* OLD: New Case / Evidence Upload Section - keeping for fallback */}
- {false && (currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
+ {/* New Case / Evidence Upload Section */}
+ {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
           <>
  {/* Home Button and Case Management Button - Upper Left Corner */}
  <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
