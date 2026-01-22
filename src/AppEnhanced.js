@@ -3530,23 +3530,23 @@ ${evidenceContext}
 Respond with a JSON object in this exact structure:
 {
  "executiveSummary": {
- "oneLiner": "Single sentence that a senior executive can read and immediately understand the situation. Be direct and specific.",
+ "oneLiner": "Single direct sentence a senior executive can read and immediately understand. Be blunt: 'This company is controlled by a sanctioned oligarch.' not 'There may be potential exposure.'",
  "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
- "overview": "2-3 paragraph detailed summary covering: entity identification, sanctions/regulatory status, ownership structures, and compliance implications."
+ "analysis": "Write 3-5 paragraphs in CONVERSATIONAL PROSE (not bullet points). Think out loud like an experienced investigator briefing a colleague. Start with what jumps out: 'The first thing that stands out here is...' or 'What immediately concerns me is...'. Quote directly from documents: 'The agreement states [exact quote], which is a classic red flag for...' Be opinionated: 'This is textbook layering.' not 'This may be consistent with layering typologies.' Use plain English: 'They're hiding who really owns this company' not 'The beneficial ownership structure exhibits opacity.' End with what's missing: 'What I'd want to see next is...' or 'The big question this doesn't answer is...'"
  },
  "redFlags": [
  {
    "id": "rf1",
-   "title": "Short bold title describing the issue (e.g., 'Weak KYC Controls', 'Undisclosed Beneficial Ownership')",
-   "quote": "Direct quote from the evidence document that proves this red flag. Use exact wording from the source.",
+   "title": "Short punchy title (e.g., 'No Real KYC', 'Hidden Ownership', 'Shell Company Red Flags')",
+   "quote": "Exact quote from the document that proves this. Pull the actual words.",
    "citation": "Doc X",
-   "translation": "Plain English explanation of why this matters to a compliance officer. What does this quote actually mean in practice?"
+   "translation": "Plain English: what does this actually mean? 'They're basically saying they don't verify who their customers are.' Be direct and slightly informal."
  }
  ],
  "typologies": [
  {
-   "name": "Financial crime typology (e.g., 'Money Laundering', 'Sanctions Evasion', 'Bribery/Corruption')",
-   "indicators": ["Specific indicator found in evidence [Doc X]", "Another indicator [Doc Y]"]
+   "name": "Plain English typology (e.g., 'Money Laundering', 'Sanctions Evasion', 'Bribery')",
+   "indicators": ["Specific indicator in plain English [Doc X]", "Another indicator [Doc Y]"]
  }
  ],
  "entities": [
@@ -3622,26 +3622,37 @@ Respond with a JSON object in this exact structure:
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, nothing else
 - Start with { and end with }
-- Be thorough: Include 3-8 items per major array (entities, typologies, hypotheses)
-- TYPOLOGIES: Identify ALL relevant financial crime typologies with comprehensive indicators and red flags
-- HYPOTHESES: Generate multiple competing hypotheses (3-5) with detailed supporting/contradicting evidence
-- Every claim must cite specific documents using [Doc X] format
 
-NEXT STEPS - CRITICAL GUIDANCE:
-Keep next steps SHORT and ACTIONABLE. Max 15 words each. Include source links when relevant.
+WRITING STYLE - THIS IS ESSENTIAL:
+You are an experienced financial crimes investigator briefing a colleague. Write like you talk.
 
-Format: "[DECISION/ACTION]: Brief statement → upload to Marlowe for X" + source URL
+1. PROSE, NOT BULLETS: The analysis field should read like a written briefing, not a PowerPoint. Use paragraphs.
 
-EXAMPLES OF GOOD NEXT STEPS:
-- "REJECT: SDN-listed entity, prohibited party" + source: OFAC announcement URL
-- "Request beneficial ownership docs → upload to Marlowe for ownership mapping"
-- "Obtain 3 years financials → upload to Marlowe for pattern analysis"
-- "ESCALATE: PEP with corruption allegations requires senior review" + source: news article URL
+2. THINK OUT LOUD:
+   - "The first thing that jumps out here is..."
+   - "This is concerning because..."
+   - "What's missing from this picture is..."
+   - "If I were the regulator looking at this, I'd ask..."
 
-NEVER SUGGEST (Marlowe already did these):
-- "Screen against sanctions" - DONE
-- "Map ownership network" - GET the docs, Marlowe maps it
-- "Analyze transactions" - GET bank statements, Marlowe analyzes`
+3. BE DIRECT AND OPINIONATED:
+   - YES: "This is a red flag."
+   - NO: "There may be potential risk indicators that warrant further review."
+   - YES: "They're hiding who owns this company."
+   - NO: "The beneficial ownership structure exhibits characteristics of opacity."
+
+4. QUOTE THE EVIDENCE: Pull actual quotes from documents, then explain what they mean.
+   - "The contract states 'payment may be routed through intermediary accounts at the discretion of the service provider.' That's code for 'we'll move your money wherever we want and you won't know where it went.'"
+
+5. PLAIN ENGLISH: Write for a smart person who isn't a compliance expert.
+   - YES: "They're moving money through shell companies to hide where it came from"
+   - NO: "The counterparty exhibits characteristics consistent with layering typologies"
+
+NEXT STEPS - Keep them SHORT (max 15 words each):
+- "REJECT: SDN-listed entity" + source URL
+- "Request beneficial ownership docs → upload to Marlowe"
+- "ESCALATE: PEP with corruption allegations"
+
+NEVER SUGGEST what Marlowe already did (sanctions screening, ownership mapping, etc.)`
  : `${investigationContext}Based on the investigation description provided, create an initial investigative framework with preliminary analysis.
 
 Since no evidence documents have been uploaded yet, focus on:
@@ -6786,12 +6797,14 @@ ${analysisContext}`;
  {isGeneratingCaseReport ? 'Generating...' : 'Export PDF'}
  </button>
  </div>
- <p className="text-xl font-medium text-gray-900 leading-relaxed mb-4">
- {analysis.executiveSummary?.oneLiner || (analysis.executiveSummary?.overview ? analysis.executiveSummary.overview.split('.')[0] + '.' : '')}
+ <p className="text-xl font-medium text-gray-900 leading-relaxed mb-6">
+ {analysis.executiveSummary?.oneLiner || (analysis.executiveSummary?.analysis ? analysis.executiveSummary.analysis.split('.')[0] + '.' : (analysis.executiveSummary?.overview ? analysis.executiveSummary.overview.split('.')[0] + '.' : ''))}
  </p>
- {analysis.executiveSummary?.overview && (
- <div className="text-gray-600 leading-relaxed whitespace-pre-line">
- {analysis.executiveSummary.overview}
+ {(analysis.executiveSummary?.analysis || analysis.executiveSummary?.overview) && (
+ <div className="prose prose-gray max-w-none">
+ <div className="text-gray-700 leading-relaxed text-base whitespace-pre-line">
+ {analysis.executiveSummary.analysis || analysis.executiveSummary.overview}
+ </div>
  </div>
  )}
  </div>
