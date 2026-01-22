@@ -209,7 +209,8 @@ export default function Marlowe() {
  files: files,
  analysis: analysisData,
  chatHistory: [],
- riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN'
+ riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN',
+ viewed: false // Track if user has viewed this case
  };
  setCases(prev => [newCase, ...prev]);
  setActiveCase(newCase);
@@ -270,6 +271,11 @@ export default function Marlowe() {
  setChatMessages(caseData.chatHistory || []);
  setCaseName(caseData.name);
  setCurrentPage('activeCase');
+
+ // Mark case as viewed
+ setCases(prev => prev.map(c =>
+   c.id === caseData.id ? { ...c, viewed: true } : c
+ ));
  };
 
  // Start a new case
@@ -293,6 +299,15 @@ export default function Marlowe() {
    if (backgroundAnalysis.pendingAnalysis) {
      setAnalysis(backgroundAnalysis.pendingAnalysis);
      setActiveTab('overview');
+
+     // Mark the most recent case (which has this analysis) as viewed
+     setCases(prev => {
+       if (prev.length > 0) {
+         return [{ ...prev[0], viewed: true }, ...prev.slice(1)];
+       }
+       return prev;
+     });
+
      // Reset the background analysis state
      setBackgroundAnalysis({
        isRunning: false,
@@ -6158,100 +6173,224 @@ ${analysisContext}`;
  </button>
  </div>
  ) : (
- <div className="grid gap-4">
- {cases.map((caseItem) => (
- <div
- key={caseItem.id}
- onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
- className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-6 cursor-pointer transition-all group"
- >
- <div className="flex items-start gap-4">
- <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
- caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
- caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
- caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
- 'bg-emerald-50 border border-emerald-200'
- }`}>
- <Folder className={`w-7 h-7 ${
- caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
- caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
- caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
- 'text-emerald-500'
- }`} />
- </div>
- 
- <div className="flex-1 min-w-0">
- <div className="flex items-center gap-3 mb-2">
- {editingCaseId === caseItem.id ? (
- <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
- <input
- ref={editInputRef}
- type="text"
- value={editingCaseName}
- onChange={(e) => setEditingCaseName(e.target.value)}
- onKeyDown={handleEditKeyPress}
- onBlur={saveEditedCaseName}
- className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
- />
- <button
- onClick={saveEditedCaseName}
- className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
- >
- <Check className="w-4 h-4 text-gray-900" />
- </button>
- </div>
- ) : (
- <>
- <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
- <button
- onClick={(e) => startEditingCase(caseItem, e)}
- className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
- >
- <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
- </button>
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
- {caseItem.riskLevel} RISK
- </span>
- </>
- )}
- </div>
- 
- <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
- {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
- </p>
- 
- <div className="flex items-center gap-4 text-xs text-gray-500">
- <span className="flex items-center gap-1">
- <FileText className="w-3.5 h-3.5" />
- {caseItem.files.length} documents
- </span>
- <span className="flex items-center gap-1">
- <Users className="w-3.5 h-3.5" />
- {caseItem.analysis?.entities?.length || 0} entities
- </span>
- <span className="flex items-center gap-1">
- <Lightbulb className="w-3.5 h-3.5" />
- {caseItem.analysis?.hypotheses?.length || 0} hypotheses
- </span>
- <span className="flex items-center gap-1">
- <Calendar className="w-3.5 h-3.5" />
- {new Date(caseItem.createdAt).toLocaleDateString()}
- </span>
- </div>
- </div>
+ <div className="space-y-8">
+ {/* New Cases Section */}
+ {cases.filter(c => !c.viewed).length > 0 && (
+   <div>
+     <div className="flex items-center gap-2 mb-4">
+       <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+       <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wider">
+         New ({cases.filter(c => !c.viewed).length})
+       </h3>
+     </div>
+     <div className="grid gap-4">
+       {cases.filter(c => !c.viewed).map((caseItem) => (
+         <div
+           key={caseItem.id}
+           onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
+           className="bg-white border-2 border-amber-200 hover:border-amber-400 rounded-xl p-6 cursor-pointer transition-all group relative"
+         >
+           {/* New badge */}
+           <div className="absolute -top-2 -right-2 bg-amber-500 text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full">
+             NEW
+           </div>
+           <div className="flex items-start gap-4">
+             <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
+               caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
+               caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
+               caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+               'bg-emerald-50 border border-emerald-200'
+             }`}>
+               <Folder className={`w-7 h-7 ${
+                 caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
+                 caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
+                 caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+                 'text-emerald-500'
+               }`} />
+             </div>
 
- <div className="flex items-center gap-2">
- <button
- onClick={(e) => deleteCase(caseItem.id, e)}
- className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
- >
- <Trash2 className="w-4 h-4 text-rose-500" />
- </button>
- <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
- </div>
- </div>
- </div>
- ))}
+             <div className="flex-1 min-w-0">
+               <div className="flex items-center gap-3 mb-2">
+                 {editingCaseId === caseItem.id ? (
+                   <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+                     <input
+                       ref={editInputRef}
+                       type="text"
+                       value={editingCaseName}
+                       onChange={(e) => setEditingCaseName(e.target.value)}
+                       onKeyDown={handleEditKeyPress}
+                       onBlur={saveEditedCaseName}
+                       className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
+                     />
+                     <button
+                       onClick={saveEditedCaseName}
+                       className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+                     >
+                       <Check className="w-4 h-4 text-gray-900" />
+                     </button>
+                   </div>
+                 ) : (
+                   <>
+                     <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
+                     <button
+                       onClick={(e) => startEditingCase(caseItem, e)}
+                       className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                     >
+                       <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
+                     </button>
+                     <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
+                       {caseItem.riskLevel} RISK
+                     </span>
+                   </>
+                 )}
+               </div>
+
+               <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
+                 {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
+               </p>
+
+               <div className="flex items-center gap-4 text-xs text-gray-500">
+                 <span className="flex items-center gap-1">
+                   <FileText className="w-3.5 h-3.5" />
+                   {caseItem.files.length} documents
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Users className="w-3.5 h-3.5" />
+                   {caseItem.analysis?.entities?.length || 0} entities
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Lightbulb className="w-3.5 h-3.5" />
+                   {caseItem.analysis?.hypotheses?.length || 0} hypotheses
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Calendar className="w-3.5 h-3.5" />
+                   {new Date(caseItem.createdAt).toLocaleDateString()}
+                 </span>
+               </div>
+             </div>
+
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={(e) => deleteCase(caseItem.id, e)}
+                 className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+               >
+                 <Trash2 className="w-4 h-4 text-rose-500" />
+               </button>
+               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+             </div>
+           </div>
+         </div>
+       ))}
+     </div>
+   </div>
+ )}
+
+ {/* Viewed Cases Section */}
+ {cases.filter(c => c.viewed).length > 0 && (
+   <div>
+     <div className="flex items-center gap-2 mb-4">
+       <Eye className="w-4 h-4 text-gray-400" />
+       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+         Viewed ({cases.filter(c => c.viewed).length})
+       </h3>
+     </div>
+     <div className="grid gap-4">
+       {cases.filter(c => c.viewed).map((caseItem) => (
+         <div
+           key={caseItem.id}
+           onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
+           className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-6 cursor-pointer transition-all group"
+         >
+           <div className="flex items-start gap-4">
+             <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
+               caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
+               caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
+               caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+               'bg-emerald-50 border border-emerald-200'
+             }`}>
+               <Folder className={`w-7 h-7 ${
+                 caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
+                 caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
+                 caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+                 'text-emerald-500'
+               }`} />
+             </div>
+
+             <div className="flex-1 min-w-0">
+               <div className="flex items-center gap-3 mb-2">
+                 {editingCaseId === caseItem.id ? (
+                   <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+                     <input
+                       ref={editInputRef}
+                       type="text"
+                       value={editingCaseName}
+                       onChange={(e) => setEditingCaseName(e.target.value)}
+                       onKeyDown={handleEditKeyPress}
+                       onBlur={saveEditedCaseName}
+                       className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
+                     />
+                     <button
+                       onClick={saveEditedCaseName}
+                       className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+                     >
+                       <Check className="w-4 h-4 text-gray-900" />
+                     </button>
+                   </div>
+                 ) : (
+                   <>
+                     <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
+                     <button
+                       onClick={(e) => startEditingCase(caseItem, e)}
+                       className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                     >
+                       <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
+                     </button>
+                     <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
+                       {caseItem.riskLevel} RISK
+                     </span>
+                   </>
+                 )}
+               </div>
+
+               <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
+                 {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
+               </p>
+
+               <div className="flex items-center gap-4 text-xs text-gray-500">
+                 <span className="flex items-center gap-1">
+                   <FileText className="w-3.5 h-3.5" />
+                   {caseItem.files.length} documents
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Users className="w-3.5 h-3.5" />
+                   {caseItem.analysis?.entities?.length || 0} entities
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Lightbulb className="w-3.5 h-3.5" />
+                   {caseItem.analysis?.hypotheses?.length || 0} hypotheses
+                 </span>
+                 <span className="flex items-center gap-1">
+                   <Calendar className="w-3.5 h-3.5" />
+                   {new Date(caseItem.createdAt).toLocaleDateString()}
+                 </span>
+               </div>
+             </div>
+
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={(e) => deleteCase(caseItem.id, e)}
+                 className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+               >
+                 <Trash2 className="w-4 h-4 text-rose-500" />
+               </button>
+               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+             </div>
+           </div>
+         </div>
+       ))}
+     </div>
+   </div>
+ )}
  </div>
  )}
  </div>
