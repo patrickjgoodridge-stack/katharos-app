@@ -1,4 +1,10 @@
 // Vercel Serverless Function - Proxy for Anthropic API
+// Configured for long-running requests (up to 5 min)
+
+export const config = {
+  maxDuration: 300, // 5 minutes max
+};
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -21,6 +27,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Starting Anthropic API call...', {
+      model: req.body.model,
+      max_tokens: req.body.max_tokens
+    });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -38,6 +49,7 @@ export default async function handler(req, res) {
       return res.status(response.status).json(data);
     }
 
+    console.log('Anthropic API call completed successfully');
     return res.status(200).json(data);
   } catch (error) {
     console.error('Server error:', error);

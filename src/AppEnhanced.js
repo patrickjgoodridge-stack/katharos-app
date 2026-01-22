@@ -56,9 +56,6 @@ export default function Marlowe() {
  // Track if floating notification has been dismissed (separate from completion card)
  const [notificationDismissed, setNotificationDismissed] = useState(false);
 
- // Highlighted document for citation clicks
- const [highlightedDocId, setHighlightedDocId] = useState(null);
-
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
  const [showModeDropdown, setShowModeDropdown] = useState(false);
@@ -200,17 +197,17 @@ export default function Marlowe() {
  }, [showModeDropdown, showUploadDropdown]);
 
  // Save case after analysis completes (does NOT navigate - user clicks popup to view)
- const saveCase = (analysisData) => {
+ // Pass caseNameOverride to avoid React state timing issues
+ const saveCase = (analysisData, caseNameOverride = null) => {
  const newCase = {
  id: Math.random().toString(36).substr(2, 9),
- name: caseName || `Case ${cases.length + 1}`,
+ name: caseNameOverride || caseName || `Case ${cases.length + 1}`,
  createdAt: new Date().toISOString(),
  updatedAt: new Date().toISOString(),
  files: files,
  analysis: analysisData,
  chatHistory: [],
- riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN',
- viewed: false // Track if user has viewed this case
+ riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN'
  };
  setCases(prev => [newCase, ...prev]);
  setActiveCase(newCase);
@@ -271,11 +268,6 @@ export default function Marlowe() {
  setChatMessages(caseData.chatHistory || []);
  setCaseName(caseData.name);
  setCurrentPage('activeCase');
-
- // Mark case as viewed
- setCases(prev => prev.map(c =>
-   c.id === caseData.id ? { ...c, viewed: true } : c
- ));
  };
 
  // Start a new case
@@ -299,15 +291,6 @@ export default function Marlowe() {
    if (backgroundAnalysis.pendingAnalysis) {
      setAnalysis(backgroundAnalysis.pendingAnalysis);
      setActiveTab('overview');
-
-     // Mark the most recent case (which has this analysis) as viewed
-     setCases(prev => {
-       if (prev.length > 0) {
-         return [{ ...prev[0], viewed: true }, ...prev.slice(1)];
-       }
-       return prev;
-     });
-
      // Reset the background analysis state
      setBackgroundAnalysis({
        isRunning: false,
@@ -321,6 +304,42 @@ export default function Marlowe() {
        pendingAnalysis: null
      });
    }
+ };
+
+ // Extract entity name from description like "Tim Allen who is an actor" -> "Tim Allen"
+ const extractEntityName = (description) => {
+   if (!description) return null;
+   const desc = description.trim();
+
+   // Common patterns that indicate where the name ends
+   const separators = [
+     / who /i,
+     / which /i,
+     / that /i,
+     / is a /i,
+     / is an /i,
+     / is the /i,
+     / - /,
+     /, /,
+     / \(/,
+   ];
+
+   let entityName = desc;
+   for (const sep of separators) {
+     const match = desc.match(sep);
+     if (match && match.index > 2) {
+       entityName = desc.substring(0, match.index).trim();
+       break;
+     }
+   }
+
+   // Clean up and limit length
+   entityName = entityName.replace(/^(screen|check|analyze|investigate|review)\s+/i, '').trim();
+   if (entityName.length > 50) {
+     entityName = entityName.substring(0, 50).replace(/\s+\S*$/, '');
+   }
+
+   return entityName || desc.substring(0, 50);
  };
 
  // Go back to Noir landing
@@ -642,13 +661,38 @@ Return a JSON object with this EXACT structure (all fields required):
  "prohibitedActivities": ["list"],
  "licenseRequired": boolean
  },
+ "onboardingDecision": {
+ "decision": "DO_NOT_ONBOARD|ONBOARD_WITH_EDD|ONBOARD_WITH_RESTRICTIONS|SAFE_TO_ONBOARD",
+ "rationale": "One clear sentence explaining the decision",
+ "conditions": ["If onboarding, list specific conditions that must be met"]
+ },
  "recommendations": [{
  "priority": "HIGH|MEDIUM|LOW",
- "action": "specific step",
- "rationale": "why matters",
- "deadline": "if time-sensitive or empty"
+ "action": "MUST be a specific document to request or a clear action (e.g., 'Request beneficial ownership declaration from the client', 'Obtain 12 months bank statements', 'Require board resolution authorizing this relationship')",
+ "rationale": "Why this document/action is needed for the risk assessment"
  }]
 }
+
+CRITICAL - RECOMMENDATIONS MUST BE ACTIONABLE:
+Your recommendations should tell the compliance officer EXACTLY what to do next. Focus on gathering MORE DATA that can then be uploaded to Marlowe for deeper analysis.
+
+1. FIRST recommendation: Clear onboarding decision
+   - "DO NOT ONBOARD: [specific reason - e.g., 'Direct SDN sanctions match on OFAC list']"
+   - "ONBOARD WITH EDD: [what enhanced monitoring is needed]"
+   - "SAFE TO ONBOARD: Standard due diligence is sufficient"
+
+2. REMAINING recommendations: Documents to REQUEST FROM THE CLIENT then UPLOAD TO MARLOWE
+   GOOD: "Request certified beneficial ownership declaration - upload to Marlowe Cipher for deep ownership analysis"
+   GOOD: "Obtain audited financial statements for past 3 years - upload to Marlowe to analyze for suspicious transactions"
+   GOOD: "Request source of funds documentation - upload to Marlowe Cipher for flow-of-funds analysis"
+   GOOD: "Obtain corporate registry extract - upload to Marlowe to map hidden ownership connections"
+   GOOD: "Request bank statements showing transaction history - upload to Marlowe for pattern detection"
+   GOOD: "Obtain organizational chart with all subsidiaries - upload to Marlowe to screen each entity"
+
+   BAD: "Conduct sanctions screening" - Marlowe already did this
+   BAD: "Map the ownership network" - tell them to GET the ownership docs, then Marlowe will map it
+   BAD: "Analyze financial flows" - tell them to GET bank statements, then Marlowe will analyze
+   BAD: "Interview the subject" - not a compliance officer function
 
 VALIDATION: If Sberbank/VTB/Gazprombank → MATCH/CRITICAL. If sanctions.status=MATCH → overallRisk=HIGH/CRITICAL. If fiftyPercentRuleTriggered=true → overallRisk=CRITICAL
 
@@ -2692,18 +2736,16 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
  try {
  const parsed = JSON.parse(jsonStr);
 
- // Auto-generate case name based on analysis if not already set
- if (!caseName || caseName === '') {
+ // Auto-generate case name based on analysis
  const primaryEntities = parsed.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
  const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
  const autoName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
  setCaseName(autoName);
- }
 
  setAnalysis(parsed);
  setActiveTab('overview');
- saveCase(parsed);
+ saveCase(parsed, autoName);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  setAnalysisError(`Error parsing screening results: ${parseError.message}`);
@@ -2723,18 +2765,19 @@ Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PE
 
  // OTHERWISE PROCEED WITH NORMAL INVESTIGATION ANALYSIS
 
- // CHECK INVESTIGATION MODE - Scout vs Cipher
- if (investigationMode === 'scout') {
- // SCOUT MODE: Multi-step screening pipeline
+ // Both Scout and Cipher now use the same investigation pipeline
+ // Scout uses Sonnet, Cipher uses Opus
+ if (false) { // Scout-specific pipeline disabled - uses unified pipeline below
+ // SCOUT MODE: Multi-step screening pipeline (DISABLED)
  try {
  setAnalysisError(null);
 
- // Generate case name from user input for Scout
+ // Generate case name from user input for Scout - extract entity name
  let displayCaseName = caseName;
  if (!displayCaseName) {
    if (caseDescription.trim()) {
-     const desc = caseDescription.trim();
-     displayCaseName = desc.length > 60 ? desc.substring(0, 60).replace(/\s+\S*$/, '...') : desc;
+     // Extract entity name from description (e.g., "Tim Allen who is an actor" -> "Tim Allen")
+     displayCaseName = extractEntityName(caseDescription);
    } else if (files.length > 0) {
      displayCaseName = files.map(f => f.name.replace(/\.[^/.]+$/, '')).join(', ');
      if (displayCaseName.length > 60) {
@@ -3185,7 +3228,7 @@ Respond with JSON:
  }));
 
  // Save the case but don't navigate yet
- saveCase(finalAnalysis);
+ saveCase(finalAnalysis, finalCaseName);
 
  } catch (error) {
  console.error('Scout pipeline error:', error);
@@ -3200,13 +3243,12 @@ Respond with JSON:
  // CIPHER MODE: Run analysis
  console.log('CIPHER MODE: Starting analysis');
 
- // Generate initial case name from user input
+ // Generate initial case name from user input - extract entity name
  let displayCaseName = caseName;
  if (!displayCaseName) {
    if (caseDescription.trim()) {
-     // Use first 60 chars of description, cut at word boundary
-     const desc = caseDescription.trim();
-     displayCaseName = desc.length > 60 ? desc.substring(0, 60).replace(/\s+\S*$/, '...') : desc;
+     // Extract entity name from description (e.g., "Tim Allen who is an actor" -> "Tim Allen")
+     displayCaseName = extractEntityName(caseDescription);
    } else if (files.length > 0) {
      // Use file names
      displayCaseName = files.slice(0, 2).map(f => f.name.replace(/\.[^.]+$/, '')).join(', ');
@@ -3259,15 +3301,11 @@ setBackgroundAnalysis(prev => ({
 // Process the analysis through automated investigation
 const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
 
-// Auto-generate case name based on analysis if not already set
-let finalCaseName = caseName;
-if (!caseName || caseName === '') {
-const primaryEntities = enhancedAnalysis.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
+// Auto-generate case name: use extracted entity name + risk level + date
 const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
 const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+let finalCaseName = `${displayCaseName} - ${riskLevel} - ${dateStr}`;
 setCaseName(finalCaseName);
-}
 
 // Update progress: Finalizing
 setBackgroundAnalysis(prev => ({
@@ -3291,7 +3329,7 @@ setBackgroundAnalysis(prev => ({
 }));
 
 // Save the case but don't navigate yet - user will click to view
-saveCase(enhancedAnalysis);
+saveCase(enhancedAnalysis, finalCaseName);
 
 return; // Pipeline succeeded, exit
 
@@ -3314,10 +3352,10 @@ return; // Pipeline succeeded, exit
  }));
 
  // Traditional single-step analysis
- // Limit content to avoid rate limits - truncate each file to ~3000 chars
+ // Limit content to avoid context overflow - truncate each file to ~8000 chars
  const evidenceContext = files.map((f, idx) => {
- const truncatedContent = f.content.length > 3000
- ? f.content.substring(0, 3000) + '\n\n[... content truncated to fit rate limits ...]'
+ const truncatedContent = f.content.length > 8000
+ ? f.content.substring(0, 8000) + '\n\n[... content truncated for analysis ...]'
  : f.content;
  return `[DOCUMENT ${idx + 1}: "${f.name}"]\n${truncatedContent}\n[END DOCUMENT ${idx + 1}]`;
  }).join('\n\n');
@@ -3399,14 +3437,21 @@ FRAUD INVESTIGATION INDICATORS:
 Your role is to analyze evidence and produce structured investigative findings. You must:
 1. Extract ALL entities (people, organizations, accounts, addresses, dates, amounts)
 2. Screen entities against sanctions lists and identify PEP/adverse media exposure
-3. Analyze beneficial ownership structures and apply OFAC 50% Rule
-4. For EACH person/individual entity, identify ALL companies they own or control (with ownership percentages)
-5. For EACH company entity, identify ALL beneficial owners (with ownership percentages)
-6. Build a chronological timeline of events
-7. Identify patterns, red flags, and potential violations
-8. Generate and score multiple hypotheses
-9. Find contradictions and gaps in the evidence
-10. ALWAYS cite specific documents for every claim using [Doc X] format
+3. **CRIMINAL HISTORY CHECK**: For EVERY person identified, search your knowledge for any criminal history including:
+   - Arrests, indictments, and convictions (even decades old)
+   - Drug charges, fraud, tax evasion, money laundering
+   - Federal and state criminal cases
+   - Plea deals and cooperation agreements
+   - Prison sentences served
+   THIS IS CRITICAL - historical criminal records are directly relevant to financial crime risk assessment
+4. Analyze beneficial ownership structures and apply OFAC 50% Rule
+5. For EACH person/individual entity, identify ALL companies they own or control (with ownership percentages)
+6. For EACH company entity, identify ALL beneficial owners (with ownership percentages)
+7. Build a chronological timeline of events
+8. Identify patterns, red flags, and potential violations
+9. Generate and score multiple hypotheses
+10. Find contradictions and gaps in the evidence
+11. ALWAYS cite specific documents for every claim using [Doc X] format
 
 CRITICAL: When you identify a person as a subject of investigation, you MUST also extract and include:
 - All companies they own (direct ownership)
@@ -3444,7 +3489,7 @@ Respond with a JSON object in this exact structure:
  "overview": "Comprehensive 4-6 sentence executive summary providing: (1) Entity identification and business context, (2) Specific sanctions/regulatory status with exact designation details (dates, programs, jurisdictions), (3) Key ownership/control structures and government connections, (4) Material compliance implications and restrictions, (5) Critical risk factors requiring enhanced due diligence. Write in professional, authoritative tone suitable for senior compliance officers and legal counsel. Include specific regulatory citations (e.g., 'Executive Order 13662', 'OFAC SDN list', 'EU Regulation 833/2014').",
  "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
  "primaryConcerns": ["Detailed concern with specific regulatory/sanctions implications", "Concern with exact percentages/amounts/dates", "Concern with legal/compliance consequences"],
- "recommendedActions": ["Specific, actionable recommendation with regulatory basis (e.g., 'REJECT all debt financing >90 days under EO 13662', 'ESCALATE to OFAC for licensing determination', 'PROHIBIT transactions pending SAR filing')", "Action with clear compliance outcome", "Action with documentation requirement"]
+ "recommendedActions": ["REJECT/APPROVE/ESCALATE: Clear onboarding decision with rationale", "Request [specific document] from the customer", "If approved, implement [specific monitoring]"]
  },
  "entities": [
  {
@@ -3455,6 +3500,7 @@ Respond with a JSON object in this exact structure:
  "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
  "sanctionStatus": "CLEAR|POTENTIAL_MATCH|SANCTIONED",
  "pepStatus": false,
+ "criminalHistory": [{"offense": "Description of offense", "date": "Year or date", "jurisdiction": "Federal/State/Country", "outcome": "Convicted/Acquitted/Plea deal", "sentence": "Prison time or fine if applicable"}],
  "beneficialOwners": [{"name": "owner", "percent": 0, "sanctionStatus": "CLEAR|SANCTIONED"}],
  "ownedCompanies": [{"company": "Company Name", "ownershipPercent": 0, "ownershipType": "DIRECT|INDIRECT|BENEFICIAL"}],
  "riskIndicators": ["specific risk indicators with [Doc X] citations"],
@@ -3492,7 +3538,7 @@ Respond with a JSON object in this exact structure:
  "confidence": 0.75,
  "supportingEvidence": ["Specific supporting evidence point 1 with detailed citation [Doc X]", "Evidence point 2 [Doc Y]", "Evidence point 3 [Doc Z]"],
  "contradictingEvidence": ["Contradicting evidence 1 [Doc X]", "Counter-evidence 2 [Doc Y]"],
- "investigativeGaps": ["Specific data/evidence needed to prove/disprove this hypothesis", "Gap 2", "Gap 3"]
+ "investigativeGaps": ["Document or information that would clarify this"]
  }
  ],
  "patterns": [
@@ -3522,9 +3568,8 @@ Respond with a JSON object in this exact structure:
  "nextSteps": [
  {
  "priority": "HIGH|MEDIUM|LOW",
- "action": "Specific, actionable investigation step (e.g., 'Subpoena bank records for account XXX', 'Interview witness Y', 'Request corporate registry search for Company Z')",
- "rationale": "Detailed explanation of why this step is important and what it will help determine",
- "expectedOutcome": "What you hope to learn or confirm"
+ "action": "Simple, practical next step",
+ "rationale": "Brief explanation"
  }
  ]
 }
@@ -3532,14 +3577,33 @@ Respond with a JSON object in this exact structure:
 CRITICAL INSTRUCTIONS:
 - Return ONLY valid JSON, nothing else
 - Start with { and end with }
-- Be thorough: Include 3-8 items per major array (entities, typologies, hypotheses, nextSteps)
+- Be thorough: Include 3-8 items per major array (entities, typologies, hypotheses)
 - TYPOLOGIES: Identify ALL relevant financial crime typologies with comprehensive indicators and red flags
 - HYPOTHESES: Generate multiple competing hypotheses (3-5) with detailed supporting/contradicting evidence
-- NEXT STEPS: Provide 5-10 specific, actionable investigative steps prioritized by importance
-- **IMPORTANT**: DO NOT suggest database screening, sanctions list checking, or ownership verification as next steps - Marlowe has ALREADY completed comprehensive sanctions screening, beneficial ownership analysis, and ownership network mapping automatically. Only suggest actions requiring human intervention: document requests, interviews, legal consultations, subpoenas, registry filings, banking records, transaction analysis, etc.
 - Every claim must cite specific documents using [Doc X] format
-- Descriptions should be detailed and professional - this is for serious financial crime investigations
-- Include regulatory context and compliance implications`
+
+RECOMMENDED ACTIONS - CRITICAL GUIDANCE:
+The user is a compliance officer deciding whether to ONBOARD a customer or proceed with a transaction. Your recommendations must answer: "Should I do business with this person/entity?"
+
+FIRST recommendation MUST be a clear DECISION:
+- "REJECT: Do not onboard - [specific reason, e.g., 'direct SDN sanctions match', 'PEP with corruption allegations']"
+- "APPROVE WITH CONDITIONS: May proceed if [specific conditions]"
+- "ESCALATE: Requires senior compliance/legal review before decision"
+
+REMAINING recommendations should be DOCUMENTS TO REQUEST from the customer, then UPLOAD TO MARLOWE for deeper analysis:
+- "Request certified beneficial ownership documentation - upload to Marlowe Cipher for deep ownership mapping"
+- "Request audited financial statements for past 3 years - upload to Marlowe to detect suspicious patterns"
+- "Request source of funds documentation - upload to Marlowe Cipher for flow-of-funds analysis"
+- "Request bank statements showing transaction history - upload to Marlowe for transaction pattern detection"
+- "Request corporate registry documents - upload to Marlowe to screen each subsidiary"
+- "Request organizational chart with all affiliates - upload to Marlowe for comprehensive sanctions screening"
+
+NEVER suggest these (Marlowe already did them or user can't do them):
+- "Screen against sanctions lists" - ALREADY DONE by Marlowe
+- "Map ownership network" - tell them to GET ownership docs, Marlowe will map it
+- "Analyze financial flows" - tell them to GET bank statements, Marlowe will analyze
+- "Interview the subject" - not a compliance function
+- "Subpoena records" - users can't do this`
  : `${investigationContext}Based on the investigation description provided, create an initial investigative framework with preliminary analysis.
 
 Since no evidence documents have been uploaded yet, focus on:
@@ -3633,18 +3697,30 @@ Respond with a JSON object in this exact structure:
    }
  }, 3000); // Update every 3 seconds
 
- // Reduce token limit to avoid rate limits
+ // Scout uses Sonnet, Cipher uses Opus
+ // Higher tokens for Cipher (deep investigations), lower for Scout (quick screenings)
+ const analysisModel = investigationMode === 'scout' ? 'claude-sonnet-4-20250514' : 'claude-opus-4-20250514';
+ const maxTokens = investigationMode === 'scout' ? 8000 : 16000;
+
+ // Create abort controller for timeout (5 min for Cipher, 3 min for Scout)
+ const controller = new AbortController();
+ const timeoutMs = investigationMode === 'scout' ? 180000 : 300000;
+ const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
  const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
+ signal: controller.signal,
  body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
- max_tokens: 4000,
+ model: analysisModel,
+ max_tokens: maxTokens,
  messages: [
  { role: "user", content: `${systemPrompt}\n\n${userPrompt}` }
  ]
  })
  });
+
+ clearTimeout(timeoutId);
 
  // Clear the progress interval once API call completes
  clearInterval(progressInterval);
@@ -4010,15 +4086,11 @@ Respond with a JSON object in this exact structure:
 
  await new Promise(resolve => setTimeout(resolve, 200));
 
- // Auto-generate case name based on analysis if not already set
- let finalCaseName = caseName;
- if (!caseName || caseName === '') {
- const primaryEntities = parsed.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
+ // Auto-generate case name: use extracted entity name + risk level + date
  const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+ let finalCaseName = `${displayCaseName} - ${riskLevel} - ${dateStr}`;
  setCaseName(finalCaseName);
- }
 
  // Update progress: Finalizing
  setBackgroundAnalysis(prev => ({
@@ -4042,7 +4114,7 @@ Respond with a JSON object in this exact structure:
  }));
 
  // Save the case but don't navigate yet - user will click to view
- saveCase(parsed);
+ saveCase(parsed, finalCaseName);
  } catch (parseError) {
  console.error('JSON parse error:', parseError);
  console.error('First 1000 chars of JSON:', jsonStr.substring(0, 1000));
@@ -4067,8 +4139,14 @@ Respond with a JSON object in this exact structure:
  }
  } catch (error) {
  console.error('Analysis error:', error);
- setAnalysisError(`Error connecting to analysis service: ${error.message}`);
- 
+
+ // Handle timeout/abort errors specifically
+ if (error.name === 'AbortError') {
+   setAnalysisError('Analysis timed out. Complex documents may take longer - try uploading fewer files or smaller documents.');
+ } else {
+   setAnalysisError(`Error connecting to analysis service: ${error.message}`);
+ }
+
  } finally {
 if (progressInterval) clearInterval(progressInterval);
 setIsAnalyzing(false);
@@ -4093,84 +4171,6 @@ setIsAnalyzing(false);
  case 'LOW': return 'border-emerald-500';
  default: return 'border-gray-500';
  }
- };
-
- // Parse text with citations like [Doc 1], [Doc 2] and make them clickable
- const renderTextWithCitations = (text) => {
-   if (!text) return null;
-
-   // Match patterns like [Doc 1], [Doc 2], [Document 1], [DOCUMENT 1], etc.
-   const citationRegex = /\[(?:Doc(?:ument)?|DOCUMENT?)\s*(\d+)\]/gi;
-   const parts = [];
-   let lastIndex = 0;
-   let match;
-
-   while ((match = citationRegex.exec(text)) !== null) {
-     // Add text before the citation
-     if (match.index > lastIndex) {
-       parts.push(text.slice(lastIndex, match.index));
-     }
-
-     const docNum = parseInt(match[1], 10);
-     parts.push(
-       <button
-         key={`citation-${match.index}`}
-         onClick={() => {
-           setActiveTab('evidence');
-           setHighlightedDocId(docNum);
-           // Clear highlight after 3 seconds
-           setTimeout(() => setHighlightedDocId(null), 3000);
-         }}
-         className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded text-xs font-medium transition-colors cursor-pointer mx-0.5"
-       >
-         <FileText className="w-3 h-3" />
-         Doc {docNum}
-       </button>
-     );
-
-     lastIndex = match.index + match[0].length;
-   }
-
-   // Add remaining text
-   if (lastIndex < text.length) {
-     parts.push(text.slice(lastIndex));
-   }
-
-   return parts.length > 0 ? parts : text;
- };
-
- // Group entities by type for better organization
- const groupEntitiesByType = (entities) => {
-   if (!entities || entities.length === 0) return {};
-
-   const groups = {
-     PERSON: [],
-     ORGANIZATION: [],
-     OTHER: []
-   };
-
-   entities.forEach(entity => {
-     const type = entity.type?.toUpperCase();
-     if (type === 'PERSON') {
-       groups.PERSON.push(entity);
-     } else if (type === 'ORGANIZATION' || type === 'COMPANY') {
-       groups.ORGANIZATION.push(entity);
-     } else {
-       groups.OTHER.push(entity);
-     }
-   });
-
-   // Sort each group by risk level (CRITICAL first, then HIGH, MEDIUM, LOW)
-   const riskOrder = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 };
-   Object.keys(groups).forEach(key => {
-     groups[key].sort((a, b) => {
-       const aRisk = riskOrder[a.riskLevel?.toUpperCase()] ?? 4;
-       const bRisk = riskOrder[b.riskLevel?.toUpperCase()] ?? 4;
-       return aRisk - bRisk;
-     });
-   });
-
-   return groups;
  };
 
  // Scroll chat to bottom when new messages arrive
@@ -4258,19 +4258,19 @@ ${analysisContext}`;
  };
 
  return (
- <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "dark bg-slate-950 text-gray-100" : "bg-gray-50 text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
  {/* Import fonts */}
  <style>{`
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
+ 
  .mono {  font-family: 'JetBrains Mono', monospace; }
-
+ 
  .grid-bg {
- background-image:
+ background-image: 
  radial-gradient(circle at 1px 1px, rgba(6, 182, 212, 0.08) 1px, transparent 1px);
  background-size: 24px 24px;
  }
-
+ 
  .glow-cyan {
  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
  }
@@ -4282,230 +4282,18 @@ ${analysisContext}`;
  .glow-red {
  box-shadow: 0 0 20px rgba(244, 63, 94, 0.4), 0 0 40px rgba(244, 63, 94, 0.2);
  }
-
+ 
  .glass-card {
  background: rgba(15, 23, 42, 0.7);
  backdrop-filter: blur(20px) saturate(180%);
  border: 1px solid rgba(6, 182, 212, 0.2);
  }
-
+ 
  .glass-strong {
  background: rgba(255, 255, 255, 0.95);
  backdrop-filter: blur(24px) saturate(200%);
  border: 1px solid rgba(6, 182, 212, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
- }
-
- /* Dark mode styles */
- .dark .dark\\:card {
-   background: rgba(30, 41, 59, 0.8) !important;
-   border-color: rgba(71, 85, 105, 0.5) !important;
- }
-
- .dark .dark\\:card-elevated {
-   background: rgba(51, 65, 85, 0.9) !important;
-   border-color: rgba(100, 116, 139, 0.4) !important;
- }
-
- .dark .bg-white {
-   background: rgb(30, 41, 59) !important;
- }
-
- .dark .bg-gray-50 {
-   background: rgb(15, 23, 42) !important;
- }
-
- .dark .bg-gray-100 {
-   background: rgb(30, 41, 59) !important;
- }
-
- .dark .bg-gray-100\\/50 {
-   background: rgba(30, 41, 59, 0.5) !important;
- }
-
- .dark .border-gray-200 {
-   border-color: rgb(51, 65, 85) !important;
- }
-
- .dark .border-gray-300 {
-   border-color: rgb(71, 85, 105) !important;
- }
-
- .dark .text-gray-900 {
-   color: rgb(241, 245, 249) !important;
- }
-
- .dark .text-gray-800 {
-   color: rgb(226, 232, 240) !important;
- }
-
- .dark .text-gray-700 {
-   color: rgb(203, 213, 225) !important;
- }
-
- .dark .text-gray-600 {
-   color: rgb(148, 163, 184) !important;
- }
-
- .dark .text-gray-500 {
-   color: rgb(100, 116, 139) !important;
- }
-
- .dark .text-gray-400 {
-   color: rgb(148, 163, 184) !important;
- }
-
- .dark .hover\\:bg-gray-100:hover {
-   background: rgb(51, 65, 85) !important;
- }
-
- .dark .hover\\:bg-gray-200:hover {
-   background: rgb(71, 85, 105) !important;
- }
-
- .dark .hover\\:border-gray-300:hover {
-   border-color: rgb(100, 116, 139) !important;
- }
-
- .dark .hover\\:border-gray-400:hover {
-   border-color: rgb(148, 163, 184) !important;
- }
-
- .dark .bg-white\\/50 {
-   background: rgba(30, 41, 59, 0.5) !important;
- }
-
- .dark .bg-white\\/95 {
-   background: rgba(30, 41, 59, 0.95) !important;
- }
-
- .dark .bg-gray-50\\/80 {
-   background: rgba(15, 23, 42, 0.8) !important;
- }
-
- .dark footer {
-   background: rgba(15, 23, 42, 0.9) !important;
-   border-color: rgb(51, 65, 85) !important;
- }
-
- /* Dark mode for specific components */
- .dark .bg-amber-50 {
-   background: rgba(245, 158, 11, 0.15) !important;
- }
-
- .dark .bg-amber-100 {
-   background: rgba(245, 158, 11, 0.2) !important;
- }
-
- .dark .border-amber-200 {
-   border-color: rgba(245, 158, 11, 0.4) !important;
- }
-
- .dark .bg-emerald-50 {
-   background: rgba(16, 185, 129, 0.15) !important;
- }
-
- .dark .bg-emerald-100 {
-   background: rgba(16, 185, 129, 0.2) !important;
- }
-
- .dark .border-emerald-200 {
-   border-color: rgba(16, 185, 129, 0.4) !important;
- }
-
- .dark .bg-rose-50 {
-   background: rgba(244, 63, 94, 0.15) !important;
- }
-
- .dark .border-rose-200 {
-   border-color: rgba(244, 63, 94, 0.4) !important;
- }
-
- .dark .bg-red-600\\/20 {
-   background: rgba(220, 38, 38, 0.25) !important;
- }
-
- .dark .bg-purple-100 {
-   background: rgba(168, 85, 247, 0.2) !important;
- }
-
- .dark .border-purple-200 {
-   border-color: rgba(168, 85, 247, 0.4) !important;
- }
-
- .dark .bg-blue-50 {
-   background: rgba(59, 130, 246, 0.15) !important;
- }
-
- .dark input,
- .dark textarea {
-   background: rgb(30, 41, 59) !important;
-   border-color: rgb(71, 85, 105) !important;
-   color: rgb(241, 245, 249) !important;
- }
-
- .dark input:focus,
- .dark textarea:focus {
-   border-color: rgb(245, 158, 11) !important;
- }
-
- .dark input::placeholder,
- .dark textarea::placeholder {
-   color: rgb(100, 116, 139) !important;
- }
-
- .dark pre {
-   background: rgb(15, 23, 42) !important;
-   color: rgb(148, 163, 184) !important;
- }
-
- .dark .shadow-xl {
-   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
- }
-
- .dark .shadow-lg {
-   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
- }
-
- /* Amber accent colors stay vibrant in dark mode */
- .dark .bg-amber-500 {
-   background: rgb(245, 158, 11) !important;
- }
-
- .dark .hover\\:bg-amber-400:hover {
-   background: rgb(251, 191, 36) !important;
- }
-
- .dark .text-amber-500 {
-   color: rgb(251, 191, 36) !important;
- }
-
- .dark .text-amber-600 {
-   color: rgb(245, 158, 11) !important;
- }
-
- /* Chart and graph backgrounds */
- .dark .recharts-wrapper {
-   background: transparent !important;
- }
-
- /* Scrollbar styling for dark mode */
- .dark ::-webkit-scrollbar {
-   width: 8px;
-   height: 8px;
- }
-
- .dark ::-webkit-scrollbar-track {
-   background: rgb(30, 41, 59);
- }
-
- .dark ::-webkit-scrollbar-thumb {
-   background: rgb(71, 85, 105);
-   border-radius: 4px;
- }
-
- .dark ::-webkit-scrollbar-thumb:hover {
-   background: rgb(100, 116, 139);
  }
  
  .gradient-border {
@@ -6385,224 +6173,100 @@ ${analysisContext}`;
  </button>
  </div>
  ) : (
- <div className="space-y-8">
- {/* New Cases Section */}
- {cases.filter(c => !c.viewed).length > 0 && (
-   <div>
-     <div className="flex items-center gap-2 mb-4">
-       <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-       <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wider">
-         New ({cases.filter(c => !c.viewed).length})
-       </h3>
-     </div>
-     <div className="grid gap-4">
-       {cases.filter(c => !c.viewed).map((caseItem) => (
-         <div
-           key={caseItem.id}
-           onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
-           className="bg-white border-2 border-amber-200 hover:border-amber-400 rounded-xl p-6 cursor-pointer transition-all group relative"
-         >
-           {/* New badge */}
-           <div className="absolute -top-2 -right-2 bg-amber-500 text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full">
-             NEW
-           </div>
-           <div className="flex items-start gap-4">
-             <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
-               caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
-               caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
-               caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
-               'bg-emerald-50 border border-emerald-200'
-             }`}>
-               <Folder className={`w-7 h-7 ${
-                 caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
-                 caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
-                 caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
-                 'text-emerald-500'
-               }`} />
-             </div>
-
-             <div className="flex-1 min-w-0">
-               <div className="flex items-center gap-3 mb-2">
-                 {editingCaseId === caseItem.id ? (
-                   <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
-                     <input
-                       ref={editInputRef}
-                       type="text"
-                       value={editingCaseName}
-                       onChange={(e) => setEditingCaseName(e.target.value)}
-                       onKeyDown={handleEditKeyPress}
-                       onBlur={saveEditedCaseName}
-                       className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
-                     />
-                     <button
-                       onClick={saveEditedCaseName}
-                       className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-                     >
-                       <Check className="w-4 h-4 text-gray-900" />
-                     </button>
-                   </div>
-                 ) : (
-                   <>
-                     <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
-                     <button
-                       onClick={(e) => startEditingCase(caseItem, e)}
-                       className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                     >
-                       <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
-                     </button>
-                     <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
-                       {caseItem.riskLevel} RISK
-                     </span>
-                   </>
-                 )}
-               </div>
-
-               <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
-                 {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
-               </p>
-
-               <div className="flex items-center gap-4 text-xs text-gray-500">
-                 <span className="flex items-center gap-1">
-                   <FileText className="w-3.5 h-3.5" />
-                   {caseItem.files.length} documents
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Users className="w-3.5 h-3.5" />
-                   {caseItem.analysis?.entities?.length || 0} entities
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Lightbulb className="w-3.5 h-3.5" />
-                   {caseItem.analysis?.hypotheses?.length || 0} hypotheses
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Calendar className="w-3.5 h-3.5" />
-                   {new Date(caseItem.createdAt).toLocaleDateString()}
-                 </span>
-               </div>
-             </div>
-
-             <div className="flex items-center gap-2">
-               <button
-                 onClick={(e) => deleteCase(caseItem.id, e)}
-                 className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-               >
-                 <Trash2 className="w-4 h-4 text-rose-500" />
-               </button>
-               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
-             </div>
-           </div>
-         </div>
-       ))}
-     </div>
-   </div>
+ <div className="grid gap-4">
+ {cases.map((caseItem) => (
+ <div
+ key={caseItem.id}
+ onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
+ className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-6 cursor-pointer transition-all group"
+ >
+ <div className="flex items-start gap-4">
+ <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
+ caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
+ caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
+ caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+ 'bg-emerald-50 border border-emerald-200'
+ }`}>
+ <Folder className={`w-7 h-7 ${
+ caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
+ caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
+ caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+ 'text-emerald-500'
+ }`} />
+ </div>
+ 
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-3 mb-2">
+ {editingCaseId === caseItem.id ? (
+ <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+ <input
+ ref={editInputRef}
+ type="text"
+ value={editingCaseName}
+ onChange={(e) => setEditingCaseName(e.target.value)}
+ onKeyDown={handleEditKeyPress}
+ onBlur={saveEditedCaseName}
+ className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
+ />
+ <button
+ onClick={saveEditedCaseName}
+ className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+ >
+ <Check className="w-4 h-4 text-gray-900" />
+ </button>
+ </div>
+ ) : (
+ <>
+ <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
+ <button
+ onClick={(e) => startEditingCase(caseItem, e)}
+ className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+ >
+ <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
+ </button>
+ <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
+ {caseItem.riskLevel} RISK
+ </span>
+ </>
  )}
+ </div>
+ 
+ <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
+ {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
+ </p>
+ 
+ <div className="flex items-center gap-4 text-xs text-gray-500">
+ <span className="flex items-center gap-1">
+ <FileText className="w-3.5 h-3.5" />
+ {caseItem.files.length} documents
+ </span>
+ <span className="flex items-center gap-1">
+ <Users className="w-3.5 h-3.5" />
+ {caseItem.analysis?.entities?.length || 0} entities
+ </span>
+ <span className="flex items-center gap-1">
+ <Lightbulb className="w-3.5 h-3.5" />
+ {caseItem.analysis?.hypotheses?.length || 0} hypotheses
+ </span>
+ <span className="flex items-center gap-1">
+ <Calendar className="w-3.5 h-3.5" />
+ {new Date(caseItem.createdAt).toLocaleDateString()}
+ </span>
+ </div>
+ </div>
 
- {/* Viewed Cases Section */}
- {cases.filter(c => c.viewed).length > 0 && (
-   <div>
-     <div className="flex items-center gap-2 mb-4">
-       <Eye className="w-4 h-4 text-gray-400" />
-       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-         Viewed ({cases.filter(c => c.viewed).length})
-       </h3>
-     </div>
-     <div className="grid gap-4">
-       {cases.filter(c => c.viewed).map((caseItem) => (
-         <div
-           key={caseItem.id}
-           onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
-           className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-6 cursor-pointer transition-all group"
-         >
-           <div className="flex items-start gap-4">
-             <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
-               caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
-               caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
-               caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
-               'bg-emerald-50 border border-emerald-200'
-             }`}>
-               <Folder className={`w-7 h-7 ${
-                 caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
-                 caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
-                 caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
-                 'text-emerald-500'
-               }`} />
-             </div>
-
-             <div className="flex-1 min-w-0">
-               <div className="flex items-center gap-3 mb-2">
-                 {editingCaseId === caseItem.id ? (
-                   <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
-                     <input
-                       ref={editInputRef}
-                       type="text"
-                       value={editingCaseName}
-                       onChange={(e) => setEditingCaseName(e.target.value)}
-                       onKeyDown={handleEditKeyPress}
-                       onBlur={saveEditedCaseName}
-                       className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
-                     />
-                     <button
-                       onClick={saveEditedCaseName}
-                       className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
-                     >
-                       <Check className="w-4 h-4 text-gray-900" />
-                     </button>
-                   </div>
-                 ) : (
-                   <>
-                     <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
-                     <button
-                       onClick={(e) => startEditingCase(caseItem, e)}
-                       className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                     >
-                       <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
-                     </button>
-                     <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
-                       {caseItem.riskLevel} RISK
-                     </span>
-                   </>
-                 )}
-               </div>
-
-               <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
-                 {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
-               </p>
-
-               <div className="flex items-center gap-4 text-xs text-gray-500">
-                 <span className="flex items-center gap-1">
-                   <FileText className="w-3.5 h-3.5" />
-                   {caseItem.files.length} documents
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Users className="w-3.5 h-3.5" />
-                   {caseItem.analysis?.entities?.length || 0} entities
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Lightbulb className="w-3.5 h-3.5" />
-                   {caseItem.analysis?.hypotheses?.length || 0} hypotheses
-                 </span>
-                 <span className="flex items-center gap-1">
-                   <Calendar className="w-3.5 h-3.5" />
-                   {new Date(caseItem.createdAt).toLocaleDateString()}
-                 </span>
-               </div>
-             </div>
-
-             <div className="flex items-center gap-2">
-               <button
-                 onClick={(e) => deleteCase(caseItem.id, e)}
-                 className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-               >
-                 <Trash2 className="w-4 h-4 text-rose-500" />
-               </button>
-               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
-             </div>
-           </div>
-         </div>
-       ))}
-     </div>
-   </div>
- )}
+ <div className="flex items-center gap-2">
+ <button
+ onClick={(e) => deleteCase(caseItem.id, e)}
+ className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+ >
+ <Trash2 className="w-4 h-4 text-rose-500" />
+ </button>
+ <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+ </div>
+ </div>
+ </div>
+ ))}
  </div>
  )}
  </div>
@@ -6859,17 +6523,13 @@ ${analysisContext}`;
  )}
  </section>
 
- {/* Progress Card - Shows during analysis AND when complete on New Case page */}
+ {/* Progress Card - Shows during analysis AND when complete (on this page) */}
  {(backgroundAnalysis.isRunning || backgroundAnalysis.isComplete) && (
    <div className="mt-4">
-     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${
-       backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'
-     }`}>
+     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'}`}>
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
-         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-           backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-amber-100'
-         }`}>
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-amber-100'}`}>
            {backgroundAnalysis.isComplete ? (
              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
            ) : (
@@ -6878,9 +6538,7 @@ ${analysisContext}`;
          </div>
          <div>
            <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'Processing...'}</h3>
-           <p className={`text-xs mono tracking-wide ${
-             backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-500'
-           }`}>
+           <p className={`text-xs mono tracking-wide ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-500'}`}>
              {backgroundAnalysis.isComplete ? 'ANALYSIS COMPLETE' : 'CASE ANALYSIS IN PROGRESS'}
            </p>
          </div>
@@ -6890,25 +6548,23 @@ ${analysisContext}`;
        <div className="mb-4">
          <div className="flex justify-between items-center mb-2">
            <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
-           <span className={`text-sm font-medium ${
-             backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-amber-600'
-           }`}>{backgroundAnalysis.progress}%</span>
+           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{backgroundAnalysis.progress}%</span>
          </div>
          <div className="w-full bg-gray-100 rounded-full h-2">
            <div
-             className={`h-2 rounded-full transition-all duration-500 ease-out ${
-               backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-amber-500'
-             }`}
+             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-amber-500'}`}
              style={{ width: `${backgroundAnalysis.progress}%` }}
            />
          </div>
        </div>
 
-       {/* Time Remaining OR View Results Button */}
+       {/* Status / View Results */}
        {backgroundAnalysis.isComplete ? (
          <button
-           onClick={viewAnalysisResults}
-           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+           onClick={() => {
+             viewAnalysisResults();
+           }}
+           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
          >
            <Eye className="w-4 h-4" />
            View Results
@@ -6988,11 +6644,11 @@ ${analysisContext}`;
  <div className="flex flex-col gap-1.5">
  {[
  { id: 'overview', label: 'Overview', icon: Eye },
- { id: 'timeline', label: 'Timeline', icon: Clock },
  { id: 'entities', label: 'Entities', icon: Users },
  { id: 'typologies', label: 'Typologies', icon: Target },
  { id: 'hypotheses', label: 'Hypotheses', icon: Lightbulb },
  { id: 'network', label: 'Network', icon: Network },
+ { id: 'timeline', label: 'Timeline', icon: Clock },
  { id: 'evidence', label: 'Evidence', icon: FileText },
  ].filter(tab => {
  // Hide Timeline tab if there are no timeline events
@@ -7096,7 +6752,7 @@ ${analysisContext}`;
  </div>
 
  <p className="text-gray-600 leading-relaxed mb-6">
- {renderTextWithCitations(analysis.executiveSummary?.overview)}
+ {analysis.executiveSummary?.overview}
  </p>
 
  {/* Sanctions-Related Ownership Findings */}
@@ -7150,7 +6806,7 @@ ${analysisContext}`;
  {analysis.executiveSummary?.primaryConcerns?.map((concern, idx) => (
  <li key={idx} className="flex items-start gap-2 text-sm">
  <ChevronRight className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
- <span>{renderTextWithCitations(concern)}</span>
+ <span>{concern}</span>
  </li>
  ))}
  </ul>
@@ -7164,7 +6820,7 @@ ${analysisContext}`;
  {analysis.executiveSummary?.recommendedActions?.map((action, idx) => (
  <li key={idx} className="flex items-start gap-2 text-sm">
  <ChevronRight className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span>{renderTextWithCitations(action)}</span>
+ <span>{action}</span>
  </li>
  ))}
  </ul>
@@ -7259,22 +6915,22 @@ ${analysisContext}`;
  </span>
  </div>
  
- <p className="font-medium text-gray-900 leading-relaxed mb-2">{renderTextWithCitations(event.event)}</p>
-
+ <p className="font-medium text-gray-900 leading-relaxed mb-2">{event.event}</p>
+ 
  {selectedEvent?.id === event.id && (
  <div className="mt-4 pt-4 border-t border-gray-300 space-y-3 fade-in">
  <div>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">SIGNIFICANCE</p>
- <p className="text-base text-gray-900 leading-relaxed">{renderTextWithCitations(event.significance)}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{event.significance}</p>
  </div>
-
+ 
  {event.citations && event.citations.length > 0 && (
  <div>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-2">CITATIONS</p>
  {event.citations.map((citation, cidx) => (
  <div key={cidx} className="flex items-start gap-2 text-sm bg-white p-2 rounded mb-1">
  <Link2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span className="text-gray-600">{renderTextWithCitations(citation)}</span>
+ <span className="text-gray-600">{citation}</span>
  </div>
  ))}
  </div>
@@ -7292,132 +6948,37 @@ ${analysisContext}`;
  {/* Entities Tab */}
  {activeTab === 'entities' && (
  <div className="grid lg:grid-cols-3 gap-6">
- {/* Entity List - Grouped by Type */}
+ {/* Entity List */}
  <div className="lg:col-span-1 bg-white border border-gray-200 rounded-xl p-4">
  <h3 className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-4">
  EXTRACTED ENTITIES ({analysis.entities?.length || 0})
  </h3>
- <div className="space-y-4 max-h-[600px] overflow-y-auto">
- {/* Persons Group */}
- {groupEntitiesByType(analysis.entities).PERSON?.length > 0 && (
-   <div>
-     <div className="flex items-center gap-2 mb-2 px-2">
-       <Users className="w-4 h-4 text-blue-500" />
-       <span className="text-xs font-medium text-blue-600 uppercase tracking-wider">
-         Persons ({groupEntitiesByType(analysis.entities).PERSON.length})
-       </span>
-     </div>
-     <div className="space-y-2">
-       {groupEntitiesByType(analysis.entities).PERSON.map((entity, idx) => (
-         <button
-           key={entity.id || `person-${idx}`}
-           onClick={() => setSelectedEntity(entity)}
-           className={`w-full text-left p-4 rounded-lg transition-all ${
-             selectedEntity?.id === entity.id
-               ? 'bg-amber-50 border-2 border-amber-500'
-               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
-           }`}
-         >
-           <div className="flex items-center gap-3">
-             <img
-               src={`https://ui-avatars.com/api/?name=${encodeURIComponent(entity.name)}&background=d4af37&color=0a0a0f&size=64&bold=true`}
-               alt={entity.name}
-               className="w-10 h-10 rounded-full border border-gray-300"
-             />
-             <div className="flex-1 min-w-0">
-               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
-               <div className="flex items-center gap-2 mt-1">
-                 <span className={`text-xs px-1.5 py-0.5 rounded ${getRiskColor(entity.riskLevel)}`}>
-                   {entity.riskLevel || 'UNKNOWN'}
-                 </span>
-                 {entity.sanctionStatus === 'MATCH' && (
-                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white">SANCTIONED</span>
-                 )}
-               </div>
-             </div>
-           </div>
-         </button>
-       ))}
-     </div>
-   </div>
+ <div className="space-y-2 max-h-[600px] overflow-y-auto">
+ {analysis.entities?.map((entity, idx) => (
+ <button
+ key={entity.id || idx}
+ onClick={() => setSelectedEntity(entity)}
+ className={`w-full text-left p-5 rounded-lg transition-all ${
+ selectedEntity?.id === entity.id
+ ? 'bg-amber-50 border border-amber-200 border border-amber-500'
+ : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
+ }`}
+ >
+ <div className="flex items-center gap-3">
+ {entity.type === 'PERSON' && (
+ <img
+ src={`https://ui-avatars.com/api/?name=${encodeURIComponent(entity.name)}&background=d4af37&color=0a0a0f&size=64&bold=true`}
+ alt={entity.name}
+ className="w-10 h-10 rounded-full border border-gray-300"
+ />
  )}
-
- {/* Organizations Group */}
- {groupEntitiesByType(analysis.entities).ORGANIZATION?.length > 0 && (
-   <div>
-     <div className="flex items-center gap-2 mb-2 px-2">
-       <Building2 className="w-4 h-4 text-purple-500" />
-       <span className="text-xs font-medium text-purple-600 uppercase tracking-wider">
-         Organizations ({groupEntitiesByType(analysis.entities).ORGANIZATION.length})
-       </span>
-     </div>
-     <div className="space-y-2">
-       {groupEntitiesByType(analysis.entities).ORGANIZATION.map((entity, idx) => (
-         <button
-           key={entity.id || `org-${idx}`}
-           onClick={() => setSelectedEntity(entity)}
-           className={`w-full text-left p-4 rounded-lg transition-all ${
-             selectedEntity?.id === entity.id
-               ? 'bg-amber-50 border-2 border-amber-500'
-               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
-           }`}
-         >
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center">
-               <Building2 className="w-5 h-5 text-purple-600" />
-             </div>
-             <div className="flex-1 min-w-0">
-               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
-               <div className="flex items-center gap-2 mt-1">
-                 <span className={`text-xs px-1.5 py-0.5 rounded ${getRiskColor(entity.riskLevel)}`}>
-                   {entity.riskLevel || 'UNKNOWN'}
-                 </span>
-                 {entity.sanctionStatus === 'MATCH' && (
-                   <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white">SANCTIONED</span>
-                 )}
-               </div>
-             </div>
-           </div>
-         </button>
-       ))}
-     </div>
-   </div>
- )}
-
- {/* Other Entities Group */}
- {groupEntitiesByType(analysis.entities).OTHER?.length > 0 && (
-   <div>
-     <div className="flex items-center gap-2 mb-2 px-2">
-       <FileText className="w-4 h-4 text-gray-500" />
-       <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
-         Other ({groupEntitiesByType(analysis.entities).OTHER.length})
-       </span>
-     </div>
-     <div className="space-y-2">
-       {groupEntitiesByType(analysis.entities).OTHER.map((entity, idx) => (
-         <button
-           key={entity.id || `other-${idx}`}
-           onClick={() => setSelectedEntity(entity)}
-           className={`w-full text-left p-4 rounded-lg transition-all ${
-             selectedEntity?.id === entity.id
-               ? 'bg-amber-50 border-2 border-amber-500'
-               : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
-           }`}
-         >
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
-               <FileText className="w-5 h-5 text-gray-500" />
-             </div>
-             <div className="flex-1 min-w-0">
-               <span className="font-medium text-sm leading-tight block truncate">{entity.name}</span>
-               <span className="text-xs mono text-gray-500 tracking-wide">{entity.type}</span>
-             </div>
-           </div>
-         </button>
-       ))}
-     </div>
-   </div>
- )}
+ <div className="flex-1 min-w-0">
+ <span className="font-medium text-sm leading-tight block">{entity.name}</span>
+ <span className="text-xs mono text-gray-500 tracking-wide">{entity.type}</span>
+ </div>
+ </div>
+ </button>
+ ))}
  </div>
  </div>
 
@@ -7451,7 +7012,7 @@ ${analysisContext}`;
  <div className="space-y-6">
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2">Role in Investigation</h4>
- <p className="text-base text-gray-900 leading-relaxed">{renderTextWithCitations(selectedEntity.role)}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{selectedEntity.role}</p>
  </div>
 
  {/* Sanctions Status */}
@@ -7839,7 +7400,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.supportingEvidence?.map((evidence, eidx) => (
  <div key={eidx} className="text-sm bg-emerald-500/10 p-5 rounded-lg">
- {renderTextWithCitations(evidence)}
+ {evidence}
  </div>
  ))}
  </div>
@@ -7854,7 +7415,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.contradictingEvidence?.map((evidence, eidx) => (
  <div key={eidx} className="text-sm bg-rose-500/10 p-5 rounded-lg">
- {renderTextWithCitations(evidence)}
+ {evidence}
  </div>
  )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
  </div>
@@ -7869,7 +7430,7 @@ ${analysisContext}`;
  <div className="space-y-2">
  {hypothesis.investigativeGaps?.map((gap, gidx) => (
  <div key={gidx} className="text-sm bg-amber-500/10 p-5 rounded-lg">
- {renderTextWithCitations(gap)}
+ {gap}
  </div>
  )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
  </div>
@@ -8182,24 +7743,10 @@ ${analysisContext}`;
  </h3>
  <div className="space-y-4">
  {files.map((file, idx) => (
- <div
-   key={file.id}
-   id={`doc-${idx + 1}`}
-   className={`border rounded-lg overflow-hidden transition-all duration-500 ${
-     highlightedDocId === idx + 1
-       ? 'border-amber-500 border-2 ring-4 ring-amber-200 shadow-lg'
-       : 'border-gray-300'
-   }`}
- >
- <div className={`px-4 py-3 flex items-center justify-between ${
-   highlightedDocId === idx + 1 ? 'bg-amber-100' : 'bg-gray-100'
- }`}>
+ <div key={file.id} className="border border-gray-300 rounded-lg overflow-hidden">
+ <div className="bg-gray-100 px-4 py-3 flex items-center justify-between">
  <div className="flex items-center gap-3">
- <span className={`w-8 h-8 rounded-lg flex items-center justify-center mono tracking-wide text-sm font-bold ${
-   highlightedDocId === idx + 1
-     ? 'bg-amber-500 text-white border border-amber-600'
-     : 'bg-amber-50 border border-amber-200 text-amber-500'
- }`}>
+ <span className="w-8 h-8 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-center mono tracking-wide text-amber-500 text-sm font-bold">
  {idx + 1}
  </span>
  <div>
@@ -8477,8 +8024,8 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Floating Results Ready Notification - shows only on OTHER pages (not New Case where the card shows) */}
- {backgroundAnalysis.isComplete && currentPage !== 'newCase' && !notificationDismissed && (
+ {/* Floating Results Ready Notification - only shows when user is NOT on newCase page */}
+ {backgroundAnalysis.isComplete && !notificationDismissed && currentPage !== 'newCase' && (
    <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
      <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
        <div className="flex items-start gap-3">
