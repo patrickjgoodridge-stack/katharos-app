@@ -400,31 +400,31 @@ export default function Marlowe() {
 
    let html = text
      // OVERALL RISK with colored badge
-     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-red-600 text-white">OVERALL RISK: CRITICAL</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-red-100 text-red-700">OVERALL RISK: HIGH</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-amber-100 text-amber-700">OVERALL RISK: MEDIUM</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-4"><span class="inline-block px-3 py-1 rounded-lg text-sm font-bold bg-green-100 text-green-700">OVERALL RISK: LOW</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-red-600 text-white">OVERALL RISK: CRITICAL</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-red-100 text-red-700">OVERALL RISK: HIGH</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-amber-100 text-amber-700">OVERALL RISK: MEDIUM</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-green-100 text-green-700">OVERALL RISK: LOW</span></div>')
      // Section headers
-     .replace(/^(CRITICAL RED FLAGS|RED FLAGS|KEY FINDINGS|TYPOLOGIES PRESENT|ONBOARDING DECISION|DOCUMENTS TO REQUEST|THE MEMO|NEXT STEPS)/gm, '<h3 class="text-lg font-bold text-gray-900 mt-6 mb-3 border-b border-gray-200 pb-2">$1</h3>')
+     .replace(/^(CRITICAL RED FLAGS|RED FLAGS|KEY FINDINGS|TYPOLOGIES PRESENT|ONBOARDING DECISION|DOCUMENTS TO REQUEST|THE MEMO|NEXT STEPS)/gm, '<h3 class="text-base font-bold text-gray-900 mt-3 mb-1 border-b border-gray-200 pb-1">$1</h3>')
      // Numbered items with bold titles
-     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*/gm, '<div class="mt-4"><span class="font-bold text-gray-900">$1. $2</span></div>')
-     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mt-4"><span class="font-bold text-gray-900">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*/gm, '<div class="mt-2"><span class="font-bold text-gray-900">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mt-2"><span class="font-bold text-gray-900">$1. $2</span></div>')
      // Blockquotes with red left border for red flags
-     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="border-l-4 border-red-400 pl-4 my-3 py-2 bg-red-50 text-gray-700 italic rounded-r">"$1"</blockquote>')
-     .replace(/^"([^"]+)"$/gm, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 text-gray-600 italic">"$1"</blockquote>')
+     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="border-l-3 border-red-400 pl-3 my-1 py-1 bg-red-50 text-gray-700 italic text-sm rounded-r">"$1"</blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="border-l-2 border-gray-300 pl-3 my-1 text-gray-600 italic text-sm">"$1"</blockquote>')
      // Translation lines
-     .replace(/^Translation:\s*(.+)$/gm, '<p class="text-gray-800 mt-2 ml-4"><span class="font-semibold text-gray-900">Translation:</span> $1</p>')
+     .replace(/^Translation:\s*(.+)$/gm, '<p class="text-gray-800 mt-1 ml-3 text-sm"><span class="font-semibold text-gray-900">Translation:</span> $1</p>')
      // Bold text
      .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gray-900">$1</strong>')
      // Bullet points
-     .replace(/^[-•]\s+(.+)$/gm, '<li class="ml-4 my-1">$1</li>')
+     .replace(/^[-•]\s+(.+)$/gm, '<li class="ml-3 my-0.5 text-sm">$1</li>')
      // Wrap consecutive list items
-     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc ml-6 my-2">$&</ul>')
+     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc ml-4 my-1">$&</ul>')
      // Line breaks
-     .replace(/\n\n/g, '</p><p class="mt-3">')
+     .replace(/\n\n/g, '</p><p class="mt-2">')
      .replace(/\n/g, '<br/>');
 
-   return `<div class="text-gray-800 leading-relaxed">${html}</div>`;
+   return `<div class="text-gray-800 leading-snug text-sm">${html}</div>`;
  };
 
  // Go back to Noir landing
@@ -6686,8 +6686,8 @@ ${analysisContext}`;
  ) : (
  /* After Conversation Started - Messages with Bottom Input */
  <>
- <div className="flex-1 overflow-y-auto px-4 py-6">
- <div className="max-w-3xl mx-auto space-y-6">
+ <div className="flex-1 overflow-y-auto px-4 py-3">
+ <div className="max-w-3xl mx-auto space-y-3">
  {conversationMessages.map((msg, idx) => (
  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
  <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white rounded-2xl px-5 py-3' : ''}`}>
