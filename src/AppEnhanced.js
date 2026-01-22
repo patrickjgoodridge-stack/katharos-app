@@ -307,23 +307,33 @@ export default function Marlowe() {
  };
 
  // Extract entity name from description like "Tim Allen who is an actor" -> "Tim Allen"
+ // or "Tell me the financial crime risks of investing in SuperHuman" -> "SuperHuman"
  const extractEntityName = (description) => {
    if (!description) return null;
    const desc = description.trim();
 
-   // Common patterns that indicate where the name ends
-   const separators = [
-     / who /i,
-     / which /i,
-     / that /i,
-     / is a /i,
-     / is an /i,
-     / is the /i,
-     / - /,
-     /, /,
-     / \(/,
+   // First, try to extract entity AFTER common prefixes (for question-style inputs)
+   const prefixPatterns = [
+     /(?:tell me |what are |show me )?(?:the )?(?:financial crime |compliance |aml |kyc )?risks? (?:of |for |with |in )(?:investing in |onboarding |dealing with |working with )?(.+)/i,
+     /(?:screen|check|analyze|investigate|review|assess|evaluate)\s+(.+)/i,
+     /(?:is |are )(.+?)(?: safe| risky| sanctioned| a pep| high risk)?$/i,
+     /(?:due diligence|dd|kyc|aml check) (?:on |for )(.+)/i,
    ];
 
+   for (const pattern of prefixPatterns) {
+     const match = desc.match(pattern);
+     if (match && match[1]) {
+       let extracted = match[1].trim();
+       // Clean up trailing phrases
+       extracted = extracted.replace(/\s+(who|which|that|is a|is an|is the|\(|,).*/i, '').trim();
+       if (extracted.length >= 2 && extracted.length <= 60) {
+         return extracted;
+       }
+     }
+   }
+
+   // Fallback: patterns that indicate where the name ends (for "Name who is X" style)
+   const separators = [/ who /i, / which /i, / that /i, / is a /i, / is an /i, / is the /i, / - /, /, /, / \(/];
    let entityName = desc;
    for (const sep of separators) {
      const match = desc.match(sep);
@@ -333,8 +343,8 @@ export default function Marlowe() {
      }
    }
 
-   // Clean up and limit length
-   entityName = entityName.replace(/^(screen|check|analyze|investigate|review)\s+/i, '').trim();
+   // Clean up common prefixes and limit length
+   entityName = entityName.replace(/^(screen|check|analyze|investigate|review|tell me about|what is|who is)\s+/i, '').trim();
    if (entityName.length > 50) {
      entityName = entityName.substring(0, 50).replace(/\s+\S*$/, '');
    }
