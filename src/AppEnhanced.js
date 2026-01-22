@@ -3530,11 +3530,25 @@ ${evidenceContext}
 Respond with a JSON object in this exact structure:
 {
  "executiveSummary": {
- "overview": "Comprehensive 4-6 sentence executive summary providing: (1) Entity identification and business context, (2) Specific sanctions/regulatory status with exact designation details (dates, programs, jurisdictions), (3) Key ownership/control structures and government connections, (4) Material compliance implications and restrictions, (5) Critical risk factors requiring enhanced due diligence. Write in professional, authoritative tone suitable for senior compliance officers and legal counsel. Include specific regulatory citations (e.g., 'Executive Order 13662', 'OFAC SDN list', 'EU Regulation 833/2014').",
+ "oneLiner": "Single sentence that a senior executive can read and immediately understand the situation. Be direct and specific.",
  "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
- "primaryConcerns": ["Detailed concern with specific regulatory/sanctions implications", "Concern with exact percentages/amounts/dates", "Concern with legal/compliance consequences"],
- "recommendedActions": ["REJECT/APPROVE/ESCALATE: Clear onboarding decision with rationale", "Request [specific document] from the customer", "If approved, implement [specific monitoring]"]
+ "overview": "2-3 paragraph detailed summary covering: entity identification, sanctions/regulatory status, ownership structures, and compliance implications."
  },
+ "redFlags": [
+ {
+   "id": "rf1",
+   "title": "Short bold title describing the issue (e.g., 'Weak KYC Controls', 'Undisclosed Beneficial Ownership')",
+   "quote": "Direct quote from the evidence document that proves this red flag. Use exact wording from the source.",
+   "citation": "Doc X",
+   "translation": "Plain English explanation of why this matters to a compliance officer. What does this quote actually mean in practice?"
+ }
+ ],
+ "typologies": [
+ {
+   "name": "Financial crime typology (e.g., 'Money Laundering', 'Sanctions Evasion', 'Bribery/Corruption')",
+   "indicators": ["Specific indicator found in evidence [Doc X]", "Another indicator [Doc Y]"]
+ }
+ ],
  "entities": [
  {
  "id": "e1",
@@ -3549,19 +3563,6 @@ Respond with a JSON object in this exact structure:
  "ownedCompanies": [{"company": "Company Name", "ownershipPercent": 0, "ownershipType": "DIRECT|INDIRECT|BENEFICIAL"}],
  "riskIndicators": ["specific risk indicators with [Doc X] citations"],
  "citations": ["Doc 1", "Doc 2"]
- }
- ],
- "typologies": [
- {
- "id": "t1",
- "name": "Specific financial crime typology name",
- "category": "MONEY_LAUNDERING|FRAUD|SANCTIONS_EVASION|CORRUPTION|TERRORIST_FINANCING|OTHER",
- "description": "Comprehensive 2-3 sentence description of the typology and how it manifests in this case",
- "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
- "indicators": ["Detailed indicator 1 with evidence [Doc X]", "Detailed indicator 2 [Doc Y]", "Indicator 3 [Doc Z]"],
- "redFlags": ["Specific red flag 1", "Specific red flag 2", "Red flag 3"],
- "entitiesInvolved": ["e1", "e2"],
- "regulatoryRelevance": "Which laws/regulations are implicated (BSA, OFAC, EU Sanctions, etc.)"
  }
  ],
  "timeline": [
@@ -6770,118 +6771,98 @@ ${analysisContext}`;
  <p className="text-sm text-gray-500 mt-2">Click to edit case name</p>
  </div>
 
- {/* Executive Summary Card */}
+ {/* 1. TOP-LEVEL SUMMARY */}
  <div className={`bg-white rounded-xl border-l-4 ${getRiskBorder(analysis.executiveSummary?.riskLevel)} p-8`}>
- <div className="flex items-start justify-between gap-4 mb-4">
- <div>
- <h3 className="text-lg font-semibold leading-tight flex items-center gap-2">
- <AlertTriangle className="w-5 h-5 text-amber-500" />
- Executive Summary
- </h3>
- </div>
- <div className="flex items-center gap-3">
+ <div className="flex items-center gap-3 mb-6">
+ <span className={`px-4 py-2 rounded-lg text-sm font-bold tracking-wide mono ${getRiskColor(analysis.executiveSummary?.riskLevel)}`}>
+ OVERALL RISK: {analysis.executiveSummary?.riskLevel || 'UNKNOWN'}
+ </span>
  <button
  onClick={generateCaseReportPdf}
  disabled={isGeneratingCaseReport}
- className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-900 rounded-lg text-sm font-medium tracking-wide transition-colors disabled:opacity-50"
+ className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
  >
- {isGeneratingCaseReport ? (
- <Loader2 className="w-4 h-4 animate-spin" />
- ) : (
- <Download className="w-4 h-4" />
- )}
- {isGeneratingCaseReport ? 'Generating PDF...' : 'Export PDF Report'}
+ {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+ {isGeneratingCaseReport ? 'Generating...' : 'Export PDF'}
  </button>
- <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide mono tracking-wide ${getRiskColor(analysis.executiveSummary?.riskLevel)}`}>
- {analysis.executiveSummary?.riskLevel || 'UNKNOWN'} RISK
- </span>
  </div>
- </div>
-
- <p className="text-gray-600 leading-relaxed mb-6">
- {analysis.executiveSummary?.overview}
+ <p className="text-xl font-medium text-gray-900 leading-relaxed mb-4">
+ {analysis.executiveSummary?.oneLiner || (analysis.executiveSummary?.overview ? analysis.executiveSummary.overview.split('.')[0] + '.' : '')}
  </p>
+ {analysis.executiveSummary?.overview && (
+ <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+ {analysis.executiveSummary.overview}
+ </div>
+ )}
+ </div>
 
- {/* Sanctions-Related Ownership Findings */}
- {analysis.automatedInvestigations && analysis.automatedInvestigations.some(f =>
- f.findingType === 'OWNERSHIP_MAPPING' ||
- f.findingType === 'SANCTIONED_OWNERSHIP' ||
- f.findingType === 'CORPORATE_NETWORK'
- ) && (
- <div className="mb-6 p-4 bg-red-50/30 border border-red-800/50 rounded-lg">
- <h4 className="text-sm font-bold text-rose-600 mb-3 flex items-center gap-2">
- <ShieldAlert className="w-4 h-4" />
- SANCTIONS-RELATED OWNERSHIP FINDINGS
+ {/* 2. RED FLAGS SECTION */}
+ {analysis.redFlags && analysis.redFlags.length > 0 && (
+ <div className="bg-white border border-red-200 rounded-xl p-8">
+ <h3 className="text-lg font-bold text-red-700 mb-6 flex items-center gap-2">
+ <AlertTriangle className="w-5 h-5" />
+ Critical Red Flags
+ </h3>
+ <div className="space-y-6">
+ {analysis.redFlags.map((flag, idx) => (
+ <div key={flag.id || idx} className="border-l-4 border-red-400 pl-4">
+ <h4 className="font-bold text-gray-900 mb-2">
+ {idx + 1}. {flag.title}
  </h4>
- <div className="space-y-2">
- {analysis.automatedInvestigations
- .filter(f => f.findingType === 'OWNERSHIP_MAPPING' || f.findingType === 'SANCTIONED_OWNERSHIP' || f.findingType === 'CORPORATE_NETWORK')
- .map((finding, idx) => (
- <div key={idx} className="flex items-start gap-2">
- <ChevronRight className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
- <div className="text-sm">
- <span className="font-medium tracking-wide text-red-600">{finding.title}:</span>
- <span className="text-gray-600 ml-1">{finding.description}</span>
- {finding.findingType === 'OWNERSHIP_MAPPING' && finding.data && (
- <span className="text-rose-600 ml-1 font-bold">
- ({finding.data.controllingInterest} controlling interests in {finding.data.totalEntities} entities)
- </span>
+ {flag.quote && (
+ <blockquote className="bg-gray-50 border-l-4 border-gray-300 pl-4 py-2 my-3 text-gray-700 italic">
+ "{flag.quote}"
+ {flag.citation && <span className="text-gray-500 text-sm ml-2 not-italic">[{flag.citation}]</span>}
+ </blockquote>
  )}
- {finding.findingType === 'SANCTIONED_OWNERSHIP' && finding.data?.ofacRuleTriggered && (
- <span className="text-rose-600 ml-1 font-bold">(OFAC 50% Rule Triggered)</span>
- )}
- {finding.findingType === 'CORPORATE_NETWORK' && finding.data && (
- <span className="text-rose-600 ml-1 font-bold">
- ({finding.data.directExposure} with direct sanctions exposure)
- </span>
+ {flag.translation && (
+ <p className="text-gray-600">
+ <span className="font-semibold text-gray-800">Translation:</span> {flag.translation}
+ </p>
  )}
  </div>
- </div>
- ))
- }
+ ))}
  </div>
  </div>
  )}
 
- <div className="grid md:grid-cols-2 gap-6">
- <div>
- <h4 className="text-sm font-medium tracking-wide text-gray-600 tracking-wide mb-3 flex items-center gap-2">
- <XCircle className="w-4 h-4 text-rose-500" />
- Primary Concerns
- </h4>
- <ul className="space-y-2">
- {analysis.executiveSummary?.primaryConcerns?.map((concern, idx) => (
- <li key={idx} className="flex items-start gap-2 text-sm">
- <ChevronRight className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
- <span>{concern}</span>
- </li>
+ {/* 3. TYPOLOGIES TABLE */}
+ {analysis.typologies && analysis.typologies.length > 0 && (
+ <div className="bg-white border border-gray-200 rounded-xl p-8">
+ <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+ <Target className="w-5 h-5 text-amber-500" />
+ Financial Crime Typologies
+ </h3>
+ <div className="overflow-x-auto">
+ <table className="w-full text-sm">
+ <thead>
+ <tr className="border-b-2 border-gray-200">
+ <th className="text-left py-3 px-4 font-semibold text-gray-700 w-1/4">Typology</th>
+ <th className="text-left py-3 px-4 font-semibold text-gray-700">Indicators</th>
+ </tr>
+ </thead>
+ <tbody>
+ {analysis.typologies.map((typ, idx) => (
+ <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+ <td className="py-3 px-4 font-medium text-gray-900 align-top">{typ.name}</td>
+ <td className="py-3 px-4 text-gray-600">
+ {Array.isArray(typ.indicators) ? typ.indicators.join(', ') : typ.indicators}
+ </td>
+ </tr>
  ))}
- </ul>
- </div>
- <div>
- <h4 className="text-sm font-medium tracking-wide text-gray-600 tracking-wide mb-3 flex items-center gap-2">
- <Target className="w-4 h-4 text-amber-500" />
- Recommended Actions
- </h4>
- <ul className="space-y-2">
- {analysis.executiveSummary?.recommendedActions?.map((action, idx) => (
- <li key={idx} className="flex items-start gap-2 text-sm">
- <ChevronRight className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span>{action}</span>
- </li>
- ))}
- </ul>
+ </tbody>
+ </table>
  </div>
  </div>
- </div>
+ )}
 
  {/* Stats Grid */}
  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
  {[
  { label: 'Entities', value: analysis.entities?.length || 0, icon: Users, color: 'text-blue-600' },
+ { label: 'Red Flags', value: analysis.redFlags?.length || 0, icon: AlertTriangle, color: 'text-red-600' },
  { label: 'Timeline Events', value: analysis.timeline?.length || 0, icon: Clock, color: 'text-emerald-600' },
  { label: 'Hypotheses', value: analysis.hypotheses?.length || 0, icon: Lightbulb, color: 'text-amber-600' },
- { label: 'Patterns', value: analysis.patterns?.length || 0, icon: Network, color: 'text-purple-600' },
  ].map(stat => (
  <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-4">
  <stat.icon className={`w-5 h-5 ${stat.color} mb-2`} />
@@ -7281,99 +7262,40 @@ ${analysisContext}`;
 
  {/* Typologies Tab */}
  {activeTab === 'typologies' && (
- <div className="space-y-4">
+ <div className="bg-white border border-gray-200 rounded-xl p-8">
+ <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+ <Target className="w-5 h-5 text-amber-500" />
+ Financial Crime Typologies
+ </h3>
  {analysis.typologies && analysis.typologies.length > 0 ? (
- analysis.typologies.map((typology, idx) => (
- <div
- key={typology.id || idx}
- className={`bg-white border-l-4 ${getRiskBorder(typology.riskLevel)} rounded-xl p-6`}
- >
- <div className="flex items-start justify-between gap-4 mb-4">
- <div>
- <div className="flex items-center gap-3 mb-2">
- <h3 className="text-lg font-semibold leading-tight">{typology.name}</h3>
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(typology.riskLevel)}`}>
- {typology.riskLevel}
- </span>
- </div>
- <span className="text-xs px-2 py-1 bg-gray-100 rounded mono tracking-wide text-gray-600">
- {typology.category?.replace(/_/g, ' ')}
- </span>
- </div>
- </div>
-
- <p className="text-gray-600 mb-4">{typology.description}</p>
-
- {/* Indicators */}
- {typology.indicators && typology.indicators.length > 0 && (
- <div className="mb-4">
- <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <AlertTriangle className="w-4 h-4 text-amber-500" />
- Indicators Found
- </h4>
- <ul className="space-y-1">
- {typology.indicators.map((indicator, i) => (
- <li key={i} className="text-base text-gray-900 leading-relaxed flex items-start gap-2">
- <ChevronRight className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- {indicator}
- </li>
+ <div className="overflow-x-auto">
+ <table className="w-full">
+ <thead>
+ <tr className="border-b-2 border-gray-200">
+ <th className="text-left py-3 px-4 font-semibold text-gray-700 w-1/4">Typology</th>
+ <th className="text-left py-3 px-4 font-semibold text-gray-700">Indicators</th>
+ </tr>
+ </thead>
+ <tbody>
+ {analysis.typologies.map((typ, idx) => (
+ <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+ <td className="py-4 px-4 font-medium text-gray-900 align-top">{typ.name}</td>
+ <td className="py-4 px-4 text-gray-600">
+ {Array.isArray(typ.indicators) ? (
+ <ul className="list-disc list-inside space-y-1">
+ {typ.indicators.map((ind, i) => (
+ <li key={i}>{ind}</li>
  ))}
  </ul>
- </div>
- )}
-
- {/* Red Flags */}
- {typology.redFlags && typology.redFlags.length > 0 && (
- <div className="mb-4">
- <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <Flag className="w-4 h-4 text-rose-500" />
- Red Flags
- </h4>
- <ul className="space-y-1">
- {typology.redFlags.map((flag, i) => (
- <li key={i} className="text-sm text-rose-600 flex items-start gap-2">
- <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 mt-2" />
- {flag}
- </li>
+ ) : typ.indicators}
+ </td>
+ </tr>
  ))}
- </ul>
+ </tbody>
+ </table>
  </div>
- )}
-
- {/* Entities Involved */}
- {typology.entitiesInvolved && typology.entitiesInvolved.length > 0 && (
- <div className="mb-4">
- <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <Users className="w-4 h-4" />
- Entities Involved
- </h4>
- <div className="flex flex-wrap gap-2">
- {typology.entitiesInvolved.map((entityId, i) => {
- const entity = analysis.entities?.find(e => e.id === entityId);
- return (
- <span key={i} className="text-xs px-2 py-1 bg-gray-100 rounded-lg text-base text-gray-900 leading-relaxed">
- {entity?.name || entityId}
- </span>
- );
- })}
- </div>
- </div>
- )}
-
- {/* Regulatory Relevance */}
- {typology.regulatoryRelevance && (
- <div className="mt-4 pt-4 border-t border-gray-200">
- <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <Scale className="w-4 h-4 text-blue-500" />
- Regulatory Relevance
- </h4>
- <p className="text-sm text-blue-600">{typology.regulatoryRelevance}</p>
- </div>
- )}
- </div>
- ))
  ) : (
- <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
+ <div className="text-center py-12">
  <Target className="w-12 h-12 text-gray-300 mx-auto mb-4" />
  <h3 className="text-lg font-semibold leading-tight mb-2">No Typologies Identified</h3>
  <p className="text-gray-600">No specific financial crime typologies were detected in the evidence.</p>
