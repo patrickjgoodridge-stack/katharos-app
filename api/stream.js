@@ -1,5 +1,6 @@
 // Vercel Serverless Function - Streaming proxy for Anthropic API
 // Returns Server-Sent Events for real-time text streaming
+// v1.1 - Force redeploy
 
 export const config = {
   maxDuration: 300, // 5 minutes max
