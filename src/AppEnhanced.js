@@ -94,10 +94,11 @@ export default function Marlowe() {
  const [isKycChatLoading, setIsKycChatLoading] = useState(false);
  
  const kycChatEndRef = useRef(null);
- 
+
  const chatEndRef = useRef(null);
  const fileInputRef = useRef(null);
  const editInputRef = useRef(null);
+ const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
  const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
 
@@ -306,6 +307,26 @@ export default function Marlowe() {
    }
  };
 
+ // Cancel in-progress analysis
+ const cancelAnalysis = () => {
+   if (analysisAbortRef.current) {
+     analysisAbortRef.current.abort();
+     analysisAbortRef.current = null;
+   }
+   setIsAnalyzing(false);
+   setBackgroundAnalysis({
+     isRunning: false,
+     isComplete: false,
+     caseId: null,
+     caseName: '',
+     currentStep: '',
+     stepNumber: 0,
+     totalSteps: 10,
+     progress: 0,
+     pendingAnalysis: null
+   });
+ };
+
  // Extract entity name from description like "Tim Allen who is an actor" -> "Tim Allen"
  // or "Tell me the financial crime risks of investing in SuperHuman" -> "SuperHuman"
  const extractEntityName = (description) => {
@@ -314,18 +335,28 @@ export default function Marlowe() {
 
    // First, try to extract entity AFTER common prefixes (for question-style inputs)
    const prefixPatterns = [
-     /(?:tell me |what are |show me )?(?:the )?(?:financial crime |compliance |aml |kyc )?risks? (?:of |for |with |in )(?:investing in |onboarding |dealing with |working with )?(.+)/i,
+     // "Tell me about X", "What about X"
+     /(?:tell me about|what about|info on|information on|look up|lookup)\s+(.+)/i,
+     // "risks of investing in X", "risks of X", "risk of X"
+     /risks?\s+(?:of\s+)?(?:investing\s+in\s+|onboarding\s+|dealing\s+with\s+|working\s+with\s+)?(.+)/i,
+     // "screen X", "check X", "analyze X"
      /(?:screen|check|analyze|investigate|review|assess|evaluate)\s+(.+)/i,
-     /(?:is |are )(.+?)(?: safe| risky| sanctioned| a pep| high risk)?$/i,
-     /(?:due diligence|dd|kyc|aml check) (?:on |for )(.+)/i,
+     // "due diligence on X"
+     /(?:due\s+diligence|dd|kyc|aml\s+check)\s+(?:on|for)\s+(.+)/i,
+     // "is X safe/risky"
+     /(?:is|are)\s+(.+?)\s+(?:safe|risky|sanctioned|a\s+pep|high\s+risk).*$/i,
+     // Last word(s) after "in" or "on" at end - "investing in X"
+     /(?:investing|invest)\s+in\s+(.+)/i,
+     /(?:onboarding|onboard)\s+(.+)/i,
    ];
 
    for (const pattern of prefixPatterns) {
      const match = desc.match(pattern);
      if (match && match[1]) {
        let extracted = match[1].trim();
-       // Clean up trailing phrases
-       extracted = extracted.replace(/\s+(who|which|that|is a|is an|is the|\(|,).*/i, '').trim();
+       // Clean up trailing phrases and punctuation
+       extracted = extracted.replace(/\s+(who|which|that|is\s+a|is\s+an|is\s+the|\(|,).*$/i, '').trim();
+       extracted = extracted.replace(/[?.!]+$/, '').trim();
        if (extracted.length >= 2 && extracted.length <= 60) {
          return extracted;
        }
@@ -344,7 +375,8 @@ export default function Marlowe() {
    }
 
    // Clean up common prefixes and limit length
-   entityName = entityName.replace(/^(screen|check|analyze|investigate|review|tell me about|what is|who is)\s+/i, '').trim();
+   entityName = entityName.replace(/^(screen|check|analyze|investigate|review|tell\s+me\s+about|what\s+is|who\s+is|tell\s+me\s+the)\s+/i, '').trim();
+   entityName = entityName.replace(/[?.!]+$/, '').trim();
    if (entityName.length > 50) {
      entityName = entityName.substring(0, 50).replace(/\s+\S*$/, '');
    }
@@ -3707,8 +3739,9 @@ Respond with a JSON object in this exact structure:
  const analysisModel = investigationMode === 'scout' ? 'claude-sonnet-4-20250514' : 'claude-opus-4-20250514';
  const maxTokens = investigationMode === 'scout' ? 8000 : 16000;
 
- // Create abort controller for timeout (5 min for Cipher, 3 min for Scout)
+ // Create abort controller for timeout and cancellation
  const controller = new AbortController();
+ analysisAbortRef.current = controller; // Store for cancel button
  const timeoutMs = investigationMode === 'scout' ? 180000 : 300000;
  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -6575,15 +6608,24 @@ ${analysisContext}`;
            View Results
          </button>
        ) : (
-         <div className="flex items-center justify-between text-sm">
-           <div className="flex items-center gap-2 text-gray-500">
-             <Clock className="w-4 h-4" />
-             <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+         <div className="space-y-3">
+           <div className="flex items-center justify-between text-sm">
+             <div className="flex items-center gap-2 text-gray-500">
+               <Clock className="w-4 h-4" />
+               <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
+             </div>
+             <div className="flex items-center gap-1.5">
+               <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+               <span className="text-gray-600 mono text-xs">ANALYZING</span>
+             </div>
            </div>
-           <div className="flex items-center gap-1.5">
-             <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-             <span className="text-gray-600 mono text-xs">ANALYZING</span>
-           </div>
+           <button
+             onClick={cancelAnalysis}
+             className="w-full border border-gray-300 hover:border-red-300 hover:bg-red-50 text-gray-600 hover:text-red-600 font-medium py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+           >
+             <X className="w-4 h-4" />
+             Cancel Analysis
+           </button>
          </div>
        )}
      </div>
