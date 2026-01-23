@@ -7218,7 +7218,7 @@ ${analysisContext}`;
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
  <div className="h-screen flex bg-[#f8f8f8]">
  {/* Left Icon Bar */}
- <div className="w-12 border-r border-gray-100 flex flex-col items-center pt-3 gap-2">
+ <div className="w-12 border-r border-gray-300 flex flex-col items-center pt-3 gap-2">
  {/* Home icon - at top */}
  <div className="relative group">
  <button
@@ -7272,7 +7272,7 @@ ${analysisContext}`;
  {/* Main Content Area */}
  <div className="flex-1 flex flex-col">
  {/* Top Bar */}
- <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+ <div className="flex items-center justify-between px-4 py-2 border-b border-gray-300">
  <div className="flex items-center gap-2">
  </div>
  <div className="flex items-center gap-2">
