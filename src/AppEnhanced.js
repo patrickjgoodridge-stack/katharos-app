@@ -3114,11 +3114,13 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      setFiles([]);
    }
 
-   // Build conversation history
-   const history = conversationMessages.map(msg => ({
-     role: msg.role,
-     content: msg.content
-   }));
+   // Build conversation history - filter out any empty messages
+   const history = conversationMessages
+     .filter(msg => msg.content && msg.content.trim())
+     .map(msg => ({
+       role: msg.role,
+       content: msg.content.trim()
+     }));
 
    const systemPrompt = `You are Marlowe, an expert financial crimes investigator.
 
@@ -3255,7 +3257,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          model: 'claude-sonnet-4-20250514',
          max_tokens: 4096,
          system: systemPrompt,
-         messages: [...history, { role: 'user', content: userMessage }]
+         messages: [...history, { role: 'user', content: userMessage.trim() || 'Please analyze the attached documents.' }]
        })
      });
 
