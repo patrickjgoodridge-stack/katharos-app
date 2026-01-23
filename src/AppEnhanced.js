@@ -225,6 +225,31 @@ export default function Marlowe() {
  }
  }, [showModeDropdown, showUploadDropdown]);
 
+ // Global click handler for explore points (more reliable than React's onClick)
+ useEffect(() => {
+   const handleExploreClick = (e) => {
+     const explorePoint = e.target.closest('[data-explore-point]');
+     if (explorePoint) {
+       const pointText = explorePoint.getAttribute('data-explore-point');
+       if (pointText) {
+         e.preventDefault();
+         e.stopPropagation();
+         setConversationInput(`Tell me more about: ${pointText}`);
+         setTimeout(() => {
+           if (bottomInputRef.current) {
+             bottomInputRef.current.focus();
+           } else if (mainInputRef.current) {
+             mainInputRef.current.focus();
+           }
+         }, 50);
+       }
+     }
+   };
+
+   document.addEventListener('click', handleExploreClick);
+   return () => document.removeEventListener('click', handleExploreClick);
+ }, []);
+
  // Save case after analysis completes (does NOT navigate - user clicks popup to view)
  // Pass caseNameOverride to avoid React state timing issues
  const saveCase = (analysisData, caseNameOverride = null) => {
