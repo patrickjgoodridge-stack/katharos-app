@@ -613,12 +613,12 @@ export default function Marlowe() {
      .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="text-gray-700 pointer-events-none">$1. $2</span></div>')
 
      // Blockquotes - teal/blue left border for evidence quotes
-     .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
-     .replace(/^>\s*\*?'([^']+)'\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
-     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
+     .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
+     .replace(/^>\s*\*?'([^']+)'\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
 
      // Translation - orange label for emphasis
-     .replace(/^Translation:\s*(.+)$/gm, '<p class="mb-4 text-gray-700 pl-1"><span class="font-semibold text-amber-600">Translation:</span> $1</p>')
+     .replace(/^Translation:\s*(.+)$/gm, '<div class="mb-4 text-gray-700 pl-1"><span class="font-semibold text-amber-600">Translation:</span> $1</div>')
 
      // Document citations - subtle amber link
      .replace(/\[Doc\s*(\d+)[^\]]*\]/g, '<button data-doc-index="$1" class="text-amber-600 hover:text-amber-700 underline underline-offset-2 font-mono text-sm cursor-pointer transition-colors">Doc $1</button>')
@@ -632,12 +632,12 @@ export default function Marlowe() {
      // Wrap consecutive list items
      .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-1 pl-5 list-disc marker:text-gray-400">$&</ul>')
 
-     // Paragraph breaks
-     .replace(/\n\n+/g, '</p><p class="mb-4">')
+     // Paragraph breaks - use div instead of p to avoid nesting issues with block elements
+     .replace(/\n\n+/g, '</div><div class="mb-4">')
      .replace(/\n/g, ' ');
 
-   // Wrap in container - clean, readable prose
-   return `<div class="text-base text-gray-700 leading-relaxed max-w-2xl"><p class="mb-4">${html}</p></div>`;
+   // Wrap in container - use div throughout to avoid invalid p>block nesting
+   return `<div class="text-base text-gray-700 leading-relaxed max-w-2xl"><div class="mb-4">${html}</div></div>`;
  };
 
 
