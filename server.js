@@ -126,8 +126,8 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
-// Streaming proxy endpoint for Anthropic API
-app.post('/api/messages/stream', async (req, res) => {
+// Streaming proxy endpoint for Anthropic API (both paths for compatibility)
+const streamHandler = async (req, res) => {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -166,7 +166,11 @@ app.post('/api/messages/stream', async (req, res) => {
     console.error('Streaming error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+};
+
+// Register stream handler on both paths for local/production compatibility
+app.post('/api/stream', streamHandler);
+app.post('/api/messages/stream', streamHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

@@ -607,9 +607,9 @@ export default function Marlowe() {
      .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Next Steps</h3>')
      .replace(/^(KEY FINDINGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Key Findings</h3>')
 
-     // Numbered items - interactive with hover button
-     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="group/item relative mb-3 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="font-medium text-gray-800">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
-     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="group/item relative mb-2 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="text-gray-700">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
+     // Numbered items - interactive with visible hover effect
+     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="mb-3 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="font-medium text-gray-800 pointer-events-none">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mb-2 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="text-gray-700 pointer-events-none">$1. $2</span></div>')
 
      // Blockquotes - teal/blue left border for evidence quotes
      .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
@@ -625,8 +625,8 @@ export default function Marlowe() {
      // Bold text - medium weight
      .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-medium text-gray-800">$1</strong>')
 
-     // Bullet points - interactive
-     .replace(/^[-•]\s+(.+)$/gm, '<li class="group/item relative text-gray-700 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$1">$1<span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded ml-2">Click for details</span></li>')
+     // Bullet points - interactive with visible click indicator
+     .replace(/^[-•]\s+(.+)$/gm, '<li class="text-gray-700 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$1"><span class="pointer-events-none">$1</span></li>')
 
      // Wrap consecutive list items
      .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-4 pl-5 space-y-2 list-disc marker:text-gray-400">$&</ul>')
