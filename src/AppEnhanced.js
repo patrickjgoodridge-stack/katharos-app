@@ -7216,7 +7216,7 @@ ${analysisContext}`;
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className="h-screen flex bg-white">
+ <div className="h-screen flex" style={{ backgroundColor: '#f8f8f8' }}>
  {/* Left Icon Bar */}
  <div className="w-12 border-r border-gray-100 flex flex-col items-center pt-3 gap-2">
  {/* Home icon - at top */}
