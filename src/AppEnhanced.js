@@ -225,9 +225,10 @@ export default function Marlowe() {
  }
  }, [showModeDropdown, showUploadDropdown]);
 
- // Global click handler for explore points (more reliable than React's onClick)
+ // Global click handler for clickable text in responses
  useEffect(() => {
    const handleExploreClick = (e) => {
+     // First try data-explore-point attribute
      const explorePoint = e.target.closest('[data-explore-point]');
      if (explorePoint) {
        const pointText = explorePoint.getAttribute('data-explore-point');
@@ -235,13 +236,24 @@ export default function Marlowe() {
          e.preventDefault();
          e.stopPropagation();
          setConversationInput(`Tell me more about: ${pointText}`);
-         setTimeout(() => {
-           if (bottomInputRef.current) {
-             bottomInputRef.current.focus();
-           } else if (mainInputRef.current) {
-             mainInputRef.current.focus();
-           }
-         }, 50);
+         if (bottomInputRef.current) bottomInputRef.current.focus();
+         return;
+       }
+     }
+
+     // Fallback: if clicking on li, div, or span inside the prose container, use text content
+     const proseContainer = e.target.closest('.prose');
+     if (proseContainer) {
+       const clickedElement = e.target.closest('li, div, span, strong');
+       if (clickedElement && clickedElement !== proseContainer) {
+         const text = clickedElement.textContent?.trim();
+         // Only use if it's a reasonable length (not the whole document)
+         if (text && text.length > 5 && text.length < 200) {
+           e.preventDefault();
+           e.stopPropagation();
+           setConversationInput(`Tell me more about: ${text}`);
+           if (bottomInputRef.current) bottomInputRef.current.focus();
+         }
        }
      }
    };
@@ -7390,7 +7402,7 @@ ${analysisContext}`;
  )}
  {msg.role === 'assistant' ? (
  <>
- <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none"
+ <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer"
  onClick={(e) => {
    console.log('Click detected:', e.target.tagName, e.target.className);
    // Handle document citations
@@ -7486,7 +7498,7 @@ ${analysisContext}`;
  {isStreaming && (
  <div className="flex justify-start">
  <div className="max-w-2xl">
- <div className="prose prose-gray max-w-none whitespace-pre-wrap leading-relaxed"
+ <div className="prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer whitespace-pre-wrap leading-relaxed"
  onClick={(e) => {
    // Handle document citations
    const docButton = e.target.closest('[data-doc-index]');
@@ -8067,7 +8079,7 @@ ${analysisContext}`;
  {analysis.executiveSummary?.oneLiner || (analysis.executiveSummary?.analysis ? analysis.executiveSummary.analysis.split('.')[0] + '.' : (analysis.executiveSummary?.overview ? analysis.executiveSummary.overview.split('.')[0] + '.' : ''))}
  </p>
  {(analysis.executiveSummary?.analysis || analysis.executiveSummary?.overview) && (
- <div className="prose prose-gray max-w-none">
+ <div className="prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer">
  <div className="text-gray-700 leading-relaxed text-base whitespace-pre-line">
  {analysis.executiveSummary.analysis || analysis.executiveSummary.overview}
  </div>
