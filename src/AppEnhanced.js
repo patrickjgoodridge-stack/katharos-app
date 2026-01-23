@@ -3268,12 +3268,20 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      const reader = response.body.getReader();
      const decoder = new TextDecoder();
      let fullText = '';
+     let chunkCount = 0;
+
+     console.log('Starting to read stream...');
 
      while (true) {
        const { done, value } = await reader.read();
-       if (done) break;
+       if (done) {
+         console.log('Stream done. Total chunks:', chunkCount, 'Final text length:', fullText.length);
+         break;
+       }
 
+       chunkCount++;
        const chunk = decoder.decode(value, { stream: true });
+       console.log(`Chunk ${chunkCount} received (${chunk.length} chars):`, chunk.substring(0, 200));
        const lines = chunk.split('\n');
 
        for (const line of lines) {
