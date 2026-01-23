@@ -5290,7 +5290,7 @@ ${analysisContext}`;
  </div>
 
 
- <main className="max-w-full mx-auto p-6 relative z-10">
+ <main className="max-w-full mx-auto p-6 relative z-10 min-h-screen" style={{ backgroundColor: '#f8f8f8' }}>
 
 
  {/* Scout Page */}
