@@ -9,5 +9,11 @@
     "api/stream.js": {
       "maxDuration": 300
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/stream", "destination": "/api/stream" },
+    { "source": "/api/messages", "destination": "/api/messages" },
+    { "source": "/api/screen-sanctions", "destination": "/api/screen-sanctions" },
+    { "source": "/api/ownership-network", "destination": "/api/ownership-network" }
+  ]
 }

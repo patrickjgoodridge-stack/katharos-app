@@ -99,7 +99,7 @@ app.post('/api/extract-pdf', async (req, res) => {
   }
 });
 
-// Proxy endpoint for Anthropic API
+// Proxy endpoint for Anthropic API (non-streaming)
 app.post('/api/messages', async (req, res) => {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -122,6 +122,48 @@ app.post('/api/messages', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Server error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Streaming proxy endpoint for Anthropic API
+app.post('/api/messages/stream', async (req, res) => {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({ ...req.body, stream: true })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Anthropic API error:', errorData);
+      return res.status(response.status).json(errorData);
+    }
+
+    // Set headers for Server-Sent Events
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Pipe the stream from Anthropic to the client
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      res.write(chunk);
+    }
+
+    res.end();
+  } catch (error) {
+    console.error('Streaming error:', error);
     res.status(500).json({ error: error.message });
   }
 });

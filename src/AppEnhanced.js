@@ -16,6 +16,7 @@ export default function Marlowe() {
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
  const [activeCase, setActiveCase] = useState(null);
+ const [currentCaseId, setCurrentCaseId] = useState(null); // Track current case for auto-save
  const [files, setFiles] = useState([]);
  const [analysis, setAnalysis] = useState(null);
  const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -39,6 +40,9 @@ export default function Marlowe() {
  const [tempCaseName, setTempCaseName] = useState('');
  
  const [analysisError, setAnalysisError] = useState(null); // eslint-disable-line no-unused-vars
+
+ // Document preview modal state
+ const [docPreview, setDocPreview] = useState({ open: false, docIndex: null, docName: '', content: '' });
 
  // Background analysis state - allows navigation while processing
  const [backgroundAnalysis, setBackgroundAnalysis] = useState({
@@ -99,7 +103,7 @@ export default function Marlowe() {
  const [isStreaming, setIsStreaming] = useState(false);
  const [streamingText, setStreamingText] = useState('');
  const [conversationStarted, setConversationStarted] = useState(false); // Input centered until first message
- const [sidebarOpen, setSidebarOpen] = useState(true); // Left sidebar for case navigation
+ const [sidebarOpen, setSidebarOpen] = useState(true); // eslint-disable-line no-unused-vars
  const conversationEndRef = useRef(null);
  const mainInputRef = useRef(null);
 
@@ -120,6 +124,17 @@ export default function Marlowe() {
  const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
+
+ // Rotating headers for the main input page
+ const investigateHeaders = [
+ "What can I help you investigate?",
+ "Where should we begin?",
+ "What are we working on?",
+ "Marlowe's on the case",
+ "What do you have for me?",
+ "Let's get started"
+ ];
+ const [currentHeader] = useState(() => investigateHeaders[Math.floor(Math.random() * investigateHeaders.length)]);
 
  // Rotating placeholder examples - different for each mode
  const cipherPlaceholderExamples = [
@@ -274,11 +289,14 @@ export default function Marlowe() {
  // Load an existing case
  const loadCase = (caseData) => {
  setActiveCase(caseData);
- setFiles(caseData.files);
+ setFiles(caseData.files || []);
  setAnalysis(caseData.analysis);
  setChatMessages(caseData.chatHistory || []);
+ setConversationMessages(caseData.conversationTranscript || []);
  setCaseName(caseData.name);
- setCurrentPage('activeCase');
+ setCurrentCaseId(caseData.id);
+ setConversationStarted((caseData.conversationTranscript?.length || 0) > 0);
+ setCurrentPage('newCase'); // Go to conversation view
  };
 
  // Start a new case
@@ -294,7 +312,53 @@ export default function Marlowe() {
  setSelectedEvent(null);
  setSelectedEntity(null);
  setChatOpen(false);
+ setCurrentCaseId(null); // Reset current case ID
+ setConversationMessages([]); // Clear conversation
+ setConversationStarted(false);
  setCurrentPage('newCase');
+ };
+
+ // Auto-create a case when the first message is sent
+ const createCaseFromFirstMessage = (userInput, attachedFiles) => {
+   const generatedName = extractEntityName(userInput) || 'New Investigation';
+   const newCaseId = Math.random().toString(36).substr(2, 9);
+
+   const newCase = {
+     id: newCaseId,
+     name: generatedName,
+     createdAt: new Date().toISOString(),
+     updatedAt: new Date().toISOString(),
+     files: attachedFiles || [],
+     analysis: null,
+     chatHistory: [],
+     conversationTranscript: [], // Store full conversation
+     pdfReports: [], // Store generated PDF reports
+     riskLevel: 'UNKNOWN'
+   };
+
+   setCases(prev => [newCase, ...prev]);
+   setCurrentCaseId(newCaseId);
+   setCaseName(generatedName);
+
+   return newCaseId;
+ };
+
+ // Update case with new conversation messages
+ const updateCaseTranscript = (caseId, messages) => {
+   setCases(prev => prev.map(c =>
+     c.id === caseId
+       ? { ...c, conversationTranscript: messages, updatedAt: new Date().toISOString() }
+       : c
+   ));
+ };
+
+ // Add PDF report to case
+ const addPdfReportToCase = (caseId, reportData) => {
+   setCases(prev => prev.map(c =>
+     c.id === caseId
+       ? { ...c, pdfReports: [...(c.pdfReports || []), reportData], updatedAt: new Date().toISOString() }
+       : c
+   ));
  };
 
  // View completed analysis results
@@ -394,38 +458,184 @@ export default function Marlowe() {
    return entityName || desc.substring(0, 50);
  };
 
- // Format analysis text as styled HTML
+ // Extract clickable options from assistant message
+ const extractClickableOptions = (text) => {
+   if (!text) return { mainText: '', options: [] };
+
+   const options = [];
+
+   // Helper to strip markdown formatting from option text
+   const stripMarkdown = (str) => str
+     .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove **bold**
+     .replace(/\*([^*]+)\*/g, '$1')       // Remove *italic*
+     .replace(/_([^_]+)_/g, '$1')         // Remove _italic_
+     .replace(/`([^`]+)`/g, '$1')         // Remove `code`
+     .replace(/^["']|["']$/g, '')          // Remove surrounding quotes
+     .trim();
+
+   // Pattern 1: Bullet points with question marks (• or - followed by text ending in ?)
+   // eslint-disable-next-line no-useless-escape
+   const bulletOptionPattern = /^[•\-]\s*(.+\?)\s*$/gm;
+   let match;
+   while ((match = bulletOptionPattern.exec(text)) !== null) {
+     options.push(stripMarkdown(match[1]));
+   }
+
+   // Pattern 2: Numbered options (1. Option text?)
+   const numberedOptionPattern = /^\d+\.\s*(.+\?)\s*$/gm;
+   while ((match = numberedOptionPattern.exec(text)) !== null) {
+     const optionText = stripMarkdown(match[1]);
+     if (!options.includes(optionText)) {
+       options.push(optionText);
+     }
+   }
+
+   // Pattern 3: Suggestions after "Need more information?" header
+   // Look for bullet points following this header, even without question marks
+   const needMoreInfoMatch = text.match(/\*?\*?Need more information\??\*?\*?\s*(?:Consider:?)?\s*\n([\s\S]*?)(?:\n\n|\n(?=[A-Z])|$)/i);
+   if (needMoreInfoMatch) {
+     const suggestionBlock = needMoreInfoMatch[1];
+     const suggestionLines = suggestionBlock.split('\n');
+     for (const line of suggestionLines) {
+       // eslint-disable-next-line no-useless-escape
+       const suggestionMatch = line.match(/^[•\-]\s*["']?(.+?)["']?\s*$/);
+       if (suggestionMatch) {
+         const optionText = stripMarkdown(suggestionMatch[1]);
+         if (optionText.length > 10 && !options.includes(optionText)) {
+           options.push(optionText);
+         }
+       }
+     }
+   }
+
+   // If we found options, remove them from main text for separate rendering
+   let mainText = text;
+   if (options.length > 0) {
+     mainText = text
+       // eslint-disable-next-line no-useless-escape
+       .replace(/^[•\-]\s*.+\?\s*$/gm, '')
+       .replace(/^\d+\.\s*.+\?\s*$/gm, '')
+       .replace(/\*?\*?Need more information\??\*?\*?\s*(?:Consider:?)?\s*\n[\s\S]*?(?:\n\n|\n(?=[A-Z])|$)/gi, '')
+       .replace(/\n{3,}/g, '\n\n')
+       .trim();
+   }
+
+   return { mainText, options };
+ };
+
+ // Generate dynamic follow-up suggestions based on analysis content
+ const generateFollowUpSuggestions = (content) => {
+   const suggestions = [];
+   const lowerContent = content.toLowerCase();
+
+   // Check risk level and add relevant follow-ups
+   if (lowerContent.includes('critical') || lowerContent.includes('high risk')) {
+     suggestions.push("What immediate actions should I take given the risk level?");
+     suggestions.push("What's the strongest evidence supporting this risk assessment?");
+   }
+
+   // Check for specific typologies
+   if (lowerContent.includes('money laundering') || lowerContent.includes('layering') || lowerContent.includes('structuring')) {
+     suggestions.push("Can you trace the flow of funds in more detail?");
+     suggestions.push("What patterns suggest money laundering here?");
+   }
+   if (lowerContent.includes('fraud') || lowerContent.includes('misrepresentation')) {
+     suggestions.push("What specific misrepresentations were identified?");
+     suggestions.push("Is there evidence of intentional deception?");
+   }
+   if (lowerContent.includes('sanction') || lowerContent.includes('ofac') || lowerContent.includes('pep')) {
+     suggestions.push("What's the exact nature of the sanctions exposure?");
+     suggestions.push("Are there any indirect connections to sanctioned parties?");
+   }
+   if (lowerContent.includes('shell compan') || lowerContent.includes('beneficial owner')) {
+     suggestions.push("Can you map out the corporate structure?");
+     suggestions.push("Who are the ultimate beneficial owners?");
+   }
+
+   // Check for entities mentioned
+   if (lowerContent.includes('entities') || lowerContent.includes('individuals') || lowerContent.includes('companies')) {
+     suggestions.push("How are the key entities connected to each other?");
+   }
+
+   // Check for timeline/transaction mentions
+   if (lowerContent.includes('timeline') || lowerContent.includes('transaction') || lowerContent.includes('transfer')) {
+     suggestions.push("Can you build a chronological timeline of key events?");
+   }
+
+   // Check for document requests
+   if (lowerContent.includes('document') || lowerContent.includes('evidence')) {
+     suggestions.push("What additional documents would strengthen this case?");
+   }
+
+   // Always useful follow-ups
+   if (suggestions.length < 3) {
+     suggestions.push("What are the key facts I should include in my report?");
+   }
+   if (suggestions.length < 4) {
+     suggestions.push("What questions should I ask the client?");
+   }
+
+   // Return top 4 unique suggestions
+   return [...new Set(suggestions)].slice(0, 4);
+ };
+
+ // Format analysis text as styled HTML with proper typography
  const formatAnalysisAsHtml = (text) => {
    if (!text) return '';
 
+   // First, normalize whitespace - collapse multiple blank lines to single
    let html = text
-     // OVERALL RISK with colored badge
-     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-red-600 text-white">OVERALL RISK: CRITICAL</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-red-100 text-red-700">OVERALL RISK: HIGH</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-amber-100 text-amber-700">OVERALL RISK: MEDIUM</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-2"><span class="inline-block px-2 py-0.5 rounded text-sm font-bold bg-green-100 text-green-700">OVERALL RISK: LOW</span></div>')
-     // Section headers
-     .replace(/^(CRITICAL RED FLAGS|RED FLAGS|KEY FINDINGS|TYPOLOGIES PRESENT|ONBOARDING DECISION|DOCUMENTS TO REQUEST|THE MEMO|NEXT STEPS)/gm, '<h3 class="text-base font-bold text-gray-900 mt-3 mb-1 border-b border-gray-200 pb-1">$1</h3>')
-     // Numbered items with bold titles
-     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*/gm, '<div class="mt-2"><span class="font-bold text-gray-900">$1. $2</span></div>')
-     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mt-2"><span class="font-bold text-gray-900">$1. $2</span></div>')
-     // Blockquotes with red left border for red flags
-     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="border-l-3 border-red-400 pl-3 my-1 py-1 bg-red-50 text-gray-700 italic text-sm rounded-r">"$1"</blockquote>')
-     .replace(/^"([^"]+)"$/gm, '<blockquote class="border-l-2 border-gray-300 pl-3 my-1 text-gray-600 italic text-sm">"$1"</blockquote>')
-     // Translation lines
-     .replace(/^Translation:\s*(.+)$/gm, '<p class="text-gray-800 mt-1 ml-3 text-sm"><span class="font-semibold text-gray-900">Translation:</span> $1</p>')
-     // Bold text
-     .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-gray-900">$1</strong>')
-     // Bullet points
-     .replace(/^[-•]\s+(.+)$/gm, '<li class="ml-3 my-0.5 text-sm">$1</li>')
-     // Wrap consecutive list items
-     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc ml-4 my-1">$&</ul>')
-     // Line breaks
-     .replace(/\n\n/g, '</p><p class="mt-2">')
-     .replace(/\n/g, '<br/>');
+     .replace(/\n{3,}/g, '\n\n')  // Collapse 3+ newlines to 2
+     .replace(/[ \t]+$/gm, '')     // Remove trailing spaces on each line
+     .replace(/^[ \t]+/gm, '')     // Remove leading spaces on each line
+     .trim()
 
-   return `<div class="text-gray-800 leading-snug text-sm">${html}</div>`;
+   html = html
+     // Risk level - minimal, muted badges
+     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-red-50 text-red-700 border border-red-200">Critical Risk</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-orange-50 text-orange-700 border border-orange-200">High Risk</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200">Medium Risk</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-gray-50 text-gray-600 border border-gray-200">Low Risk</span></div>')
+
+     // Section headers - subtle, font-medium, grayscale
+     .replace(/^(CRITICAL RED FLAGS|RED FLAGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Red Flags</h3>')
+     .replace(/^(THE MEMO|SUMMARY)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Summary</h3>')
+     .replace(/^(TYPOLOGIES PRESENT|TYPOLOGIES)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Typologies</h3>')
+     .replace(/^(ONBOARDING DECISION|DECISION)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Decision</h3>')
+     .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Next Steps</h3>')
+     .replace(/^(KEY FINDINGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Key Findings</h3>')
+
+     // Numbered items - interactive with hover button
+     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="group/item relative mb-3 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="font-medium text-gray-800">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
+     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="group/item relative mb-2 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="text-gray-700">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
+
+     // Blockquotes - simple left border, subtle background
+     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="my-4 border-l-2 border-gray-300 bg-gray-50 pl-4 py-2 rounded-r"><p class="text-gray-600 italic">"$1"</p></blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-4 border-l-2 border-gray-300 bg-gray-50 pl-4 py-2 rounded-r"><p class="text-gray-600 italic">"$1"</p></blockquote>')
+
+     // Translation - bold label, normal text
+     .replace(/^Translation:\s*(.+)$/gm, '<p class="mb-3 text-gray-700"><span class="font-medium text-gray-800">Translation:</span> $1</p>')
+
+     // Document citations - subtle amber link
+     .replace(/\[Doc\s*(\d+)[^\]]*\]/g, '<button data-doc-index="$1" class="text-amber-600 hover:text-amber-700 underline underline-offset-2 font-mono text-sm cursor-pointer transition-colors">Doc $1</button>')
+
+     // Bold text - medium weight
+     .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-medium text-gray-800">$1</strong>')
+
+     // Bullet points - interactive
+     .replace(/^[-•]\s+(.+)$/gm, '<li class="group/item relative text-gray-700 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$1">$1<span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded ml-2">Click for details</span></li>')
+
+     // Wrap consecutive list items
+     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-4 pl-5 space-y-2 list-disc marker:text-gray-400">$&</ul>')
+
+     // Paragraph breaks
+     .replace(/\n\n+/g, '</p><p class="mb-4">')
+     .replace(/\n/g, ' ');
+
+   // Wrap in container - clean, readable prose
+   return `<div class="text-base text-gray-700 leading-relaxed max-w-2xl"><p class="mb-4">${html}</p></div>`;
  };
+
 
  // Go back to Noir landing
  const goToLanding = () => {
@@ -1436,7 +1646,18 @@ Format the report professionally with clear headers, bullet points where appropr
  }
 
  // Save the PDF
- pdf.save(`Marlowe_Investigation_${activeCase.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+ const pdfFileName = `Marlowe_Investigation_${activeCase.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+ pdf.save(pdfFileName);
+
+ // Save PDF report reference to the case
+ const caseIdToUpdate = currentCaseId || activeCase?.id;
+ if (caseIdToUpdate) {
+ addPdfReportToCase(caseIdToUpdate, {
+   name: pdfFileName,
+   generatedAt: new Date().toISOString(),
+   type: 'investigation'
+ });
+ }
 
  } catch (error) {
  console.error('PDF generation error:', error);
@@ -2697,13 +2918,15 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    setIsStreaming(true);
    setStreamingText('');
 
-   // Build context from files
+   // Build context from files - use attachedFiles passed to this function
    let evidenceContext = '';
-   if (attachedFiles.length > 0 || files.length > 0) {
-     const allFiles = attachedFiles.length > 0 ? attachedFiles : files;
-     evidenceContext = allFiles.map((file, idx) =>
+   const filesToUse = attachedFiles.length > 0 ? attachedFiles : [];
+   if (filesToUse.length > 0) {
+     evidenceContext = filesToUse.map((file, idx) =>
        `[Doc ${idx + 1}: ${file.name}]\n${file.content?.substring(0, 8000) || ''}`
      ).join('\n\n---\n\n');
+     // Clear files after adding to context
+     setFiles([]);
    }
 
    // Build conversation history
@@ -2716,9 +2939,45 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
 Your personality:
 - Direct and clear, never hedge when you're confident
-- You think out loud: "What strikes me here is..." "The concerning part is..."
+- You think out loud: "The concerning part is..." "What this tells me is..." "Notice how..."
 - You quote evidence directly and explain what it means in plain terms
 - You're helpful but honest about limitations and uncertainties
+
+=== CITATION REQUIREMENTS (MANDATORY) ===
+CRITICAL: You must cite every factual claim.
+
+Format: [Doc 1], [Doc 2], etc. based on document upload order.
+
+Rules:
+1. EVERY factual claim must include a citation in [Doc X] format
+2. Citations reference the uploaded documents by number: [Doc 1], [Doc 2], etc.
+3. If quoting directly, use: "quoted text" [Doc 1]
+4. If paraphrasing, cite at end of sentence [Doc 1]
+5. If a claim spans multiple documents: [Doc 1, Doc 3]
+6. If something is an inference (not directly stated), say: "This suggests..." or "This implies..." (no citation needed)
+7. If no document supports a claim, don't make the claim
+
+Examples:
+- "The CFO stated they 'don't get too hung up on form' regarding third-party payments [Doc 1]."
+- "Wire transfers totaling $14.7M were sent to Horizon Pacific [Doc 2, Doc 3]."
+- "No KYC process exists for non-regulated customers [Doc 1]."
+
+DO NOT make claims without citations. If you cannot cite it, do not say it.
+
+VALIDATION - Before completing your analysis, verify:
+- Does every red flag have a citation?
+- Does every entity reference cite where it appeared?
+- Does every timeline event cite its source?
+- Are direct quotes attributed?
+
+If citations are missing, your output is incomplete.
+
+At the end of your analysis, list all documents referenced:
+
+Sources:
+[Doc 1] - filename
+[Doc 2] - filename
+=== END CITATION REQUIREMENTS ===
 
 OUTPUT FORMAT:
 When analyzing documents or entities for risks, structure your response like this:
@@ -2752,15 +3011,37 @@ DOCUMENTS TO REQUEST
 THE MEMO
 [A brief 2-3 sentence summary suitable for escalation to senior compliance]
 
-When conversing casually or answering follow-up questions, just respond naturally without this structure.
+=== FOLLOW-UP SUGGESTIONS ===
+If you need more information to provide a complete or accurate analysis, ALWAYS end your response with 2-4 clickable follow-up questions or suggestions. These help the user know what additional information would be valuable.
+
+Format these as a clear list at the end of your response:
+
+**Need more information? Consider:**
+- [Specific question about missing details]
+- [Suggestion for additional documents to upload]
+- [Question about the entity or transaction]
+
+Examples of good follow-up suggestions:
+- "Would you like me to check for sanctions exposure on any related entities?"
+- "Do you have ownership documents or corporate registry filings?"
+- "Should I analyze the source of funds for these transactions?"
+- "Can you provide financial statements or bank records?"
+
+Always include these suggestions when:
+- You don't have enough context to give a complete assessment
+- Key documents are missing
+- The user's question is broad or could benefit from more detail
+- There are obvious next steps in the investigation
+
+When conversing casually or answering follow-up questions, just respond naturally without the full structured format, but still include follow-up suggestions if you need more information.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
 ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
    try {
-     // Use existing messages endpoint (non-streaming but reliable)
-     const response = await fetch(`${API_BASE}/api/messages`, {
+     // Use streaming endpoint for real-time text display
+     const response = await fetch(`${API_BASE}/api/stream`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
@@ -2776,10 +3057,41 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        throw new Error(`Request failed (${response.status}): ${errorText}`);
      }
 
-     const data = await response.json();
-     const fullText = data.content?.map(item => item.text || '').join('\n') || '';
+     // Process the stream
+     const reader = response.body.getReader();
+     const decoder = new TextDecoder();
+     let fullText = '';
 
-     // Add assistant message to conversation
+     while (true) {
+       const { done, value } = await reader.read();
+       if (done) break;
+
+       const chunk = decoder.decode(value, { stream: true });
+       const lines = chunk.split('\n');
+
+       for (const line of lines) {
+         if (line.startsWith('data: ')) {
+           const data = line.slice(6);
+           if (data === '[DONE]') continue;
+
+           try {
+             const parsed = JSON.parse(data);
+             // Handle both Vercel stream format and raw Anthropic format
+             if (parsed.text) {
+               fullText += parsed.text;
+               setStreamingText(fullText);
+             } else if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+               fullText += parsed.delta.text;
+               setStreamingText(fullText);
+             }
+           } catch (e) {
+             // Skip non-JSON lines
+           }
+         }
+       }
+     }
+
+     // Add completed message to conversation
      if (fullText) {
        setConversationMessages(prev => [...prev, {
          role: 'assistant',
@@ -2805,6 +3117,13 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
  useEffect(() => {
    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
  }, [conversationMessages, streamingText]);
+
+ // Sync conversation transcript to current case
+ useEffect(() => {
+   if (currentCaseId && conversationMessages.length > 0) {
+     updateCaseTranscript(currentCaseId, conversationMessages);
+   }
+ }, [conversationMessages, currentCaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
  const analyzeEvidence = async () => {
  console.log('analyzeEvidence called', { files: files.length, caseDescription: caseDescription.substring(0, 50) });
@@ -3665,6 +3984,41 @@ Your role is to analyze evidence and produce structured investigative findings. 
 10. Find contradictions and gaps in the evidence
 11. ALWAYS cite specific documents for every claim using [Doc X] format
 
+=== CITATION REQUIREMENTS (MANDATORY) ===
+
+CRITICAL: You must cite every factual claim. No exceptions.
+
+Format: [Doc 1], [Doc 2], etc. based on document upload order.
+
+Rules:
+1. EVERY factual claim must include a citation in [Doc X] format
+2. If quoting directly, use: "quoted text" [Doc 1]
+3. If paraphrasing, cite at end of sentence [Doc 1]
+4. If a claim spans multiple documents: [Doc 1, Doc 3]
+5. If something is an inference (not directly stated), say: "This suggests..." or "This implies..." (no citation needed for inferences)
+6. If no document supports a claim, DO NOT make the claim
+
+Examples:
+- "The CFO stated they 'don't get too hung up on form' regarding third-party payments [Doc 1]."
+- "Wire transfers totaling $14.7M were sent to Horizon Pacific [Doc 2, Doc 3]."
+- "No KYC process exists for non-regulated customers [Doc 1]."
+- "This suggests possible structuring to avoid reporting thresholds." (inference - no citation)
+
+At the end of your analysis, list all documents referenced:
+Sources:
+[Doc 1] - filename
+[Doc 2] - filename
+
+VALIDATION - Before submitting, verify:
+- Does every red flag have a citation?
+- Does every entity reference cite where it appeared?
+- Does every timeline event cite its source?
+- Are direct quotes attributed?
+
+If citations are missing, your output is incomplete. Go back and add them.
+
+=== END CITATION REQUIREMENTS ===
+
 CRITICAL: When you identify a person as a subject of investigation, you MUST also extract and include:
 - All companies they own (direct ownership)
 - All companies they control (indirect ownership through other entities)
@@ -4407,11 +4761,12 @@ setIsAnalyzing(false);
 }
 };
 
+ // Risk level color utilities
  const getRiskColor = (level) => {
  switch (level?.toUpperCase()) {
- case 'CRITICAL': return 'bg-red-600 text-white';
- case 'HIGH': return 'bg-rose-500 text-white';
- case 'MEDIUM': return 'bg-amber-500 text-black';
+ case 'CRITICAL': return 'bg-red-500 text-white';
+ case 'HIGH': return 'bg-orange-500 text-white';
+ case 'MEDIUM': return 'bg-amber-500 text-gray-900';
  case 'LOW': return 'bg-emerald-500 text-white';
  default: return 'bg-gray-500 text-white';
  }
@@ -4419,12 +4774,56 @@ setIsAnalyzing(false);
 
  const getRiskBorder = (level) => {
  switch (level?.toUpperCase()) {
- case 'CRITICAL': return 'border-red-600';
- case 'HIGH': return 'border-rose-500';
- case 'MEDIUM': return 'border-amber-500';
- case 'LOW': return 'border-emerald-500';
- default: return 'border-gray-500';
+ case 'CRITICAL': return 'border-l-4 border-red-500';
+ case 'HIGH': return 'border-l-4 border-orange-500';
+ case 'MEDIUM': return 'border-l-4 border-amber-500';
+ case 'LOW': return 'border-l-4 border-emerald-500';
+ default: return 'border-l-4 border-gray-400';
  }
+ };
+
+ // eslint-disable-next-line no-unused-vars
+const getRiskBg = (level) => {
+ switch (level?.toUpperCase()) {
+ case 'CRITICAL': return 'bg-red-50';
+ case 'HIGH': return 'bg-orange-50';
+ case 'MEDIUM': return 'bg-amber-50';
+ case 'LOW': return 'bg-emerald-50';
+ default: return 'bg-gray-50';
+ }
+ };
+
+// eslint-disable-next-line no-unused-vars
+ const getRiskDot = (level) => {
+ switch (level?.toUpperCase()) {
+ case 'CRITICAL': return 'bg-red-500 ring-red-200';
+ case 'HIGH': return 'bg-orange-500 ring-orange-200';
+ case 'MEDIUM': return 'bg-amber-500 ring-amber-200';
+ case 'LOW': return 'bg-emerald-500 ring-emerald-200';
+ default: return 'bg-gray-400 ring-gray-200';
+ }
+ };
+
+ // Section accent colors
+ const sectionColors = {
+ summary: { border: 'border-l-4 border-blue-500', bg: 'bg-blue-50', icon: 'text-blue-500', header: 'text-blue-700' },
+ redFlags: { border: 'border-l-4 border-red-500', bg: 'bg-red-50', icon: 'text-red-500', header: 'text-red-700' },
+ entities: { border: 'border-l-4 border-purple-500', bg: 'bg-purple-50', icon: 'text-purple-500', header: 'text-purple-700' },
+ timeline: { border: 'border-l-4 border-cyan-500', bg: 'bg-cyan-50', icon: 'text-cyan-500', header: 'text-cyan-700' },
+ hypotheses: { border: 'border-l-4 border-amber-500', bg: 'bg-amber-50', icon: 'text-amber-500', header: 'text-amber-700' },
+ documents: { border: 'border-l-4 border-emerald-500', bg: 'bg-emerald-50', icon: 'text-emerald-500', header: 'text-emerald-700' },
+ crossRefs: { border: 'border-l-4 border-pink-500', bg: 'bg-pink-50', icon: 'text-pink-500', header: 'text-pink-700' },
+ contradictions: { border: 'border-l-4 border-orange-500', bg: 'bg-orange-50', icon: 'text-orange-500', header: 'text-orange-700' },
+ typologies: { border: 'border-l-4 border-indigo-500', bg: 'bg-indigo-50', icon: 'text-indigo-500', header: 'text-indigo-700' }
+ };
+
+ // Confidence bar color
+ const getConfidenceColor = (confidence) => {
+ const pct = confidence * 100;
+ if (pct <= 25) return 'bg-red-500';
+ if (pct <= 50) return 'bg-orange-500';
+ if (pct <= 75) return 'bg-amber-500';
+ return 'bg-emerald-500';
  };
 
  // Scroll chat to bottom when new messages arrive
@@ -4461,7 +4860,25 @@ You have access to:
 1. The original evidence documents
 2. Your previous analysis of the case
 
-Always be specific and cite documents when making claims (e.g., [Doc 1], [Doc 2]).
+CITATION REQUIREMENTS (MANDATORY):
+CRITICAL: You must cite every factual claim.
+
+Format: [Doc 1], [Doc 2], etc. based on document upload order.
+
+Rules:
+1. EVERY factual claim must include a citation in [Doc X] format
+2. If quoting directly, use: "quoted text" [Doc 1]
+3. If paraphrasing, cite at end of sentence [Doc 1]
+4. If a claim spans multiple documents: [Doc 1, Doc 3]
+5. If something is an inference (not directly stated), say: "This suggests..." or "This implies..." (no citation needed)
+6. If no document supports a claim, don't make the claim
+
+Examples:
+- "The CFO stated they 'don't get too hung up on form' regarding third-party payments [Doc 1]."
+- "Wire transfers totaling $14.7M were sent to Horizon Pacific [Doc 2, Doc 3]."
+
+DO NOT make claims without citations. If you cannot cite it, do not say it.
+
 Be concise but thorough. If you don't know something or it's not in the evidence, say so.
 Think like a seasoned investigator - look for connections, inconsistencies, and implications.
 
@@ -4512,7 +4929,7 @@ ${analysisContext}`;
  };
 
  return (
- <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
  {/* Import fonts */}
  <style>{`
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -4671,7 +5088,7 @@ ${analysisContext}`;
 
  {/* Scout Page */}
  {currentPage === 'kycScreening' && (
- <div className="fade-in max-w-6xl mx-auto pt-16">
+ <div className="fade-in max-w-6xl mx-auto pt-16 px-36">
  
  {/* KYC Landing - Choose Action */}
  {kycPage === 'landing' && (
@@ -5985,7 +6402,7 @@ ${analysisContext}`;
  onClick={startNewCase}
  className="group bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/20 flex items-center gap-2"
  >
- <span>Launch Marlowe</span>
+ <span>Enter</span>
  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
  </button>
  </div>
@@ -6004,16 +6421,18 @@ ${analysisContext}`;
  <div className="py-20 px-6 bg-white">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">Investigative Tech for the AI Age</h2>
- <p className="text-lg text-gray-600">We've automated everything except what matters most</p>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">Modern financial crimes work is pure <span className="font-black">chaos</span></h2>
  </div>
  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
- <p className="text-gray-700 leading-relaxed mb-6">
- Ask any financial crimes analyst to show you their latest case. You'll see browser tabs open to three different screening platforms. A folder of 50 screenshots from corporate registries and social media. Countless spreadsheets of transaction data. A running Google Doc where the analyst is trying to connect everything.
- </p>
- <p className="text-gray-700 leading-relaxed mb-6">
- We have incredible tools for <span className="font-semibold text-gray-900">capturing</span> information. But those tools don't tell investigators what it all <span className="font-semibold text-gray-900">means</span>. The hardest part of investigating—the analysis—is still painstakingly manual. Investigators deserve better.
- </p>
+ <ul className="text-gray-600 text-xl leading-relaxed mb-6 space-y-2 text-center">
+ <li>Three screening platforms open</li>
+ <li>50 screenshots from a dozen sources</li>
+ <li>Spreadsheets everywhere</li>
+ <li>Google Doc trying to connect it all</li>
+ </ul>
+ <p className="text-gray-600 text-xl leading-relaxed mb-6"><span className="underline">Collecting</span> the data you need is easy. <span className="underline">Making sense</span> of it isn't.</p>
+ <p className="text-gray-700 text-xl font-semibold mb-6">And it's costing everyone: practitioners, companies, customers</p>
+
  <div className="bg-white border border-gray-200 rounded-xl p-6">
  <div className="text-center">
  <div className="text-5xl font-bold text-amber-500 mb-2">$16-32B</div>
@@ -6025,11 +6444,43 @@ ${analysisContext}`;
  </div>
  </div>
 
+ {/* Now There's Marlowe Section */}
+ <div className="py-20 px-6 bg-gray-900">
+ <div className="max-w-4xl mx-auto">
+ <div className="text-center mb-12">
+ <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Now There's Marlowe</h2>
+ <p className="text-lg text-gray-400">An expert AI investigator to piece everything together</p>
+ </div>
+ <div className="grid md:grid-cols-2 gap-8 mb-12">
+ <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
+ <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
+ <p className="text-gray-300 leading-relaxed mb-4">
+ An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
+ </p>
+ <div className="flex items-center gap-2 text-rose-400">
+ <div className="w-2 h-2 rounded-full bg-rose-400" />
+ <span className="text-sm font-semibold">6-8 hours per case</span>
+ </div>
+ </div>
+ <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
+ <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
+ <p className="text-gray-300 leading-relaxed mb-4">
+ Marlowe processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
+ </p>
+ <div className="flex items-center gap-2 text-emerald-400">
+ <div className="w-2 h-2 rounded-full bg-emerald-400" />
+ <span className="text-sm font-semibold">30 minutes per case</span>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+
  {/* Investigation Pipeline Graphic */}
  <div className="py-20 px-6 bg-gray-100">
  <div className="max-w-5xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">The investigation pipeline</h2>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">The Investigation Pipeline</h2>
  </div>
 
  {/* Pipeline Graphic */}
@@ -6102,43 +6553,12 @@ ${analysisContext}`;
  </div>
  </div>
 
- {/* How It Works Section */}
- <div className="py-20 px-6 bg-gray-900">
- <div className="max-w-4xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4 text-white">AI that reasons like an expert investigator</h2>
- </div>
- <div className="grid md:grid-cols-2 gap-8 mb-12">
- <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
- <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
- </p>
- <div className="flex items-center gap-2 text-rose-400">
- <div className="w-2 h-2 rounded-full bg-rose-400" />
- <span className="text-sm font-semibold">6-8 hours per case</span>
- </div>
- </div>
- <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
- <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- Marlowe processes the same documents <span className="text-white font-semibold">in minutes</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
- </p>
- <div className="flex items-center gap-2 text-emerald-400">
- <div className="w-2 h-2 rounded-full bg-emerald-400" />
- <span className="text-sm font-semibold">30 minutes per case</span>
- </div>
- </div>
- </div>
-  </div>
- </div>
-
  {/* Features Section */}
  <div className="py-20 px-6 bg-gray-50">
  <div className="max-w-7xl mx-auto">
  <div className="text-center mb-16">
- <h2 className="text-4xl font-bold tracking-tight mb-4">Two specialized engines</h2>
- <p className="text-lg text-gray-600">Purpose-built AI for compliance and investigations</p>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">How Marlowe works</h2>
+ <p className="text-lg text-gray-600">Upload documents, ask questions, get answers with evidence</p>
  </div>
 
  <div className="grid md:grid-cols-2 gap-6 mb-12">
@@ -6147,28 +6567,10 @@ ${analysisContext}`;
  <div className="w-16 h-16 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-amber-200/50 group-hover:scale-105 transition-transform">
  <Shield className="w-8 h-8 text-amber-500" />
  </div>
- <h3 className="text-2xl font-bold mb-3">Cipher</h3>
- <p className="text-gray-600 mb-6 leading-relaxed">
- Investigation engine that extracts entities, builds timelines, maps relationships, and generates investigative insights based on evidence documents.
+ <h3 className="text-2xl font-bold mb-3">Upload & Analyze</h3>
+ <p className="text-gray-600 leading-relaxed">
+ Drop in PDFs, emails, financials, or any documents. Marlowe reads everything and surfaces what matters.
  </p>
- <ul className="space-y-3 text-sm text-gray-600">
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Narrative & Timeline Formation</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Automated Analyzing documents and Ownership Mapping</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Advanced Typology Detection</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
- <span>Hypothesis & Lead Generation</span>
- </li>
- </ul>
  </div>
 
  {/* Scout Card */}
@@ -6176,28 +6578,10 @@ ${analysisContext}`;
  <div className="w-16 h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-emerald-200/50 group-hover:scale-105 transition-transform">
  <Search className="w-8 h-8 text-emerald-500" />
  </div>
- <h3 className="text-2xl font-bold mb-3">Scout</h3>
- <p className="text-gray-600 mb-6 leading-relaxed">
- Compliance screening engine with comprehensive sanctions, PEP, and adverse media intelligence. Real-time risk assessment for KYC/AML workflows.
+ <h3 className="text-2xl font-bold mb-3">Ask & Investigate</h3>
+ <p className="text-gray-600 leading-relaxed">
+ Chat naturally about your case. Follow up on findings, request deeper analysis, explore leads.
  </p>
- <ul className="space-y-3 text-sm text-gray-600">
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Advanced Adverse Media Analysis</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Global Sanctions Coverage</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>PEP Identification and Mapping relationships</span>
- </li>
- <li className="flex items-start gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />
- <span>Customer Risk Scoring & Decision Support</span>
- </li>
- </ul>
  </div>
  </div>
 
@@ -6282,7 +6666,7 @@ ${analysisContext}`;
  <div className="py-20 px-6">
  <div className="max-w-6xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">Built by investigators, for investigators</h2>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">Designed by Investigators, for Investigators</h2>
  </div>
 
  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -6393,7 +6777,7 @@ ${analysisContext}`;
  </div>
  </div>
 
- <div className="fade-in pt-6 px-24">
+ <div className="fade-in pt-6 px-36">
  <div className="flex items-center justify-between mb-8">
  <div>
  <h2 className="text-2xl font-bold tracking-tight leading-tight">Case Management</h2>
@@ -6492,15 +6876,15 @@ ${analysisContext}`;
  <div className="flex items-center gap-4 text-xs text-gray-500">
  <span className="flex items-center gap-1">
  <FileText className="w-3.5 h-3.5" />
- {caseItem.files.length} documents
+ {caseItem.files.length} docs
  </span>
  <span className="flex items-center gap-1">
- <Users className="w-3.5 h-3.5" />
- {caseItem.analysis?.entities?.length || 0} entities
+ <MessageCircle className="w-3.5 h-3.5" />
+ {caseItem.conversationTranscript?.length || 0} messages
  </span>
  <span className="flex items-center gap-1">
- <Lightbulb className="w-3.5 h-3.5" />
- {caseItem.analysis?.hypotheses?.length || 0} hypotheses
+ <Download className="w-3.5 h-3.5" />
+ {caseItem.pdfReports?.length || 0} reports
  </span>
  <span className="flex items-center gap-1">
  <Calendar className="w-3.5 h-3.5" />
@@ -6530,39 +6914,56 @@ ${analysisContext}`;
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
  <div className="h-screen flex bg-white">
- {/* Left Sidebar - Case History */}
- <div className={`${sidebarOpen ? 'w-64' : 'w-0'} border-r border-gray-200 bg-gray-50 flex flex-col transition-all duration-300 overflow-hidden`}>
- <div className="p-4 border-b border-gray-200">
+ {/* Left Icon Bar */}
+ <div className="w-12 border-r border-gray-100 flex flex-col items-center pt-3 gap-2">
+ {/* Home icon - at top */}
+ <div className="relative group">
+ <button
+ onClick={goToLanding}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="Home"
+ >
+ <Home className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
+ </div>
+ </div>
+ {/* Case Management folder - below home */}
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('existingCases')}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="Case Management"
+ >
+ <FolderOpen className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
+ </div>
+ </div>
+ {conversationStarted && (
+ <div className="relative group">
  <button
  onClick={() => {
  setConversationMessages([]);
  setConversationStarted(false);
  setFiles([]);
  setCaseDescription('');
+ setAnalysis(null);
+ setActiveCase(null);
+ setCurrentPage('newCase');
  }}
- className="w-full flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="New Case"
  >
- <Plus className="w-4 h-4" />
- New Case
+ <Plus className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
  </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">New Case</div>
  </div>
- <div className="flex-1 overflow-y-auto p-2">
- <div className="text-xs font-medium text-gray-400 px-3 py-2">Recent Cases</div>
- {cases.slice(0, 20).map((caseItem) => (
- <button
- key={caseItem.id}
- onClick={() => {
- setActiveCase(caseItem);
- if (caseItem.analysis) setAnalysis(caseItem.analysis);
- if (caseItem.chatHistory) setConversationMessages(caseItem.chatHistory);
- setConversationStarted(true);
- }}
- className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate hover:bg-gray-100 transition-colors ${activeCase?.id === caseItem.id ? 'bg-gray-100' : ''}`}
- >
- {caseItem.name || 'Untitled Case'}
- </button>
- ))}
  </div>
+ )}
  </div>
 
  {/* Main Content Area */}
@@ -6570,21 +6971,6 @@ ${analysisContext}`;
  {/* Top Bar */}
  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
  <div className="flex items-center gap-2">
- <button
- onClick={() => setSidebarOpen(!sidebarOpen)}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
- >
- <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
- </button>
- <button
- onClick={goToLanding}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- title="Home"
- >
- <Home className="w-4 h-4 text-gray-500 hover:text-gray-700" />
- </button>
- <span className="text-sm font-medium text-gray-700">Marlowe</span>
  </div>
  <div className="flex items-center gap-2">
  <button
@@ -6594,21 +6980,25 @@ ${analysisContext}`;
  >
  {darkMode ? <Sun className="w-4 h-4 text-gray-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
  </button>
- <span className={`text-xs px-2 py-1 rounded-full ${investigationMode === 'cipher' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
- {investigationMode === 'cipher' ? 'Cipher' : 'Scout'}
- </span>
+
  </div>
  </div>
 
  {/* Chat Area - Centered input before conversation starts, bottom after */}
  {!conversationStarted ? (
  /* Centered Input - Before Conversation */
- <div className="flex-1 flex flex-col items-center justify-center px-4">
- <div className="w-full max-w-2xl">
- <h1 className="text-3xl font-semibold text-gray-900 text-center mb-8">What can I help you investigate?</h1>
+ <div className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
+ <div className="w-full max-w-2xl -mt-32">
+ <h1
+  className="text-3xl font-semibold text-center mb-8 tracking-tight text-amber-600 drop-shadow-sm"
+  style={{
+    textShadow: '0 2px 8px rgba(217, 119, 6, 0.1)',
+    letterSpacing: '-0.02em'
+  }}
+>{currentHeader}</h1>
 
  {/* Centered Input Box */}
- <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4">
+ <div className="bg-white rounded-lg border-2 border-gray-400 p-4 shadow-sm">
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
@@ -6630,9 +7020,10 @@ ${analysisContext}`;
  if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
- // Auto-create case name from input
- const newCaseName = extractEntityName(conversationInput) || 'New Investigation';
- setCaseName(newCaseName);
+ // Auto-create case on first message
+ if (!currentCaseId) {
+ createCaseFromFirstMessage(conversationInput, files);
+ }
  sendConversationMessage(conversationInput, files);
  }
  }}
@@ -6652,8 +7043,10 @@ ${analysisContext}`;
  onClick={() => {
  if (conversationInput.trim() || files.length > 0) {
  setConversationStarted(true);
- const newCaseName = extractEntityName(conversationInput) || 'New Investigation';
- setCaseName(newCaseName);
+ // Auto-create case on first message
+ if (!currentCaseId) {
+ createCaseFromFirstMessage(conversationInput, files);
+ }
  sendConversationMessage(conversationInput, files);
  }
  }}
@@ -6668,14 +7061,17 @@ ${analysisContext}`;
  {/* Suggestions */}
  <div className="flex flex-wrap justify-center gap-2 mt-6">
  {[
- "What are the risks of this company?",
+ "Summarize the risks of this company/person",
+ "Make a standard AML/KYC report",
  "Screen this entity for sanctions",
- "Analyze this transaction pattern"
+ "Analyze this transaction pattern",
+ "Identify red flags in these financials",
+ "Map the ownership structure"
  ].map((suggestion, idx) => (
  <button
  key={idx}
  onClick={() => setConversationInput(suggestion)}
- className="text-sm bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 px-4 py-2 rounded-full text-gray-600 transition-colors"
+ className="text-sm bg-white border border-gray-400 hover:border-amber-400 hover:bg-amber-50 px-4 py-2 rounded-full text-gray-600 transition-colors"
  >
  {suggestion}
  </button>
@@ -6701,10 +7097,89 @@ ${analysisContext}`;
  ))}
  </div>
  )}
- <div className={`whitespace-pre-wrap leading-relaxed ${msg.role === 'assistant' ? 'prose prose-gray max-w-none' : ''}`}
- dangerouslySetInnerHTML={msg.role === 'assistant' ? { __html: formatAnalysisAsHtml(msg.content) } : undefined}>
- {msg.role === 'user' ? msg.content : null}
+ {msg.role === 'assistant' ? (
+ <>
+ <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none"
+ onClick={(e) => {
+   // Handle document citations
+   const docButton = e.target.closest('[data-doc-index]');
+   if (docButton) {
+     const docIndex = parseInt(docButton.getAttribute('data-doc-index'), 10) - 1;
+     if (files[docIndex]) {
+       setDocPreview({
+         open: true,
+         docIndex: docIndex + 1,
+         docName: files[docIndex].name,
+         content: files[docIndex].content || 'Content not available'
+       });
+     }
+     return;
+   }
+   // Handle explore point clicks
+   const explorePoint = e.target.closest('[data-explore-point]');
+   if (explorePoint) {
+     const pointText = explorePoint.getAttribute('data-explore-point');
+     if (pointText) {
+       setConversationInput(pointText);
+     }
+   }
+ }}
+ dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(extractClickableOptions(msg.content).mainText) }}>
  </div>
+ {/* Show action buttons after analysis responses */}
+ {msg.content.includes('OVERALL RISK') && (
+ <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
+ <button
+ onClick={generateCaseReportPdf}
+ disabled={isGeneratingCaseReport || !analysis}
+ className="flex items-center gap-2 text-sm bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+ >
+ {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+ Export PDF
+ </button>
+ <div className="relative group">
+ <button
+ className="flex items-center gap-2 text-sm bg-transparent border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+ >
+ Keep Exploring
+ <ChevronDown className="w-3 h-3" />
+ </button>
+ <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 bg-white border border-gray-200 rounded-lg shadow-sm p-1.5 min-w-72">
+ {generateFollowUpSuggestions(msg.content).map((suggestion, suggIdx) => (
+ <button
+ key={suggIdx}
+ onClick={() => sendConversationMessage(suggestion, [])}
+ className="w-full text-left text-sm px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
+ >
+ {suggestion}
+ </button>
+ ))}
+ </div>
+ </div>
+ </div>
+ )}
+ {extractClickableOptions(msg.content).options.length > 0 && (
+ <div className="flex flex-wrap gap-2 mt-4">
+ {extractClickableOptions(msg.content).options.map((option, optIdx) => (
+ <button
+ key={optIdx}
+ onClick={() => {
+ setConversationInput(option);
+ setTimeout(() => sendConversationMessage(option, []), 100);
+ }}
+ className="text-sm bg-white border border-gray-200 hover:border-amber-400 hover:bg-amber-50 px-4 py-2.5 rounded-xl text-gray-700 transition-all shadow-sm hover:shadow"
+ >
+ {option}
+ </button>
+ ))}
+ </div>
+ )}
+ </>
+ ) : (
+ <div className="whitespace-pre-wrap leading-relaxed">
+ {msg.content}
+ </div>
+ )}
  </div>
  </div>
  ))}
@@ -6713,6 +7188,30 @@ ${analysisContext}`;
  <div className="flex justify-start">
  <div className="max-w-2xl">
  <div className="prose prose-gray max-w-none whitespace-pre-wrap leading-relaxed"
+ onClick={(e) => {
+   // Handle document citations
+   const docButton = e.target.closest('[data-doc-index]');
+   if (docButton) {
+     const docIndex = parseInt(docButton.getAttribute('data-doc-index'), 10) - 1;
+     if (files[docIndex]) {
+       setDocPreview({
+         open: true,
+         docIndex: docIndex + 1,
+         docName: files[docIndex].name,
+         content: files[docIndex].content || 'Content not available'
+       });
+     }
+     return;
+   }
+   // Handle explore point clicks
+   const explorePoint = e.target.closest('[data-explore-point]');
+   if (explorePoint) {
+     const pointText = explorePoint.getAttribute('data-explore-point');
+     if (pointText) {
+       setConversationInput(pointText);
+     }
+   }
+ }}
  dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(streamingText) || '<span class="text-gray-400 flex items-center gap-2"><span class="animate-pulse">●</span> Analyzing...</span>' }}>
  </div>
  </div>
@@ -6742,17 +7241,22 @@ ${analysisContext}`;
  </button>
  <textarea
  value={conversationInput}
- onChange={(e) => setConversationInput(e.target.value)}
+ onChange={(e) => {
+ setConversationInput(e.target.value);
+ e.target.style.height = 'auto';
+ e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+ }}
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey) {
  e.preventDefault();
  sendConversationMessage(conversationInput, files);
+ e.target.style.height = 'auto';
  }
  }}
- placeholder="Follow up..."
+ placeholder=""
  rows={1}
  className="flex-1 resize-none bg-transparent focus:outline-none text-gray-900 py-2"
- style={{ minHeight: '24px', maxHeight: '150px' }}
+ style={{ minHeight: '40px', maxHeight: '200px', overflow: 'auto' }}
  />
  <button
  onClick={() => sendConversationMessage(conversationInput, files)}
@@ -6793,10 +7297,11 @@ ${analysisContext}`;
  <button
  onClick={() => setCurrentPage('existingCases')}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="Case Management"
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
@@ -7117,10 +7622,11 @@ ${analysisContext}`;
  <button
  onClick={() => setCurrentPage('existingCases')}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ title="Case Management"
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
@@ -7143,7 +7649,7 @@ ${analysisContext}`;
  </div>
  </div>
 
- <div className="fade-in flex pt-6 pl-12 pr-36">
+ <div className="fade-in flex pt-6 px-36">
  {/* Left Navigation Panel - Scrolls with page */}
  <div className="w-48 flex-shrink-0 pl-2 pr-1 py-8">
  <div className="sticky top-8 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl p-4">
@@ -7263,27 +7769,28 @@ ${analysisContext}`;
 
  {/* 2. RED FLAGS SECTION */}
  {analysis.redFlags && analysis.redFlags.length > 0 && (
- <div className="bg-white border border-red-200 rounded-xl p-8">
- <h3 className="text-lg font-bold text-red-700 mb-6 flex items-center gap-2">
- <AlertTriangle className="w-5 h-5" />
- Critical Red Flags
- </h3>
+ <div className="bg-white rounded-xl border border-slate-200 p-6">
+ <div className="flex items-center justify-between mb-3 pb-2 border-b border-red-100">
+ <h3 className="text-lg font-semibold text-slate-800">Red Flags</h3>
+ <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">{analysis.redFlags.length} identified</span>
+ </div>
  <div className="space-y-6">
  {analysis.redFlags.map((flag, idx) => (
- <div key={flag.id || idx} className="border-l-4 border-red-400 pl-4">
- <h4 className="font-bold text-gray-900 mb-2">
- {idx + 1}. {flag.title}
- </h4>
+ <div key={flag.id || idx} className="pb-2 border-b border-slate-100 last:border-0 last:pb-0">
+ <div className="flex items-start gap-2 mb-2">
+   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs flex items-center justify-center font-bold">{idx + 1}</span>
+   <h4 className="text-base font-medium text-slate-800">{flag.title}</h4>
+ </div>
  {flag.quote && (
- <blockquote className="bg-gray-50 border-l-4 border-gray-300 pl-4 py-2 my-3 text-gray-700 italic">
- "{flag.quote}"
- {flag.citation && <span className="text-gray-500 text-sm ml-2 not-italic">[{flag.citation}]</span>}
- </blockquote>
+   <blockquote className="ml-8 my-2 border-l-3 border-cyan-500 bg-slate-50 pl-3 py-2 rounded-r">
+     <p className="text-slate-600 italic text-sm leading-relaxed">"{flag.quote}"</p>
+     {flag.citation && <p className="text-xs text-slate-500 mt-2 font-mono">— {flag.citation}</p>}
+   </blockquote>
  )}
  {flag.translation && (
- <p className="text-gray-600">
- <span className="font-semibold text-gray-800">Translation:</span> {flag.translation}
- </p>
+   <p className="ml-8 mt-2 text-sm text-slate-700 leading-relaxed">
+     <span className="font-semibold text-amber-600">Translation:</span> {flag.translation}
+   </p>
  )}
  </div>
  ))}
@@ -7293,25 +7800,29 @@ ${analysisContext}`;
 
  {/* 3. TYPOLOGIES TABLE */}
  {analysis.typologies && analysis.typologies.length > 0 && (
- <div className="bg-white border border-gray-200 rounded-xl p-8">
- <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
- <Target className="w-5 h-5 text-amber-500" />
- Financial Crime Typologies
- </h3>
+ <div className="bg-white rounded-xl border border-slate-200 p-6">
+ <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+ <h3 className="text-lg font-semibold text-slate-800">Typologies</h3>
+ <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{analysis.typologies.length} detected</span>
+ </div>
  <div className="overflow-x-auto">
  <table className="w-full text-sm">
  <thead>
- <tr className="border-b-2 border-gray-200">
- <th className="text-left py-3 px-4 font-semibold text-gray-700 w-1/4">Typology</th>
- <th className="text-left py-3 px-4 font-semibold text-gray-700">Indicators</th>
+ <tr className="border-b border-slate-200">
+ <th className="text-left py-3 px-4 font-medium text-xs uppercase tracking-wide text-slate-500">Typology</th>
+ <th className="text-left py-3 px-4 font-medium text-xs uppercase tracking-wide text-slate-500">Indicators</th>
  </tr>
  </thead>
  <tbody>
  {analysis.typologies.map((typ, idx) => (
- <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
- <td className="py-3 px-4 font-medium text-gray-900 align-top">{typ.name}</td>
- <td className="py-3 px-4 text-gray-600">
- {Array.isArray(typ.indicators) ? typ.indicators.join(', ') : typ.indicators}
+ <tr key={idx} className="border-b border-slate-100 last:border-0">
+ <td className="py-4 px-4 font-medium text-slate-800 align-top">
+   {typ.name}
+ </td>
+ <td className="py-4 px-4 text-slate-600 leading-relaxed">
+ {Array.isArray(typ.indicators) ? typ.indicators.map((ind, i) => (
+   <span key={i} className="inline-block mr-2 mb-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">{ind}</span>
+ )) : typ.indicators}
  </td>
  </tr>
  ))}
@@ -7367,60 +7878,65 @@ ${analysisContext}`;
 
  {/* Timeline Tab */}
  {activeTab === 'timeline' && (
- <div className="bg-white border border-gray-200 rounded-xl p-8">
- <h3 className="text-lg font-semibold leading-tight mb-6 flex items-center gap-2">
- <Clock className="w-5 h-5 text-amber-500" />
- Chronological Timeline
- </h3>
- 
+ <div className="bg-white rounded-xl border border-slate-200 p-6">
+ <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+ <h3 className="text-lg font-semibold text-slate-800">Timeline</h3>
+ <span className="text-xs font-medium text-slate-500">{analysis.timeline?.length || 0} events</span>
+ </div>
+
  <div className="relative">
  {/* Timeline line */}
- <div className="absolute left-6 top-0 bottom-0 w-px bg-gray-200" />
- 
- <div className="space-y-4">
+ <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
+
+ <div className="space-y-6">
  {analysis.timeline?.map((event, idx) => (
  <div
  key={event.id || idx}
- className={`relative pl-16 cursor-pointer group`}
+ className="relative pl-10 cursor-pointer group"
  onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
  >
  {/* Timeline dot */}
- <div className={`absolute left-4 w-5 h-5 rounded-full border-2 ${
- event.riskLevel === 'HIGH' ? 'bg-rose-500 border-rose-400' :
- event.riskLevel === 'MEDIUM' ? 'bg-amber-500 border-amber-400' :
- 'bg-emerald-500 border-emerald-400'
+ <div className={`absolute left-1 top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+   event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-500' :
+   event.riskLevel === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'
  }`} />
- 
- <div className={`bg-gray-100/50 rounded-lg p-4 border transition-all ${
- selectedEvent?.id === event.id ? 'border-amber-500' : 'border-gray-300 hover:border-gray-400'
+
+ <div className={`pb-2 border-b border-slate-100 last:border-0 last:pb-0 ${
+ selectedEvent?.id === event.id ? 'bg-slate-50 -mx-4 px-4 py-4 rounded-lg' : ''
  }`}>
  <div className="flex items-center gap-3 mb-2">
- <span className="mono text-xs tracking-wide text-amber-600 bg-amber-500/10 px-2 py-1 rounded">
- {event.date}
- </span>
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(event.riskLevel)}`}>
+ <span className="text-xs font-mono text-slate-500">{event.date}</span>
+ {event.riskLevel && (
+ <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+   event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-50 text-red-700' :
+   event.riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+ }`}>
  {event.riskLevel}
  </span>
+ )}
  </div>
- 
- <p className="font-medium text-gray-900 leading-relaxed mb-2">{event.event}</p>
- 
+
+ <p className="text-sm text-slate-800 leading-relaxed">{event.event}</p>
+
  {selectedEvent?.id === event.id && (
- <div className="mt-4 pt-4 border-t border-gray-300 space-y-3 fade-in">
+ <div className="mt-4 space-y-3 fade-in">
+ {event.significance && (
  <div>
- <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">SIGNIFICANCE</p>
- <p className="text-base text-gray-900 leading-relaxed">{event.significance}</p>
+ <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Significance</p>
+ <p className="text-sm text-slate-700 leading-relaxed">{event.significance}</p>
  </div>
- 
+ )}
+
  {event.citations && event.citations.length > 0 && (
  <div>
- <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-2">CITATIONS</p>
+ <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Sources</p>
+ <div className="flex flex-wrap gap-2">
  {event.citations.map((citation, cidx) => (
- <div key={cidx} className="flex items-start gap-2 text-sm bg-white p-2 rounded mb-1">
- <Link2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
- <span className="text-gray-600">{citation}</span>
- </div>
+ <span key={cidx} className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-1 rounded">
+ {citation}
+ </span>
  ))}
+ </div>
  </div>
  )}
  </div>
@@ -7924,81 +8440,91 @@ ${analysisContext}`;
 
  {/* Hypotheses Tab */}
  {activeTab === 'hypotheses' && (
+ <div className={`bg-amber-50/30 ${sectionColors.hypotheses.border} rounded-xl p-6`}>
+ <h3 className="text-lg font-bold text-amber-700 mb-4 flex items-center gap-2">
+ <Lightbulb className="w-5 h-5 text-amber-500" />
+ Investigative Hypotheses
+ <span className="ml-auto text-sm font-normal bg-amber-500 text-white px-2 py-0.5 rounded-full">{analysis.hypotheses?.length || 0}</span>
+ </h3>
  <div className="space-y-4">
  {analysis.hypotheses?.map((hypothesis, idx) => (
  <div
  key={hypothesis.id || idx}
- className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+ className="bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
  >
  <button
  onClick={() => setExpandedHypotheses(prev => ({
  ...prev,
  [hypothesis.id || idx]: !prev[hypothesis.id || idx]
  }))}
- className="w-full p-6 text-left flex items-center gap-4"
+ className="w-full p-5 text-left flex items-center gap-4 hover:bg-amber-50/50 transition-colors"
  >
  <div className="flex-1">
  <div className="flex items-center gap-3 mb-2">
- <Lightbulb className="w-5 h-5 text-amber-500" />
- <h3 className="text-lg font-semibold leading-tight">{hypothesis.title}</h3>
+ <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold">{idx + 1}</span>
+ <h3 className="text-base font-semibold leading-tight text-gray-900">{hypothesis.title}</h3>
  </div>
- <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{hypothesis.description}</p>
+ <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 ml-9">{hypothesis.description}</p>
  </div>
- 
+
  <div className="flex items-center gap-4">
- {/* Confidence meter */}
+ {/* Confidence meter - colored by level */}
  <div className="text-right">
- <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">CONFIDENCE</p>
+ <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Confidence</p>
  <div className="flex items-center gap-2">
- <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
- <div 
- className="h-full confidence-bar rounded-full transition-all"
+ <div className="w-20 h-2.5 bg-gray-200 rounded-full overflow-hidden">
+ <div
+ className={`h-full rounded-full transition-all duration-500 ${getConfidenceColor(hypothesis.confidence || 0)}`}
  style={{ width: `${(hypothesis.confidence || 0) * 100}%` }}
  />
  </div>
- <span className="mono text-sm tracking-wide font-bold">
+ <span className={`text-sm font-bold ${
+   (hypothesis.confidence || 0) >= 0.75 ? 'text-emerald-600' :
+   (hypothesis.confidence || 0) >= 0.5 ? 'text-amber-600' :
+   (hypothesis.confidence || 0) >= 0.25 ? 'text-orange-600' : 'text-red-600'
+ }`}>
  {Math.round((hypothesis.confidence || 0) * 100)}%
  </span>
  </div>
  </div>
- 
- {expandedHypotheses[hypothesis.id || idx] 
- ? <ChevronDown className="w-5 h-5 text-gray-500" />
- : <ChevronRight className="w-5 h-5 text-gray-500" />
+
+ {expandedHypotheses[hypothesis.id || idx]
+ ? <ChevronDown className="w-5 h-5 text-amber-500" />
+ : <ChevronRight className="w-5 h-5 text-gray-400" />
  }
  </div>
  </button>
 
  {expandedHypotheses[hypothesis.id || idx] && (
- <div className="px-6 pb-6 border-t border-gray-200 pt-4 fade-in">
- <div className="grid md:grid-cols-3 gap-6">
+ <div className="px-5 pb-5 border-t border-amber-100 pt-4 fade-in bg-gray-50/50">
+ <div className="grid md:grid-cols-3 gap-4">
  {/* Supporting Evidence */}
- <div>
- <h4 className="text-sm font-medium tracking-wide text-emerald-600 mb-3 flex items-center gap-2">
+ <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+ <h4 className="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2">
  <CheckCircle2 className="w-4 h-4" />
  Supporting Evidence
  </h4>
  <div className="space-y-2">
  {hypothesis.supportingEvidence?.map((evidence, eidx) => (
- <div key={eidx} className="text-sm bg-emerald-500/10 p-5 rounded-lg">
- {evidence}
+ <div key={eidx} className="text-sm bg-white p-3 rounded border-l-2 border-emerald-400">
+ <span className="text-emerald-600 mr-1">✓</span> {evidence}
  </div>
  ))}
  </div>
  </div>
 
  {/* Contradicting Evidence */}
- <div>
- <h4 className="text-sm font-medium tracking-wide text-rose-600 mb-3 flex items-center gap-2">
+ <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+ <h4 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
  <XCircle className="w-4 h-4" />
  Contradicting Evidence
  </h4>
  <div className="space-y-2">
  {hypothesis.contradictingEvidence?.map((evidence, eidx) => (
- <div key={eidx} className="text-sm bg-rose-500/10 p-5 rounded-lg">
- {evidence}
+ <div key={eidx} className="text-sm bg-white p-3 rounded border-l-2 border-red-400">
+ <span className="text-red-600 mr-1">✗</span> {evidence}
  </div>
- )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
+ )) || <p className="text-sm text-gray-500 italic">None identified</p>}
  </div>
  </div>
 
@@ -8021,6 +8547,7 @@ ${analysisContext}`;
  )}
  </div>
  ))}
+ </div>
  </div>
  )}
 
@@ -8639,9 +9166,29 @@ ${analysisContext}`;
    </div>
  )}
 
+ {/* Document Preview Modal */}
+ {docPreview.open && (
+ <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDocPreview({ open: false, docIndex: null, docName: '', content: '' })}>
+ <div className="bg-white rounded-lg border border-gray-200 shadow-sm max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+ <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+ <div>
+ <h3 className="text-base font-medium text-gray-800">Document {docPreview.docIndex}</h3>
+ <p className="text-sm text-gray-500">{docPreview.docName}</p>
+ </div>
+ <button onClick={() => setDocPreview({ open: false, docIndex: null, docName: '', content: '' })} className="p-2 hover:bg-gray-100 rounded-md transition-colors">
+ <X className="w-4 h-4 text-gray-500" />
+ </button>
+ </div>
+ <div className="flex-1 overflow-y-auto p-6">
+ <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">{docPreview.content}</pre>
+ </div>
+ </div>
+ </div>
+ )}
+
  {/* Footer */}
-        <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-gray-50/80 backdrop-blur-sm py-4 text-center text-xs text-gray-400 leading-relaxed">
- <p className="mono tracking-wide">MARLOWE INVESTIGATIVE INTELLIGENCE PLATFORM • MVP v1.0</p>
+        <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
+ <p>Marlowe Investigative Intelligence</p>
  </footer>
  </div>
  );
