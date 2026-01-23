@@ -5290,7 +5290,7 @@ ${analysisContext}`;
  </div>
 
 
- <main className="max-w-full mx-auto p-6 relative z-10 min-h-screen" style={{ backgroundColor: '#f8f8f8' }}>
+ <main className="max-w-full mx-auto p-6 relative z-10 min-h-screen bg-[#f8f8f8]">
 
 
  {/* Scout Page */}
@@ -7216,7 +7216,7 @@ ${analysisContext}`;
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className="h-screen flex" style={{ backgroundColor: '#f8f8f8' }}>
+ <div className="h-screen flex bg-[#f8f8f8]">
  {/* Left Icon Bar */}
  <div className="w-12 border-r border-gray-100 flex flex-col items-center pt-3 gap-2">
  {/* Home icon - at top */}
