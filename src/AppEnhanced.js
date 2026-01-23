@@ -6572,7 +6572,7 @@ ${analysisContext}`;
 
  {/* Noir Landing Page */}
  {currentPage === 'noirLanding' && (
- <div className="fade-in min-h-screen -mt-24" style={{ backgroundColor: '#f8f8f8' }}>
+ <div className="fade-in min-h-screen -mt-24">
  {/* Hero Section - Full viewport height */}
  <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
