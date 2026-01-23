@@ -7367,6 +7367,7 @@ ${analysisContext}`;
  <>
  <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none"
  onClick={(e) => {
+   console.log('Click detected:', e.target.tagName, e.target.className);
    // Handle document citations
    const docButton = e.target.closest('[data-doc-index]');
    if (docButton) {
@@ -7381,11 +7382,13 @@ ${analysisContext}`;
      }
      return;
    }
-   // Handle explore point clicks
+   // Handle explore point clicks - check for any clickable element
    const explorePoint = e.target.closest('[data-explore-point]');
+   console.log('Explore point:', explorePoint, explorePoint?.getAttribute('data-explore-point'));
    if (explorePoint) {
      const pointText = explorePoint.getAttribute('data-explore-point');
      if (pointText) {
+       console.log('Setting input to:', pointText);
        setConversationInput(`Tell me more about: ${pointText}`);
        // Focus the input after a short delay to ensure state is updated
        setTimeout(() => {
