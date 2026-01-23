@@ -3283,6 +3283,13 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
            try {
              const parsed = JSON.parse(data);
+             // Check for error responses
+             if (parsed.error) {
+               console.error('API error in stream:', parsed.error);
+               fullText = `Error from API: ${parsed.error.message || JSON.stringify(parsed.error)}`;
+               setStreamingText(fullText);
+               break;
+             }
              // Handle both Vercel stream format and raw Anthropic format
              if (parsed.text) {
                fullText += parsed.text;
@@ -3293,6 +3300,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
              }
            } catch (e) {
              // Skip non-JSON lines
+             console.log('Non-JSON line:', line.substring(0, 100));
            }
          }
        }
@@ -3303,6 +3311,14 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        setConversationMessages(prev => [...prev, {
          role: 'assistant',
          content: fullText,
+         timestamp: new Date().toISOString()
+       }]);
+     } else {
+       // No text received - show error
+       console.error('No text received from API');
+       setConversationMessages(prev => [...prev, {
+         role: 'assistant',
+         content: 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
          timestamp: new Date().toISOString()
        }]);
      }
