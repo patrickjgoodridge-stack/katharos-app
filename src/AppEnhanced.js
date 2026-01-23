@@ -608,8 +608,8 @@ export default function Marlowe() {
      .replace(/^(KEY FINDINGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Key Findings</h3>')
 
      // Numbered items - interactive with visible hover effect
-     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="mb-3 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="font-medium text-gray-800 pointer-events-none">$1. $2</span></div>')
-     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mb-2 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="text-gray-700 pointer-events-none">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="mb-1 py-0.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="font-medium text-gray-800 pointer-events-none">$1. $2</span></div>')
+     .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="mb-1 py-0.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$2"><span class="text-gray-700 pointer-events-none">$1. $2</span></div>')
 
      // Blockquotes - teal/blue left border for evidence quotes
      .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
@@ -626,10 +626,10 @@ export default function Marlowe() {
      .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-medium text-gray-800">$1</strong>')
 
      // Bullet points - interactive with visible click indicator
-     .replace(/^[-•]\s+(.+)$/gm, '<li class="text-gray-700 py-1.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$1"><span class="pointer-events-none">$1</span></li>')
+     .replace(/^[-•]\s+(.+)$/gm, '<li class="text-gray-700 py-0.5 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-transparent hover:border-amber-400 transition-all" data-explore-point="$1"><span class="pointer-events-none">$1</span></li>')
 
      // Wrap consecutive list items
-     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-4 pl-5 space-y-2 list-disc marker:text-gray-400">$&</ul>')
+     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-2 pl-5 space-y-0.5 list-disc marker:text-gray-400">$&</ul>')
 
      // Paragraph breaks
      .replace(/\n\n+/g, '</p><p class="mb-4">')
