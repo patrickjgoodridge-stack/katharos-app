@@ -88,6 +88,7 @@ export default function Marlowe() {
  const [assigningToProject, setAssigningToProject] = useState(null); // screening ID being assigned
  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
  const [isGeneratingCaseReport, setIsGeneratingCaseReport] = useState(false);
+ const [expandedCaseId, setExpandedCaseId] = useState(null); // For Case Management expanded view
  
  // KYC Chat state
  const [kycChatOpen, setKycChatOpen] = useState(false);
@@ -6982,10 +6983,11 @@ ${analysisContext}`;
  ) : (
  <div className="grid gap-4">
  {cases.map((caseItem) => (
+ <div key={caseItem.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden transition-all">
+ {/* Case Header - Click to expand */}
  <div
- key={caseItem.id}
- onClick={() => editingCaseId !== caseItem.id && loadCase(caseItem)}
- className="bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-6 cursor-pointer transition-all group"
+ onClick={() => editingCaseId !== caseItem.id && setExpandedCaseId(expandedCaseId === caseItem.id ? null : caseItem.id)}
+ className="p-6 cursor-pointer hover:bg-gray-50 transition-all group"
  >
  <div className="flex items-start gap-4">
  <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
@@ -7001,7 +7003,7 @@ ${analysisContext}`;
  'text-emerald-500'
  }`} />
  </div>
- 
+
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-3 mb-2">
  {editingCaseId === caseItem.id ? (
@@ -7037,11 +7039,11 @@ ${analysisContext}`;
  </>
  )}
  </div>
- 
+
  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
  {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
  </p>
- 
+
  <div className="flex items-center gap-4 text-xs text-gray-500">
  <span className="flex items-center gap-1">
  <FileText className="w-3.5 h-3.5" />
@@ -7069,9 +7071,104 @@ ${analysisContext}`;
  >
  <Trash2 className="w-4 h-4 text-rose-500" />
  </button>
- <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+ <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedCaseId === caseItem.id ? 'rotate-180' : ''}`} />
  </div>
  </div>
+ </div>
+
+ {/* Expanded Case Details */}
+ {expandedCaseId === caseItem.id && (
+ <div className="border-t border-gray-200 bg-gray-50 p-6">
+ {/* Action Buttons */}
+ <div className="flex gap-3 mb-6">
+ <button
+ onClick={() => loadCase(caseItem)}
+ className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
+ >
+ <MessageCircle className="w-4 h-4" />
+ Continue Chat
+ </button>
+ </div>
+
+ {/* Conversation History */}
+ {caseItem.conversationTranscript && caseItem.conversationTranscript.length > 0 && (
+ <div className="mb-6">
+ <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+ <MessageCircle className="w-4 h-4" />
+ Conversation History ({caseItem.conversationTranscript.length} messages)
+ </h4>
+ <div className="bg-white border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+ {caseItem.conversationTranscript.slice(-6).map((msg, idx) => (
+ <div key={idx} className={`p-3 border-b border-gray-100 last:border-0 ${msg.role === 'user' ? 'bg-amber-50/50' : ''}`}>
+ <div className="flex items-center gap-2 mb-1">
+ <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-amber-600' : 'text-gray-600'}`}>
+ {msg.role === 'user' ? 'You' : 'Marlowe'}
+ </span>
+ {msg.timestamp && (
+ <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
+ )}
+ </div>
+ <p className="text-sm text-gray-700 line-clamp-3">{msg.content}</p>
+ </div>
+ ))}
+ </div>
+ {caseItem.conversationTranscript.length > 6 && (
+ <p className="text-xs text-gray-500 mt-2">Showing last 6 messages. Continue chat to see full history.</p>
+ )}
+ </div>
+ )}
+
+ {/* PDF Reports */}
+ {caseItem.pdfReports && caseItem.pdfReports.length > 0 && (
+ <div>
+ <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+ <Download className="w-4 h-4" />
+ Saved Reports ({caseItem.pdfReports.length})
+ </h4>
+ <div className="grid gap-2">
+ {caseItem.pdfReports.map((report, idx) => (
+ <div key={report.id || idx} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3">
+ <div className="flex items-center gap-3">
+ <div className={`w-8 h-8 rounded flex items-center justify-center ${
+ report.riskLevel === 'CRITICAL' ? 'bg-red-100' :
+ report.riskLevel === 'HIGH' ? 'bg-rose-100' :
+ report.riskLevel === 'MEDIUM' ? 'bg-amber-100' :
+ 'bg-emerald-100'
+ }`}>
+ <FileText className={`w-4 h-4 ${
+ report.riskLevel === 'CRITICAL' ? 'text-red-600' :
+ report.riskLevel === 'HIGH' ? 'text-rose-500' :
+ report.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+ 'text-emerald-500'
+ }`} />
+ </div>
+ <div>
+ <p className="text-sm font-medium text-gray-900">{report.name}</p>
+ <p className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString()}</p>
+ </div>
+ </div>
+ <a
+ href={report.dataUri}
+ download={report.name}
+ className="flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium"
+ onClick={(e) => e.stopPropagation()}
+ >
+ <Download className="w-4 h-4" />
+ Download
+ </a>
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* No content message */}
+ {(!caseItem.conversationTranscript || caseItem.conversationTranscript.length === 0) &&
+  (!caseItem.pdfReports || caseItem.pdfReports.length === 0) && (
+ <p className="text-sm text-gray-500 text-center py-4">No conversations or reports yet. Click "Continue Chat" to start.</p>
+ )}
+ </div>
+ )}
  </div>
  ))}
  </div>
