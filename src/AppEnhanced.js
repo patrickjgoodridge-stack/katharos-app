@@ -1,3 +1,4 @@
+// Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase } from 'lucide-react';
 import * as mammoth from 'mammoth';
