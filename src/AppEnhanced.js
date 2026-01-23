@@ -611,12 +611,13 @@ export default function Marlowe() {
      .replace(/^(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="group/item relative mb-3 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="font-medium text-gray-800">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
      .replace(/^(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="group/item relative mb-2 py-1 -mx-2 px-2 rounded hover:bg-gray-50 cursor-pointer" data-explore-point="$2"><span class="text-gray-700">$1. $2</span><span class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 transition-opacity text-xs bg-gray-900 text-white px-2 py-1 rounded">Click for details</span></div>')
 
-     // Blockquotes - simple left border, subtle background
-     .replace(/^>\s*"([^"]+)"/gm, '<blockquote class="my-4 border-l-2 border-gray-300 bg-gray-50 pl-4 py-2 rounded-r"><p class="text-gray-600 italic">"$1"</p></blockquote>')
-     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-4 border-l-2 border-gray-300 bg-gray-50 pl-4 py-2 rounded-r"><p class="text-gray-600 italic">"$1"</p></blockquote>')
+     // Blockquotes - teal/blue left border for evidence quotes
+     .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
+     .replace(/^>\s*\*?'([^']+)'\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><p class="text-gray-700 italic">"$1"</p></blockquote>')
 
-     // Translation - bold label, normal text
-     .replace(/^Translation:\s*(.+)$/gm, '<p class="mb-3 text-gray-700"><span class="font-medium text-gray-800">Translation:</span> $1</p>')
+     // Translation - orange label for emphasis
+     .replace(/^Translation:\s*(.+)$/gm, '<p class="mb-4 text-gray-700 pl-1"><span class="font-semibold text-amber-600">Translation:</span> $1</p>')
 
      // Document citations - subtle amber link
      .replace(/\[Doc\s*(\d+)[^\]]*\]/g, '<button data-doc-index="$1" class="text-amber-600 hover:text-amber-700 underline underline-offset-2 font-mono text-sm cursor-pointer transition-colors">Doc $1</button>')
@@ -3130,18 +3131,32 @@ OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW]
 
 CRITICAL RED FLAGS
 
-1. **[Red Flag Title]**
-> "[Direct quote from the document or evidence]"
-Translation: [Plain English explanation of what this means and why it's concerning]
+For each red flag, use this exact format:
+
+1. **[Descriptive Title - e.g., "Zero Beneficial Ownership Controls"]**
+> *"[Exact quote from the transcript or document in italics]"*
+
+Translation: [Direct, blunt explanation of what this red flag actually means from a compliance/AML perspective. Don't soften it - explain the real risk.]
 
 2. **[Second Red Flag Title]**
-> "[Another concerning quote]"
-Translation: [Explanation]
+> *"[Another exact quote]"*
 
-[Continue for each significant red flag]
+Translation: [Plain language explanation of the compliance failure or money laundering risk]
+
+[Continue numbering for each significant red flag]
+
+Focus on identifying:
+- Lack of beneficial ownership verification
+- Payment layering indicators
+- Sanctions exposure risks
+- KYC/AML control weaknesses
+- Unusual transaction patterns
+- Documentation gaps
+
+Be DIRECT and BLUNT in translations - explain what each response really signals from a money laundering or compliance failure perspective. Don't hedge.
 
 TYPOLOGIES PRESENT
-[List the financial crime patterns you see: Money laundering indicators, Fraud markers, Sanctions exposure, etc.]
+[List the specific financial crime patterns you identified: Money laundering indicators, Fraud markers, Sanctions exposure, Shell company risks, etc.]
 
 ONBOARDING DECISION
 [Your clear recommendation: REJECT, ENHANCED DUE DILIGENCE, or PROCEED WITH CAUTION, with brief rationale]
@@ -3151,7 +3166,7 @@ DOCUMENTS TO REQUEST
 - [Another document request]
 
 THE MEMO
-[A brief 2-3 sentence summary suitable for escalation to senior compliance]
+[A brief 2-3 sentence summary suitable for escalation to senior compliance - what's the core issue and recommended action?]
 
 === FOLLOW-UP SUGGESTIONS ===
 If you need more information to provide a complete or accurate analysis, ALWAYS end your response with 2-4 clickable follow-up questions or suggestions. These help the user know what additional information would be valuable.
