@@ -7365,7 +7365,7 @@ ${analysisContext}`;
  <div className="flex flex-wrap justify-center gap-2 mt-6">
  {[
  "Summarize the risks of this company/person",
- "Make a standard AML/KYC report",
+ "Make a standard AML/KYC report for:",
  "Screen this entity for sanctions",
  "Analyze this transaction pattern",
  "Identify red flags in these financials",
