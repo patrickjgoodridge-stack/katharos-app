@@ -107,6 +107,7 @@ export default function Marlowe() {
  const [sidebarOpen, setSidebarOpen] = useState(true); // eslint-disable-line no-unused-vars
  const conversationEndRef = useRef(null);
  const mainInputRef = useRef(null);
+ const bottomInputRef = useRef(null);
 
  const kycChatEndRef = useRef(null);
 
@@ -7261,7 +7262,15 @@ ${analysisContext}`;
    if (explorePoint) {
      const pointText = explorePoint.getAttribute('data-explore-point');
      if (pointText) {
-       setConversationInput(pointText);
+       setConversationInput(`Tell me more about: ${pointText}`);
+       // Focus the input after a short delay to ensure state is updated
+       setTimeout(() => {
+         if (bottomInputRef.current) {
+           bottomInputRef.current.focus();
+         } else if (mainInputRef.current) {
+           mainInputRef.current.focus();
+         }
+       }, 50);
      }
    }
  }}
@@ -7346,7 +7355,15 @@ ${analysisContext}`;
    if (explorePoint) {
      const pointText = explorePoint.getAttribute('data-explore-point');
      if (pointText) {
-       setConversationInput(pointText);
+       setConversationInput(`Tell me more about: ${pointText}`);
+       // Focus the input after a short delay to ensure state is updated
+       setTimeout(() => {
+         if (bottomInputRef.current) {
+           bottomInputRef.current.focus();
+         } else if (mainInputRef.current) {
+           mainInputRef.current.focus();
+         }
+       }, 50);
      }
    }
  }}
@@ -7378,6 +7395,7 @@ ${analysisContext}`;
  <Plus className="w-5 h-5" />
  </button>
  <textarea
+ ref={bottomInputRef}
  value={conversationInput}
  onChange={(e) => {
  setConversationInput(e.target.value);
