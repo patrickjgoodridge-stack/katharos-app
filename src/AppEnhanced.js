@@ -1,6 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -89,7 +89,8 @@ export default function Marlowe() {
  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
  const [isGeneratingCaseReport, setIsGeneratingCaseReport] = useState(false);
  const [expandedCaseId, setExpandedCaseId] = useState(null); // For Case Management expanded view
- 
+ const [viewingCaseId, setViewingCaseId] = useState(null); // For Case Detail page view
+
  // KYC Chat state
  const [kycChatOpen, setKycChatOpen] = useState(false);
  const [kycChatMessages, setKycChatMessages] = useState([]);
@@ -373,6 +374,7 @@ export default function Marlowe() {
      chatHistory: [],
      conversationTranscript: [], // Store full conversation
      pdfReports: [], // Store generated PDF reports
+     networkArtifacts: [], // Store network graph snapshots
      riskLevel: 'UNKNOWN'
    };
 
@@ -400,6 +402,18 @@ export default function Marlowe() {
        : c
    ));
  };
+
+ // Add network artifact to case
+ const addNetworkArtifactToCase = (caseId, artifactData) => {
+   setCases(prev => prev.map(c =>
+     c.id === caseId
+       ? { ...c, networkArtifacts: [...(c.networkArtifacts || []), artifactData], updatedAt: new Date().toISOString() }
+       : c
+   ));
+ };
+
+ // Get case by ID helper
+ const getCaseById = (caseId) => cases.find(c => c.id === caseId);
 
  // View completed analysis results
  const viewAnalysisResults = () => {
@@ -6652,39 +6666,12 @@ ${analysisContext}`;
  )}
  </div>
 
- {/* Problem Section */}
- <div className="py-20 px-6 bg-white">
- <div className="max-w-4xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">Modern financial crimes work is a <span className="font-black">mess</span></h2>
- </div>
- <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
- <ul className="text-gray-600 text-xl leading-relaxed mb-6 space-y-2 text-center">
- <li>Three screening platforms open</li>
- <li>50 screenshots from a dozen sources</li>
- <li>Spreadsheets everywhere</li>
- <li>Google Doc trying to connect it all</li>
- </ul>
- <p className="text-gray-600 text-xl leading-relaxed mb-6"><span className="underline">Collecting</span> the data you need is easy. <span className="underline">Making sense</span> of it isn't.</p>
- <p className="text-gray-700 text-xl font-semibold mb-6">And it's costing everyone: practitioners, companies, customers</p>
-
- <div className="bg-white border border-gray-200 rounded-xl p-6">
- <div className="text-center">
- <div className="text-5xl font-bold text-amber-500 mb-2">$16-32B</div>
- <p className="text-gray-600">Annual cost of manual investigative analysis</p>
- <p className="text-sm text-gray-500 mt-2">20-40% of $80B global AML labor spend</p>
- </div>
- </div>
- </div>
- </div>
- </div>
-
  {/* Now There's Marlowe Section */}
  <div className="py-20 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Now There's Marlowe</h2>
- <p className="text-lg text-gray-400">An expert AI investigator to piece everything together</p>
+ <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Manual Speed</h2>
+ <p className="text-lg text-gray-400">Marlowe Makes Them Faster, Deeper, Better</p>
  </div>
  <div className="grid md:grid-cols-2 gap-8 mb-12">
  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
@@ -7012,6 +6999,7 @@ ${analysisContext}`;
  </div>
  </div>
 
+ {!viewingCaseId ? (
  <div className="fade-in pt-6 px-36">
  <div className="flex items-center justify-between mb-8">
  <div>
@@ -7049,9 +7037,9 @@ ${analysisContext}`;
  <div className="grid gap-4">
  {cases.map((caseItem) => (
  <div key={caseItem.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden transition-all">
- {/* Case Header - Click to expand */}
+ {/* Case Header - Click to view case details */}
  <div
- onClick={() => editingCaseId !== caseItem.id && setExpandedCaseId(expandedCaseId === caseItem.id ? null : caseItem.id)}
+ onClick={() => editingCaseId !== caseItem.id && setViewingCaseId(caseItem.id)}
  className="p-6 cursor-pointer hover:bg-gray-50 transition-all group"
  >
  <div className="flex items-start gap-4">
@@ -7136,109 +7124,274 @@ ${analysisContext}`;
  >
  <Trash2 className="w-4 h-4 text-rose-500" />
  </button>
- <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedCaseId === caseItem.id ? 'rotate-180' : ''}`} />
+ <ChevronRight className="w-5 h-5 text-gray-400" />
  </div>
  </div>
  </div>
-
- {/* Expanded Case Details */}
- {expandedCaseId === caseItem.id && (
- <div className="border-t border-gray-200 bg-gray-50 p-6">
- {/* Action Buttons */}
- <div className="flex gap-3 mb-6">
- <button
- onClick={() => loadCase(caseItem)}
- className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
- >
- <MessageCircle className="w-4 h-4" />
- Continue Chat
- </button>
- </div>
-
- {/* Conversation History */}
- {caseItem.conversationTranscript && caseItem.conversationTranscript.length > 0 && (
- <div className="mb-6">
- <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
- <MessageCircle className="w-4 h-4" />
- Conversation History ({caseItem.conversationTranscript.length} messages)
- </h4>
- <div className="bg-white border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
- {caseItem.conversationTranscript.slice(-6).map((msg, idx) => (
- <div key={idx} className={`p-3 border-b border-gray-100 last:border-0 ${msg.role === 'user' ? 'bg-amber-50/50' : ''}`}>
- <div className="flex items-center gap-2 mb-1">
- <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-amber-600' : 'text-gray-600'}`}>
- {msg.role === 'user' ? 'You' : 'Marlowe'}
- </span>
- {msg.timestamp && (
- <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
- )}
- </div>
- <p className="text-sm text-gray-700 line-clamp-3">{msg.content}</p>
- </div>
- ))}
- </div>
- {caseItem.conversationTranscript.length > 6 && (
- <p className="text-xs text-gray-500 mt-2">Showing last 6 messages. Continue chat to see full history.</p>
- )}
- </div>
- )}
-
- {/* PDF Reports */}
- {caseItem.pdfReports && caseItem.pdfReports.length > 0 && (
- <div>
- <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
- <Download className="w-4 h-4" />
- Saved Reports ({caseItem.pdfReports.length})
- </h4>
- <div className="grid gap-2">
- {caseItem.pdfReports.map((report, idx) => (
- <div key={report.id || idx} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3">
- <div className="flex items-center gap-3">
- <div className={`w-8 h-8 rounded flex items-center justify-center ${
- report.riskLevel === 'CRITICAL' ? 'bg-red-100' :
- report.riskLevel === 'HIGH' ? 'bg-rose-100' :
- report.riskLevel === 'MEDIUM' ? 'bg-amber-100' :
- 'bg-emerald-100'
- }`}>
- <FileText className={`w-4 h-4 ${
- report.riskLevel === 'CRITICAL' ? 'text-red-600' :
- report.riskLevel === 'HIGH' ? 'text-rose-500' :
- report.riskLevel === 'MEDIUM' ? 'text-amber-500' :
- 'text-emerald-500'
- }`} />
- </div>
- <div>
- <p className="text-sm font-medium text-gray-900">{report.name}</p>
- <p className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString()}</p>
- </div>
- </div>
- <a
- href={report.dataUri}
- download={report.name}
- className="flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium"
- onClick={(e) => e.stopPropagation()}
- >
- <Download className="w-4 h-4" />
- Download
- </a>
- </div>
- ))}
- </div>
- </div>
- )}
-
- {/* No content message */}
- {(!caseItem.conversationTranscript || caseItem.conversationTranscript.length === 0) &&
-  (!caseItem.pdfReports || caseItem.pdfReports.length === 0) && (
- <p className="text-sm text-gray-500 text-center py-4">No conversations or reports yet. Click "Continue Chat" to start.</p>
- )}
- </div>
- )}
  </div>
  ))}
  </div>
  )}
  </div>
+ ) : (
+ /* Case Detail View */
+ (() => {
+   const viewingCase = getCaseById(viewingCaseId);
+   if (!viewingCase) return null;
+   return (
+     <div className="fade-in pt-6 px-8 max-w-6xl mx-auto">
+       {/* Back button and header */}
+       <div className="flex items-center gap-4 mb-6">
+         <button
+           onClick={() => setViewingCaseId(null)}
+           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+         >
+           <ChevronLeft className="w-5 h-5 text-gray-600" />
+         </button>
+         <div className="flex-1">
+           <h2 className="text-2xl font-bold tracking-tight leading-tight">{viewingCase.name}</h2>
+           <p className="text-gray-500 text-sm">Created {new Date(viewingCase.createdAt).toLocaleDateString()}</p>
+         </div>
+         <div className="flex items-center gap-3">
+           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getRiskColor(viewingCase.riskLevel)}`}>
+             {viewingCase.riskLevel} RISK
+           </span>
+           <button
+             onClick={() => loadCase(viewingCase)}
+             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
+           >
+             <MessageCircle className="w-4 h-4" />
+             Continue Investigation
+           </button>
+         </div>
+       </div>
+
+       {/* Stats Cards */}
+       <div className="grid grid-cols-4 gap-4 mb-8">
+         <div className="bg-white border border-gray-200 rounded-xl p-4">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+               <FileText className="w-5 h-5 text-blue-500" />
+             </div>
+             <div>
+               <p className="text-2xl font-bold">{viewingCase.files?.length || 0}</p>
+               <p className="text-xs text-gray-500">Documents</p>
+             </div>
+           </div>
+         </div>
+         <div className="bg-white border border-gray-200 rounded-xl p-4">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+               <MessageCircle className="w-5 h-5 text-amber-500" />
+             </div>
+             <div>
+               <p className="text-2xl font-bold">{viewingCase.conversationTranscript?.length || 0}</p>
+               <p className="text-xs text-gray-500">Messages</p>
+             </div>
+           </div>
+         </div>
+         <div className="bg-white border border-gray-200 rounded-xl p-4">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+               <Download className="w-5 h-5 text-emerald-500" />
+             </div>
+             <div>
+               <p className="text-2xl font-bold">{viewingCase.pdfReports?.length || 0}</p>
+               <p className="text-xs text-gray-500">Reports</p>
+             </div>
+           </div>
+         </div>
+         <div className="bg-white border border-gray-200 rounded-xl p-4">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+               <Network className="w-5 h-5 text-purple-500" />
+             </div>
+             <div>
+               <p className="text-2xl font-bold">{viewingCase.networkArtifacts?.length || 0}</p>
+               <p className="text-xs text-gray-500">Network Maps</p>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       {/* Main Content Grid */}
+       <div className="grid grid-cols-3 gap-6">
+         {/* Left Column - Chat History */}
+         <div className="col-span-2 space-y-6">
+           {/* Chat History */}
+           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+               <h3 className="font-semibold flex items-center gap-2">
+                 <MessageCircle className="w-4 h-4 text-amber-500" />
+                 Conversation History
+               </h3>
+               {viewingCase.conversationTranscript?.length > 0 && (
+                 <span className="text-xs text-gray-500">{viewingCase.conversationTranscript.length} messages</span>
+               )}
+             </div>
+             <div className="max-h-[500px] overflow-y-auto">
+               {viewingCase.conversationTranscript?.length > 0 ? (
+                 viewingCase.conversationTranscript.map((msg, idx) => (
+                   <div key={idx} className={`p-4 border-b border-gray-50 last:border-0 ${msg.role === 'user' ? 'bg-amber-50/30' : ''}`}>
+                     <div className="flex items-center gap-2 mb-2">
+                       <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-amber-600' : 'text-gray-600'}`}>
+                         {msg.role === 'user' ? 'You' : 'Marlowe'}
+                       </span>
+                       {msg.timestamp && (
+                         <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
+                       )}
+                     </div>
+                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.content}</p>
+                   </div>
+                 ))
+               ) : (
+                 <div className="p-8 text-center text-gray-500">
+                   <MessageCircle className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                   <p className="text-sm">No conversation history yet</p>
+                   <p className="text-xs text-gray-400 mt-1">Start an investigation to begin chatting</p>
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* Network Artifacts */}
+           {viewingCase.networkArtifacts?.length > 0 && (
+             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+               <div className="px-5 py-4 border-b border-gray-100">
+                 <h3 className="font-semibold flex items-center gap-2">
+                   <Network className="w-4 h-4 text-purple-500" />
+                   Network Maps
+                 </h3>
+               </div>
+               <div className="p-4 grid gap-4">
+                 {viewingCase.networkArtifacts.map((artifact, idx) => (
+                   <div key={artifact.id || idx} className="border border-gray-200 rounded-lg p-4">
+                     <div className="flex items-center justify-between mb-2">
+                       <span className="font-medium text-sm">{artifact.name || `Network Map ${idx + 1}`}</span>
+                       <span className="text-xs text-gray-500">{new Date(artifact.createdAt).toLocaleString()}</span>
+                     </div>
+                     {artifact.imageData && (
+                       <img src={artifact.imageData} alt={artifact.name} className="w-full rounded-lg border border-gray-100" />
+                     )}
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+         </div>
+
+         {/* Right Column - Reports & Documents */}
+         <div className="space-y-6">
+           {/* PDF Reports */}
+           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+             <div className="px-5 py-4 border-b border-gray-100">
+               <h3 className="font-semibold flex items-center gap-2">
+                 <Download className="w-4 h-4 text-emerald-500" />
+                 Saved Reports
+               </h3>
+             </div>
+             <div className="p-4">
+               {viewingCase.pdfReports?.length > 0 ? (
+                 <div className="space-y-3">
+                   {viewingCase.pdfReports.map((report, idx) => (
+                     <div key={report.id || idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                       <div className="flex items-center gap-3 min-w-0">
+                         <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${
+                           report.riskLevel === 'CRITICAL' ? 'bg-red-100' :
+                           report.riskLevel === 'HIGH' ? 'bg-rose-100' :
+                           report.riskLevel === 'MEDIUM' ? 'bg-amber-100' :
+                           'bg-emerald-100'
+                         }`}>
+                           <FileText className={`w-4 h-4 ${
+                             report.riskLevel === 'CRITICAL' ? 'text-red-600' :
+                             report.riskLevel === 'HIGH' ? 'text-rose-500' :
+                             report.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+                             'text-emerald-500'
+                           }`} />
+                         </div>
+                         <div className="min-w-0">
+                           <p className="text-sm font-medium text-gray-900 truncate">{report.name}</p>
+                           <p className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString()}</p>
+                         </div>
+                       </div>
+                       <a
+                         href={report.dataUri}
+                         download={report.name}
+                         className="flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium shrink-0"
+                       >
+                         <Download className="w-4 h-4" />
+                       </a>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <div className="text-center py-6 text-gray-500">
+                   <Download className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                   <p className="text-sm">No reports generated yet</p>
+                   <p className="text-xs text-gray-400 mt-1">Generate reports during your investigation</p>
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* Uploaded Documents */}
+           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+             <div className="px-5 py-4 border-b border-gray-100">
+               <h3 className="font-semibold flex items-center gap-2">
+                 <FileText className="w-4 h-4 text-blue-500" />
+                 Uploaded Documents
+               </h3>
+             </div>
+             <div className="p-4">
+               {viewingCase.files?.length > 0 ? (
+                 <div className="space-y-2">
+                   {viewingCase.files.map((file, idx) => (
+                     <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                       <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                       <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <div className="text-center py-6 text-gray-500">
+                   <FileText className="w-8 h-8 mx-auto mb-3 text-gray-300" />
+                   <p className="text-sm">No documents uploaded</p>
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* Case Actions */}
+           <div className="bg-white border border-gray-200 rounded-xl p-4">
+             <h3 className="font-semibold mb-4">Actions</h3>
+             <div className="space-y-2">
+               <button
+                 onClick={() => loadCase(viewingCase)}
+                 className="w-full flex items-center gap-2 justify-center bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
+               >
+                 <MessageCircle className="w-4 h-4" />
+                 Continue Investigation
+               </button>
+               <button
+                 onClick={() => {
+                   if (window.confirm('Are you sure you want to delete this case?')) {
+                     deleteCase(viewingCase.id);
+                     setViewingCaseId(null);
+                   }
+                 }}
+                 className="w-full flex items-center gap-2 justify-center border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium px-4 py-2.5 rounded-lg transition-colors"
+               >
+                 <Trash2 className="w-4 h-4" />
+                 Delete Case
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+   );
+ })()
+ )}
  </>
  )}
 
@@ -7582,7 +7735,7 @@ ${analysisContext}`;
  ))}
  </div>
  )}
- <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-200 p-2">
+ <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-500 p-2">
  <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
  <Plus className="w-5 h-5" />
  </button>
