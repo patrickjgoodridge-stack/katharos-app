@@ -568,51 +568,49 @@ export default function Marlowe() {
    const suggestions = [];
    const lowerContent = content.toLowerCase();
 
+   // Check for network/relationship mapping opportunities
+   if (lowerContent.includes('entities') || lowerContent.includes('companies') || lowerContent.includes('ownership') ||
+       lowerContent.includes('subsidiary') || lowerContent.includes('related parties') || lowerContent.includes('connections') ||
+       lowerContent.includes('beneficial owner') || lowerContent.includes('shell compan') || lowerContent.includes('corporate structure')) {
+     suggestions.push("Build a network map");
+   }
+
    // Check risk level and add relevant follow-ups
    if (lowerContent.includes('critical') || lowerContent.includes('high risk')) {
-     suggestions.push("What immediate actions should I take given the risk level?");
-     suggestions.push("What's the strongest evidence supporting this risk assessment?");
+     suggestions.push("List immediate actions for this risk level");
+     suggestions.push("Show the strongest evidence for this assessment");
    }
 
    // Check for specific typologies
    if (lowerContent.includes('money laundering') || lowerContent.includes('layering') || lowerContent.includes('structuring')) {
-     suggestions.push("Can you trace the flow of funds in more detail?");
-     suggestions.push("What patterns suggest money laundering here?");
+     suggestions.push("Trace the flow of funds in detail");
+     suggestions.push("Identify money laundering patterns");
    }
    if (lowerContent.includes('fraud') || lowerContent.includes('misrepresentation')) {
-     suggestions.push("What specific misrepresentations were identified?");
-     suggestions.push("Is there evidence of intentional deception?");
+     suggestions.push("List specific misrepresentations identified");
+     suggestions.push("Analyze evidence of intentional deception");
    }
    if (lowerContent.includes('sanction') || lowerContent.includes('ofac') || lowerContent.includes('pep')) {
-     suggestions.push("What's the exact nature of the sanctions exposure?");
-     suggestions.push("Are there any indirect connections to sanctioned parties?");
-   }
-   if (lowerContent.includes('shell compan') || lowerContent.includes('beneficial owner')) {
-     suggestions.push("Can you map out the corporate structure?");
-     suggestions.push("Who are the ultimate beneficial owners?");
-   }
-
-   // Check for entities mentioned
-   if (lowerContent.includes('entities') || lowerContent.includes('individuals') || lowerContent.includes('companies')) {
-     suggestions.push("How are the key entities connected to each other?");
+     suggestions.push("Detail the exact sanctions exposure");
+     suggestions.push("Check for indirect connections to sanctioned parties");
    }
 
    // Check for timeline/transaction mentions
    if (lowerContent.includes('timeline') || lowerContent.includes('transaction') || lowerContent.includes('transfer')) {
-     suggestions.push("Can you build a chronological timeline of key events?");
+     suggestions.push("Build a chronological timeline of key events");
    }
 
    // Check for document requests
    if (lowerContent.includes('document') || lowerContent.includes('evidence')) {
-     suggestions.push("What additional documents would strengthen this case?");
+     suggestions.push("List additional documents needed to strengthen the case");
    }
 
    // Always useful follow-ups
    if (suggestions.length < 3) {
-     suggestions.push("What are the key facts I should include in my report?");
+     suggestions.push("Summarize key facts for my report");
    }
    if (suggestions.length < 4) {
-     suggestions.push("What questions should I ask the client?");
+     suggestions.push("Draft questions to ask the client");
    }
 
    // Return top 4 unique suggestions
