@@ -3221,23 +3221,27 @@ THE MEMO
 [A brief 2-3 sentence summary suitable for escalation to senior compliance - what's the core issue and recommended action?]
 
 === FOLLOW-UP SUGGESTIONS ===
-If you need more information to provide a complete or accurate analysis, ALWAYS end your response with 2-4 clickable follow-up questions or suggestions. These help the user know what additional information would be valuable.
+If you can dig deeper or need more information, ALWAYS end your response with 2-4 clickable follow-up prompts. Frame these as IMPERATIVE STATEMENTS (commands/actions), NOT questions.
 
 Format these as a clear list at the end of your response:
 
-**Need more information? Consider:**
-- [Specific question about missing details]
-- [Suggestion for additional documents to upload]
-- [Question about the entity or transaction]
+**Keep exploring:**
+- [Imperative statement suggesting next action]
+- [Command to upload or provide documents]
+- [Action to take on the entity or transaction]
 
-Examples of good follow-up suggestions:
-- "Would you like me to check for sanctions exposure on any related entities?"
-- "Do you have ownership documents or corporate registry filings?"
-- "Should I analyze the source of funds for these transactions?"
-- "Can you provide financial statements or bank records?"
+Examples of good follow-up prompts (IMPERATIVE, not questions):
+- "Check sanctions exposure on related entities"
+- "Upload ownership documents or corporate registry filings"
+- "Analyze the source of funds for these transactions"
+- "Show me the beneficial ownership structure"
+- "Identify any PEP connections"
+- "Map the corporate hierarchy"
 
-Always include these suggestions when:
-- You don't have enough context to give a complete assessment
+NEVER phrase as questions like "Would you like..." or "Can you provide...". Always use direct imperatives.
+
+Always include these prompts when:
+- You can dig deeper into the analysis
 - Key documents are missing
 - The user's question is broad or could benefit from more detail
 - There are obvious next steps in the investigation
