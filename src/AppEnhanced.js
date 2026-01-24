@@ -88,7 +88,6 @@ export default function Marlowe() {
  const [assigningToProject, setAssigningToProject] = useState(null); // screening ID being assigned
  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
  const [isGeneratingCaseReport, setIsGeneratingCaseReport] = useState(false);
- const [expandedCaseId, setExpandedCaseId] = useState(null); // For Case Management expanded view
  const [viewingCaseId, setViewingCaseId] = useState(null); // For Case Detail page view
 
  // KYC Chat state
@@ -404,7 +403,7 @@ export default function Marlowe() {
  };
 
  // Add network artifact to case
- const addNetworkArtifactToCase = (caseId, artifactData) => {
+ const addNetworkArtifactToCase = (caseId, artifactData) => { // eslint-disable-line no-unused-vars
    setCases(prev => prev.map(c =>
      c.id === caseId
        ? { ...c, networkArtifacts: [...(c.networkArtifacts || []), artifactData], updatedAt: new Date().toISOString() }
