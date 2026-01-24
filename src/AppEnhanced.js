@@ -6659,7 +6659,7 @@ ${analysisContext}`;
 
  {/* Scroll indicator - hides after scrolling */}
  {!hasScrolled && (
- <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-400 animate-bounce transition-opacity duration-500">
+ <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-2 text-gray-400 animate-bounce transition-opacity duration-500">
  <span className="text-sm font-medium">Learn more</span>
  <ChevronDown className="w-5 h-5" />
  </div>
@@ -6670,7 +6670,7 @@ ${analysisContext}`;
  <div className="py-20 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Manual Speed</h2>
+ <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Human Speed</h2>
  <p className="text-lg text-gray-400">Marlowe Makes Them Faster, Deeper, Better</p>
  </div>
  <div className="grid md:grid-cols-2 gap-8 mb-12">
