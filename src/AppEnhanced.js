@@ -1361,11 +1361,13 @@ export default function Marlowe() {
  }
  };
 
- // Load an existing case
- const loadCase = (caseData) => {
+ // Load an existing case - showConversation=true shows chat instead of analysis view
+ const loadCase = (caseData, showConversation = true) => {
  setActiveCase(caseData);
  setFiles(caseData.files || []);
- setAnalysis(caseData.analysis);
+ // When continuing investigation, don't load analysis so conversation view shows
+ // The analysis is still available in activeCase if needed
+ setAnalysis(showConversation ? null : caseData.analysis);
  setChatMessages(caseData.chatHistory || []);
  setConversationMessages(caseData.conversationTranscript || []);
  setCaseName(caseData.name);
@@ -1765,13 +1767,127 @@ export default function Marlowe() {
        </div>`;
      });
 
-   // Section headers with icons and better styling
+   // Icons for various sections
+   const docIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
+   const searchIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>';
+   const arrowIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>';
+   const clipboardIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>';
+   const networkIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>';
+
+   // ONBOARDING DECISION with REJECT/ACCEPT styling - must come before generic headers
+   html = html
+     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)\s*\n\s*(IMMEDIATE REJECT|REJECT|DO NOT ONBOARD|BLOCK)[:\s]*(.*?)(?=\n\n|\n[A-Z]|$)/gims,
+       `<div class="mt-8 mb-6">
+         <div class="bg-red-600 text-white rounded-xl p-6 shadow-lg">
+           <div class="flex items-center gap-3 mb-3">
+             ${warningIcon.replace('w-4 h-4', 'w-6 h-6')}
+             <span class="text-xl font-bold tracking-wide">IMMEDIATE REJECT</span>
+           </div>
+           <p class="text-red-100 leading-relaxed">$3</p>
+         </div>
+       </div>`)
+     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)\s*\n\s*(ENHANCED DUE DILIGENCE|EDD|ADDITIONAL REVIEW)[:\s]*(.*?)(?=\n\n|\n[A-Z]|$)/gims,
+       `<div class="mt-8 mb-6">
+         <div class="bg-amber-500 text-white rounded-xl p-6 shadow-lg">
+           <div class="flex items-center gap-3 mb-3">
+             ${alertIcon.replace('w-4 h-4', 'w-6 h-6')}
+             <span class="text-xl font-bold tracking-wide">ENHANCED DUE DILIGENCE REQUIRED</span>
+           </div>
+           <p class="text-amber-100 leading-relaxed">$3</p>
+         </div>
+       </div>`)
+     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)\s*\n\s*(PROCEED|APPROVE|ACCEPT|CLEAR)[:\s]*(.*?)(?=\n\n|\n[A-Z]|$)/gims,
+       `<div class="mt-8 mb-6">
+         <div class="bg-emerald-600 text-white rounded-xl p-6 shadow-lg">
+           <div class="flex items-center gap-3 mb-3">
+             ${checkIcon.replace('w-4 h-4', 'w-6 h-6')}
+             <span class="text-xl font-bold tracking-wide">PROCEED WITH CAUTION</span>
+           </div>
+           <p class="text-emerald-100 leading-relaxed">$3</p>
+         </div>
+       </div>`);
+
+   // THE MEMO as a styled callout box
+   html = html
+     .replace(/^(THE MEMO|SUMMARY|EXECUTIVE SUMMARY)\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n\*\*Keep exploring|\nKeep exploring|$)/gim,
+       `<div class="mt-8 mb-6">
+         <div class="bg-slate-900 text-white rounded-xl p-6 shadow-lg">
+           <div class="flex items-center gap-2 mb-3">
+             ${clipboardIcon.replace('w-4 h-4', 'w-5 h-5 text-amber-400')}
+             <span class="text-sm font-semibold uppercase tracking-wider text-amber-400">The Memo</span>
+           </div>
+           <p class="text-slate-200 leading-relaxed">$2</p>
+         </div>
+       </div>`);
+
+   // DOCUMENTS TO REQUEST as a styled card with list
+   html = html
+     .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS|RECOMMENDED ACTIONS)\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n\*\*Keep exploring|\nKeep exploring|$)/gim, (match, header, content) => {
+       const items = content.split(/\n/).filter(line => line.trim().match(/^[-•]\s+/));
+       const itemsHtml = items.map(item => {
+         const text = item.replace(/^[-•]\s+/, '').trim();
+         return `<div class="flex items-start gap-3 py-3 border-b border-slate-100 last:border-0">
+           <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">${docIcon.replace('w-4 h-4', 'w-4 h-4 text-blue-600')}</span>
+           <span class="text-slate-700">${text}</span>
+         </div>`;
+       }).join('');
+       return `<div class="mt-8 mb-6">
+         <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+           <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+             ${docIcon.replace('w-4 h-4', 'w-5 h-5 text-slate-600')}
+             <h3 class="font-semibold text-slate-900">Documents to Request</h3>
+           </div>
+           <div class="px-5 py-2">${itemsHtml}</div>
+         </div>
+       </div>`;
+     });
+
+   // TYPOLOGIES as styled cards
+   html = html
+     .replace(/^(TYPOLOGIES PRESENT|TYPOLOGIES)\s*\n([\s\S]*?)(?=\n\n[A-Z]|$)/gim, (match, header, content) => {
+       const items = content.split(/\n/).filter(line => line.trim().match(/^[-•]\s+/));
+       const itemsHtml = items.map(item => {
+         const text = item.replace(/^[-•]\s+/, '').trim();
+         return `<div class="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-start gap-3">
+           <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">${networkIcon.replace('w-4 h-4', 'w-4 h-4 text-purple-600')}</span>
+           <span class="text-purple-900 font-medium">${text}</span>
+         </div>`;
+       }).join('');
+       return `<div class="mt-8 mb-6">
+         <div class="flex items-center gap-2 mb-4">
+           ${networkIcon.replace('w-4 h-4', 'w-5 h-5 text-purple-600')}
+           <h3 class="text-lg font-semibold text-gray-900">Typologies Present</h3>
+         </div>
+         <div class="space-y-3">${itemsHtml}</div>
+       </div>`;
+     });
+
+   // Keep exploring suggestions as clickable action cards
+   html = html
+     .replace(/\*\*Keep exploring:\*\*\s*\n([\s\S]*?)(?=\n\n[A-Z]|$)/gim, (match, content) => {
+       const items = content.split(/\n/).filter(line => line.trim().match(/^[-•]\s+/));
+       const itemsHtml = items.map(item => {
+         const text = item.replace(/^[-•]\s+/, '').trim();
+         return `<div class="bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 rounded-xl p-4 cursor-pointer transition-all group" data-explore-point="${text}">
+           <div class="flex items-center justify-between">
+             <span class="text-slate-700 group-hover:text-amber-900">${text}</span>
+             <span class="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">${arrowIcon}</span>
+           </div>
+         </div>`;
+       }).join('');
+       return `<div class="mt-8 mb-6">
+         <div class="flex items-center gap-2 mb-4">
+           ${searchIcon.replace('w-4 h-4', 'w-5 h-5 text-amber-600')}
+           <h3 class="text-lg font-semibold text-gray-900">Keep Exploring</h3>
+         </div>
+         <div class="space-y-3">${itemsHtml}</div>
+       </div>`;
+     });
+
+   // Section headers with icons and better styling (fallback for sections not caught above)
    html = html
      .replace(/^(CRITICAL RED FLAGS|RED FLAGS)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-red-100 text-red-600 rounded-lg">${flagIcon}</span><h3 class="text-lg font-semibold text-gray-900">Red Flags</h3></div>`)
-     .replace(/^(THE MEMO|SUMMARY|EXECUTIVE SUMMARY)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Summary</h3></div>')
-     .replace(/^(TYPOLOGIES PRESENT|TYPOLOGIES)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Typologies</h3></div>')
-     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Decision</h3></div>')
-     .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS|RECOMMENDED ACTIONS)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Next Steps</h3></div>')
+     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)$/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Decision</h3></div>')
      .replace(/^(KEY FINDINGS|FINDINGS)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Key Findings</h3></div>')
      .replace(/^(DESIGNATIONS?|SANCTIONS?)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-amber-100 text-amber-600 rounded-lg">${bankIcon}</span><h3 class="text-lg font-semibold text-gray-900">Designations</h3></div>`)
      .replace(/^(ASSET FREEZE|FROZEN ASSETS)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-lg">${lockIcon}</span><h3 class="text-lg font-semibold text-gray-900">Asset Freeze</h3></div>`)
@@ -8729,7 +8845,7 @@ ${analysisContext}`;
  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
- Export PDF
+ Export PDF Report
  </button>
  </div>
  )}
@@ -9359,7 +9475,7 @@ ${analysisContext}`;
  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
- {isGeneratingCaseReport ? 'Generating...' : 'Export PDF'}
+ {isGeneratingCaseReport ? 'Generating...' : 'Export PDF Report'}
  </button>
  </div>
  <p className="text-xl font-medium text-gray-900 leading-relaxed mb-6">
