@@ -816,6 +816,213 @@ const parseMessageToPdfData = (messageContent) => {
   return data;
 };
 
+// ============================================================================
+// OWNERSHIP NETWORK GRAPH COMPONENT - Visual network representation
+// ============================================================================
+const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners, corporateNetwork, height = 350 }) => {
+  const graphRef = useRef();
+
+  // Build graph data
+  const graphData = React.useMemo(() => {
+    const nodes = [];
+    const links = [];
+
+    // Add central entity node
+    const centralId = 'central';
+    const isPerson = ownedCompanies && ownedCompanies.length > 0;
+    nodes.push({
+      id: centralId,
+      name: centralEntity || 'Subject',
+      type: isPerson ? 'PERSON' : 'ORGANIZATION',
+      isCentral: true,
+      riskLevel: 'SUBJECT'
+    });
+
+    // For individuals: show owned companies
+    if (ownedCompanies && ownedCompanies.length > 0) {
+      ownedCompanies.forEach((company, idx) => {
+        const nodeId = `owned-${idx}`;
+        nodes.push({
+          id: nodeId,
+          name: company.company,
+          type: 'ORGANIZATION',
+          ownershipPercent: company.ownershipPercent,
+          sanctioned: company.sanctionedOwner,
+          riskLevel: company.sanctionedOwner ? 'CRITICAL' :
+                     company.ownershipPercent >= 50 ? 'HIGH' :
+                     company.ownershipPercent >= 25 ? 'MEDIUM' : 'LOW'
+        });
+        links.push({
+          source: centralId,
+          target: nodeId,
+          label: `${company.ownershipPercent}%`,
+          ownershipPercent: company.ownershipPercent,
+          ownershipType: company.ownershipType
+        });
+      });
+    }
+
+    // For organizations: show beneficial owners
+    if (beneficialOwners && beneficialOwners.length > 0) {
+      beneficialOwners.forEach((owner, idx) => {
+        const nodeId = `owner-${idx}`;
+        const pct = owner.ownershipPercent || owner.percent || 0;
+        nodes.push({
+          id: nodeId,
+          name: owner.name,
+          type: 'PERSON',
+          ownershipPercent: pct,
+          sanctioned: owner.sanctionStatus === 'SANCTIONED',
+          riskLevel: owner.sanctionStatus === 'SANCTIONED' ? 'CRITICAL' :
+                     pct >= 50 ? 'HIGH' : pct >= 25 ? 'MEDIUM' : 'LOW'
+        });
+        links.push({
+          source: nodeId,
+          target: centralId,
+          label: `${pct}%`,
+          ownershipPercent: pct
+        });
+      });
+    }
+
+    // Add corporate network entities
+    if (corporateNetwork && corporateNetwork.length > 0) {
+      corporateNetwork.forEach((related, idx) => {
+        const nodeId = `corp-${idx}`;
+        nodes.push({
+          id: nodeId,
+          name: related.entity,
+          type: 'ORGANIZATION',
+          relationship: related.relationship,
+          sanctioned: related.sanctionExposure === 'DIRECT',
+          riskLevel: related.sanctionExposure === 'DIRECT' ? 'CRITICAL' :
+                     related.sanctionExposure === 'INDIRECT' ? 'HIGH' : 'LOW'
+        });
+        links.push({
+          source: centralId,
+          target: nodeId,
+          label: related.relationship,
+          relationship: related.relationship,
+          ownershipPercent: related.ownershipPercent
+        });
+      });
+    }
+
+    return { nodes, links };
+  }, [centralEntity, ownedCompanies, beneficialOwners, corporateNetwork]);
+
+  // Get node color based on risk/status
+  const getNodeColor = (node) => {
+    if (node.isCentral) return '#f59e0b'; // Amber for central entity
+    if (node.sanctioned) return '#dc2626'; // Red for sanctioned
+    if (node.riskLevel === 'CRITICAL') return '#dc2626';
+    if (node.riskLevel === 'HIGH') return '#f43f5e';
+    if (node.riskLevel === 'MEDIUM') return '#f59e0b';
+    return '#10b981'; // Green for low risk
+  };
+
+  // Get link color based on ownership percentage
+  const getLinkColor = (link) => {
+    if (link.ownershipPercent >= 50) return '#dc2626'; // Red for controlling interest
+    if (link.ownershipPercent >= 25) return '#f59e0b'; // Amber for significant
+    return '#94a3b8'; // Gray for minor
+  };
+
+  if (graphData.nodes.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden" style={{ height }}>
+      <ForceGraph2D
+        ref={graphRef}
+        graphData={graphData}
+        nodeLabel={node => `${node.name}${node.ownershipPercent ? `\n${node.ownershipPercent}%` : ''}`}
+        nodeColor={getNodeColor}
+        nodeVal={node => node.isCentral ? 12 : 8}
+        nodeCanvasObject={(node, ctx, globalScale) => {
+          const label = node.name;
+          const fontSize = node.isCentral ? 12 / globalScale : 10 / globalScale;
+          const nodeSize = node.isCentral ? 12 : 8;
+
+          // Draw node circle
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI, false);
+          ctx.fillStyle = getNodeColor(node);
+          ctx.fill();
+
+          // Draw border for sanctioned nodes
+          if (node.sanctioned) {
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 2 / globalScale;
+            ctx.stroke();
+          }
+
+          // Draw person icon for individuals
+          if (node.type === 'PERSON') {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(node.x, node.y - 2, 3 / globalScale, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(node.x, node.y + 4, 5 / globalScale, Math.PI, 0);
+            ctx.fill();
+          }
+
+          // Draw building icon for organizations
+          if (node.type === 'ORGANIZATION' && !node.isCentral) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(node.x - 3, node.y - 4, 6, 8);
+          }
+
+          // Draw label below node
+          ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillStyle = node.isCentral ? '#0f172a' : '#475569';
+
+          // Truncate long names
+          const maxLen = 18;
+          const displayLabel = label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
+          ctx.fillText(displayLabel, node.x, node.y + nodeSize + 4);
+        }}
+        linkColor={getLinkColor}
+        linkWidth={link => link.ownershipPercent >= 50 ? 3 : link.ownershipPercent >= 25 ? 2 : 1}
+        linkDirectionalArrowLength={6}
+        linkDirectionalArrowRelPos={0.9}
+        linkCanvasObjectMode={() => 'after'}
+        linkCanvasObject={(link, ctx, globalScale) => {
+          if (!link.label) return;
+          const fontSize = 9 / globalScale;
+          ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
+          ctx.fillStyle = '#64748b';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Position label at midpoint
+          const midX = (link.source.x + link.target.x) / 2;
+          const midY = (link.source.y + link.target.y) / 2;
+
+          // Draw background
+          const textWidth = ctx.measureText(link.label).width;
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillRect(midX - textWidth/2 - 2, midY - fontSize/2 - 1, textWidth + 4, fontSize + 2);
+
+          // Draw text
+          ctx.fillStyle = link.ownershipPercent >= 50 ? '#dc2626' : '#64748b';
+          ctx.fillText(link.label, midX, midY);
+        }}
+        d3VelocityDecay={0.4}
+        d3AlphaDecay={0.05}
+        cooldownTime={1500}
+        width={undefined}
+        height={height}
+        backgroundColor="#f9fafb"
+      />
+    </div>
+  );
+};
+
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
@@ -7050,59 +7257,51 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* Owned Companies (for individuals) */}
+ {/* Ownership Portfolio Network Graph (for individuals) */}
  {kycResults.ownedCompanies && kycResults.ownedCompanies.length > 0 && (
  <div className="mb-6">
  <h5 className="text-sm font-medium tracking-wide text-gray-600 tracking-wide mb-3 flex items-center gap-2">
- <Building2 className="w-4 h-4" />
- Ownership Portfolio ({kycResults.ownedCompanies.length} {kycResults.ownedCompanies.length === 1 ? 'Company' : 'Companies'})
+ <Network className="w-4 h-4" />
+ Ownership Network ({kycResults.ownedCompanies.length} {kycResults.ownedCompanies.length === 1 ? 'Company' : 'Companies'})
  </h5>
- <div className="mb-3 p-5 bg-gray-100/50 rounded-lg">
- <div className="grid grid-cols-2 gap-4 text-sm">
- <div>
- <span className="text-gray-500">Total Companies:</span>
- <span className="ml-2 font-bold text-gray-900">{kycResults.ownedCompanies.length}</span>
+ <div className="mb-3 p-4 bg-gray-100/50 rounded-lg">
+ <div className="grid grid-cols-3 gap-4 text-sm">
+ <div className="text-center">
+ <span className="block text-2xl font-bold text-gray-900">{kycResults.ownedCompanies.length}</span>
+ <span className="text-xs text-gray-500">Total Entities</span>
  </div>
- <div>
- <span className="text-gray-500">High-Risk (≥50%):</span>
- <span className="ml-2 font-bold text-rose-600">
+ <div className="text-center">
+ <span className="block text-2xl font-bold text-rose-600">
  {kycResults.ownedCompanies.filter(c => c.ownershipPercent >= 50).length}
  </span>
+ <span className="text-xs text-gray-500">Controlling (≥50%)</span>
  </div>
- </div>
- </div>
- <div className="space-y-2">
- {kycResults.ownedCompanies.map((company, idx) => (
- <div key={idx} className={`p-5 rounded-lg border ${
- company.ownershipPercent >= 50 ? 'bg-red-600/10 border-red-600/50' :
- company.ownershipPercent >= 25 ? 'bg-rose-500/10 border-rose-500/50' :
- 'bg-gray-100/50 border-gray-300'
- }`}>
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <span className="font-medium">{company.company}</span>
- {company.sanctionedOwner && (
- <span className="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">SANCTIONED OWNER</span>
- )}
- </div>
- <div className="flex items-center gap-2">
- <span className="text-xs px-2 py-0.5 bg-gray-200 rounded mono">{company.ownershipType}</span>
- <span className={`mono tracking-wide font-bold ${
- company.ownershipPercent >= 50 ? 'text-red-600' :
- company.ownershipPercent >= 25 ? 'text-rose-500' :
- 'text-gray-700'
- }`}>
- {company.ownershipPercent > 0 ? `${company.ownershipPercent}%` : company.ownershipType}
+ <div className="text-center">
+ <span className="block text-2xl font-bold text-red-600">
+ {kycResults.ownedCompanies.filter(c => c.sanctionedOwner).length}
  </span>
+ <span className="text-xs text-gray-500">Sanctioned</span>
  </div>
  </div>
- {company.ownerDetails && (
- <div className="mt-2 text-xs text-gray-500">
- Sanctioned: {company.ownerDetails.lists.join(', ')} ({company.ownerDetails.listingDate})
  </div>
- )}
+ <OwnershipNetworkGraph
+ centralEntity={kycResults.subject?.name || kycQuery}
+ ownedCompanies={kycResults.ownedCompanies}
+ height={350}
+ />
+ <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+ <span>Subject</span>
  </div>
- ))}
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-red-600"></span>
+ <span>Controlling (≥50%)</span>
+ </div>
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+ <span>Minority</span>
+ </div>
  </div>
  </div>
  )}
@@ -7111,40 +7310,27 @@ ${analysisContext}`;
  {kycResults.ownershipAnalysis && kycResults.ownershipAnalysis.corporateStructure && kycResults.ownershipAnalysis.corporateStructure.length > 0 && (
  <div className="mb-6">
  <h5 className="text-sm font-medium tracking-wide text-gray-600 tracking-wide mb-3 flex items-center gap-2">
- <Building2 className="w-4 h-4" />
- Corporate Structure
+ <Network className="w-4 h-4" />
+ Corporate Network ({kycResults.ownershipAnalysis.corporateStructure.length} Related {kycResults.ownershipAnalysis.corporateStructure.length === 1 ? 'Entity' : 'Entities'})
  </h5>
- <div className="space-y-2">
- {kycResults.ownershipAnalysis.corporateStructure.map((entity, idx) => (
- <div key={idx} className={`p-5 rounded-lg ${
- entity.sanctionExposure === 'DIRECT' ? 'bg-red-600/10 border border-red-600/30' :
- entity.sanctionExposure === 'INDIRECT' ? 'bg-rose-500/10 border border-rose-500/30' :
- 'bg-gray-100/50 border border-gray-300'
- }`}>
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-3">
- <span className="text-xs px-2 py-0.5 bg-gray-200 rounded mono tracking-wide">{entity.relationship}</span>
- <span className="font-medium tracking-wide">{entity.entity}</span>
- <span className="text-xs text-gray-500">{entity.jurisdiction}</span>
+ <OwnershipNetworkGraph
+ centralEntity={kycResults.subject?.name || kycQuery}
+ corporateNetwork={kycResults.ownershipAnalysis.corporateStructure}
+ height={300}
+ />
+ <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+ <span>Subject</span>
  </div>
- <div className="flex items-center gap-2">
- {entity.ownershipPercent && (
- <span className="mono text-sm tracking-wide">{entity.ownershipPercent}%</span>
- )}
- {entity.sanctionExposure !== 'NONE' && (
- <span className={`text-xs px-2 py-0.5 rounded ${
- entity.sanctionExposure === 'DIRECT' ? 'bg-red-600/20 text-red-600' : 'bg-rose-50 border border-rose-200 text-rose-600'
- }`}>
- {entity.sanctionExposure} EXPOSURE
- </span>
- )}
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-red-600"></span>
+ <span>Direct Exposure</span>
  </div>
+ <div className="flex items-center gap-1">
+ <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+ <span>No Exposure</span>
  </div>
- {entity.notes && (
- <p className="text-xs text-gray-500 mt-2">{entity.notes}</p>
- )}
- </div>
- ))}
  </div>
  </div>
  )}
@@ -9642,131 +9828,96 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* Ownership Portfolio (for individuals) */}
+ {/* Ownership Portfolio Network Graph (for individuals) */}
  {selectedEntity.type === 'PERSON' && selectedEntity.ownedCompanies && selectedEntity.ownedCompanies.length > 0 && (
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <Building2 className="w-4 h-4" />
- Ownership Portfolio ({selectedEntity.ownedCompanies.length} {selectedEntity.ownedCompanies.length === 1 ? 'Company' : 'Companies'})
+ <Network className="w-4 h-4" />
+ Ownership Network ({selectedEntity.ownedCompanies.length} {selectedEntity.ownedCompanies.length === 1 ? 'Company' : 'Companies'})
  </h4>
- <div className="mb-3 p-5 bg-gray-100/50 rounded-lg">
- <div className="grid grid-cols-2 gap-4 text-xs">
- <div>
- <span className="text-gray-500">Total Companies:</span>
- <span className="ml-2 font-bold text-gray-900">{selectedEntity.ownedCompanies.length}</span>
+ <div className="mb-2 p-3 bg-gray-100/50 rounded-lg">
+ <div className="grid grid-cols-3 gap-2 text-xs">
+ <div className="text-center">
+ <span className="block text-lg font-bold text-gray-900">{selectedEntity.ownedCompanies.length}</span>
+ <span className="text-gray-500">Total</span>
  </div>
- <div>
- <span className="text-gray-500">High-Risk (≥50%):</span>
- <span className="ml-2 font-bold text-rose-600">
+ <div className="text-center">
+ <span className="block text-lg font-bold text-rose-600">
  {selectedEntity.ownedCompanies.filter(c => c.ownershipPercent >= 50).length}
  </span>
+ <span className="text-gray-500">Controlling</span>
  </div>
- </div>
- </div>
- <div className="space-y-2">
- {selectedEntity.ownedCompanies.map((company, idx) => (
- <div key={idx} className={`p-5 rounded-lg border ${
- company.ownershipPercent >= 50 ? 'bg-red-600/10 border-red-600/50' :
- company.ownershipPercent >= 25 ? 'bg-rose-500/10 border-rose-500/50' :
- 'bg-gray-100/50 border-gray-300'
- }`}>
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <span className="font-medium tracking-wide text-sm">{company.company}</span>
- {company.sanctionedOwner && (
- <span className="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">SANCTIONED OWNER</span>
- )}
- </div>
- <div className="flex items-center gap-2">
- <span className="text-xs px-2 py-0.5 bg-gray-200 rounded mono">{company.ownershipType}</span>
- <span className={`mono tracking-wide font-bold text-sm ${
- company.ownershipPercent >= 50 ? 'text-red-600' :
- company.ownershipPercent >= 25 ? 'text-rose-500' :
- 'text-gray-700'
- }`}>
- {company.ownershipPercent > 0 ? `${company.ownershipPercent}%` : company.ownershipType}
+ <div className="text-center">
+ <span className="block text-lg font-bold text-red-600">
+ {selectedEntity.ownedCompanies.filter(c => c.sanctionedOwner).length}
  </span>
+ <span className="text-gray-500">Sanctioned</span>
  </div>
  </div>
- {company.ownerDetails && (
- <div className="mt-2 text-xs text-gray-500">
- Sanctioned: {company.ownerDetails.lists.join(', ')} ({company.ownerDetails.listingDate})
  </div>
- )}
- </div>
- ))}
- </div>
+ <OwnershipNetworkGraph
+ centralEntity={selectedEntity.name}
+ ownedCompanies={selectedEntity.ownedCompanies}
+ height={280}
+ />
  </div>
  )}
 
- {/* Beneficial Ownership (for organizations) */}
+ {/* Beneficial Ownership Network Graph (for organizations) */}
  {selectedEntity.type === 'ORGANIZATION' && selectedEntity.beneficialOwners && selectedEntity.beneficialOwners.length > 0 && (
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <Users className="w-4 h-4" />
- Beneficial Ownership Structure
+ <Network className="w-4 h-4" />
+ Beneficial Ownership ({selectedEntity.beneficialOwners.length} {selectedEntity.beneficialOwners.length === 1 ? 'Owner' : 'Owners'})
  </h4>
- <div className="space-y-2">
- {selectedEntity.beneficialOwners.map((owner, idx) => (
- <div key={idx} className={`p-5 rounded-lg border ${
- owner.sanctionStatus === 'SANCTIONED' ? 'bg-red-600/10 border-red-600/50' :
- 'bg-gray-100/50 border-gray-300'
- }`}>
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <span className="font-medium tracking-wide">{owner.name}</span>
- {owner.sanctionStatus === 'SANCTIONED' && (
- <span className="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">SANCTIONED</span>
- )}
+ <div className="mb-2 p-3 bg-gray-100/50 rounded-lg">
+ <div className="grid grid-cols-2 gap-2 text-xs">
+ <div className="text-center">
+ <span className="block text-lg font-bold text-gray-900">{selectedEntity.beneficialOwners.length}</span>
+ <span className="text-gray-500">Total Owners</span>
  </div>
- <span className={`mono tracking-wide font-bold ${
- owner.sanctionStatus === 'SANCTIONED' ? 'text-red-600' : 'text-gray-700'
- }`}>
- {owner.percent}%
+ <div className="text-center">
+ <span className="block text-lg font-bold text-red-600">
+ {selectedEntity.beneficialOwners.filter(o => o.sanctionStatus === 'SANCTIONED').length}
  </span>
+ <span className="text-gray-500">Sanctioned</span>
  </div>
  </div>
- ))}
  </div>
+ <OwnershipNetworkGraph
+ centralEntity={selectedEntity.name}
+ beneficialOwners={selectedEntity.beneficialOwners}
+ height={280}
+ />
  </div>
  )}
 
- {/* Corporate Network (for organizations with related entities) */}
+ {/* Corporate Network Graph (for organizations with related entities) */}
  {selectedEntity.type === 'ORGANIZATION' && selectedEntity.corporateNetwork && selectedEntity.corporateNetwork.length > 0 && (
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
  <Network className="w-4 h-4" />
  Corporate Network ({selectedEntity.corporateNetwork.length} Related {selectedEntity.corporateNetwork.length === 1 ? 'Entity' : 'Entities'})
  </h4>
- <div className="space-y-2">
- {selectedEntity.corporateNetwork.map((related, idx) => (
- <div key={idx} className={`p-5 rounded-lg border ${
- related.sanctionExposure === 'DIRECT' ? 'bg-red-600/10 border-red-600/30' :
- related.sanctionExposure === 'INDIRECT' ? 'bg-rose-500/10 border-rose-500/30' :
- 'bg-gray-100/50 border-gray-300'
- }`}>
- <div className="flex items-center justify-between mb-1">
- <div className="flex items-center gap-2">
- <span className="text-xs px-2 py-0.5 bg-gray-200 rounded mono tracking-wide">{related.relationship}</span>
- <span className="font-medium tracking-wide text-sm">{related.entity}</span>
+ <div className="mb-2 p-3 bg-gray-100/50 rounded-lg">
+ <div className="grid grid-cols-2 gap-2 text-xs">
+ <div className="text-center">
+ <span className="block text-lg font-bold text-gray-900">{selectedEntity.corporateNetwork.length}</span>
+ <span className="text-gray-500">Related Entities</span>
  </div>
- {related.sanctionExposure !== 'NONE' && (
- <span className={`text-xs px-2 py-0.5 rounded ${
- related.sanctionExposure === 'DIRECT' ? 'bg-red-600/20 text-red-600' : 'bg-rose-50 border border-rose-200 text-rose-600'
- }`}>
- {related.sanctionExposure} EXPOSURE
+ <div className="text-center">
+ <span className="block text-lg font-bold text-red-600">
+ {selectedEntity.corporateNetwork.filter(r => r.sanctionExposure === 'DIRECT').length}
  </span>
- )}
- </div>
- <div className="text-xs text-gray-500">
- Common Owner: <span className="text-gray-600">{related.commonOwner}</span>
- {related.ownershipPercent > 0 && (
- <span className="ml-2">({related.ownershipPercent}%)</span>
- )}
+ <span className="text-gray-500">Direct Exposure</span>
  </div>
  </div>
- ))}
  </div>
+ <OwnershipNetworkGraph
+ centralEntity={selectedEntity.name}
+ corporateNetwork={selectedEntity.corporateNetwork}
+ height={280}
+ />
  </div>
  )}
 
