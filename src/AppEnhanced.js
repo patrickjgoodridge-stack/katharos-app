@@ -12,6 +12,7 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { ScreeningResults, parseScreeningJSON, isScreeningJSON } from './ComplianceComponents';
+import MarkdownRenderer from './MarkdownRenderer';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -8206,44 +8207,19 @@ ${analysisContext}`;
  />
  ) : (
  <>
- <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer"
- onClick={(e) => {
-   console.log('Click detected:', e.target.tagName, e.target.className);
-   // Handle document citations
-   const docButton = e.target.closest('[data-doc-index]');
-   if (docButton) {
-     const docIndex = parseInt(docButton.getAttribute('data-doc-index'), 10) - 1;
-     if (files[docIndex]) {
-       setDocPreview({
-         open: true,
-         docIndex: docIndex + 1,
-         docName: files[docIndex].name,
-         content: files[docIndex].content || 'Content not available'
-       });
-     }
-     return;
-   }
-   // Handle explore point clicks - check for any clickable element
-   const explorePoint = e.target.closest('[data-explore-point]');
-   console.log('Explore point:', explorePoint, explorePoint?.getAttribute('data-explore-point'));
-   if (explorePoint) {
-     const pointText = explorePoint.getAttribute('data-explore-point');
-     if (pointText) {
-       console.log('Setting input to:', pointText);
-       setConversationInput(`Tell me more about: ${pointText}`);
-       // Focus the input after a short delay to ensure state is updated
-       setTimeout(() => {
-         if (bottomInputRef.current) {
-           bottomInputRef.current.focus();
-         } else if (mainInputRef.current) {
-           mainInputRef.current.focus();
-         }
-       }, 50);
-     }
-   }
- }}
- dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(extractClickableOptions(msg.content).mainText) }}>
- </div>
+ <MarkdownRenderer
+   content={msg.content}
+   onExploreClick={(text) => {
+     setConversationInput(`Tell me more about: ${text}`);
+     setTimeout(() => {
+       if (bottomInputRef.current) {
+         bottomInputRef.current.focus();
+       } else if (mainInputRef.current) {
+         mainInputRef.current.focus();
+       }
+     }, 50);
+   }}
+ />
  {/* Show action buttons after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
  <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
@@ -8341,9 +8317,7 @@ ${analysisContext}`;
      );
    }
    return (
-     <div className="prose prose-gray max-w-none whitespace-pre-wrap leading-relaxed"
-       dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(streamingText) }}>
-     </div>
+     <MarkdownRenderer content={streamingText} />
    );
  })()}
  </div>
