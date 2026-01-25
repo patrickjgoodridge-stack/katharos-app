@@ -1,4 +1,5 @@
 // MarkdownRenderer.js - Custom markdown renderer with styled components
+import React, { createContext, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -16,6 +17,9 @@ import {
   Network,
   Lightbulb,
 } from 'lucide-react';
+
+// Context for passing click handler to nested components
+const ExploreContext = createContext(null);
 
 // Icon mapping for different section types
 const sectionIcons = {
@@ -130,10 +134,21 @@ const isKeepExploringSection = (text) => {
   return upperText.includes('KEEP EXPLORING') || upperText.includes('EXPLORE FURTHER');
 };
 
+// Extract plain text from React children
+const getPlainText = (children) => {
+  if (typeof children === 'string') return children;
+  if (Array.isArray(children)) {
+    return children.map(getPlainText).join('');
+  }
+  if (children?.props?.children) {
+    return getPlainText(children.props.children);
+  }
+  return '';
+};
+
 // Custom heading component
 const CustomHeading = ({ level, children }) => {
-  const text = typeof children === 'string' ? children :
-               (children && children[0]) ? String(children[0]) : '';
+  const text = getPlainText(children);
   const Icon = getIconForSection(text);
   const styles = getRiskStyles(text);
 
@@ -180,11 +195,13 @@ const CustomHeading = ({ level, children }) => {
     // Keep exploring section
     if (isKeepExploringSection(text)) {
       return (
-        <div className="flex items-center gap-2 mt-6 mb-3">
-          <Search className="w-5 h-5 text-amber-600" />
-          <h2 className="text-base font-semibold text-slate-900 uppercase tracking-wide">
-            {children}
-          </h2>
+        <div className="mt-6 mb-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Search className="w-5 h-5 text-amber-600" />
+            <h2 className="text-base font-semibold text-slate-900 uppercase tracking-wide">
+              {children}
+            </h2>
+          </div>
         </div>
       );
     }
@@ -234,33 +251,48 @@ const CustomList = ({ ordered, children }) => {
   );
 };
 
-// Custom list item component
+// Custom list item component - CLICKABLE
 const CustomListItem = ({ children, ordered, index }) => {
+  const onExploreClick = useContext(ExploreContext);
+  const text = getPlainText(children);
+
+  const handleClick = () => {
+    if (onExploreClick && text) {
+      onExploreClick(text);
+    }
+  };
+
   if (ordered) {
     return (
-      <li className="flex gap-3">
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center">
+      <li
+        className="flex gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -ml-2 transition-colors group"
+        onClick={handleClick}
+      >
+        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center group-hover:bg-amber-100 group-hover:text-amber-700 transition-colors">
           {index + 1}
         </span>
-        <div className="flex-1 text-sm text-slate-700 leading-relaxed">
+        <div className="flex-1 text-sm text-slate-700 leading-relaxed group-hover:text-slate-900">
           {children}
         </div>
+        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 transition-colors flex-shrink-0 mt-0.5" />
       </li>
     );
   }
 
   return (
-    <li className="flex items-start gap-2">
-      <ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-      <span className="text-sm text-slate-700 leading-relaxed">{children}</span>
+    <li
+      className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -ml-2 transition-colors group"
+      onClick={handleClick}
+    >
+      <ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0 group-hover:text-amber-600 transition-colors" />
+      <span className="text-sm text-slate-700 leading-relaxed group-hover:text-slate-900 flex-1">{children}</span>
     </li>
   );
 };
 
 // Custom paragraph component
 const CustomParagraph = ({ children }) => {
-  const text = typeof children === 'string' ? children :
-               (children && children[0]) ? String(children[0]) : '';
+  const text = getPlainText(children);
 
   // Check for impact/translation callouts
   if (text.toLowerCase().startsWith('impact:') ||
@@ -295,10 +327,23 @@ const CustomBlockquote = ({ children }) => {
   );
 };
 
-// Custom strong/bold component
+// Custom strong/bold component - CLICKABLE
 const CustomStrong = ({ children }) => {
+  const onExploreClick = useContext(ExploreContext);
+  const text = getPlainText(children);
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (onExploreClick && text) {
+      onExploreClick(text);
+    }
+  };
+
   return (
-    <strong className="font-semibold text-slate-900">
+    <strong
+      className="font-semibold text-slate-900 cursor-pointer hover:text-amber-700 hover:underline transition-colors"
+      onClick={handleClick}
+    >
       {children}
     </strong>
   );
@@ -325,6 +370,60 @@ const CustomCode = ({ children }) => {
 // Custom horizontal rule
 const CustomHr = () => {
   return <hr className="my-6 border-slate-200" />;
+};
+
+// Extract Keep Exploring items from content
+const extractKeepExploringItems = (content) => {
+  const keepExploringMatch = content.match(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i);
+  if (!keepExploringMatch) return [];
+
+  const section = keepExploringMatch[1];
+  const items = [];
+
+  // Match list items (- or * or numbered)
+  const listItemRegex = /^[\s]*[-*]\s*(.+)$|^[\s]*\d+\.\s*(.+)$/gm;
+  let match;
+  while ((match = listItemRegex.exec(section)) !== null) {
+    const item = (match[1] || match[2] || '').trim().replace(/\*\*/g, '');
+    if (item) {
+      items.push(item);
+    }
+  }
+
+  return items;
+};
+
+// Keep Exploring Card Component
+const KeepExploringCard = ({ items, onExploreClick }) => {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mt-6">
+      <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center gap-2">
+          <Search className="w-5 h-5 text-amber-600" />
+          <h3 className="font-semibold text-slate-900">Keep Exploring</h3>
+        </div>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {items.map((item, index) => (
+          <button
+            key={index}
+            onClick={() => onExploreClick && onExploreClick(item)}
+            className="w-full px-5 py-4 flex items-center gap-4 hover:bg-amber-50 transition-colors text-left group"
+          >
+            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
+              <Search className="w-5 h-5 text-amber-600" />
+            </div>
+            <span className="flex-1 text-sm text-slate-700 group-hover:text-amber-900">
+              {item}
+            </span>
+            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition-colors" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 // Pre-process markdown to fix common issues
@@ -357,10 +456,16 @@ const preprocessMarkdown = (content) => {
   return processed.trim();
 };
 
+// Remove Keep Exploring section from main content (we'll render it separately)
+const removeKeepExploringSection = (content) => {
+  return content.replace(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i, '');
+};
+
 // Main MarkdownRenderer component
-// eslint-disable-next-line no-unused-vars
 const MarkdownRenderer = ({ content, onExploreClick }) => {
   const processedContent = preprocessMarkdown(content);
+  const keepExploringItems = extractKeepExploringItems(processedContent);
+  const mainContent = removeKeepExploringSection(processedContent);
 
   // Custom components for react-markdown
   const components = {
@@ -402,14 +507,24 @@ const MarkdownRenderer = ({ content, onExploreClick }) => {
   };
 
   return (
-    <div className="markdown-content">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={components}
-      >
-        {processedContent}
-      </ReactMarkdown>
-    </div>
+    <ExploreContext.Provider value={onExploreClick}>
+      <div className="markdown-content">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={components}
+        >
+          {mainContent}
+        </ReactMarkdown>
+
+        {/* Render Keep Exploring as special card */}
+        {keepExploringItems.length > 0 && (
+          <KeepExploringCard
+            items={keepExploringItems}
+            onExploreClick={onExploreClick}
+          />
+        )}
+      </div>
+    </ExploreContext.Provider>
   );
 };
 
