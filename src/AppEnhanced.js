@@ -11,6 +11,7 @@ import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
+import { ScreeningResults, parseScreeningJSON, isScreeningJSON } from './ComplianceComponents';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -22,7 +23,7 @@ const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001
 // PARSE MESSAGE TO PDF DATA
 // ============================================================================
 const parseMessageToPdfData = (messageContent) => {
-  const data = {
+  const defaultData = {
     caseNumber: `SCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
     generatedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     riskLevel: 'medium',
@@ -42,7 +43,82 @@ const parseMessageToPdfData = (messageContent) => {
     redFlags: [],
   };
 
-  if (!messageContent) return data;
+  if (!messageContent) return defaultData;
+
+  // Try to parse as JSON first (new format)
+  try {
+    let jsonContent = messageContent;
+
+    // Extract JSON from code block if present
+    const jsonMatch = messageContent.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      jsonContent = jsonMatch[1];
+    }
+
+    // Check if it looks like JSON
+    if (jsonContent.trim().startsWith('{') && jsonContent.includes('"riskLevel"')) {
+      const parsed = JSON.parse(jsonContent.trim());
+
+      // Map JSON structure to PDF data structure
+      const data = { ...defaultData };
+
+      // Risk level
+      if (parsed.riskLevel) {
+        data.riskLevel = parsed.riskLevel.toLowerCase();
+        data.metadata.riskLevel = parsed.riskLevel;
+      }
+
+      // Entity info
+      if (parsed.entity) {
+        data.entity.name = parsed.entity.name || 'Unknown Entity';
+        data.entity.type = parsed.entity.type || 'Individual';
+        data.entity.status = parsed.entity.status || null;
+
+        // Jurisdiction from entity
+        if (parsed.entity.jurisdiction) {
+          data.metadata.jurisdiction = parsed.entity.jurisdiction;
+        }
+      }
+
+      // Metadata - convert from array format to object format
+      if (parsed.metadata && Array.isArray(parsed.metadata)) {
+        parsed.metadata.forEach(item => {
+          const label = (item.label || '').toLowerCase();
+          if (label.includes('designation') || label.includes('type')) {
+            data.metadata.designation = item.value;
+          } else if (label.includes('jurisdiction') || label.includes('country')) {
+            data.metadata.jurisdiction = item.value;
+          } else if (label.includes('date') || label.includes('updated')) {
+            data.metadata.lastUpdated = item.value;
+          }
+        });
+      }
+
+      // Summary from memo
+      if (parsed.memo) {
+        data.summary = parsed.memo;
+      }
+
+      // Red flags
+      if (parsed.redFlags && Array.isArray(parsed.redFlags)) {
+        data.redFlags = parsed.redFlags.map(flag => ({
+          category: 'Red Flag',
+          title: flag.title || 'Finding',
+          fact: flag.fact || '',
+          complianceImpact: flag.complianceImpact || null,
+          sources: flag.sources || [],
+        }));
+      }
+
+      return data;
+    }
+  } catch (e) {
+    // Not valid JSON, fall through to regex parsing
+    console.log('JSON parse failed, using regex parsing:', e.message);
+  }
+
+  // Fallback: Parse markdown format with regex (legacy)
+  const data = { ...defaultData };
 
   // Extract risk level
   const riskMatch = messageContent.match(/OVERALL RISK:?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
@@ -1263,7 +1339,7 @@ export default function Marlowe() {
 
    // Translation/Compliance Impact callout boxes
    html = html
-     .replace(/^(Translation|Compliance Impact|What this means):\s*(.+)$/gm, '<div class="ml-4 mt-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-4"><p class="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-1">Compliance Impact</p><p class="text-sm text-amber-900 leading-relaxed">$2</p></div>');
+     .replace(/^(Translation|Compliance Impact|What this means):\s*(.+)$/gm, '<div class="ml-4 mt-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-4"><p class="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-1">Impact</p><p class="text-sm text-amber-900 leading-relaxed">$2</p></div>');
 
    // Blockquotes - evidence quotes with better styling
    html = html
@@ -3690,83 +3766,78 @@ At end, list: Sources: [Doc 1] - filename, etc.
 
 Your personality:
 - Direct and clear, never hedge when you're confident
-- You think out loud: "The concerning part is..." "What this tells me is..." "Notice how..."
+- You think out loud in your analysis
 - You quote evidence directly and explain what it means in plain terms
 - You're helpful but honest about limitations
 
-OUTPUT FORMAT:
-When analyzing documents or entities for risks, structure your response like this:
+=== CRITICAL: OUTPUT FORMAT ===
 
-OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW]
+You MUST respond with valid JSON wrapped in a code block. NEVER output markdown headers, bullet lists, or plain text.
 
-[Opening paragraph explaining your overall assessment conversationally]
+When analyzing documents or entities for compliance risks, respond with this EXACT JSON structure:
 
-CRITICAL RED FLAGS
+\`\`\`json
+{
+  "riskLevel": "CRITICAL|HIGH|MEDIUM|LOW",
+  "entity": {
+    "name": "Full name of the subject",
+    "type": "PEP - Role | Sanctioned Individual | Corporate Entity | etc.",
+    "status": "Sanctioned | PEP | Clear | Under Investigation",
+    "jurisdiction": "US, UK, EU or specific countries"
+  },
+  "alertBanner": {
+    "show": true,
+    "title": "High-Profile Screening Hit — Immediate Escalation Required",
+    "subtitle": "This entity requires senior compliance review before any transaction processing."
+  },
+  "metadata": [
+    {"label": "Risk Level", "value": "Critical", "icon": "risk"},
+    {"label": "Designation", "value": "SDN List (OFAC)", "icon": "designation"},
+    {"label": "Jurisdiction", "value": "US, UK, EU", "icon": "jurisdiction"},
+    {"label": "Last Updated", "value": "Jan 2026", "icon": "updated"}
+  ],
+  "redFlags": [
+    {
+      "icon": "gavel|building|lock|flag|network|eye",
+      "title": "Clear descriptive title of the red flag",
+      "fact": "The specific factual finding - what was discovered. Include evidence quotes if available.",
+      "complianceImpact": "Direct, blunt explanation of what this means for compliance. Don't soften it.",
+      "sources": ["OFAC SDN List", "UK FCDO", "Reuters"]
+    }
+  ],
+  "typologies": [
+    "Sanctions evasion through shell companies",
+    "Complex beneficial ownership structures",
+    "Use of professional enablers"
+  ],
+  "decision": {
+    "status": "IMMEDIATE REJECT|ENHANCED DUE DILIGENCE|PROCEED WITH CAUTION",
+    "reason": "Brief explanation of why this decision was made"
+  },
+  "documentsToRequest": ["Specific document 1", "Specific document 2"] or null,
+  "memo": "2-3 sentence summary for senior compliance. What's the core issue and recommended action?",
+  "keepExploring": [
+    {"icon": "search", "label": "Check sanctions exposure on related entities"},
+    {"icon": "users", "label": "Screen associates or family members acting as proxies"},
+    {"icon": "network", "label": "Review corporate network for indirect connections"},
+    {"icon": "file", "label": "Upload ownership documents for deeper analysis"}
+  ]
+}
+\`\`\`
 
-For each red flag, use this exact format:
+ICON OPTIONS for redFlags: "gavel" (legal/sanctions), "building" (corporate), "lock" (asset freeze), "flag" (general risk), "network" (connections), "eye" (evasion)
+ICON OPTIONS for keepExploring: "search", "users", "network", "file", "globe", "check"
 
-1. **[Descriptive Title - e.g., "Zero Beneficial Ownership Controls"]**
-> *"[Exact quote from the transcript or document in italics]"*
+RULES:
+1. ALWAYS wrap your response in \`\`\`json code blocks
+2. NEVER output markdown headers like ## or plain text outside JSON
+3. Include 2-5 red flags with detailed facts and compliance impacts
+4. Include 3-5 typologies as brief strings
+5. Include 3-4 keepExploring suggestions as actionable commands
+6. If documentsToRequest is not applicable (e.g., for sanctioned individuals), use null
+7. Be DIRECT and BLUNT in complianceImpact - explain real risks without hedging
 
-Translation: [Direct, blunt explanation of what this red flag actually means from a compliance/AML perspective. Don't soften it - explain the real risk.]
-
-2. **[Second Red Flag Title]**
-> *"[Another exact quote]"*
-
-Translation: [Plain language explanation of the compliance failure or money laundering risk]
-
-[Continue numbering for each significant red flag]
-
-Focus on identifying:
-- Lack of beneficial ownership verification
-- Payment layering indicators
-- Sanctions exposure risks
-- KYC/AML control weaknesses
-- Unusual transaction patterns
-- Documentation gaps
-
-Be DIRECT and BLUNT in translations - explain what each response really signals from a money laundering or compliance failure perspective. Don't hedge.
-
-TYPOLOGIES PRESENT
-[List the specific financial crime patterns you identified: Money laundering indicators, Fraud markers, Sanctions exposure, Shell company risks, etc.]
-
-ONBOARDING DECISION
-[Your clear recommendation: REJECT, ENHANCED DUE DILIGENCE, or PROCEED WITH CAUTION, with brief rationale]
-
-DOCUMENTS TO REQUEST
-- [Specific document that would help clarify a red flag]
-- [Another document request]
-
-THE MEMO
-[A brief 2-3 sentence summary suitable for escalation to senior compliance - what's the core issue and recommended action?]
-
-=== FOLLOW-UP SUGGESTIONS ===
-If you can dig deeper or need more information, ALWAYS end your response with 2-4 clickable follow-up prompts. Frame these as IMPERATIVE STATEMENTS (commands/actions), NOT questions.
-
-Format these as a clear list at the end of your response:
-
-**Keep exploring:**
-- [Imperative statement suggesting next action]
-- [Command to upload or provide documents]
-- [Action to take on the entity or transaction]
-
-Examples of good follow-up prompts (IMPERATIVE, not questions):
-- "Check sanctions exposure on related entities"
-- "Upload ownership documents or corporate registry filings"
-- "Analyze the source of funds for these transactions"
-- "Show me the beneficial ownership structure"
-- "Identify any PEP connections"
-- "Map the corporate hierarchy"
-
-NEVER phrase as questions like "Would you like..." or "Can you provide...". Always use direct imperatives.
-
-Always include these prompts when:
-- You can dig deeper into the analysis
-- Key documents are missing
-- The user's question is broad or could benefit from more detail
-- There are obvious next steps in the investigation
-
-When conversing casually or answering follow-up questions, just respond naturally without the full structured format, but still include follow-up suggestions if you need more information.
+For casual follow-up questions or conversations, you can respond with plain text (no JSON needed). Only use the JSON format for compliance screenings and risk assessments.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
@@ -8118,6 +8189,23 @@ ${analysisContext}`;
  )}
  {msg.role === 'assistant' ? (
  <>
+ {isScreeningJSON(msg.content) ? (
+ <ScreeningResults
+ data={parseScreeningJSON(msg.content)}
+ onExportPDF={() => exportMessageAsPdf(msg.content)}
+ onExploreAction={(action) => {
+   setConversationInput(`Tell me more about: ${action}`);
+   setTimeout(() => {
+     if (bottomInputRef.current) {
+       bottomInputRef.current.focus();
+     } else if (mainInputRef.current) {
+       mainInputRef.current.focus();
+     }
+   }, 50);
+ }}
+ />
+ ) : (
+ <>
  <div className="whitespace-pre-wrap leading-relaxed prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer"
  onClick={(e) => {
    console.log('Click detected:', e.target.tagName, e.target.className);
@@ -8222,6 +8310,8 @@ ${analysisContext}`;
  </div>
  )}
  </>
+ )}
+ </>
  ) : (
  <div className="whitespace-pre-wrap leading-relaxed">
  {msg.content}
@@ -8234,41 +8324,28 @@ ${analysisContext}`;
  {isStreaming && (
  <div className="flex justify-start">
  <div className="max-w-2xl">
- <div className="prose prose-gray max-w-none [&_li]:cursor-pointer [&_div]:cursor-pointer whitespace-pre-wrap leading-relaxed"
- onClick={(e) => {
-   // Handle document citations
-   const docButton = e.target.closest('[data-doc-index]');
-   if (docButton) {
-     const docIndex = parseInt(docButton.getAttribute('data-doc-index'), 10) - 1;
-     if (files[docIndex]) {
-       setDocPreview({
-         open: true,
-         docIndex: docIndex + 1,
-         docName: files[docIndex].name,
-         content: files[docIndex].content || 'Content not available'
-       });
-     }
-     return;
+ {/* Show "Analyzing..." while JSON is streaming, otherwise show formatted content */}
+ {(() => {
+   const trimmed = (streamingText || '').trim();
+   const isJsonStreaming = trimmed.startsWith('```json') || trimmed.startsWith('{') || trimmed.startsWith('`');
+   if (!trimmed || isJsonStreaming) {
+     return (
+       <div className="flex items-center gap-3 py-4">
+         <div className="flex gap-1">
+           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+         </div>
+         <span className="text-gray-500 font-medium">Analyzing...</span>
+       </div>
+     );
    }
-   // Handle explore point clicks
-   const explorePoint = e.target.closest('[data-explore-point]');
-   if (explorePoint) {
-     const pointText = explorePoint.getAttribute('data-explore-point');
-     if (pointText) {
-       setConversationInput(`Tell me more about: ${pointText}`);
-       // Focus the input after a short delay to ensure state is updated
-       setTimeout(() => {
-         if (bottomInputRef.current) {
-           bottomInputRef.current.focus();
-         } else if (mainInputRef.current) {
-           mainInputRef.current.focus();
-         }
-       }, 50);
-     }
-   }
- }}
- dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(streamingText) || '<span class="text-gray-400 flex items-center gap-2"><span class="animate-pulse">●</span> Analyzing...</span>' }}>
- </div>
+   return (
+     <div className="prose prose-gray max-w-none whitespace-pre-wrap leading-relaxed"
+       dangerouslySetInnerHTML={{ __html: formatAnalysisAsHtml(streamingText) }}>
+     </div>
+   );
+ })()}
  </div>
  </div>
  )}
