@@ -2076,39 +2076,151 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  };
 
- // Export conversation message as simple PDF
- const exportMessageAsPdf = async (messageContent) => {
- if (!messageContent) return;
+ // Export conversation message as PDF by capturing rendered DOM
+ const exportMessageAsPdf = async (elementId) => {
+ if (!elementId) return;
+
+ const element = document.getElementById(elementId);
+ if (!element) {
+   console.error('Element not found:', elementId);
+   return;
+ }
 
  setIsGeneratingCaseReport(true);
 
  try {
- // Parse message content into structured data
- const pdfData = parseMessageToPdfData(messageContent);
+ // Import html2canvas dynamically
+ const html2canvas = (await import('html2canvas')).default;
+ const { jsPDF } = await import('jspdf');
 
- // Generate entity name for filename
- const entitySlug = pdfData.entity?.name
-   ? pdfData.entity.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)
-   : 'entity';
+ // Try to extract subject name from the content
+ const textContent = element.textContent || '';
+ let subjectName = 'Unknown Subject';
+
+ // Look for common patterns in the screening output
+ const namePatterns = [
+   /(?:screening|analysis|report)\s+(?:for|on|of)\s*:?\s*([A-Z][a-zA-Z\s\-']+)/i,
+   /subject:\s*([A-Z][a-zA-Z\s\-']+)/i,
+   /entity:\s*([A-Z][a-zA-Z\s\-']+)/i,
+   /^([A-Z][a-zA-Z\s\-']+?)(?:\s+is|\s+has|\s+was)/m,
+ ];
+
+ for (const pattern of namePatterns) {
+   const match = textContent.match(pattern);
+   if (match && match[1]) {
+     subjectName = match[1].trim().substring(0, 50);
+     break;
+   }
+ }
+
+ // Also try to get from active case name
+ if (subjectName === 'Unknown Subject' && activeCase?.name) {
+   subjectName = activeCase.name;
+ }
+
+ // Create a wrapper with padding for better PDF margins
+ const wrapper = document.createElement('div');
+ wrapper.style.padding = '20px';
+ wrapper.style.backgroundColor = darkMode ? '#1f2937' : '#ffffff';
+ wrapper.style.maxWidth = '800px';
+
+ // Add header with subject name and date
+ const header = document.createElement('div');
+ header.style.marginBottom = '20px';
+ header.style.paddingBottom = '15px';
+ header.style.borderBottom = `2px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
+ header.innerHTML = `
+   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+     <div>
+       <div style="font-size: 12px; color: ${darkMode ? '#9ca3af' : '#64748b'}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Compliance Screening Report</div>
+       <div style="font-size: 20px; font-weight: 600; color: ${darkMode ? '#f3f4f6' : '#0f172a'};">${subjectName}</div>
+     </div>
+     <div style="text-align: right;">
+       <div style="font-size: 11px; color: ${darkMode ? '#9ca3af' : '#64748b'};">Generated</div>
+       <div style="font-size: 12px; color: ${darkMode ? '#d1d5db' : '#334155'};">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+     </div>
+   </div>
+ `;
+
+ wrapper.appendChild(header);
+
+ // Clone the element content
+ const contentClone = element.cloneNode(true);
+
+ // Remove "Keep Exploring" section from the clone (not needed in PDF)
+ const keepExploringElements = contentClone.querySelectorAll('h3, h2, div');
+ keepExploringElements.forEach(el => {
+   if (el.textContent && el.textContent.toLowerCase().includes('keep exploring')) {
+     // Find the parent card container and remove it
+     const card = el.closest('.border') || el.closest('[class*="rounded"]') || el.parentElement?.parentElement;
+     if (card && card.parentElement) {
+       card.parentElement.removeChild(card);
+     }
+   }
+ });
+
+ wrapper.appendChild(contentClone);
+
+ // Add footer
+ const footer = document.createElement('div');
+ footer.style.marginTop = '20px';
+ footer.style.paddingTop = '15px';
+ footer.style.borderTop = `1px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
+ footer.style.fontSize = '10px';
+ footer.style.color = darkMode ? '#6b7280' : '#94a3b8';
+ footer.style.textAlign = 'center';
+ footer.textContent = 'Marlowe Compliance Platform • Confidential';
+ wrapper.appendChild(footer);
+
+ // Temporarily add to DOM for rendering
+ wrapper.style.position = 'absolute';
+ wrapper.style.left = '-9999px';
+ document.body.appendChild(wrapper);
+
+ // Capture the wrapper element
+ const canvas = await html2canvas(wrapper, {
+   scale: 2,
+   useCORS: true,
+   logging: false,
+   backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+ });
+
+ // Remove wrapper from DOM
+ document.body.removeChild(wrapper);
+
+ // Calculate dimensions for PDF (A4) with margins
+ const margin = 10; // mm
+ const imgWidth = 210 - (margin * 2); // A4 width minus margins
+ const pageHeight = 297 - (margin * 2); // A4 height minus margins
+ const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+ // Create PDF
+ const pdf = new jsPDF('p', 'mm', 'a4');
+ let heightLeft = imgHeight;
+ let position = margin;
+
+ // Add image to PDF, handling multiple pages if needed
+ pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
+ heightLeft -= pageHeight;
+
+ while (heightLeft > 0) {
+   position = margin - (imgHeight - heightLeft);
+   pdf.addPage();
+   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
+   heightLeft -= pageHeight;
+ }
+
+ // Generate filename with subject name
  const dateStr = new Date().toISOString().split('T')[0];
- const fileName = `compliance-report-${entitySlug}-${dateStr}.pdf`;
+ const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30);
+ const fileName = `compliance-report-${subjectSlug}-${dateStr}.pdf`;
 
- // Generate PDF using @react-pdf/renderer
- const blob = await pdf(<ComplianceReportPDF data={pdfData} />).toBlob();
-
- // Create download link
- const url = URL.createObjectURL(blob);
- const link = document.createElement('a');
- link.href = url;
- link.download = fileName;
- document.body.appendChild(link);
- link.click();
- document.body.removeChild(link);
- URL.revokeObjectURL(url);
+ // Save the PDF
+ pdf.save(fileName);
 
  // Also save to current case if one exists
  if (currentCaseId) {
-   // Convert blob to data URI for storage
+   const blob = pdf.output('blob');
    const reader = new FileReader();
    reader.onloadend = () => {
      const dataUri = reader.result;
@@ -2117,8 +2229,8 @@ Format the report professionally with clear headers, bullet points where appropr
        name: fileName,
        createdAt: new Date().toISOString(),
        dataUri: dataUri,
-       riskLevel: pdfData.riskLevel?.toUpperCase() || 'UNKNOWN',
-       entityName: pdfData.entity?.name || 'Unknown',
+       riskLevel: 'UNKNOWN',
+       entityName: subjectName,
      });
    };
    reader.readAsDataURL(blob);
@@ -7966,6 +8078,7 @@ ${analysisContext}`;
  )}
  {msg.role === 'assistant' ? (
  <>
+ <div id={`chat-message-${idx}`} className="pdf-capture-target">
  <MarkdownRenderer
    content={msg.content}
    darkMode={darkMode}
@@ -7980,11 +8093,12 @@ ${analysisContext}`;
      }, 50);
    }}
  />
+ </div>
  {/* Show Export PDF button after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
  <div className={`flex justify-end mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <button
- onClick={() => exportMessageAsPdf(msg.content)}
+ onClick={() => exportMessageAsPdf(`chat-message-${idx}`)}
  disabled={isGeneratingCaseReport}
  className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >

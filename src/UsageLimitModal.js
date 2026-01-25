@@ -4,23 +4,17 @@ import { X, Zap, Check, Shield } from 'lucide-react';
 const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) => {
   const baseStripeLink = process.env.REACT_APP_STRIPE_CHECKOUT_URL || '';
 
-  // Build Stripe checkout URL with prefilled email and success redirect
+  // Build Stripe checkout URL with prefilled email
   const buildCheckoutUrl = () => {
     if (!baseStripeLink) return '#';
 
-    const successUrl = `${window.location.origin}?payment=success`;
-    const params = new URLSearchParams();
-
+    // Just add prefilled_email if available - other settings configured in Stripe dashboard
     if (userEmail) {
-      params.set('prefilled_email', userEmail);
-      params.set('client_reference_id', userEmail);
+      const separator = baseStripeLink.includes('?') ? '&' : '?';
+      return `${baseStripeLink}${separator}prefilled_email=${encodeURIComponent(userEmail)}`;
     }
 
-    // Add success URL - Stripe Payment Links support this
-    params.set('success_url', successUrl);
-
-    const separator = baseStripeLink.includes('?') ? '&' : '?';
-    return `${baseStripeLink}${separator}${params.toString()}`;
+    return baseStripeLink;
   };
 
   if (!isOpen) return null;
@@ -114,6 +108,8 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) 
           {/* Upgrade button */}
           <a
             href={buildCheckoutUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-amber-500/25"
           >
             <Zap size={20} />
