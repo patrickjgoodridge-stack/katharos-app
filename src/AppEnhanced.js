@@ -555,8 +555,26 @@ export default function Marlowe() {
  // Conversational interface state
  const [conversationMessages, setConversationMessages] = useState([]);
  const [conversationInput, setConversationInput] = useState('');
- const [isStreaming, setIsStreaming] = useState(false);
- const [streamingText, setStreamingText] = useState('');
+ const [isStreaming, setIsStreaming] = useState(false); // eslint-disable-line no-unused-vars -- Legacy for compatibility
+ const [streamingText, setStreamingText] = useState(''); // eslint-disable-line no-unused-vars -- Legacy for compatibility
+
+ // Per-case streaming state (allows parallel conversations)
+ const [streamingStates, setStreamingStates] = useState(new Map());
+
+ // Helper to get streaming state for a specific case
+ const getCaseStreamingState = useCallback((caseId) =>
+   streamingStates.get(caseId) || { isStreaming: false, streamingText: '' },
+   [streamingStates]);
+
+ // Helper to update streaming state for a specific case
+ const setCaseStreamingState = useCallback((caseId, updates) => {
+   setStreamingStates(prev => {
+     const newMap = new Map(prev);
+     const current = newMap.get(caseId) || { isStreaming: false, streamingText: '' };
+     newMap.set(caseId, { ...current, ...updates });
+     return newMap;
+   });
+ }, []);
  const [conversationStarted, setConversationStarted] = useState(false); // Input centered until first message
  const [sidebarOpen, setSidebarOpen] = useState(true); // eslint-disable-line no-unused-vars
  const conversationEndRef = useRef(null);
@@ -877,18 +895,21 @@ export default function Marlowe() {
 
  // Update case with new conversation messages
  const updateCaseTranscript = (caseId, messages) => {
-   setCases(prev => prev.map(c =>
-     c.id === caseId
-       ? { ...c, conversationTranscript: messages, updatedAt: new Date().toISOString() }
-       : c
-   ));
-   // Sync update to Supabase
-   if (isSupabaseConfigured() && user) {
-     const updatedCase = cases.find(c => c.id === caseId);
-     if (updatedCase) {
-       syncCase({ ...updatedCase, conversationTranscript: messages }).catch(console.error);
+   setCases(prev => {
+     const updated = prev.map(c =>
+       c.id === caseId
+         ? { ...c, conversationTranscript: messages, updatedAt: new Date().toISOString() }
+         : c
+     );
+     // Sync update to Supabase (inside updater to avoid stale closure)
+     if (isSupabaseConfigured() && user) {
+       const updatedCase = updated.find(c => c.id === caseId);
+       if (updatedCase) {
+         syncCase(updatedCase).catch(console.error);
+       }
      }
-   }
+     return updated;
+   });
  };
 
  // Add PDF report to case
@@ -3329,8 +3350,13 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  };
 
  // Streaming conversation function - Claude-like interface
- const sendConversationMessage = async (userMessage, attachedFiles = []) => {
+ // Now accepts caseId to support parallel conversations
+ const sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
+   if (!caseId) {
+     console.error('sendConversationMessage called without caseId');
+     return;
+   }
 
    // Check usage limits before proceeding
    if (!canScreen()) {
@@ -3341,15 +3367,28 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    // Track screening and query for analytics
    incrementScreening();
 
-   // Add user message to conversation
+   // Add user message to conversation (update case directly)
    const newUserMessage = {
      role: 'user',
      content: userMessage,
      files: attachedFiles.map(f => f.name),
      timestamp: new Date().toISOString()
    };
+
+   // Update the case's conversation transcript directly
+   setCases(prev => prev.map(c =>
+     c.id === caseId
+       ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), newUserMessage] }
+       : c
+   ));
+
+   // Also update global state for compatibility
    setConversationMessages(prev => [...prev, newUserMessage]);
    setConversationInput('');
+
+   // Set per-case streaming state
+   setCaseStreamingState(caseId, { isStreaming: true, streamingText: '' });
+   // Keep legacy global state for compatibility
    setIsStreaming(true);
    setStreamingText('');
 
@@ -3364,8 +3403,10 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      setFiles([]);
    }
 
-   // Build conversation history - filter out any empty messages
-   const history = conversationMessages
+   // Build conversation history from the case's transcript - filter out any empty messages
+   const currentCase = cases.find(c => c.id === caseId);
+   const caseMessages = currentCase?.conversationTranscript || [];
+   const history = caseMessages
      .filter(msg => msg.content && msg.content.trim())
      .map(msg => ({
        role: msg.role,
@@ -3589,16 +3630,19 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
              if (parsed.error) {
                console.error('API error in stream:', parsed.error);
                fullText = `Error from API: ${parsed.error.message || JSON.stringify(parsed.error)}`;
-               setStreamingText(fullText);
+               setCaseStreamingState(caseId, { streamingText: fullText });
+               setStreamingText(fullText); // Legacy
                break;
              }
              // Handle both Vercel stream format and raw Anthropic format
              if (parsed.text) {
                fullText += parsed.text;
-               setStreamingText(fullText);
+               setCaseStreamingState(caseId, { streamingText: fullText });
+               setStreamingText(fullText); // Legacy
              } else if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
                fullText += parsed.delta.text;
-               setStreamingText(fullText);
+               setCaseStreamingState(caseId, { streamingText: fullText });
+               setStreamingText(fullText); // Legacy
              }
            } catch (e) {
              // Skip non-JSON lines
@@ -3608,33 +3652,48 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        }
      }
 
-     // Add completed message to conversation
-     if (fullText) {
-       setConversationMessages(prev => [...prev, {
-         role: 'assistant',
-         content: fullText,
-         timestamp: new Date().toISOString()
-       }]);
-     } else {
-       // No text received - show error
+     // Add completed message to conversation (update case directly)
+     const assistantMessage = {
+       role: 'assistant',
+       content: fullText || 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
+       timestamp: new Date().toISOString()
+     };
+
+     if (!fullText) {
        console.error('No text received from API');
-       setConversationMessages(prev => [...prev, {
-         role: 'assistant',
-         content: 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
-         timestamp: new Date().toISOString()
-       }]);
      }
-     setStreamingText('');
+
+     // Update case's conversation transcript
+     setCases(prev => prev.map(c =>
+       c.id === caseId
+         ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), assistantMessage] }
+         : c
+     ));
+
+     // Also update global state for compatibility
+     setConversationMessages(prev => [...prev, assistantMessage]);
+     setCaseStreamingState(caseId, { streamingText: '' });
+     setStreamingText(''); // Legacy
 
    } catch (error) {
      console.error('Streaming error:', error);
-     setConversationMessages(prev => [...prev, {
+     const errorMessage = {
        role: 'assistant',
        content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
        timestamp: new Date().toISOString()
-     }]);
+     };
+
+     // Update case's conversation transcript with error
+     setCases(prev => prev.map(c =>
+       c.id === caseId
+         ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] }
+         : c
+     ));
+
+     setConversationMessages(prev => [...prev, errorMessage]);
    } finally {
-     setIsStreaming(false);
+     setCaseStreamingState(caseId, { isStreaming: false });
+     setIsStreaming(false); // Legacy
    }
  };
 
@@ -7383,6 +7442,13 @@ ${analysisContext}`;
  ) : (
  <>
  <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
+ {/* Show streaming indicator if this case is actively streaming */}
+ {getCaseStreamingState(caseItem.id).isStreaming && (
+   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+     <Loader2 className="w-3 h-3 animate-spin" />
+     Analyzing
+   </span>
+ )}
  <button
  onClick={(e) => startEditingCase(caseItem, e)}
  className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
@@ -7807,11 +7873,9 @@ ${analysisContext}`;
  if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
- // Auto-create case on first message
- if (!currentCaseId) {
- createCaseFromFirstMessage(conversationInput, files);
- }
- sendConversationMessage(conversationInput, files);
+ // Auto-create case on first message, or use existing
+ const caseIdToUse = currentCaseId || createCaseFromFirstMessage(conversationInput, files);
+ sendConversationMessage(caseIdToUse, conversationInput, files);
  }
  }}
  placeholder="Describe what you're investigating, or upload documents..."
@@ -7830,11 +7894,9 @@ ${analysisContext}`;
  onClick={() => {
  if (conversationInput.trim() || files.length > 0) {
  setConversationStarted(true);
- // Auto-create case on first message
- if (!currentCaseId) {
- createCaseFromFirstMessage(conversationInput, files);
- }
- sendConversationMessage(conversationInput, files);
+ // Auto-create case on first message, or use existing
+ const caseIdToUse = currentCaseId || createCaseFromFirstMessage(conversationInput, files);
+ sendConversationMessage(caseIdToUse, conversationInput, files);
  }
  }}
  disabled={!conversationInput.trim() && files.length === 0}
@@ -7923,11 +7985,12 @@ ${analysisContext}`;
  </div>
  ))}
 
- {isStreaming && (
+ {/* Show streaming indicator for current case */}
+ {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-start">
  <div className="max-w-2xl">
  {/* Show "Analyzing..." initially, then stream the markdown */}
- {!streamingText?.trim() ? (
+ {!getCaseStreamingState(currentCaseId).streamingText?.trim() ? (
    <div className="flex items-center gap-3 py-4">
      <div className="flex gap-1">
        <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -7937,7 +8000,7 @@ ${analysisContext}`;
      <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Analyzing...</span>
    </div>
  ) : (
-   <MarkdownRenderer content={streamingText} darkMode={darkMode} />
+   <MarkdownRenderer content={getCaseStreamingState(currentCaseId).streamingText} darkMode={darkMode} />
  )}
  </div>
  </div>
@@ -7973,9 +8036,9 @@ ${analysisContext}`;
  e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
  }}
  onKeyDown={(e) => {
- if (e.key === 'Enter' && !e.shiftKey) {
+ if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
- sendConversationMessage(conversationInput, files);
+ sendConversationMessage(currentCaseId, conversationInput, files);
  e.target.style.height = 'auto';
  }
  }}
@@ -7985,8 +8048,8 @@ ${analysisContext}`;
  style={{ minHeight: '40px', maxHeight: '200px', overflow: 'auto' }}
  />
  <button
- onClick={() => sendConversationMessage(conversationInput, files)}
- disabled={isStreaming || (!conversationInput.trim() && files.length === 0)}
+ onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
+ disabled={!currentCaseId || getCaseStreamingState(currentCaseId).isStreaming || (!conversationInput.trim() && files.length === 0)}
  className={`p-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
  >
  <Send className="w-4 h-4" />
