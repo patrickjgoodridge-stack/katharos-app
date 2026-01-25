@@ -1,8 +1,10 @@
-// AuthContext.js - Simple Email Gate with Name & Company
+// AuthContext.js - Simple Email Gate with Name & Company + Usage Limits
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const AuthContext = createContext({});
+
+const DAILY_FREE_LIMIT = 5;
 
 export const useAuth = () => {
   return useContext(AuthContext);
@@ -52,16 +54,78 @@ const incrementQueryCount = async (email) => {
   }
 };
 
+// Check if user is paid in Supabase
+const checkPaidStatus = async (email) => {
+  if (!isSupabaseConfigured() || !email) return false;
+
+  try {
+    const { data } = await supabase
+      .from('collected_emails')
+      .select('is_paid')
+      .eq('email', email)
+      .single();
+
+    return data?.is_paid === true;
+  } catch (err) {
+    console.log('Paid status check note:', err.message);
+    return false;
+  }
+};
+
+// Get today's date string for tracking daily usage
+const getTodayString = () => {
+  return new Date().toISOString().split('T')[0];
+};
+
+// Get daily usage from localStorage
+const getDailyUsage = (email) => {
+  const key = `marlowe_daily_${email}`;
+  const stored = localStorage.getItem(key);
+  if (!stored) return { date: getTodayString(), count: 0 };
+
+  try {
+    const data = JSON.parse(stored);
+    // Reset if it's a new day
+    if (data.date !== getTodayString()) {
+      return { date: getTodayString(), count: 0 };
+    }
+    return data;
+  } catch {
+    return { date: getTodayString(), count: 0 };
+  }
+};
+
+// Save daily usage to localStorage
+const saveDailyUsage = (email, count) => {
+  const key = `marlowe_daily_${email}`;
+  localStorage.setItem(key, JSON.stringify({
+    date: getTodayString(),
+    count
+  }));
+};
+
 export const AuthProvider = ({ children }) => {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isPaid, setIsPaid] = useState(false);
+  const [dailyScreenings, setDailyScreenings] = useState(0);
 
   useEffect(() => {
     // Check localStorage for existing user
     const storedUser = localStorage.getItem('marlowe_user');
     if (storedUser) {
       try {
-        setUserInfo(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        setUserInfo(userData);
+
+        // Load daily usage
+        const usage = getDailyUsage(userData.email);
+        setDailyScreenings(usage.count);
+
+        // Check paid status from Supabase
+        checkPaidStatus(userData.email).then(paid => {
+          setIsPaid(paid);
+        });
       } catch {
         localStorage.removeItem('marlowe_user');
       }
@@ -100,6 +164,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Check if user can perform a screening
+  const canScreen = () => {
+    if (isPaid) return true;
+    return dailyScreenings < DAILY_FREE_LIMIT;
+  };
+
+  // Get remaining screenings for free users
+  const screeningsRemaining = isPaid ? Infinity : Math.max(0, DAILY_FREE_LIMIT - dailyScreenings);
+
+  // Increment daily screening count (call this when a screening is performed)
+  const incrementScreening = () => {
+    if (userInfo?.email && !isPaid) {
+      const newCount = dailyScreenings + 1;
+      setDailyScreenings(newCount);
+      saveDailyUsage(userInfo.email, newCount);
+    }
+    // Also track total queries
+    trackQuery();
+  };
+
+  // Refresh paid status (useful after payment)
+  const refreshPaidStatus = async () => {
+    if (userInfo?.email) {
+      const paid = await checkPaidStatus(userInfo.email);
+      setIsPaid(paid);
+      return paid;
+    }
+    return false;
+  };
+
   const value = {
     user: userInfo,
     email: userInfo?.email,
@@ -109,6 +203,14 @@ export const AuthProvider = ({ children }) => {
     trackQuery,
     isAuthenticated: !!userInfo,
     isConfigured: true, // Email gate is always enabled
+    // Usage limit features
+    isPaid,
+    canScreen,
+    screeningsRemaining,
+    dailyScreenings,
+    incrementScreening,
+    refreshPaidStatus,
+    DAILY_FREE_LIMIT,
   };
 
   return (

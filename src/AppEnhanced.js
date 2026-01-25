@@ -12,6 +12,7 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
+import UsageLimitModal from './UsageLimitModal';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -461,7 +462,7 @@ const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, trackQuery } = useAuth();
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
@@ -578,6 +579,7 @@ export default function Marlowe() {
  const [hasVisitedLanding, setHasVisitedLanding] = useState(false);
  const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
+  const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
 
  // Rotating headers for the main input page
@@ -3330,8 +3332,14 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  const sendConversationMessage = async (userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
 
-   // Track this query for analytics
-   trackQuery();
+   // Check usage limits before proceeding
+   if (!canScreen()) {
+     setShowUsageLimitModal(true);
+     return;
+   }
+
+   // Track screening and query for analytics
+   incrementScreening();
 
    // Add user message to conversation
    const newUserMessage = {
@@ -9895,7 +9903,14 @@ ${analysisContext}`;
  </div>
  )}
 
- {/* Footer */}
+ {/* Usage Limit Modal */}
+        <UsageLimitModal
+          isOpen={showUsageLimitModal}
+          onClose={() => setShowUsageLimitModal(false)}
+          darkMode={darkMode}
+        />
+
+        {/* Footer */}
         <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
  <p>Marlowe Investigative Intelligence</p>
  </footer>
