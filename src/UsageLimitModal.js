@@ -1,10 +1,37 @@
-// UsageLimitModal.js - Simple modal for usage limit notification
-import { X, Zap } from 'lucide-react';
+// UsageLimitModal.js - Simple modal for usage limit notification with Stripe payment
+import { X, Zap, Check, Shield } from 'lucide-react';
 
-const UsageLimitModal = ({ isOpen, onClose, darkMode = false }) => {
-  const stripeLink = process.env.REACT_APP_STRIPE_CHECKOUT_URL || '#';
+const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) => {
+  const baseStripeLink = process.env.REACT_APP_STRIPE_CHECKOUT_URL || '';
+
+  // Build Stripe checkout URL with prefilled email and success redirect
+  const buildCheckoutUrl = () => {
+    if (!baseStripeLink) return '#';
+
+    const successUrl = `${window.location.origin}?payment=success`;
+    const params = new URLSearchParams();
+
+    if (userEmail) {
+      params.set('prefilled_email', userEmail);
+      params.set('client_reference_id', userEmail);
+    }
+
+    // Add success URL - Stripe Payment Links support this
+    params.set('success_url', successUrl);
+
+    const separator = baseStripeLink.includes('?') ? '&' : '?';
+    return `${baseStripeLink}${separator}${params.toString()}`;
+  };
 
   if (!isOpen) return null;
+
+  const features = [
+    'Unlimited daily screenings',
+    'Full sanctions database access',
+    'Detailed compliance reports',
+    'PDF export functionality',
+    'Priority support',
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -33,52 +60,75 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false }) => {
         </button>
 
         {/* Content */}
-        <div className="p-8 text-center">
-          {/* Icon */}
-          <div
-            className={`w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center ${
-              darkMode ? 'bg-amber-900/30' : 'bg-amber-100'
-            }`}
-          >
-            <Zap
-              size={32}
-              className={darkMode ? 'text-amber-400' : 'text-amber-600'}
-            />
+        <div className="p-8">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div
+              className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                darkMode ? 'bg-amber-900/30' : 'bg-amber-100'
+              }`}
+            >
+              <Zap
+                size={32}
+                className={darkMode ? 'text-amber-400' : 'text-amber-600'}
+              />
+            </div>
+
+            <h2
+              className={`text-2xl font-semibold mb-2 ${
+                darkMode ? 'text-white' : 'text-gray-900'
+              }`}
+            >
+              Daily Limit Reached
+            </h2>
+
+            <p
+              className={`text-sm ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}
+            >
+              You've used all 5 free screenings today
+            </p>
           </div>
 
-          {/* Title */}
-          <h2
-            className={`text-2xl font-semibold mb-3 ${
-              darkMode ? 'text-white' : 'text-gray-900'
-            }`}
-          >
-            Daily Limit Reached
-          </h2>
-
-          {/* Message */}
-          <p
-            className={`mb-6 ${
-              darkMode ? 'text-gray-300' : 'text-gray-600'
-            }`}
-          >
-            You've hit your daily limit of 5 free screenings. Upgrade for unlimited access to all compliance screening features.
-          </p>
+          {/* Features list */}
+          <div className={`rounded-xl p-4 mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+              <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                Marlowe Pro
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {features.map((feature, idx) => (
+                <li key={idx} className="flex items-center gap-2">
+                  <Check className={`w-4 h-4 flex-shrink-0 ${darkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {feature}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {/* Upgrade button */}
           <a
-            href={stripeLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 w-full py-3 px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-amber-500/25"
+            href={buildCheckoutUrl()}
+            className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-amber-500/25"
           >
             <Zap size={20} />
             Upgrade Now
           </a>
 
+          {/* Security note */}
+          <p className={`text-xs text-center mt-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+            Secure payment powered by Stripe
+          </p>
+
           {/* Secondary action */}
           <button
             onClick={onClose}
-            className={`mt-4 text-sm ${
+            className={`w-full mt-3 py-2 text-sm ${
               darkMode
                 ? 'text-gray-400 hover:text-gray-300'
                 : 'text-gray-500 hover:text-gray-700'

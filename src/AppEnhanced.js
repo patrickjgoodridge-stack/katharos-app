@@ -462,7 +462,7 @@ const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening } = useAuth();
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
@@ -655,6 +655,24 @@ export default function Marlowe() {
  };
  loadCases();
  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Handle payment success redirect from Stripe
+ useEffect(() => {
+   const urlParams = new URLSearchParams(window.location.search);
+   if (urlParams.get('payment') === 'success') {
+     // Clear the URL parameter
+     window.history.replaceState({}, '', window.location.pathname);
+     // Refresh paid status from Supabase
+     if (refreshPaidStatus) {
+       refreshPaidStatus().then((isPaid) => {
+         if (isPaid) {
+           // Optional: Show success notification
+           console.log('Payment verified - user is now a paid subscriber');
+         }
+       });
+     }
+   }
+ }, [refreshPaidStatus]);
 
  // Landing page fade-in animation
  useEffect(() => {
@@ -9971,6 +9989,7 @@ ${analysisContext}`;
           isOpen={showUsageLimitModal}
           onClose={() => setShowUsageLimitModal(false)}
           darkMode={darkMode}
+          userEmail={user?.email || ''}
         />
 
         {/* Footer */}
