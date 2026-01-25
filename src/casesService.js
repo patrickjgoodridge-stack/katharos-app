@@ -192,10 +192,12 @@ const transformFromSupabase = (data) => ({
   networkArtifacts: data.network_artifacts || [],
 });
 
-export default {
+const casesService = {
   fetchUserCases,
   createCase,
   updateCase,
   deleteCase,
   syncCase,
 };
+
+export default casesService;
