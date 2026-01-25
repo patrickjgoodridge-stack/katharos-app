@@ -1,10 +1,15 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, MessageSquare, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User } from 'lucide-react';
 import * as mammoth from 'mammoth';
-import { jsPDF } from 'jspdf';
+import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
 import ForceGraph2D from 'react-force-graph-2d';
+import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import { useAuth } from './AuthContext';
+import AuthPage from './AuthPage';
+import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
+import { isSupabaseConfigured } from './supabaseClient';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -12,8 +17,809 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 // API base URL - uses local server in development, relative paths in production
 const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
 
+// ============================================================================
+// PDF REPORT STYLES - Professional Compliance Screening Report
+// ============================================================================
+const pdfStyles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontFamily: 'Helvetica',
+    fontSize: 10,
+    color: '#1e293b',
+    backgroundColor: '#ffffff',
+  },
+  // Header
+  header: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  logoPlaceholder: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#f59e0b',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: 'Helvetica-Bold',
+  },
+  headerRight: {
+    textAlign: 'right',
+  },
+  reportTitle: {
+    fontSize: 18,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  reportSubtitle: {
+    fontSize: 9,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  caseInfo: {
+    fontSize: 8,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  confidentialBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 3,
+    marginTop: 6,
+  },
+  confidentialText: {
+    fontSize: 7,
+    color: '#92400e',
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Risk Badge
+  riskBadgeContainer: {
+    marginBottom: 20,
+  },
+  riskBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  riskBadgeCritical: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  riskBadgeHigh: {
+    backgroundColor: '#fff7ed',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  riskBadgeMedium: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  riskBadgeLow: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  riskBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  riskTextCritical: { color: '#991b1b' },
+  riskTextHigh: { color: '#9a3412' },
+  riskTextMedium: { color: '#92400e' },
+  riskTextLow: { color: '#166534' },
+  // Alert Banner
+  alertBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  alertIcon: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#dc2626',
+    borderRadius: 10,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertIconText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#991b1b',
+    marginBottom: 2,
+  },
+  alertText: {
+    fontSize: 9,
+    color: '#7f1d1d',
+  },
+  // Entity Card
+  entityCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: 'row',
+  },
+  entityAvatar: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#1e293b',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  entityAvatarText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontFamily: 'Helvetica-Bold',
+  },
+  entityInfo: {
+    flex: 1,
+  },
+  entityName: {
+    fontSize: 16,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+    marginBottom: 3,
+  },
+  entityType: {
+    fontSize: 10,
+    color: '#64748b',
+    marginBottom: 6,
+  },
+  entityStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  entityStatusBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  entityStatusText: {
+    fontSize: 8,
+    color: '#475569',
+  },
+  // Metadata Grid
+  metadataGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+    gap: 10,
+  },
+  metadataItem: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+    padding: 12,
+    width: '48%',
+  },
+  metadataLabel: {
+    fontSize: 8,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  metadataValue: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+  },
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 10,
+  },
+  sectionIcon: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#fee2e2',
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionIconText: {
+    color: '#dc2626',
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+  },
+  sectionCount: {
+    fontSize: 10,
+    color: '#64748b',
+    marginLeft: 6,
+  },
+  // Red Flag Card
+  redFlagCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  redFlagHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fafafa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  redFlagNumber: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#fee2e2',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  redFlagNumberText: {
+    color: '#dc2626',
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+  },
+  redFlagTitle: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+  },
+  redFlagBody: {
+    padding: 12,
+  },
+  redFlagFact: {
+    fontSize: 10,
+    color: '#334155',
+    lineHeight: 1.5,
+    marginBottom: 10,
+  },
+  // Compliance Impact Box
+  complianceImpact: {
+    backgroundColor: '#fffbeb',
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+    borderRadius: 4,
+    padding: 12,
+    marginTop: 8,
+  },
+  complianceImpactLabel: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: '#92400e',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  complianceImpactText: {
+    fontSize: 9,
+    color: '#78350f',
+    lineHeight: 1.5,
+  },
+  // Sources
+  sourcesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 6,
+  },
+  sourceTag: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  sourceText: {
+    fontSize: 8,
+    color: '#475569',
+  },
+  // Summary Section
+  summarySection: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+  },
+  summaryTitle: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#0f172a',
+    marginBottom: 10,
+  },
+  summaryText: {
+    fontSize: 10,
+    color: '#334155',
+    lineHeight: 1.6,
+  },
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 25,
+    left: 40,
+    right: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerConfidential: {
+    fontSize: 8,
+    color: '#94a3b8',
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  footerRight: {
+    textAlign: 'right',
+  },
+  footerPageNumber: {
+    fontSize: 8,
+    color: '#64748b',
+  },
+  footerGenerated: {
+    fontSize: 7,
+    color: '#94a3b8',
+  },
+  // Disclaimer
+  disclaimer: {
+    marginTop: 30,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  disclaimerText: {
+    fontSize: 8,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 1.5,
+  },
+  // Analyst Section
+  analystSection: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+    padding: 12,
+    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  analystLabel: {
+    fontSize: 8,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  analystValue: {
+    fontSize: 9,
+    color: '#0f172a',
+    marginTop: 2,
+  },
+});
+
+// ============================================================================
+// PDF DOCUMENT COMPONENT
+// ============================================================================
+const ComplianceReportPDF = ({ data }) => {
+  const getRiskBadgeStyle = (level) => {
+    const styles = {
+      critical: { badge: pdfStyles.riskBadgeCritical, text: pdfStyles.riskTextCritical },
+      high: { badge: pdfStyles.riskBadgeHigh, text: pdfStyles.riskTextHigh },
+      medium: { badge: pdfStyles.riskBadgeMedium, text: pdfStyles.riskTextMedium },
+      low: { badge: pdfStyles.riskBadgeLow, text: pdfStyles.riskTextLow },
+    };
+    return styles[level?.toLowerCase()] || styles.medium;
+  };
+
+  const riskStyles = getRiskBadgeStyle(data.riskLevel);
+
+  return (
+    <Document>
+      <Page size="A4" style={pdfStyles.page}>
+        {/* Header */}
+        <View style={pdfStyles.header}>
+          <View style={pdfStyles.headerTop}>
+            <View style={pdfStyles.logoPlaceholder}>
+              <Text style={pdfStyles.logoText}>M</Text>
+            </View>
+            <View style={pdfStyles.headerRight}>
+              <Text style={pdfStyles.reportTitle}>COMPLIANCE SCREENING REPORT</Text>
+              <Text style={pdfStyles.reportSubtitle}>Confidential — Internal Use Only</Text>
+              <Text style={pdfStyles.caseInfo}>Case #{data.caseNumber}</Text>
+              <Text style={pdfStyles.caseInfo}>Generated: {data.generatedDate}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Risk Badge */}
+        <View style={pdfStyles.riskBadgeContainer}>
+          <View style={[pdfStyles.riskBadge, riskStyles.badge]}>
+            <Text style={[pdfStyles.riskBadgeText, riskStyles.text]}>
+              ⚠ {data.riskLevel?.toUpperCase()} RISK
+            </Text>
+          </View>
+        </View>
+
+        {/* Alert Banner for Critical/High Risk */}
+        {(data.riskLevel === 'critical' || data.riskLevel === 'high') && (
+          <View style={pdfStyles.alertBanner}>
+            <View style={pdfStyles.alertIcon}>
+              <Text style={pdfStyles.alertIconText}>!</Text>
+            </View>
+            <View style={pdfStyles.alertContent}>
+              <Text style={pdfStyles.alertTitle}>
+                {data.riskLevel === 'critical'
+                  ? 'High-Profile Screening Hit — Immediate Escalation Required'
+                  : 'Elevated Risk Alert — Enhanced Due Diligence Required'}
+              </Text>
+              <Text style={pdfStyles.alertText}>
+                {data.riskLevel === 'critical'
+                  ? 'This entity requires senior compliance review before any transaction processing.'
+                  : 'This entity has significant risk indicators requiring additional review.'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Entity Card */}
+        <View style={pdfStyles.entityCard}>
+          <View style={pdfStyles.entityAvatar}>
+            <Text style={pdfStyles.entityAvatarText}>
+              {data.entity?.name?.charAt(0)?.toUpperCase() || '?'}
+            </Text>
+          </View>
+          <View style={pdfStyles.entityInfo}>
+            <Text style={pdfStyles.entityName}>{data.entity?.name || 'Unknown Entity'}</Text>
+            <Text style={pdfStyles.entityType}>{data.entity?.type || 'Entity Type Unknown'}</Text>
+            {data.entity?.status && (
+              <View style={pdfStyles.entityStatus}>
+                <View style={pdfStyles.entityStatusBadge}>
+                  <Text style={pdfStyles.entityStatusText}>
+                    {data.entity.status} — {data.entity.statusDate || 'Date Unknown'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Metadata Grid */}
+        {data.metadata && (
+          <View style={pdfStyles.metadataGrid}>
+            {data.metadata.riskLevel && (
+              <View style={pdfStyles.metadataItem}>
+                <Text style={pdfStyles.metadataLabel}>Risk Level</Text>
+                <Text style={pdfStyles.metadataValue}>{data.metadata.riskLevel}</Text>
+              </View>
+            )}
+            {data.metadata.designation && (
+              <View style={pdfStyles.metadataItem}>
+                <Text style={pdfStyles.metadataLabel}>Designation</Text>
+                <Text style={pdfStyles.metadataValue}>{data.metadata.designation}</Text>
+              </View>
+            )}
+            {data.metadata.jurisdiction && (
+              <View style={pdfStyles.metadataItem}>
+                <Text style={pdfStyles.metadataLabel}>Jurisdiction</Text>
+                <Text style={pdfStyles.metadataValue}>{data.metadata.jurisdiction}</Text>
+              </View>
+            )}
+            {data.metadata.lastUpdated && (
+              <View style={pdfStyles.metadataItem}>
+                <Text style={pdfStyles.metadataLabel}>Last Updated</Text>
+                <Text style={pdfStyles.metadataValue}>{data.metadata.lastUpdated}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Summary Section */}
+        {data.summary && (
+          <View style={pdfStyles.summarySection}>
+            <Text style={pdfStyles.summaryTitle}>Executive Summary</Text>
+            <Text style={pdfStyles.summaryText}>{data.summary}</Text>
+          </View>
+        )}
+
+        {/* Red Flags Section */}
+        {data.redFlags && data.redFlags.length > 0 && (
+          <>
+            <View style={pdfStyles.sectionHeader}>
+              <View style={pdfStyles.sectionIcon}>
+                <Text style={pdfStyles.sectionIconText}>⚑</Text>
+              </View>
+              <Text style={pdfStyles.sectionTitle}>Critical Red Flags</Text>
+              <Text style={pdfStyles.sectionCount}>({data.redFlags.length})</Text>
+            </View>
+
+            {data.redFlags.map((flag, index) => (
+              <View key={index} style={pdfStyles.redFlagCard} wrap={false}>
+                <View style={pdfStyles.redFlagHeader}>
+                  <View style={pdfStyles.redFlagNumber}>
+                    <Text style={pdfStyles.redFlagNumberText}>{index + 1}</Text>
+                  </View>
+                  <Text style={pdfStyles.redFlagTitle}>{flag.title}</Text>
+                </View>
+                <View style={pdfStyles.redFlagBody}>
+                  <Text style={pdfStyles.redFlagFact}>{flag.fact}</Text>
+
+                  {flag.complianceImpact && (
+                    <View style={pdfStyles.complianceImpact}>
+                      <Text style={pdfStyles.complianceImpactLabel}>Compliance Impact</Text>
+                      <Text style={pdfStyles.complianceImpactText}>{flag.complianceImpact}</Text>
+                    </View>
+                  )}
+
+                  {flag.sources && flag.sources.length > 0 && (
+                    <View style={pdfStyles.sourcesContainer}>
+                      {flag.sources.map((source, sIdx) => (
+                        <View key={sIdx} style={pdfStyles.sourceTag}>
+                          <Text style={pdfStyles.sourceText}>{source}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {/* Analyst Section */}
+        <View style={pdfStyles.analystSection}>
+          <View>
+            <Text style={pdfStyles.analystLabel}>Report Generated By</Text>
+            <Text style={pdfStyles.analystValue}>Marlowe AI Screening System</Text>
+          </View>
+          <View>
+            <Text style={pdfStyles.analystLabel}>Reviewed By</Text>
+            <Text style={pdfStyles.analystValue}>_________________________</Text>
+          </View>
+          <View>
+            <Text style={pdfStyles.analystLabel}>Date</Text>
+            <Text style={pdfStyles.analystValue}>_____________</Text>
+          </View>
+        </View>
+
+        {/* Disclaimer */}
+        <View style={pdfStyles.disclaimer}>
+          <Text style={pdfStyles.disclaimerText}>
+            This screening result is for compliance purposes only. Data sourced from official government registries,
+            recognized watchlists, and public records. This report does not constitute legal advice.
+            All findings should be verified through appropriate due diligence procedures.
+          </Text>
+        </View>
+
+        {/* Footer */}
+        <View style={pdfStyles.footer} fixed>
+          <View style={pdfStyles.footerLeft}>
+            <Text style={pdfStyles.footerConfidential}>CONFIDENTIAL</Text>
+          </View>
+          <View style={pdfStyles.footerRight}>
+            <Text style={pdfStyles.footerPageNumber} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+            <Text style={pdfStyles.footerGenerated}>Generated by Marlowe</Text>
+          </View>
+        </View>
+      </Page>
+    </Document>
+  );
+};
+
+// ============================================================================
+// PARSE MESSAGE TO PDF DATA
+// ============================================================================
+const parseMessageToPdfData = (messageContent) => {
+  const data = {
+    caseNumber: `SCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
+    generatedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    riskLevel: 'medium',
+    entity: {
+      name: 'Unknown Entity',
+      type: 'Individual',
+      status: null,
+      statusDate: null,
+    },
+    metadata: {
+      riskLevel: null,
+      designation: null,
+      jurisdiction: null,
+      lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    },
+    summary: null,
+    redFlags: [],
+  };
+
+  if (!messageContent) return data;
+
+  // Extract risk level
+  const riskMatch = messageContent.match(/OVERALL RISK:?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
+  if (riskMatch) {
+    data.riskLevel = riskMatch[1].toLowerCase();
+    data.metadata.riskLevel = riskMatch[1].charAt(0) + riskMatch[1].slice(1).toLowerCase();
+  }
+
+  // Extract entity name - try multiple patterns
+  const entityPatterns = [
+    /(?:Subject|Entity|Individual|Person):\s*\*?\*?([^*\n]+)\*?\*?/i,
+    /screening (?:of|for)\s+\*?\*?([^*\n,.]+)\*?\*?/i,
+    /(?:regarding|about)\s+\*?\*?([^*\n,.]+)\*?\*?/i,
+  ];
+  for (const pattern of entityPatterns) {
+    const match = messageContent.match(pattern);
+    if (match) {
+      data.entity.name = match[1].trim().replace(/\*\*/g, '');
+      break;
+    }
+  }
+
+  // Extract entity type
+  const typeMatch = messageContent.match(/(?:PEP|Politically Exposed Person|Religious Leader|Business Entity|Corporation|Individual|Organization)[^.]*?(?=[.\n])/i);
+  if (typeMatch) {
+    data.entity.type = typeMatch[0].trim();
+  }
+
+  // Extract status (deceased, active, etc.)
+  const statusMatch = messageContent.match(/(?:deceased|died|active|wanted|fugitive)\s*(?:[-—]\s*)?(?:(?:in\s+)?(\w+\s+\d{4}|\d{4}))?/i);
+  if (statusMatch) {
+    data.entity.status = statusMatch[0].split(/[-—]/)[0].trim();
+    if (statusMatch[1]) {
+      data.entity.statusDate = statusMatch[1];
+    }
+  }
+
+  // Extract designation
+  const designationMatch = messageContent.match(/(?:designated as|designation:?)\s*([^.\n]+)/i);
+  if (designationMatch) {
+    data.metadata.designation = designationMatch[1].trim();
+  }
+
+  // Extract jurisdiction
+  const jurisdictionMatch = messageContent.match(/(?:jurisdiction:?|operates in|active in)\s*([^.\n]+)/i);
+  if (jurisdictionMatch) {
+    data.metadata.jurisdiction = jurisdictionMatch[1].trim().substring(0, 30);
+  } else {
+    data.metadata.jurisdiction = 'Global';
+  }
+
+  // Extract summary (first paragraph or THE MEMO section)
+  const summaryMatch = messageContent.match(/(?:THE MEMO|SUMMARY|EXECUTIVE SUMMARY)[:\s]*\n?([^\n]+(?:\n[^\n]+)?)/i);
+  if (summaryMatch) {
+    data.summary = summaryMatch[1].trim().replace(/\*\*/g, '');
+  } else {
+    // Use first substantial paragraph as summary
+    const paragraphs = messageContent.split(/\n\n+/);
+    for (const p of paragraphs) {
+      if (p.length > 100 && !p.match(/^[A-Z\s]+$/)) {
+        data.summary = p.trim().substring(0, 500).replace(/\*\*/g, '');
+        break;
+      }
+    }
+  }
+
+  // Extract red flags
+  const redFlagSection = messageContent.match(/(?:RED FLAGS?|CRITICAL RED FLAGS?)[:\s]*\n([\s\S]*?)(?=\n(?:[A-Z][A-Z\s]+:|\n\n\n|$))/i);
+  if (redFlagSection) {
+    const flagContent = redFlagSection[1];
+
+    // Match numbered items with bold titles
+    const flagPattern = /(\d+)\.\s*\*\*([^*]+)\*\*:?\s*([^]*?)(?=\n\d+\.\s*\*\*|$)/g;
+    let match;
+
+    while ((match = flagPattern.exec(flagContent)) !== null) {
+      const title = match[2].trim();
+      let factText = match[3].trim();
+      let complianceImpact = null;
+
+      // Extract translation/compliance impact
+      const translationMatch = factText.match(/(?:Translation|Compliance Impact|What this means):?\s*([^]*?)(?=\n\n|$)/i);
+      if (translationMatch) {
+        complianceImpact = translationMatch[1].trim().replace(/\*\*/g, '');
+        factText = factText.replace(translationMatch[0], '').trim();
+      }
+
+      // Extract sources (look for common source patterns)
+      const sources = [];
+      const sourcePatterns = [
+        /Source:?\s*([^,\n]+)/gi,
+        /\(([^)]*(?:report|ministry|registry|database|interpol)[^)]*)\)/gi,
+      ];
+      for (const sp of sourcePatterns) {
+        let sourceMatch;
+        while ((sourceMatch = sp.exec(factText)) !== null) {
+          sources.push(sourceMatch[1].trim());
+        }
+      }
+
+      data.redFlags.push({
+        category: 'Red Flag',
+        title,
+        fact: factText.replace(/\*\*/g, '').substring(0, 500),
+        complianceImpact,
+        sources: sources.slice(0, 3),
+      });
+    }
+  }
+
+  // If no red flags found with the pattern, try simpler extraction
+  if (data.redFlags.length === 0) {
+    const simpleFlags = messageContent.match(/\d+\.\s*\*\*([^*]+)\*\*/g);
+    if (simpleFlags) {
+      simpleFlags.slice(0, 5).forEach((flag, idx) => {
+        const titleMatch = flag.match(/\d+\.\s*\*\*([^*]+)\*\*/);
+        if (titleMatch) {
+          data.redFlags.push({
+            category: 'Finding',
+            title: titleMatch[1].trim(),
+            fact: 'See full analysis for details.',
+            complianceImpact: null,
+            sources: [],
+          });
+        }
+      });
+    }
+  }
+
+  return data;
+};
+
 // Main Marlowe Component
 export default function Marlowe() {
+ // Auth state - must be called before any conditional returns
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, trackQuery } = useAuth();
+
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
  const [activeCase, setActiveCase] = useState(null);
@@ -60,6 +866,9 @@ export default function Marlowe() {
 
  // Track if floating notification has been dismissed (separate from completion card)
  const [notificationDismissed, setNotificationDismissed] = useState(false);
+
+ // Email gate modal state - shows when user tries to enter without email
+ const [showEmailModal, setShowEmailModal] = useState(false);
 
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
@@ -171,6 +980,19 @@ export default function Marlowe() {
  return () => clearInterval(interval);
  }, [placeholderExamples.length]);
 
+ // Load cases from Supabase when user logs in
+ useEffect(() => {
+ const loadCases = async () => {
+   if (isSupabaseConfigured() && user) {
+     const { data, error } = await fetchUserCases();
+     if (data && !error) {
+       setCases(data);
+     }
+   }
+ };
+ loadCases();
+ }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
  // Landing page fade-in animation
  useEffect(() => {
  if (currentPage === 'noirLanding') {
@@ -279,6 +1101,11 @@ export default function Marlowe() {
  setActiveCase(newCase);
  // Don't navigate here - user will click popup to view results
 
+ // Sync to Supabase if configured
+ if (isSupabaseConfigured() && user) {
+   syncCase(newCase).catch(console.error);
+ }
+
  // Save to reference database for AI learning (HIGH or CRITICAL cases only)
  if (analysisData?.executiveSummary?.riskLevel === 'HIGH' ||
  analysisData?.executiveSummary?.riskLevel === 'CRITICAL') {
@@ -339,23 +1166,35 @@ export default function Marlowe() {
  setCurrentPage('newCase'); // Go to conversation view
  };
 
- // Start a new case
+ // Start a new case (with email gate check)
  const startNewCase = () => {
- setFiles([]);
- setAnalysis(null);
- setAnalysisError(null);
- setChatMessages([]);
- setCaseName('');
- setCaseDescription('');
- setActiveCase(null);
- setActiveTab('overview');
- setSelectedEvent(null);
- setSelectedEntity(null);
- setChatOpen(false);
- setCurrentCaseId(null); // Reset current case ID
- setConversationMessages([]); // Clear conversation
- setConversationStarted(false);
- setCurrentPage('newCase');
+   // Reset state for new case
+   setFiles([]);
+   setAnalysis(null);
+   setAnalysisError(null);
+   setChatMessages([]);
+   setCaseName('');
+   setCaseDescription('');
+   setActiveCase(null);
+   setActiveTab('overview');
+   setSelectedEvent(null);
+   setSelectedEntity(null);
+   setChatOpen(false);
+   setCurrentCaseId(null);
+   setConversationMessages([]);
+   setConversationStarted(false);
+   setCurrentPage('newCase');
+
+   // Check if user needs to enter email first
+   if (!isAuthenticated) {
+     setShowEmailModal(true);
+   }
+ };
+
+ // Called after email is submitted - proceed to app
+ const handleEmailSubmitted = () => {
+   setShowEmailModal(false);
+   // Page is already set to 'newCase' - just close the modal
  };
 
  // Auto-create a case when the first message is sent
@@ -381,6 +1220,11 @@ export default function Marlowe() {
    setCurrentCaseId(newCaseId);
    setCaseName(generatedName);
 
+   // Sync to Supabase if configured
+   if (isSupabaseConfigured() && user) {
+     syncCase(newCase).catch(console.error);
+   }
+
    return newCaseId;
  };
 
@@ -391,24 +1235,47 @@ export default function Marlowe() {
        ? { ...c, conversationTranscript: messages, updatedAt: new Date().toISOString() }
        : c
    ));
+   // Sync update to Supabase
+   if (isSupabaseConfigured() && user) {
+     const updatedCase = cases.find(c => c.id === caseId);
+     if (updatedCase) {
+       syncCase({ ...updatedCase, conversationTranscript: messages }).catch(console.error);
+     }
+   }
  };
 
  // Add PDF report to case
  const addPdfReportToCase = (caseId, reportData) => {
-   setCases(prev => prev.map(c =>
-     c.id === caseId
-       ? { ...c, pdfReports: [...(c.pdfReports || []), reportData], updatedAt: new Date().toISOString() }
-       : c
-   ));
+   setCases(prev => {
+     const updated = prev.map(c =>
+       c.id === caseId
+         ? { ...c, pdfReports: [...(c.pdfReports || []), reportData], updatedAt: new Date().toISOString() }
+         : c
+     );
+     // Sync to Supabase
+     if (isSupabaseConfigured() && user) {
+       const updatedCase = updated.find(c => c.id === caseId);
+       if (updatedCase) syncCase(updatedCase).catch(console.error);
+     }
+     return updated;
+   });
  };
 
  // Add network artifact to case
  const addNetworkArtifactToCase = (caseId, artifactData) => { // eslint-disable-line no-unused-vars
-   setCases(prev => prev.map(c =>
-     c.id === caseId
-       ? { ...c, networkArtifacts: [...(c.networkArtifacts || []), artifactData], updatedAt: new Date().toISOString() }
-       : c
-   ));
+   setCases(prev => {
+     const updated = prev.map(c =>
+       c.id === caseId
+         ? { ...c, networkArtifacts: [...(c.networkArtifacts || []), artifactData], updatedAt: new Date().toISOString() }
+         : c
+     );
+     // Sync to Supabase
+     if (isSupabaseConfigured() && user) {
+       const updatedCase = updated.find(c => c.id === caseId);
+       if (updatedCase) syncCase(updatedCase).catch(console.error);
+     }
+     return updated;
+   });
  };
 
  // Get case by ID helper
@@ -634,58 +1501,120 @@ export default function Marlowe() {
  const formatAnalysisAsHtml = (text) => {
    if (!text) return '';
 
-   // First, normalize whitespace - collapse multiple blank lines to single
+   // SVG icons for inline use
+   const warningIcon = '<svg class="w-4 h-4 inline-block mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+   const alertIcon = '<svg class="w-4 h-4 inline-block mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+   const checkIcon = '<svg class="w-4 h-4 inline-block mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+   const gavelIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>';
+   const bankIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>';
+   const lockIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>';
+   const flagIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>';
+
+   // First, normalize whitespace
    let html = text
-     .replace(/\n{3,}/g, '\n\n')  // Collapse 3+ newlines to 2
-     .replace(/[ \t]+$/gm, '')     // Remove trailing spaces on each line
-     .replace(/^[ \t]+/gm, '')     // Remove leading spaces on each line
-     .trim()
+     .replace(/\n{3,}/g, '\n\n')
+     .replace(/[ \t]+$/gm, '')
+     .replace(/^[ \t]+/gm, '')
+     .trim();
 
+   // Risk level badges with icons and alert banners for high-risk cases
    html = html
-     // Risk level - minimal, muted badges
-     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-red-50 text-red-700 border border-red-200">Critical Risk</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-orange-50 text-orange-700 border border-orange-200">High Risk</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200">Medium Risk</span></div>')
-     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, '<div class="mb-4"><span class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-gray-50 text-gray-600 border border-gray-200">Low Risk</span></div>')
+     .replace(/^(OVERALL RISK:?\s*)(CRITICAL)/gm, `<div class="mb-6 space-y-4">
+       <div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+         ${warningIcon.replace('w-4 h-4', 'w-5 h-5 text-red-600 flex-shrink-0 mt-0.5')}
+         <div>
+           <p class="font-semibold text-red-900">High-Profile Screening Hit — Immediate Escalation Required</p>
+           <p class="text-sm text-red-800 mt-1">This entity requires senior compliance review before any transaction processing.</p>
+         </div>
+       </div>
+       <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-red-100 text-red-800 border border-red-300 shadow-sm">${warningIcon}Critical Risk</span>
+     </div>`)
+     .replace(/^(OVERALL RISK:?\s*)(HIGH)/gm, `<div class="mb-6 space-y-4">
+       <div class="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+         ${alertIcon.replace('w-4 h-4', 'w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5')}
+         <div>
+           <p class="font-semibold text-orange-900">Elevated Risk Alert — Enhanced Due Diligence Required</p>
+           <p class="text-sm text-orange-800 mt-1">This entity has significant risk indicators requiring additional review.</p>
+         </div>
+       </div>
+       <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-orange-100 text-orange-800 border border-orange-300 shadow-sm">${alertIcon}High Risk</span>
+     </div>`)
+     .replace(/^(OVERALL RISK:?\s*)(MEDIUM)/gm, `<div class="mb-6"><span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">${alertIcon}Medium Risk</span></div>`)
+     .replace(/^(OVERALL RISK:?\s*)(LOW)/gm, `<div class="mb-6"><span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">${checkIcon}Low Risk</span></div>`);
 
-     // Section headers - subtle, font-medium, grayscale
-     .replace(/^(CRITICAL RED FLAGS|RED FLAGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Red Flags</h3>')
-     .replace(/^(THE MEMO|SUMMARY)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Summary</h3>')
-     .replace(/^(TYPOLOGIES PRESENT|TYPOLOGIES)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Typologies</h3>')
-     .replace(/^(ONBOARDING DECISION|DECISION)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Decision</h3>')
-     .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Next Steps</h3>')
-     .replace(/^(KEY FINDINGS)/gm, '<h3 class="mt-6 mb-3 text-base font-medium text-gray-800">Key Findings</h3>')
+   // Entity cards - detect patterns like "Name: Fetullah Gulen" or subject names
+   html = html
+     .replace(/^(Subject|Entity|Individual|Person):\s*\*?\*?([^*\n]+)\*?\*?/gim, (match, type, name) => {
+       const initial = name.trim().charAt(0).toUpperCase();
+       return `<div class="mb-6 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+         <div class="flex items-start gap-4">
+           <div class="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center text-white font-semibold text-xl flex-shrink-0">${initial}</div>
+           <div class="flex-1 min-w-0">
+             <h4 class="text-xl font-semibold text-slate-900 truncate">${name.trim()}</h4>
+             <p class="text-sm text-slate-600 mt-1">${type}</p>
+           </div>
+         </div>
+       </div>`;
+     });
 
-     // Numbered items - interactive with visible hover effect (handle indentation)
-     .replace(/^\s*(\d+)\.\s+\*\*([^*]+)\*\*\s*$/gm, '<div class="px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-amber-300 hover:border-amber-400 hover:bg-amber-100 transition-all" data-explore-point="$2"><span class="font-medium text-gray-800">$1. $2</span></div>')
-     .replace(/^\s*(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-amber-300 hover:border-amber-400 hover:bg-amber-100 transition-all" data-explore-point="$2"><span class="text-gray-700">$1. $2</span></div>')
+   // Section headers with icons and better styling
+   html = html
+     .replace(/^(CRITICAL RED FLAGS|RED FLAGS)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-red-100 text-red-600 rounded-lg">${flagIcon}</span><h3 class="text-lg font-semibold text-gray-900">Red Flags</h3></div>`)
+     .replace(/^(THE MEMO|SUMMARY|EXECUTIVE SUMMARY)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Summary</h3></div>')
+     .replace(/^(TYPOLOGIES PRESENT|TYPOLOGIES)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Typologies</h3></div>')
+     .replace(/^(ONBOARDING DECISION|DECISION|RECOMMENDATION)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Decision</h3></div>')
+     .replace(/^(DOCUMENTS TO REQUEST|NEXT STEPS|RECOMMENDED ACTIONS)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Next Steps</h3></div>')
+     .replace(/^(KEY FINDINGS|FINDINGS)/gm, '<div class="mt-8 mb-4"><h3 class="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">Key Findings</h3></div>')
+     .replace(/^(DESIGNATIONS?|SANCTIONS?)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-amber-100 text-amber-600 rounded-lg">${bankIcon}</span><h3 class="text-lg font-semibold text-gray-900">Designations</h3></div>`)
+     .replace(/^(ASSET FREEZE|FROZEN ASSETS)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-lg">${lockIcon}</span><h3 class="text-lg font-semibold text-gray-900">Asset Freeze</h3></div>`)
+     .replace(/^(LEGAL STATUS|CRIMINAL|TERRORIST DESIGNATION)/gm, `<div class="mt-8 mb-4 flex items-center gap-2"><span class="flex items-center justify-center w-8 h-8 bg-purple-100 text-purple-600 rounded-lg">${gavelIcon}</span><h3 class="text-lg font-semibold text-gray-900">Legal Status</h3></div>`);
 
-     // Blockquotes - teal/blue left border for evidence quotes
-     .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
-     .replace(/^>\s*\*?'([^']+)'\*?/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
-     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-3 border-l-3 border-cyan-500 bg-cyan-50/50 pl-4 py-2 rounded-r"><span class="text-gray-700 italic">"$1"</span></blockquote>')
+   // Red flag cards with better styling and shadow
+   html = html
+     .replace(/^\s*(\d+)\.\s+\*\*([^*]+)\*\*:?\s*$/gm, '<div class="mb-4 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"><div class="px-5 py-4 flex items-center gap-3"><div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0"><span class="text-red-600 font-semibold">$1</span></div><h4 class="font-semibold text-slate-900">$2</h4></div></div>')
+     .replace(/^\s*(\d+)\.\s+\*\*([^*]+)\*\*:?\s+(.+)$/gm, '<div class="mb-4 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"><div class="px-5 py-4"><div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0"><span class="text-red-600 font-semibold">$1</span></div><h4 class="font-semibold text-slate-900">$2</h4></div><p class="text-slate-700 leading-relaxed pl-[52px]">$3</p></div></div>');
 
-     // Translation - orange label for emphasis
-     .replace(/^Translation:\s*(.+)$/gm, '<div class="mb-4 text-gray-700 pl-1"><span class="font-semibold text-amber-600">Translation:</span> $1</div>')
+   // Numbered items - clean interactive style
+   html = html
+     .replace(/^\s*(\d+)\.\s+([A-Z][^:\n]+)$/gm, '<div class="py-2 px-3 -mx-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group" data-explore-point="$2"><span class="text-gray-900"><span class="text-amber-600 font-medium mr-2">$1.</span>$2</span><span class="ml-2 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm">Click to explore</span></div>');
 
-     // Document citations - subtle amber link
-     .replace(/\[Doc\s*(\d+)[^\]]*\]/g, '<button data-doc-index="$1" class="text-amber-600 hover:text-amber-700 underline underline-offset-2 font-mono text-sm cursor-pointer transition-colors">Doc $1</button>')
+   // Translation/Compliance Impact callout boxes
+   html = html
+     .replace(/^(Translation|Compliance Impact|What this means):\s*(.+)$/gm, '<div class="ml-4 mt-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-4"><p class="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-1">Compliance Impact</p><p class="text-sm text-amber-900 leading-relaxed">$2</p></div>');
 
-     // Bold text - medium weight
-     .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-medium text-gray-800">$1</strong>')
+   // Blockquotes - evidence quotes with better styling
+   html = html
+     .replace(/^>\s*\*?"([^"]+)"\*?/gm, '<blockquote class="my-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-lg pl-4 pr-4 py-3"><span class="text-gray-700 italic">"$1"</span></blockquote>')
+     .replace(/^>\s*\*?'([^']+)'\*?/gm, '<blockquote class="my-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-lg pl-4 pr-4 py-3"><span class="text-gray-700 italic">"$1"</span></blockquote>')
+     .replace(/^"([^"]+)"$/gm, '<blockquote class="my-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-lg pl-4 pr-4 py-3"><span class="text-gray-700 italic">"$1"</span></blockquote>');
 
-     // Bullet points - interactive with visible click indicator (handle -, •, *)
-     .replace(/^\s*[-•*]\s+(.+)$/gm, '<li class="text-gray-700 px-2 -mx-2 rounded hover:bg-amber-50 cursor-pointer border-l-2 border-amber-300 hover:border-amber-400 transition-all hover:bg-amber-100" data-explore-point="$1">$1</li>')
+   // Document citations - styled pill buttons
+   html = html
+     .replace(/\[Doc\s*(\d+)[^\]]*\]/g, '<button data-doc-index="$1" class="inline-flex items-center gap-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-medium cursor-pointer transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Doc $1</button>');
 
-     // Wrap consecutive list items
-     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-1 pl-5 list-disc marker:text-gray-400">$&</ul>')
+   // Bold text - proper typography instead of asterisks
+   html = html
+     .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>');
 
-     // Paragraph breaks - use div instead of p to avoid nesting issues with block elements
-     .replace(/\n\n+/g, '</div><div class="mb-4">')
+   // Italic text
+   html = html
+     .replace(/\*([^*]+)\*/g, '<em class="text-gray-700">$1</em>');
+
+   // Bullet points - cleaner styling
+   html = html
+     .replace(/^\s*[-•]\s+(.+)$/gm, '<li class="text-gray-700 py-1.5 px-3 -mx-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors" data-explore-point="$1">$1</li>');
+
+   // Wrap consecutive list items
+   html = html
+     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="my-3 space-y-1">$&</ul>');
+
+   // Paragraph breaks
+   html = html
+     .replace(/\n\n+/g, '</p><p class="text-slate-700">')
      .replace(/\n/g, ' ');
 
-   // Wrap in container - use div throughout to avoid invalid p>block nesting
-   return `<div class="text-base text-gray-700 leading-relaxed max-w-2xl"><div class="mb-4">${html}</div></div>`;
+   // Wrap in container with proper spacing
+   return `<div class="text-base text-slate-700 leading-relaxed max-w-none font-sans space-y-4"><div>${html}</div></div>`;
  };
 
 
@@ -722,6 +1651,10 @@ export default function Marlowe() {
  const deleteCase = (caseId, e) => {
  e.stopPropagation();
  setCases(prev => prev.filter(c => c.id !== caseId));
+ // Also delete from Supabase if configured
+ if (isSupabaseConfigured() && user) {
+   deleteCaseFromDb(caseId).catch(console.error);
+ }
  };
 
  // Start editing a case name
@@ -1720,139 +2653,51 @@ Format the report professionally with clear headers, bullet points where appropr
  };
 
  // Export conversation message as simple PDF
- const exportMessageAsPdf = (messageContent) => {
+ const exportMessageAsPdf = async (messageContent) => {
  if (!messageContent) return;
 
  setIsGeneratingCaseReport(true);
 
  try {
- const pdf = new jsPDF();
- const pageWidth = pdf.internal.pageSize.getWidth();
- const pageHeight = pdf.internal.pageSize.getHeight();
- const margin = 20;
- const contentWidth = pageWidth - 2 * margin;
- let yPos = margin;
+ // Parse message content into structured data
+ const pdfData = parseMessageToPdfData(messageContent);
 
- // Helper function to add new page if needed
- const checkPageBreak = (requiredSpace = 15) => {
- if (yPos + requiredSpace > pageHeight - margin) {
- pdf.addPage();
- yPos = margin;
- return true;
- }
- return false;
- };
+ // Generate entity name for filename
+ const entitySlug = pdfData.entity?.name
+   ? pdfData.entity.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)
+   : 'entity';
+ const dateStr = new Date().toISOString().split('T')[0];
+ const fileName = `compliance-report-${entitySlug}-${dateStr}.pdf`;
 
- // Colors
- const accentColor = [217, 119, 6]; // amber-600
- const darkText = [17, 24, 39]; // gray-900
+ // Generate PDF using @react-pdf/renderer
+ const blob = await pdf(<ComplianceReportPDF data={pdfData} />).toBlob();
 
- // HEADER
- pdf.setFillColor(248, 248, 248);
- pdf.rect(0, 0, pageWidth, 40, 'F');
- pdf.setTextColor(...accentColor);
- pdf.setFontSize(20);
- pdf.setFont('helvetica', 'bold');
- pdf.text('MARLOWE ANALYSIS REPORT', pageWidth / 2, 18, { align: 'center' });
- pdf.setFontSize(10);
- pdf.setTextColor(...darkText);
- pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, { align: 'center' });
-
- // Extract risk level if present
- const riskMatch = messageContent.match(/OVERALL RISK:\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
- if (riskMatch) {
- const risk = riskMatch[1].toUpperCase();
- const riskColors = {
- 'CRITICAL': [220, 38, 38],
- 'HIGH': [244, 63, 94],
- 'MEDIUM': [245, 158, 11],
- 'LOW': [16, 185, 129]
- };
- pdf.setFillColor(...(riskColors[risk] || [148, 163, 184]));
- pdf.roundedRect(pageWidth / 2 - 20, 32, 40, 6, 2, 2, 'F');
- pdf.setTextColor(255, 255, 255);
- pdf.setFontSize(7);
- pdf.text(risk, pageWidth / 2, 36, { align: 'center' });
- }
-
- yPos = 50;
-
- // Content
- pdf.setTextColor(...darkText);
- pdf.setFontSize(10);
- pdf.setFont('helvetica', 'normal');
-
- // Split content into lines and add to PDF
- const lines = messageContent.split('\n');
- lines.forEach(line => {
- checkPageBreak(8);
-
- // Check for headers (lines in ALL CAPS or starting with **)
- const isHeader = /^[A-Z][A-Z\s]+$/.test(line.trim()) || line.startsWith('**');
- const isBullet = line.trim().startsWith('-') || line.trim().startsWith('•');
-
- if (isHeader) {
- yPos += 3;
- pdf.setFont('helvetica', 'bold');
- pdf.setFontSize(11);
- pdf.setTextColor(...accentColor);
- const cleanLine = line.replace(/\*\*/g, '').trim();
- const wrapped = pdf.splitTextToSize(cleanLine, contentWidth);
- wrapped.forEach(wLine => {
- checkPageBreak();
- pdf.text(wLine, margin, yPos);
- yPos += 5;
- });
- yPos += 2;
- } else if (isBullet) {
- pdf.setFont('helvetica', 'normal');
- pdf.setFontSize(10);
- pdf.setTextColor(...darkText);
- const wrapped = pdf.splitTextToSize(line.trim(), contentWidth - 5);
- wrapped.forEach((wLine, idx) => {
- checkPageBreak();
- pdf.text(wLine, idx === 0 ? margin : margin + 5, yPos);
- yPos += 5;
- });
- } else if (line.trim()) {
- pdf.setFont('helvetica', 'normal');
- pdf.setFontSize(10);
- pdf.setTextColor(...darkText);
- const wrapped = pdf.splitTextToSize(line, contentWidth);
- wrapped.forEach(wLine => {
- checkPageBreak();
- pdf.text(wLine, margin, yPos);
- yPos += 5;
- });
- } else {
- yPos += 3; // Empty line spacing
- }
- });
-
- // Footer
- const totalPages = pdf.internal.getNumberOfPages();
- for (let i = 1; i <= totalPages; i++) {
- pdf.setPage(i);
- pdf.setFontSize(8);
- pdf.setTextColor(150, 150, 150);
- pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
- pdf.text('Generated by Marlowe', margin, pageHeight - 10);
- }
-
- // Save to downloads
- const fileName = `marlowe-report-${new Date().toISOString().split('T')[0]}.pdf`;
- pdf.save(fileName);
+ // Create download link
+ const url = URL.createObjectURL(blob);
+ const link = document.createElement('a');
+ link.href = url;
+ link.download = fileName;
+ document.body.appendChild(link);
+ link.click();
+ document.body.removeChild(link);
+ URL.revokeObjectURL(url);
 
  // Also save to current case if one exists
  if (currentCaseId) {
- const pdfDataUri = pdf.output('datauristring');
- addPdfReportToCase(currentCaseId, {
- id: Math.random().toString(36).substr(2, 9),
- name: fileName,
- createdAt: new Date().toISOString(),
- dataUri: pdfDataUri,
- riskLevel: messageContent.match(/OVERALL RISK:\s*(CRITICAL|HIGH|MEDIUM|LOW)/i)?.[1] || 'UNKNOWN'
- });
+   // Convert blob to data URI for storage
+   const reader = new FileReader();
+   reader.onloadend = () => {
+     const dataUri = reader.result;
+     addPdfReportToCase(currentCaseId, {
+       id: Math.random().toString(36).substr(2, 9),
+       name: fileName,
+       createdAt: new Date().toISOString(),
+       dataUri: dataUri,
+       riskLevel: pdfData.riskLevel?.toUpperCase() || 'UNKNOWN',
+       entityName: pdfData.entity?.name || 'Unknown',
+     });
+   };
+   reader.readAsDataURL(blob);
  }
 
  } catch (error) {
@@ -3101,6 +3946,9 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  // Streaming conversation function - Claude-like interface
  const sendConversationMessage = async (userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
+
+   // Track this query for analytics
+   trackQuery();
 
    // Add user message to conversation
    const newUserMessage = {
@@ -5176,8 +6024,27 @@ ${analysisContext}`;
  }
  };
 
+ // Show loading state while checking auth
+ if (isConfigured && authLoading) {
+   return (
+     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+       <div className="text-center">
+         <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-2xl mb-4 animate-pulse">
+           <span className="text-3xl font-bold text-white">M</span>
+         </div>
+         <p className="text-gray-400">Loading...</p>
+       </div>
+     </div>
+   );
+ }
+
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
+
+ {/* Email Gate Modal - Shows when user clicks Enter without email */}
+ {showEmailModal && (
+   <AuthPage onSuccess={handleEmailSubmitted} />
+ )}
  {/* Import fonts */}
  <style>{`
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -6614,6 +7481,35 @@ ${analysisContext}`;
  {/* Noir Landing Page */}
  {currentPage === 'noirLanding' && (
  <div className="fade-in min-h-screen -mt-24">
+ {/* User Menu - Top Right Corner */}
+ {isConfigured && user && (
+ <div className="fixed top-4 right-4 z-50">
+ <div className="relative group">
+ <button className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full pl-3 pr-4 py-2 shadow-sm hover:shadow-md transition-all">
+ <div className="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center">
+ <span className="text-white text-sm font-semibold">{user.email?.charAt(0).toUpperCase()}</span>
+ </div>
+ <span className="text-sm text-gray-700 hidden sm:block">{user.email?.split('@')[0]}</span>
+ <ChevronDown className="w-4 h-4 text-gray-400" />
+ </button>
+ <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+ <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-48">
+ <div className="px-3 py-2 border-b border-gray-100">
+ <p className="text-xs text-gray-500">Signed in as</p>
+ <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
+ </div>
+ <button
+ onClick={signOut}
+ className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+ >
+ <LogOut className="w-4 h-4" />
+ Sign Out
+ </button>
+ </div>
+ </div>
+ </div>
+ </div>
+ )}
  {/* Hero Section - Full viewport height */}
  <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
@@ -7622,23 +8518,34 @@ ${analysisContext}`;
  </div>
  {/* Show action buttons after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
- <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
+ <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
+ <div className="flex items-center gap-2">
  <button
- onClick={() => exportMessageAsPdf(msg.content)}
- disabled={isGeneratingCaseReport}
- className="flex items-center gap-2 text-sm bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+ className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors shadow-sm text-sm"
  >
- {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
- Export PDF
+ <Flag className="w-4 h-4" />
+ Escalate Case
+ </button>
+ <button
+ className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
+ >
+ <CheckCircle2 className="w-4 h-4" />
+ Mark as Reviewed
+ </button>
+ <button
+ className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
+ >
+ <MessageSquare className="w-4 h-4" />
+ Add Note
  </button>
  <div className="relative group">
  <button
- className="flex items-center gap-2 text-sm bg-transparent border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+ className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
  >
  Keep Exploring
  <ChevronDown className="w-3 h-3" />
  </button>
- <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 bg-white border border-gray-200 rounded-lg shadow-sm p-1.5 min-w-72">
+ <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-72">
  {generateFollowUpSuggestions(msg.content).map((suggestion, suggIdx) => (
  <button
  key={suggIdx}
@@ -7650,6 +8557,15 @@ ${analysisContext}`;
  ))}
  </div>
  </div>
+ </div>
+ <button
+ onClick={() => exportMessageAsPdf(msg.content)}
+ disabled={isGeneratingCaseReport}
+ className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+ >
+ {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+ Export PDF
+ </button>
  </div>
  )}
  {extractClickableOptions(msg.content).options.length > 0 && (
@@ -8147,6 +9063,32 @@ ${analysisContext}`;
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">{darkMode ? 'Light Mode' : 'Dark Mode'}</div>
  </div>
  </div>
+
+ {/* User Menu with logout */}
+ {isConfigured && user && (
+ <div className="relative group">
+ <button
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ <User className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ </button>
+ <div className="absolute left-full ml-2 top-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+ <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-48">
+ <div className="px-3 py-2 border-b border-gray-100">
+ <p className="text-xs text-gray-500">Signed in as</p>
+ <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
+ </div>
+ <button
+ onClick={signOut}
+ className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+ >
+ <LogOut className="w-4 h-4" />
+ Sign Out
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
  </div>
 
  <div className="fade-in flex pt-6 px-36">
