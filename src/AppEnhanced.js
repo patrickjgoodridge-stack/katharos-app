@@ -7692,17 +7692,17 @@ ${analysisContext}`;
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className="h-screen flex bg-[#f8f8f8]">
+ <div className={`h-screen flex ${darkMode ? 'bg-gray-900' : 'bg-[#f8f8f8]'}`}>
  {/* Left Icon Bar */}
- <div className="w-12 border-r border-gray-300 flex flex-col items-center pt-3 gap-2">
+ <div className={`w-12 border-r ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-300'} flex flex-col items-center pt-3 gap-2`}>
  {/* Home icon - at top */}
  <div className="relative group">
  <button
  onClick={goToLanding}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
  title="Home"
  >
- <Home className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+ <Home className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
@@ -7712,10 +7712,10 @@ ${analysisContext}`;
  <div className="relative group">
  <button
  onClick={() => setCurrentPage('existingCases')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
  title="Case Management"
  >
- <FolderOpen className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+ <FolderOpen className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
@@ -7725,10 +7725,10 @@ ${analysisContext}`;
  <div className="relative group">
  <button
  onClick={() => setDarkMode(!darkMode)}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
  >
  {darkMode ? (
- <Sun className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+ <Sun className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-colors" />
  ) : (
  <Moon className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
  )}
@@ -7749,10 +7749,10 @@ ${analysisContext}`;
  setActiveCase(null);
  setCurrentPage('newCase');
  }}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
  title="New Case"
  >
- <Plus className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+ <Plus className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">New Case</div>
@@ -7777,11 +7777,11 @@ ${analysisContext}`;
 >{currentHeader}</h1>
 
  {/* Centered Input Box */}
- <div className="bg-white rounded-lg border-2 border-gray-400 p-4 shadow-sm">
+ <div className={`${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-400'} rounded-lg border-2 p-4 shadow-sm`}>
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
- <div key={idx} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+ <div key={idx} className={`flex items-center gap-2 ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'} border px-3 py-1.5 rounded-lg text-sm`}>
  <FileText className="w-4 h-4" />
  <span className="max-w-40 truncate">{file.name}</span>
  <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500">
@@ -7808,13 +7808,13 @@ ${analysisContext}`;
  }}
  placeholder="Describe what you're investigating, or upload documents..."
  rows={3}
- className="w-full resize-none bg-transparent focus:outline-none text-gray-900 text-lg"
+ className={`w-full resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} text-lg`}
  autoFocus
  />
- <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+ <div className={`flex items-center justify-between mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
- <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
+ <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`}>
  <Plus className="w-5 h-5" />
  </button>
  </div>
@@ -7830,7 +7830,7 @@ ${analysisContext}`;
  }
  }}
  disabled={!conversationInput.trim() && files.length === 0}
- className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl transition-colors flex items-center gap-2"
+ className={`px-4 py-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-xl transition-colors flex items-center gap-2`}
  >
  <Send className="w-4 h-4" />
  </button>
@@ -7850,7 +7850,7 @@ ${analysisContext}`;
  <button
  key={idx}
  onClick={() => setConversationInput(suggestion)}
- className="text-sm bg-white border border-gray-400 hover:border-amber-400 hover:bg-amber-50 px-4 py-2 rounded-full text-gray-600 transition-colors"
+ className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-400 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors`}
  >
  {suggestion}
  </button>
@@ -7880,6 +7880,7 @@ ${analysisContext}`;
  <>
  <MarkdownRenderer
    content={msg.content}
+   darkMode={darkMode}
    onExploreClick={(text) => {
      setConversationInput(`Tell me more about: ${text}`);
      setTimeout(() => {
@@ -7893,11 +7894,11 @@ ${analysisContext}`;
  />
  {/* Show Export PDF button after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
- <div className="flex justify-end mt-4 pt-4 border-t border-gray-200">
+ <div className={`flex justify-end mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <button
  onClick={() => exportMessageAsPdf(msg.content)}
  disabled={isGeneratingCaseReport}
- className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+ className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  Export PDF Report
@@ -7925,10 +7926,10 @@ ${analysisContext}`;
        <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
        <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
      </div>
-     <span className="text-gray-500 font-medium">Analyzing...</span>
+     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Analyzing...</span>
    </div>
  ) : (
-   <MarkdownRenderer content={streamingText} />
+   <MarkdownRenderer content={streamingText} darkMode={darkMode} />
  )}
  </div>
  </div>
@@ -7938,12 +7939,12 @@ ${analysisContext}`;
  </div>
 
  {/* Bottom Input */}
- <div className="border-t border-gray-200 px-4 py-4">
+ <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} px-4 py-4`}>
  <div className="max-w-3xl mx-auto">
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
- <div key={idx} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+ <div key={idx} className={`flex items-center gap-2 ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'} px-3 py-1.5 rounded-lg text-sm`}>
  <FileText className="w-4 h-4" />
  <span className="max-w-32 truncate">{file.name}</span>
  <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
@@ -7951,8 +7952,8 @@ ${analysisContext}`;
  ))}
  </div>
  )}
- <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-500 p-2">
- <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500">
+ <div className={`flex items-end gap-3 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-500'} rounded-2xl border p-2`}>
+ <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`}>
  <Plus className="w-5 h-5" />
  </button>
  <textarea
@@ -7972,13 +7973,13 @@ ${analysisContext}`;
  }}
  placeholder=""
  rows={1}
- className="flex-1 resize-none bg-transparent focus:outline-none text-gray-900 py-2"
+ className={`flex-1 resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} py-2`}
  style={{ minHeight: '40px', maxHeight: '200px', overflow: 'auto' }}
  />
  <button
  onClick={() => sendConversationMessage(conversationInput, files)}
  disabled={isStreaming || (!conversationInput.trim() && files.length === 0)}
- className="p-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg transition-colors"
+ className={`p-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
  >
  <Send className="w-4 h-4" />
  </button>
