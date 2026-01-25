@@ -3771,74 +3771,82 @@ Your personality:
 - You quote evidence directly and explain what it means in plain terms
 - You're helpful but honest about limitations
 
-=== CRITICAL: OUTPUT FORMAT ===
+=== OUTPUT FORMAT ===
 
-You MUST respond with valid JSON wrapped in a code block. NEVER output markdown headers, bullet lists, or plain text.
+Use well-structured markdown with these exact section headers. This will be rendered with beautiful styled components.
 
-When analyzing documents or entities for compliance risks, respond with this EXACT JSON structure:
+REQUIRED STRUCTURE FOR COMPLIANCE SCREENINGS:
 
-\`\`\`json
-{
-  "riskLevel": "CRITICAL|HIGH|MEDIUM|LOW",
-  "entity": {
-    "name": "Full name of the subject",
-    "type": "PEP - Role | Sanctioned Individual | Corporate Entity | etc.",
-    "status": "Sanctioned | PEP | Clear | Under Investigation",
-    "jurisdiction": "US, UK, EU or specific countries"
-  },
-  "alertBanner": {
-    "show": true,
-    "title": "High-Profile Screening Hit — Immediate Escalation Required",
-    "subtitle": "This entity requires senior compliance review before any transaction processing."
-  },
-  "metadata": [
-    {"label": "Risk Level", "value": "Critical", "icon": "risk"},
-    {"label": "Designation", "value": "SDN List (OFAC)", "icon": "designation"},
-    {"label": "Jurisdiction", "value": "US, UK, EU", "icon": "jurisdiction"},
-    {"label": "Last Updated", "value": "Jan 2026", "icon": "updated"}
-  ],
-  "redFlags": [
-    {
-      "icon": "gavel|building|lock|flag|network|eye",
-      "title": "Clear descriptive title of the red flag",
-      "fact": "The specific factual finding - what was discovered. Include evidence quotes if available.",
-      "complianceImpact": "Direct, blunt explanation of what this means for compliance. Don't soften it.",
-      "sources": ["OFAC SDN List", "UK FCDO", "Reuters"]
-    }
-  ],
-  "typologies": [
-    "Sanctions evasion through shell companies",
-    "Complex beneficial ownership structures",
-    "Use of professional enablers"
-  ],
-  "decision": {
-    "status": "IMMEDIATE REJECT|ENHANCED DUE DILIGENCE|PROCEED WITH CAUTION",
-    "reason": "Brief explanation of why this decision was made"
-  },
-  "documentsToRequest": ["Specific document 1", "Specific document 2"] or null,
-  "memo": "2-3 sentence summary for senior compliance. What's the core issue and recommended action?",
-  "keepExploring": [
-    {"icon": "search", "label": "Check sanctions exposure on related entities"},
-    {"icon": "users", "label": "Screen associates or family members acting as proxies"},
-    {"icon": "network", "label": "Review corporate network for indirect connections"},
-    {"icon": "file", "label": "Upload ownership documents for deeper analysis"}
-  ]
-}
-\`\`\`
+## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW]
 
-ICON OPTIONS for redFlags: "gavel" (legal/sanctions), "building" (corporate), "lock" (asset freeze), "flag" (general risk), "network" (connections), "eye" (evasion)
-ICON OPTIONS for keepExploring: "search", "users", "network", "file", "globe", "check"
+Brief 1-2 sentence summary of why this risk level.
 
-RULES:
-1. ALWAYS wrap your response in \`\`\`json code blocks
-2. NEVER output markdown headers like ## or plain text outside JSON
-3. Include 2-5 red flags with detailed facts and compliance impacts
-4. Include 3-5 typologies as brief strings
-5. Include 3-4 keepExploring suggestions as actionable commands
-6. If documentsToRequest is not applicable (e.g., for sanctioned individuals), use null
-7. Be DIRECT and BLUNT in complianceImpact - explain real risks without hedging
+## ENTITY SUMMARY
 
-For casual follow-up questions or conversations, you can respond with plain text (no JSON needed). Only use the JSON format for compliance screenings and risk assessments.
+**Name:** [Full name]
+**Type:** [PEP - Role | Sanctioned Individual | Corporate Entity | etc.]
+**Status:** [Sanctioned | PEP | Clear | Under Investigation]
+**Jurisdiction:** [Countries]
+
+## RED FLAGS
+
+1. **[Clear descriptive title]**
+   [Specific factual finding - what was discovered. Include evidence quotes if available.]
+
+   Impact: [Direct, blunt explanation of what this means for compliance. Don't soften it.]
+
+   Sources: [OFAC SDN List, UK FCDO, Reuters, etc.]
+
+2. **[Next red flag title]**
+   [Details...]
+
+   Impact: [Explanation...]
+
+(Include 2-5 red flags with detailed facts and compliance impacts)
+
+## TYPOLOGIES PRESENT
+
+- Sanctions evasion through shell companies
+- Complex beneficial ownership structures
+- Use of professional enablers
+
+(List 3-5 relevant financial crime typologies)
+
+## ONBOARDING DECISION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH CAUTION]
+
+[Brief explanation of why this decision was made - 1-2 sentences]
+
+## DOCUMENTS TO REQUEST
+
+- Specific document 1
+- Specific document 2
+- Specific document 3
+
+(Skip this section if not applicable, e.g., for sanctioned individuals)
+
+## THE MEMO
+
+[2-3 sentence summary for senior compliance. What's the core issue and recommended action? Write this like a brief to a busy executive.]
+
+## KEEP EXPLORING
+
+- Check sanctions exposure on related entities
+- Screen associates or family members acting as proxies
+- Review corporate network for indirect connections
+- Upload ownership documents for deeper analysis
+
+(3-4 actionable next steps the analyst can take)
+
+FORMATTING RULES:
+1. Use ## for section headers (they become styled cards)
+2. Use **bold** for important terms and red flag titles
+3. Use numbered lists (1. 2. 3.) for red flags
+4. Use bullet lists (- item) for typologies, documents, and keep exploring
+5. Always include the "Impact:" line after each red flag
+6. Be DIRECT and BLUNT - explain real risks without hedging
+7. Quote evidence directly when available
+
+For casual follow-up questions, respond naturally without the full structure.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
@@ -8190,23 +8198,6 @@ ${analysisContext}`;
  )}
  {msg.role === 'assistant' ? (
  <>
- {isScreeningJSON(msg.content) ? (
- <ScreeningResults
- data={parseScreeningJSON(msg.content)}
- onExportPDF={() => exportMessageAsPdf(msg.content)}
- onExploreAction={(action) => {
-   setConversationInput(`Tell me more about: ${action}`);
-   setTimeout(() => {
-     if (bottomInputRef.current) {
-       bottomInputRef.current.focus();
-     } else if (mainInputRef.current) {
-       mainInputRef.current.focus();
-     }
-   }, 50);
- }}
- />
- ) : (
- <>
  <MarkdownRenderer
    content={msg.content}
    onExploreClick={(text) => {
@@ -8220,48 +8211,9 @@ ${analysisContext}`;
      }, 50);
    }}
  />
- {/* Show action buttons after analysis responses */}
+ {/* Show Export PDF button after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
- <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
- <div className="flex items-center gap-2">
- <button
- className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors shadow-sm text-sm"
- >
- <Flag className="w-4 h-4" />
- Escalate Case
- </button>
- <button
- className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
- >
- <CheckCircle2 className="w-4 h-4" />
- Mark as Reviewed
- </button>
- <button
- className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
- >
- <MessageSquare className="w-4 h-4" />
- Add Note
- </button>
- <div className="relative group">
- <button
- className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
- >
- Keep Exploring
- <ChevronDown className="w-3 h-3" />
- </button>
- <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-72">
- {generateFollowUpSuggestions(msg.content).map((suggestion, suggIdx) => (
- <button
- key={suggIdx}
- onClick={() => sendConversationMessage(suggestion, [])}
- className="w-full text-left text-sm px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
- >
- {suggestion}
- </button>
- ))}
- </div>
- </div>
- </div>
+ <div className="flex justify-end mt-4 pt-4 border-t border-gray-200">
  <button
  onClick={() => exportMessageAsPdf(msg.content)}
  disabled={isGeneratingCaseReport}
@@ -8271,21 +8223,6 @@ ${analysisContext}`;
  Export PDF Report
  </button>
  </div>
- )}
- {extractClickableOptions(msg.content).options.length > 0 && (
- <div className="flex flex-wrap gap-2 mt-4">
- {extractClickableOptions(msg.content).options.map((option, optIdx) => (
- <button
- key={optIdx}
- onClick={() => setConversationInput(option)}
- className="text-sm bg-white border border-gray-200 hover:border-amber-400 hover:bg-amber-50 px-4 py-2.5 rounded-xl text-gray-700 transition-all shadow-sm hover:shadow"
- >
- {option}
- </button>
- ))}
- </div>
- )}
- </>
  )}
  </>
  ) : (
@@ -8300,26 +8237,19 @@ ${analysisContext}`;
  {isStreaming && (
  <div className="flex justify-start">
  <div className="max-w-2xl">
- {/* Show "Analyzing..." while JSON is streaming, otherwise show formatted content */}
- {(() => {
-   const trimmed = (streamingText || '').trim();
-   const isJsonStreaming = trimmed.startsWith('```json') || trimmed.startsWith('{') || trimmed.startsWith('`');
-   if (!trimmed || isJsonStreaming) {
-     return (
-       <div className="flex items-center gap-3 py-4">
-         <div className="flex gap-1">
-           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-           <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-         </div>
-         <span className="text-gray-500 font-medium">Analyzing...</span>
-       </div>
-     );
-   }
-   return (
-     <MarkdownRenderer content={streamingText} />
-   );
- })()}
+ {/* Show "Analyzing..." initially, then stream the markdown */}
+ {!streamingText?.trim() ? (
+   <div className="flex items-center gap-3 py-4">
+     <div className="flex gap-1">
+       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+     </div>
+     <span className="text-gray-500 font-medium">Analyzing...</span>
+   </div>
+ ) : (
+   <MarkdownRenderer content={streamingText} />
+ )}
  </div>
  </div>
  )}
