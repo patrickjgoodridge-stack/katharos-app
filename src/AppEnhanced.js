@@ -7721,6 +7721,22 @@ ${analysisContext}`;
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
+ {/* Dark Mode Toggle */}
+ <div className="relative group">
+ <button
+ onClick={() => setDarkMode(!darkMode)}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ {darkMode ? (
+ <Sun className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transition-colors" />
+ ) : (
+ <Moon className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+ )}
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">{darkMode ? 'Light Mode' : 'Dark Mode'}</div>
+ </div>
+ </div>
  {conversationStarted && (
  <div className="relative group">
  <button
@@ -7747,22 +7763,6 @@ ${analysisContext}`;
 
  {/* Main Content Area */}
  <div className="flex-1 flex flex-col">
- {/* Top Bar */}
- <div className="flex items-center justify-between px-4 py-2 border-b border-gray-300">
- <div className="flex items-center gap-2">
- </div>
- <div className="flex items-center gap-2">
- <button
- onClick={() => setDarkMode(!darkMode)}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- title={darkMode ? 'Light mode' : 'Dark mode'}
- >
- {darkMode ? <Sun className="w-4 h-4 text-gray-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
- </button>
-
- </div>
- </div>
-
  {/* Chat Area - Centered input before conversation starts, bottom after */}
  {!conversationStarted ? (
  /* Centered Input - Before Conversation */
