@@ -59,15 +59,6 @@ const AuthPage = ({ onSuccess }) => {
 
       {/* Modal */}
       <div className="relative w-full max-w-md mx-4">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-500 rounded-xl mb-3 shadow-lg shadow-amber-500/30">
-            <span className="text-2xl font-bold text-white">M</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white">Marlowe</h1>
-          <p className="text-gray-400 text-sm mt-1">AI-Powered Investigative Analysis</p>
-        </div>
-
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-5">
