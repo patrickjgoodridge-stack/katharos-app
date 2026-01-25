@@ -5,7 +5,8 @@ import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
 import ForceGraph2D from 'react-force-graph-2d';
-import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
+import ComplianceReportPDF from './ComplianceReportPDF';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
@@ -2152,77 +2153,55 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  }
  };
 
- // Generate PDF report
+ // Generate PDF report using @react-pdf/renderer
  const generatePdfReport = async (screening) => {
  setIsGeneratingPdf(true);
- 
- const result = screening.result;
- const timestamp = new Date(screening.timestamp).toLocaleString();
- 
- // Create PDF content using the API
- const pdfPrompt = `Generate a professional KYC screening report in clean, structured text format for the following screening result. This will be converted to PDF for audit purposes.
-
-SCREENING DETAILS:
-- Subject: ${result.subject?.name}
-- Type: ${result.subject?.type}
-- Screening Date: ${timestamp}
-- Client Reference: ${screening.clientRef || 'N/A'}
-- Year of Birth: ${screening.yearOfBirth || 'N/A'}
-- Country: ${screening.country || 'N/A'}
-- Overall Risk: ${result.overallRisk}
-
-RESULTS DATA:
-${JSON.stringify(result, null, 2)}
-
-Format the report with these sections:
-1. EXECUTIVE SUMMARY
-2. SUBJECT INFORMATION
-3. SANCTIONS SCREENING RESULTS
-4. OFAC 50% RULE / OWNERSHIP ANALYSIS (if applicable)
-5. PEP SCREENING RESULTS
-6. ADVERSE MEDIA FINDINGS
-7. RISK FACTORS
-8. REGULATORY GUIDANCE
-9. RECOMMENDATIONS
-10. AUDIT TRAIL (screening parameters, timestamp, etc.)
-
-Make it professional and suitable for compliance records. Use clear headers and bullet points where appropriate.`;
 
  try {
- const response = await fetch(`${API_BASE}/api/messages`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
- max_tokens: 4000,
- messages: [{ role: "user", content: pdfPrompt }]
- })
- });
+ const result = screening.result;
 
- if (!response.ok) {
- throw new Error(`API error: ${response.status}`);
- }
+ // Transform screening data into the format expected by ComplianceReportPDF
+ const pdfData = {
+ caseNumber: `SCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
+ riskLevel: result.overallRisk || 'unknown',
+ entity: {
+ name: result.subject?.name || 'Unknown Entity',
+ type: result.subject?.type || 'Entity',
+ status: result.subject?.status || null,
+ statusDate: result.subject?.statusDate || null,
+ },
+ metadata: {
+ designation: result.subject?.designation || null,
+ jurisdiction: screening.country || 'Global',
+ lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+ },
+ summary: result.summary || `Compliance screening completed for ${result.subject?.name}. Risk level assessed as ${result.overallRisk?.toUpperCase() || 'UNKNOWN'}.`,
+ redFlags: (result.redFlags || []).map(flag => ({
+ category: flag.category || 'Compliance Alert',
+ title: flag.title || flag.headline || 'Red Flag Identified',
+ fact: flag.fact || flag.description || flag.finding || '',
+ complianceImpact: flag.translation || flag.complianceImpact || flag.impact || '',
+ sources: flag.sources || flag.citations || [],
+ })),
+ analystName: 'Compliance Analyst',
+ generatedAt: new Date().toISOString(),
+ };
 
- const data = await response.json();
- const reportText = data.content?.map(item => item.text || "").join("\n") || "";
- 
- if (!reportText) {
- throw new Error('Empty response');
- }
- 
- // Create downloadable text file (in browser, we'll use a blob)
- const blob = new Blob([reportText], { type: 'text/plain' });
- const url = URL.createObjectURL(blob);
+ // Generate PDF blob
+ const pdfBlob = await pdf(<ComplianceReportPDF data={pdfData} />).toBlob();
+
+ // Create download link
+ const url = URL.createObjectURL(pdfBlob);
  const a = document.createElement('a');
  a.href = url;
- a.download = `KYC_Report_${result.subject?.name?.replace(/\s+/g, '_') || 'Unknown'}_${new Date().toISOString().split('T')[0]}.txt`;
+ a.download = `compliance-report-${result.subject?.name?.replace(/\s+/g, '-').toLowerCase() || 'entity'}-${new Date().toISOString().split('T')[0]}.pdf`;
  document.body.appendChild(a);
  a.click();
  document.body.removeChild(a);
  URL.revokeObjectURL(url);
  } catch (error) {
  console.error('PDF generation error:', error);
- alert('Error generating report. Please try again.');
+ alert('Error generating PDF report. Please try again.');
  } finally {
  setIsGeneratingPdf(false);
  }
