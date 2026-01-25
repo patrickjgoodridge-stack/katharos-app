@@ -34,13 +34,18 @@ const sectionIcons = {
   'DOCUMENTS TO REQUEST': FileText,
   'KEEP EXPLORING': Search,
   'ENTITY': Users,
+  'ENTITY SUMMARY': Users,
   'SUBJECT': Users,
   'POLITICAL EXPOSURE': Building2,
   'JURISDICTION': Globe,
   'SANCTIONS': Shield,
+  'SANCTIONS EXPOSURE': Shield,
   'BENEFICIAL OWNERSHIP': Network,
   'CORPORATE STRUCTURE': Building2,
   'ADVERSE MEDIA': AlertCircle,
+  'ADVERSE MEDIA SUMMARY': AlertCircle,
+  'KEY ASSOCIATES': Users,
+  'RELATED ENTITIES': Network,
   'RECOMMENDED ACTIONS': Lightbulb,
 };
 
