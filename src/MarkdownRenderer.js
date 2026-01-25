@@ -162,10 +162,10 @@ const CustomHeading = ({ level, children }) => {
     // Decision banner
     if (isDecisionSection(text)) {
       return (
-        <div className={`${styles.bg} ${styles.border} border rounded-xl p-4 mb-4 mt-6`}>
+        <div className={`${styles.bg} ${styles.border} border rounded-xl p-5 mb-5 mt-6`}>
           <div className="flex items-center gap-3">
-            {Icon && <Icon className={`w-6 h-6 ${styles.icon}`} />}
-            <h2 className={`text-lg font-bold ${styles.text} uppercase tracking-wide`}>
+            {Icon && <Icon className={`w-7 h-7 ${styles.icon}`} />}
+            <h2 className={`text-xl font-bold ${styles.text} uppercase tracking-wide`}>
               {children}
             </h2>
           </div>
@@ -177,8 +177,8 @@ const CustomHeading = ({ level, children }) => {
     if (isMemoSection(text)) {
       return (
         <div className="flex items-center gap-2 mt-6 mb-3">
-          <FileText className="w-5 h-5 text-slate-600" />
-          <h2 className="text-base font-semibold text-slate-900 uppercase tracking-wide">
+          <FileText className="w-6 h-6 text-slate-600" />
+          <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">
             {children}
           </h2>
         </div>
@@ -189,8 +189,8 @@ const CustomHeading = ({ level, children }) => {
     if (isTypologiesSection(text)) {
       return (
         <div className="flex items-center gap-2 mt-6 mb-3">
-          <Network className="w-5 h-5 text-purple-600" />
-          <h2 className="text-base font-semibold text-purple-900 uppercase tracking-wide">
+          <Network className="w-6 h-6 text-purple-600" />
+          <h2 className="text-lg font-semibold text-purple-900 uppercase tracking-wide">
             {children}
           </h2>
         </div>
@@ -202,8 +202,8 @@ const CustomHeading = ({ level, children }) => {
       return (
         <div className="mt-6 mb-3">
           <div className="flex items-center gap-2 mb-3">
-            <Search className="w-5 h-5 text-amber-600" />
-            <h2 className="text-base font-semibold text-slate-900 uppercase tracking-wide">
+            <Search className="w-6 h-6 text-amber-600" />
+            <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">
               {children}
             </h2>
           </div>
@@ -214,8 +214,8 @@ const CustomHeading = ({ level, children }) => {
     // Default H2
     return (
       <div className="flex items-center gap-2 mt-6 mb-3">
-        {Icon && <Icon className="w-5 h-5 text-slate-600" />}
-        <h2 className="text-base font-semibold text-slate-900 uppercase tracking-wide">
+        {Icon && <Icon className="w-6 h-6 text-slate-600" />}
+        <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">
           {children}
         </h2>
       </div>
@@ -225,8 +225,8 @@ const CustomHeading = ({ level, children }) => {
   // H3 - Sub-section headers
   if (level === 3) {
     return (
-      <h3 className="text-sm font-semibold text-slate-800 mt-4 mb-2 flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-slate-500" />}
+      <h3 className="text-base font-semibold text-slate-800 mt-4 mb-2 flex items-center gap-2">
+        {Icon && <Icon className="w-5 h-5 text-slate-500" />}
         {children}
       </h3>
     );
@@ -234,7 +234,7 @@ const CustomHeading = ({ level, children }) => {
 
   // H4 and below
   return (
-    <h4 className="text-sm font-medium text-slate-700 mt-3 mb-1">
+    <h4 className="text-base font-medium text-slate-700 mt-3 mb-1">
       {children}
     </h4>
   );
@@ -270,27 +270,27 @@ const CustomListItem = ({ children, ordered, index }) => {
   if (ordered) {
     return (
       <li
-        className="flex gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -ml-2 transition-colors group"
+        className="flex gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2.5 -ml-2 transition-colors group"
         onClick={handleClick}
       >
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center group-hover:bg-amber-100 group-hover:text-amber-700 transition-colors">
+        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-sm font-semibold flex items-center justify-center group-hover:bg-amber-100 group-hover:text-amber-700 transition-colors">
           {index + 1}
         </span>
-        <div className="flex-1 text-sm text-slate-700 leading-relaxed group-hover:text-slate-900">
+        <div className="flex-1 text-base text-slate-700 leading-relaxed group-hover:text-slate-900">
           {children}
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 transition-colors flex-shrink-0 mt-0.5" />
+        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition-colors flex-shrink-0 mt-0.5" />
       </li>
     );
   }
 
   return (
     <li
-      className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded-lg p-2 -ml-2 transition-colors group"
+      className="flex items-start gap-2 cursor-pointer hover:bg-slate-50 rounded-lg p-2.5 -ml-2 transition-colors group"
       onClick={handleClick}
     >
-      <ChevronRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0 group-hover:text-amber-600 transition-colors" />
-      <span className="text-sm text-slate-700 leading-relaxed group-hover:text-slate-900 flex-1">{children}</span>
+      <ChevronRight className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0 group-hover:text-amber-600 transition-colors" />
+      <span className="text-base text-slate-700 leading-relaxed group-hover:text-slate-900 flex-1">{children}</span>
     </li>
   );
 };
@@ -306,16 +306,16 @@ const CustomParagraph = ({ children }) => {
     const content = text.replace(/^(impact|translation|compliance impact):\s*/i, '');
     return (
       <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-4 my-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-1">
+        <p className="text-sm font-semibold uppercase tracking-wide text-amber-800 mb-1">
           Impact
         </p>
-        <p className="text-sm text-amber-900 leading-relaxed">{content}</p>
+        <p className="text-base text-amber-900 leading-relaxed">{content}</p>
       </div>
     );
   }
 
   return (
-    <p className="text-sm text-slate-700 leading-relaxed my-2">
+    <p className="text-base text-slate-700 leading-relaxed my-2">
       {children}
     </p>
   );
@@ -324,8 +324,8 @@ const CustomParagraph = ({ children }) => {
 // Custom blockquote component
 const CustomBlockquote = ({ children }) => {
   return (
-    <blockquote className="border-l-4 border-slate-300 pl-4 py-2 my-3 bg-slate-50 rounded-r-lg">
-      <div className="text-sm text-slate-600 italic">
+    <blockquote className="border-l-4 border-slate-300 pl-4 py-3 my-4 bg-slate-50 rounded-r-lg">
+      <div className="text-base text-slate-600 italic">
         {children}
       </div>
     </blockquote>
@@ -366,7 +366,7 @@ const CustomEmphasis = ({ children }) => {
 // Custom code component (for inline code)
 const CustomCode = ({ children }) => {
   return (
-    <code className="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-slate-800">
+    <code className="bg-slate-100 px-1.5 py-0.5 rounded text-base font-mono text-slate-800">
       {children}
     </code>
   );
@@ -404,10 +404,10 @@ const KeepExploringCard = ({ items, onExploreClick }) => {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mt-6">
-      <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+      <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Search className="w-5 h-5 text-amber-600" />
-          <h3 className="font-semibold text-slate-900">Keep Exploring</h3>
+          <Search className="w-6 h-6 text-amber-600" />
+          <h3 className="text-lg font-semibold text-slate-900">Keep Exploring</h3>
         </div>
       </div>
       <div className="divide-y divide-slate-100">
@@ -417,10 +417,10 @@ const KeepExploringCard = ({ items, onExploreClick }) => {
             onClick={() => onExploreClick && onExploreClick(item)}
             className="w-full px-5 py-4 flex items-center gap-4 hover:bg-amber-50 transition-colors text-left group"
           >
-            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
+            <div className="w-11 h-11 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
               <Search className="w-5 h-5 text-amber-600" />
             </div>
-            <span className="flex-1 text-sm text-slate-700 group-hover:text-amber-900">
+            <span className="flex-1 text-base text-slate-700 group-hover:text-amber-900">
               {item}
             </span>
             <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition-colors" />
@@ -494,7 +494,7 @@ const MarkdownRenderer = ({ content, onExploreClick }) => {
       // For code blocks, just render as pre
       return (
         <pre className="bg-slate-100 p-4 rounded-lg overflow-x-auto my-3">
-          <code className="text-sm font-mono text-slate-800">{children}</code>
+          <code className="text-base font-mono text-slate-800">{children}</code>
         </pre>
       );
     },
