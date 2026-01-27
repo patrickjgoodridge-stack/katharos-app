@@ -1,6 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -6846,9 +6846,19 @@ ${analysisContext}`;
  {/* Noir Landing Page */}
  {currentPage === 'noirLanding' && (
  <div className="fade-in min-h-screen -mt-24">
- {/* User Menu - Top Right Corner */}
+ {/* Top Right Navigation */}
+ <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+ {/* Contact Link */}
+ <a
+   href="mailto:patrickjgoodridge@gmail.com"
+   className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:border-amber-500/50 transition-all text-sm text-gray-700 hover:text-amber-600"
+ >
+   <Mail className="w-4 h-4" />
+   <span className="hidden sm:block">Contact</span>
+ </a>
+
+ {/* User Menu */}
  {isConfigured && user && (
- <div className="fixed top-4 right-4 z-50">
  <div className="relative group">
  <button className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full pl-3 pr-4 py-2 shadow-sm hover:shadow-md transition-all">
  <div className="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center">
@@ -6873,8 +6883,8 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- </div>
  )}
+ </div>
  {/* Hero Section - Full viewport height */}
  <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
@@ -7224,6 +7234,23 @@ ${analysisContext}`;
  </button>
  </div>
  </div>
+
+ {/* Footer */}
+ <footer className="py-8 px-6 bg-gray-950 border-t border-gray-800">
+ <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+ <div className="flex items-center gap-2">
+   <span className="text-xl font-bold text-amber-500">Marlowe</span>
+   <span className="text-sm text-gray-500">© {new Date().getFullYear()}</span>
+ </div>
+ <a
+   href="mailto:patrickjgoodridge@gmail.com"
+   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors"
+ >
+   <Mail className="w-4 h-4" />
+   <span>Contact Us</span>
+ </a>
+ </div>
+ </footer>
  </div>
  )}
 
