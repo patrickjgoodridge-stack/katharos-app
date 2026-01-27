@@ -3376,6 +3376,21 @@ REQUIRED STRUCTURE FOR COMPLIANCE SCREENINGS:
 
 Brief 1-2 sentence summary of why this risk level.
 
+## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
+
+Assess how confident you are that this is a TRUE POSITIVE match to the high-risk individual/entity (vs. a false positive due to common names, etc.).
+
+**Factors supporting match:**
+- [List factors that increase confidence: unique name, matching DOB, known aliases, geographic ties, matching roles/positions, corroborating details]
+
+**Factors reducing confidence:**
+- [List factors that decrease confidence: common name, limited identifying info provided, multiple people with same name, lack of unique identifiers]
+
+Use these guidelines:
+- HIGH (85-100%): Unique name + multiple corroborating factors (DOB, location, role, aliases)
+- MEDIUM (50-84%): Some matching factors but missing key identifiers, or moderately common name
+- LOW (Below 50%): Very common name, limited info, or significant mismatches in available data
+
 ## ENTITY SUMMARY
 
 **Name:** [Full name, including aliases and alternative spellings]
