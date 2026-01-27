@@ -1,6 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -365,6 +365,7 @@ export default function Marlowe() {
  const [hasVisitedLanding, setHasVisitedLanding] = useState(false);
  const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
+ const [copiedMessageId, setCopiedMessageId] = useState(null);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
 
@@ -7889,16 +7890,28 @@ ${analysisContext}`;
    }}
  />
  </div>
- {/* Show Export PDF button after analysis responses */}
+ {/* Show Copy and Export PDF buttons after analysis responses */}
  {msg.content.includes('OVERALL RISK') && (
- <div className={`flex justify-end mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+ <div className={`flex justify-end gap-2 mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+ <button
+ onClick={() => {
+   navigator.clipboard.writeText(msg.content).then(() => {
+     setCopiedMessageId(idx);
+     setTimeout(() => setCopiedMessageId(null), 2000);
+   });
+ }}
+ className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} rounded-lg font-medium transition-colors text-sm`}
+ >
+ {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+ {copiedMessageId === idx ? 'Copied!' : 'Copy'}
+ </button>
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`)}
  disabled={isGeneratingCaseReport}
  className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
- Export PDF Report
+ Export PDF
  </button>
  </div>
  )}
