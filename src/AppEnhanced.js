@@ -7890,8 +7890,8 @@ ${analysisContext}`;
    }}
  />
  </div>
- {/* Copy button for all assistant messages */}
- <div className={`flex justify-end gap-2 mt-3 ${msg.content.includes('OVERALL RISK') ? `pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}` : ''}`}>
+ {/* Action buttons for all assistant messages */}
+ <div className={`flex justify-end gap-2 mt-4 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <button
  onClick={() => {
    navigator.clipboard.writeText(msg.content).then(() => {
@@ -7899,17 +7899,17 @@ ${analysisContext}`;
      setTimeout(() => setCopiedMessageId(null), 2000);
    });
  }}
- title={copiedMessageId === idx ? 'Copied!' : 'Copy to clipboard'}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-700'} rounded-lg transition-colors`}
+ className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} rounded-lg font-medium transition-colors text-sm`}
  >
  {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+ {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
  {/* Export PDF button only for screening results */}
  {msg.content.includes('OVERALL RISK') && (
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`)}
  disabled={isGeneratingCaseReport}
- className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+ className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  Export PDF
