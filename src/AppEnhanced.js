@@ -7900,10 +7900,10 @@ ${analysisContext}`;
      setTimeout(() => setCopiedMessageId(null), 2000);
    });
  }}
- className={`inline-flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} rounded-lg font-medium transition-colors text-sm`}
+ title={copiedMessageId === idx ? 'Copied!' : 'Copy to clipboard'}
+ className={`p-2.5 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} rounded-lg transition-colors`}
  >
  {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
- {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`)}
