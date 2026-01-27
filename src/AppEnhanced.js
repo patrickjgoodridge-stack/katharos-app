@@ -2013,6 +2013,232 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  };
 
+ // Export entire case as PDF report
+ const exportCaseAsPdf = async (caseData) => {
+   if (!caseData) return;
+
+   setIsGeneratingCaseReport(true);
+
+   try {
+     const html2canvas = (await import('html2canvas')).default;
+     const { jsPDF } = await import('jspdf');
+
+     // Create the report container
+     const container = document.createElement('div');
+     container.style.width = '800px';
+     container.style.padding = '40px';
+     container.style.backgroundColor = '#ffffff';
+     container.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+     container.style.color = '#1e293b';
+     container.style.lineHeight = '1.6';
+
+     // Header Section
+     const header = document.createElement('div');
+     header.style.marginBottom = '30px';
+     header.style.paddingBottom = '20px';
+     header.style.borderBottom = '3px solid #f59e0b';
+     header.innerHTML = `
+       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+         <div>
+           <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; font-weight: 600;">Case Investigation Report</div>
+           <div style="font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">${caseData.name || 'Untitled Case'}</div>
+           <div style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; ${
+             caseData.riskLevel === 'CRITICAL' ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;' :
+             caseData.riskLevel === 'HIGH' ? 'background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;' :
+             caseData.riskLevel === 'MEDIUM' ? 'background: #fffbeb; color: #d97706; border: 1px solid #fde68a;' :
+             'background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;'
+           }">${caseData.riskLevel || 'UNKNOWN'} RISK</div>
+         </div>
+         <div style="text-align: right;">
+           <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">Marlowe</div>
+           <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Compliance Intelligence</div>
+         </div>
+       </div>
+       <div style="display: flex; gap: 30px; font-size: 12px; color: #64748b;">
+         <div><strong style="color: #475569;">Case ID:</strong> ${caseData.id?.substring(0, 8) || 'N/A'}</div>
+         <div><strong style="color: #475569;">Created:</strong> ${new Date(caseData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+         <div><strong style="color: #475569;">Documents:</strong> ${caseData.files?.length || 0}</div>
+         <div><strong style="color: #475569;">Messages:</strong> ${caseData.conversationTranscript?.length || 0}</div>
+       </div>
+     `;
+     container.appendChild(header);
+
+     // Executive Summary Section (if available)
+     if (caseData.analysis?.executiveSummary) {
+       const summary = document.createElement('div');
+       summary.style.marginBottom = '30px';
+       summary.style.padding = '20px';
+       summary.style.backgroundColor = '#f8fafc';
+       summary.style.borderRadius = '8px';
+       summary.style.border = '1px solid #e2e8f0';
+       summary.innerHTML = `
+         <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+           <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+           Executive Summary
+         </div>
+         <div style="font-size: 13px; color: #334155;">${caseData.analysis.executiveSummary.overview || 'No summary available'}</div>
+       `;
+       container.appendChild(summary);
+     }
+
+     // Conversation Transcript Section
+     if (caseData.conversationTranscript?.length > 0) {
+       const transcriptSection = document.createElement('div');
+       transcriptSection.style.marginBottom = '30px';
+
+       const transcriptHeader = document.createElement('div');
+       transcriptHeader.style.fontSize = '14px';
+       transcriptHeader.style.fontWeight = '600';
+       transcriptHeader.style.color = '#0f172a';
+       transcriptHeader.style.marginBottom = '16px';
+       transcriptHeader.style.display = 'flex';
+       transcriptHeader.style.alignItems = 'center';
+       transcriptHeader.style.gap = '8px';
+       transcriptHeader.innerHTML = `
+         <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+         Investigation Transcript
+       `;
+       transcriptSection.appendChild(transcriptHeader);
+
+       caseData.conversationTranscript.forEach((msg, idx) => {
+         const msgDiv = document.createElement('div');
+         msgDiv.style.marginBottom = '16px';
+         msgDiv.style.padding = '16px';
+         msgDiv.style.borderRadius = '8px';
+         msgDiv.style.backgroundColor = msg.role === 'user' ? '#fffbeb' : '#ffffff';
+         msgDiv.style.border = msg.role === 'user' ? '1px solid #fde68a' : '1px solid #e2e8f0';
+
+         const roleLabel = document.createElement('div');
+         roleLabel.style.fontSize = '11px';
+         roleLabel.style.fontWeight = '600';
+         roleLabel.style.textTransform = 'uppercase';
+         roleLabel.style.letterSpacing = '0.5px';
+         roleLabel.style.marginBottom = '8px';
+         roleLabel.style.color = msg.role === 'user' ? '#d97706' : '#64748b';
+         roleLabel.textContent = msg.role === 'user' ? 'Analyst Query' : 'Marlowe Response';
+         msgDiv.appendChild(roleLabel);
+
+         const content = document.createElement('div');
+         content.style.fontSize = '12px';
+         content.style.color = '#334155';
+         content.style.whiteSpace = 'pre-wrap';
+         content.style.lineHeight = '1.7';
+         // Clean up markdown for better display
+         let cleanContent = msg.content
+           .replace(/#{1,6}\s*/g, '') // Remove markdown headers
+           .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markers but keep text
+           .replace(/\*([^*]+)\*/g, '$1') // Remove italic markers but keep text
+           .replace(/`([^`]+)`/g, '$1') // Remove code markers but keep text
+           .substring(0, 3000); // Limit length for PDF
+         if (msg.content.length > 3000) cleanContent += '... [truncated]';
+         content.textContent = cleanContent;
+         msgDiv.appendChild(content);
+
+         if (msg.timestamp) {
+           const timestamp = document.createElement('div');
+           timestamp.style.fontSize = '10px';
+           timestamp.style.color = '#94a3b8';
+           timestamp.style.marginTop = '8px';
+           timestamp.textContent = new Date(msg.timestamp).toLocaleString();
+           msgDiv.appendChild(timestamp);
+         }
+
+         transcriptSection.appendChild(msgDiv);
+       });
+
+       container.appendChild(transcriptSection);
+     }
+
+     // Documents Section
+     if (caseData.files?.length > 0) {
+       const docsSection = document.createElement('div');
+       docsSection.style.marginBottom = '30px';
+       docsSection.innerHTML = `
+         <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+           <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+           Attached Documents
+         </div>
+         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+           ${caseData.files.map(f => `
+             <div style="padding: 8px 14px; background: #f1f5f9; border-radius: 6px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0;">
+               📄 ${f.name || 'Document'}
+             </div>
+           `).join('')}
+         </div>
+       `;
+       container.appendChild(docsSection);
+     }
+
+     // Footer
+     const footer = document.createElement('div');
+     footer.style.marginTop = '40px';
+     footer.style.paddingTop = '20px';
+     footer.style.borderTop = '1px solid #e2e8f0';
+     footer.style.display = 'flex';
+     footer.style.justifyContent = 'space-between';
+     footer.style.alignItems = 'center';
+     footer.style.fontSize = '10px';
+     footer.style.color = '#94a3b8';
+     footer.innerHTML = `
+       <div>Marlowe Compliance Platform • Confidential</div>
+       <div>Report generated ${new Date().toLocaleString()}</div>
+     `;
+     container.appendChild(footer);
+
+     // Temporarily add to DOM
+     container.style.position = 'absolute';
+     container.style.left = '-9999px';
+     document.body.appendChild(container);
+
+     // Capture as canvas
+     const canvas = await html2canvas(container, {
+       scale: 2,
+       useCORS: true,
+       logging: false,
+       backgroundColor: '#ffffff',
+     });
+
+     // Remove from DOM
+     document.body.removeChild(container);
+
+     // Calculate PDF dimensions
+     const margin = 10;
+     const imgWidth = 210 - (margin * 2);
+     const pageHeight = 297 - (margin * 2);
+     const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+     // Create PDF
+     const pdf = new jsPDF('p', 'mm', 'a4');
+     let heightLeft = imgHeight;
+     let position = margin;
+
+     // Add image to PDF with pagination
+     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
+     heightLeft -= pageHeight;
+
+     while (heightLeft > 0) {
+       position = margin - (imgHeight - heightLeft);
+       pdf.addPage();
+       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
+       heightLeft -= pageHeight;
+     }
+
+     // Generate filename
+     const dateStr = new Date().toISOString().split('T')[0];
+     const caseSlug = (caseData.name || 'case').toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30);
+     const fileName = `case-report-${caseSlug}-${dateStr}.pdf`;
+
+     // Save the PDF
+     pdf.save(fileName);
+
+   } catch (error) {
+     console.error('Case PDF export error:', error);
+     alert('Error generating case report. Please try again.');
+   } finally {
+     setIsGeneratingCaseReport(false);
+   }
+ };
+
  // Scroll KYC chat to bottom when new messages arrive
  useEffect(() => {
  if (kycChatEndRef.current) {
@@ -7466,6 +7692,14 @@ ${analysisContext}`;
            <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getRiskColor(viewingCase.riskLevel)}`}>
              {viewingCase.riskLevel} RISK
            </span>
+           <button
+             onClick={() => exportCaseAsPdf(viewingCase)}
+             disabled={isGeneratingCaseReport}
+             className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg transition-colors border border-gray-300 disabled:opacity-50"
+           >
+             {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+             {isGeneratingCaseReport ? 'Generating...' : 'Generate Report'}
+           </button>
            <button
              onClick={() => loadCase(viewingCase)}
              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
