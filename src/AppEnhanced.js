@@ -429,31 +429,6 @@ export default function Marlowe() {
  loadCases();
  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
- // Auto re-screen monitored cases on app load (24h cooldown)
- useEffect(() => {
-   if (!cases.length || monitoringRanRef.current || monitoringInProgress) return;
-   const COOLDOWN_HOURS = 24;
-   const monitoredCases = cases.filter(c => {
-     if (!c.monitoringEnabled) return false;
-     if (!c.monitoringLastRun) return true;
-     const hoursSince = (Date.now() - new Date(c.monitoringLastRun).getTime()) / (1000 * 60 * 60);
-     return hoursSince >= COOLDOWN_HOURS;
-   });
-   if (monitoredCases.length === 0) return;
-   monitoringRanRef.current = true;
-   runMonitoringRescreen(monitoredCases);
- }, [cases, monitoringInProgress, runMonitoringRescreen]);
-
- // Mark monitoring alerts as read when panel opens
- useEffect(() => {
-   if (showAlertsPanel && unreadAlertCount > 0) {
-     setCases(prev => prev.map(c => ({
-       ...c,
-       monitoringAlerts: (c.monitoringAlerts || []).map(a => ({ ...a, read: true }))
-     })));
-   }
- }, [showAlertsPanel]); // eslint-disable-line react-hooks/exhaustive-deps
-
  // Handle payment success redirect from Stripe
  useEffect(() => {
    const urlParams = new URLSearchParams(window.location.search);
@@ -838,6 +813,31 @@ export default function Marlowe() {
    }
    setMonitoringInProgress(false);
  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Auto re-screen monitored cases on app load (24h cooldown)
+ useEffect(() => {
+   if (!cases.length || monitoringRanRef.current || monitoringInProgress) return;
+   const COOLDOWN_HOURS = 24;
+   const monitoredCases = cases.filter(c => {
+     if (!c.monitoringEnabled) return false;
+     if (!c.monitoringLastRun) return true;
+     const hoursSince = (Date.now() - new Date(c.monitoringLastRun).getTime()) / (1000 * 60 * 60);
+     return hoursSince >= COOLDOWN_HOURS;
+   });
+   if (monitoredCases.length === 0) return;
+   monitoringRanRef.current = true;
+   runMonitoringRescreen(monitoredCases);
+ }, [cases, monitoringInProgress, runMonitoringRescreen]);
+
+ // Mark monitoring alerts as read when panel opens
+ useEffect(() => {
+   if (showAlertsPanel && unreadAlertCount > 0) {
+     setCases(prev => prev.map(c => ({
+       ...c,
+       monitoringAlerts: (c.monitoringAlerts || []).map(a => ({ ...a, read: true }))
+     })));
+   }
+ }, [showAlertsPanel]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Add PDF report to case
  const addPdfReportToCase = (caseId, reportData) => {
