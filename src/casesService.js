@@ -75,6 +75,9 @@ export const updateCase = async (caseId, updates) => {
       analysis_data: updates.analysisData || {},
       pdf_reports: updates.pdfReports || [],
       network_artifacts: updates.networkArtifacts || [],
+      monitoring_enabled: updates.monitoringEnabled || false,
+      monitoring_last_run: updates.monitoringLastRun || null,
+      monitoring_alerts: updates.monitoringAlerts || [],
     };
 
     const { data, error } = await supabase
@@ -172,6 +175,9 @@ const transformToSupabase = (caseData, userId) => ({
   analysis_data: caseData.analysisData || {},
   pdf_reports: caseData.pdfReports || [],
   network_artifacts: caseData.networkArtifacts || [],
+  monitoring_enabled: caseData.monitoringEnabled || false,
+  monitoring_last_run: caseData.monitoringLastRun || null,
+  monitoring_alerts: caseData.monitoringAlerts || [],
 });
 
 /**
@@ -190,6 +196,9 @@ const transformFromSupabase = (data) => ({
   analysisData: data.analysis_data || {},
   pdfReports: data.pdf_reports || [],
   networkArtifacts: data.network_artifacts || [],
+  monitoringEnabled: data.monitoring_enabled || false,
+  monitoringLastRun: data.monitoring_last_run || null,
+  monitoringAlerts: data.monitoring_alerts || [],
 });
 
 const casesService = {

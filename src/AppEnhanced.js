@@ -1,6 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Bell } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -369,6 +369,9 @@ export default function Marlowe() {
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
+ const [showAlertsPanel, setShowAlertsPanel] = useState(false);
+ const [monitoringInProgress, setMonitoringInProgress] = useState(false);
+ const monitoringRanRef = useRef(false);
 
  // Rotating headers for the main input page
  const investigateHeaders = [
@@ -425,6 +428,31 @@ export default function Marlowe() {
  };
  loadCases();
  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Auto re-screen monitored cases on app load (24h cooldown)
+ useEffect(() => {
+   if (!cases.length || monitoringRanRef.current || monitoringInProgress) return;
+   const COOLDOWN_HOURS = 24;
+   const monitoredCases = cases.filter(c => {
+     if (!c.monitoringEnabled) return false;
+     if (!c.monitoringLastRun) return true;
+     const hoursSince = (Date.now() - new Date(c.monitoringLastRun).getTime()) / (1000 * 60 * 60);
+     return hoursSince >= COOLDOWN_HOURS;
+   });
+   if (monitoredCases.length === 0) return;
+   monitoringRanRef.current = true;
+   runMonitoringRescreen(monitoredCases);
+ }, [cases, monitoringInProgress, runMonitoringRescreen]);
+
+ // Mark monitoring alerts as read when panel opens
+ useEffect(() => {
+   if (showAlertsPanel && unreadAlertCount > 0) {
+     setCases(prev => prev.map(c => ({
+       ...c,
+       monitoringAlerts: (c.monitoringAlerts || []).map(a => ({ ...a, read: true }))
+     })));
+   }
+ }, [showAlertsPanel]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Handle payment success redirect from Stripe
  useEffect(() => {
@@ -728,6 +756,88 @@ export default function Marlowe() {
      return updated;
    });
  };
+
+ // Toggle monitoring for a case
+ const toggleMonitoring = (caseId) => {
+   setCases(prev => {
+     const updated = prev.map(c =>
+       c.id === caseId ? { ...c, monitoringEnabled: !c.monitoringEnabled } : c
+     );
+     if (isSupabaseConfigured() && user) {
+       const toggled = updated.find(c => c.id === caseId);
+       if (toggled) syncCase(toggled).catch(console.error);
+     }
+     return updated;
+   });
+ };
+
+ // Aggregated monitoring alerts across all cases
+ const allMonitoringAlerts = useMemo(() => {
+   return cases.flatMap(c =>
+     (c.monitoringAlerts || []).map(a => ({ ...a, caseName: c.name, caseId: c.id }))
+   ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+ }, [cases]);
+
+ const unreadAlertCount = useMemo(() => {
+   return cases.reduce((sum, c) =>
+     sum + (c.monitoringAlerts || []).filter(a => !a.read).length, 0
+   );
+ }, [cases]);
+
+ // Run monitoring re-screen for cases with monitoring enabled
+ const runMonitoringRescreen = useCallback(async (monitoredCases) => {
+   setMonitoringInProgress(true);
+   for (const caseItem of monitoredCases) {
+     try {
+       const response = await fetch(`${API_BASE}/api/messages`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+           model: 'claude-sonnet-4-20250514',
+           max_tokens: 1024,
+           messages: [{
+             role: 'user',
+             content: `You are a compliance monitoring system. Provide an updated risk assessment for this entity based on your current knowledge of sanctions lists, PEP databases, adverse media, and regulatory actions.\n\nEntity: ${caseItem.name}\n\nProvide a brief updated assessment. You MUST state the OVERALL RISK: [CRITICAL|HIGH|MEDIUM|LOW] clearly on its own line.`
+           }]
+         })
+       });
+       if (!response.ok) continue;
+       const data = await response.json();
+       const aiText = data.content?.[0]?.text || '';
+       const newRisk = extractRiskLevel([{ role: 'assistant', content: aiText }]) || caseItem.riskLevel;
+       const previousRisk = caseItem.riskLevel;
+
+       const newAlert = (newRisk !== previousRisk) ? {
+         id: Math.random().toString(36).substr(2, 9),
+         timestamp: new Date().toISOString(),
+         previousRisk,
+         newRisk,
+         summary: aiText.substring(0, 300),
+         read: false
+       } : null;
+
+       setCases(prev => prev.map(c => {
+         if (c.id !== caseItem.id) return c;
+         const updatedCase = {
+           ...c,
+           riskLevel: newRisk,
+           monitoringLastRun: new Date().toISOString(),
+           monitoringAlerts: newAlert ? [...(c.monitoringAlerts || []), newAlert] : (c.monitoringAlerts || [])
+         };
+         if (isSupabaseConfigured() && user) {
+           syncCase(updatedCase).catch(console.error);
+         }
+         return updatedCase;
+       }));
+
+       // Delay between cases to avoid rate limiting
+       await new Promise(r => setTimeout(r, 1500));
+     } catch (err) {
+       console.error(`Monitoring re-screen failed for case ${caseItem.name}:`, err);
+     }
+   }
+   setMonitoringInProgress(false);
+ }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Add PDF report to case
  const addPdfReportToCase = (caseId, reportData) => {
@@ -7691,7 +7801,23 @@ ${analysisContext}`;
  <Calendar className="w-3.5 h-3.5" />
  {new Date(caseItem.createdAt).toLocaleDateString()}
  </span>
+ <button
+ onClick={(e) => { e.stopPropagation(); toggleMonitoring(caseItem.id); }}
+ className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors ${
+   caseItem.monitoringEnabled
+     ? 'bg-blue-100 text-blue-700 border border-blue-200'
+     : (darkMode ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')
+ }`}
+ >
+ <Eye className="w-3 h-3" />
+ {caseItem.monitoringEnabled ? 'Monitoring' : 'Monitor'}
+ </button>
  </div>
+ {caseItem.monitoringEnabled && caseItem.monitoringLastRun && (
+ <div className="text-[10px] text-gray-400 mt-1">
+ Last checked: {new Date(caseItem.monitoringLastRun).toLocaleDateString()}
+ </div>
+ )}
  </div>
 
  <div className="flex items-center gap-2">
@@ -8146,7 +8272,7 @@ ${analysisContext}`;
    <div className="grid grid-cols-2 gap-2">
    {[
    "Summarize entity risks",
-   "Create AML/KYC report",
+   "Create AML/KYC report for:",
    "Screen for sanctions",
    "Analyze transactions",
    "Identify red flags",
@@ -8348,6 +8474,24 @@ ${analysisContext}`;
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
+ </div>
+ </div>
+
+ {/* Monitoring Alerts Bell */}
+ <div className="relative group">
+ <button
+ onClick={() => setShowAlertsPanel(true)}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
+ >
+ <Bell className={`w-4 h-4 ${unreadAlertCount > 0 ? 'text-amber-500' : 'text-gray-400'} group-hover:text-gray-700 transition-colors`} />
+ {unreadAlertCount > 0 && (
+ <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
+ {unreadAlertCount}
+ </span>
+ )}
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Alerts</div>
  </div>
  </div>
 
@@ -10229,6 +10373,53 @@ ${analysisContext}`;
           darkMode={darkMode}
           userEmail={user?.email || ''}
         />
+
+        {/* Monitoring Alerts Slide-Over Panel */}
+        {showAlertsPanel && (
+        <div className="fixed inset-0 z-[60] flex justify-end">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAlertsPanel(false)} />
+          <div className={`relative w-96 h-full shadow-xl overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Monitoring Alerts</h3>
+                <button onClick={() => setShowAlertsPanel(false)} className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              {monitoringInProgress && (
+                <div className={`flex items-center gap-2 mb-4 px-3 py-2 rounded-lg text-sm ${darkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Re-screening monitored cases...
+                </div>
+              )}
+              {allMonitoringAlerts.length === 0 ? (
+                <div className={`text-center py-12 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <Bell className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No alerts yet</p>
+                  <p className="text-xs mt-1">Enable monitoring on cases to receive alerts when risk levels change.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {allMonitoringAlerts.map(alert => (
+                    <div key={alert.id} className={`p-3 rounded-lg border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{alert.caseName}</span>
+                        <span className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{new Date(alert.timestamp).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs mb-2">
+                        <span className={`px-1.5 py-0.5 rounded font-bold ${getRiskColor(alert.previousRisk)}`}>{alert.previousRisk}</span>
+                        <ArrowRight className="w-3 h-3 text-gray-400" />
+                        <span className={`px-1.5 py-0.5 rounded font-bold ${getRiskColor(alert.newRisk)}`}>{alert.newRisk}</span>
+                      </div>
+                      <p className={`text-xs leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{alert.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        )}
 
         {/* Footer */}
         <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
