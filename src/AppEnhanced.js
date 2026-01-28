@@ -8124,7 +8124,7 @@ ${analysisContext}`;
  </div>
 
  {/* Suggestions Dropdown */}
- <div className="mt-6 flex flex-col items-center relative">
+ <div className="mt-6 flex flex-col items-center">
  <div className="relative group">
  <button
    onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
@@ -8140,9 +8140,10 @@ ${analysisContext}`;
    </div>
  </div>
  </div>
+ </div>
  {suggestionsExpanded && (
- <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-top-2 duration-200">
-   <div className="grid grid-cols-2 gap-2 w-[420px]">
+ <div className="mt-3 w-full flex justify-center animate-in fade-in slide-in-from-top-2 duration-200">
+   <div className="grid grid-cols-2 gap-2">
    {[
    "Summarize entity risks",
    "Create AML/KYC report",
@@ -8165,7 +8166,6 @@ ${analysisContext}`;
    </div>
  </div>
  )}
- </div>
  </div>
  </div>
  ) : (
