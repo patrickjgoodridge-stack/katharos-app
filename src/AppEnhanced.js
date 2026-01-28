@@ -8141,26 +8141,28 @@ ${analysisContext}`;
  </div>
  </div>
  {suggestionsExpanded && (
- <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-10 grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
- {[
- "Summarize the risks of this company/person",
- "Make a standard AML/KYC report for:",
- "Screen this entity for sanctions",
- "Analyze this transaction pattern",
- "Identify red flags in these financials",
- "Map the ownership structure"
- ].map((suggestion, idx) => (
- <button
- key={idx}
- onClick={() => {
-   setConversationInput(suggestion);
-   setSuggestionsExpanded(false);
- }}
- className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors whitespace-nowrap`}
- >
- {suggestion}
- </button>
- ))}
+ <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-top-2 duration-200">
+   <div className="grid grid-cols-2 gap-2 w-[420px]">
+   {[
+   "Summarize entity risks",
+   "Create AML/KYC report",
+   "Screen for sanctions",
+   "Analyze transactions",
+   "Identify red flags",
+   "Map ownership"
+   ].map((suggestion, idx) => (
+   <button
+   key={idx}
+   onClick={() => {
+     setConversationInput(suggestion);
+     setSuggestionsExpanded(false);
+   }}
+   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center`}
+   >
+   {suggestion}
+   </button>
+   ))}
+   </div>
  </div>
  )}
  </div>
