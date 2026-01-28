@@ -930,13 +930,18 @@ export default function Marlowe() {
      /risks?\s+(?:of\s+)?(?:investing\s+in\s+|onboarding\s+|dealing\s+with\s+|working\s+with\s+)?(.+)/i,
      // "screen X", "check X", "analyze X"
      /(?:screen|check|analyze|investigate|review|assess|evaluate)\s+(.+)/i,
-     // "due diligence on X"
+     // "due diligence on X", "create AML/KYC report for: X", "make a report for X"
      /(?:due\s+diligence|dd|kyc|aml\s+check)\s+(?:on|for)\s+(.+)/i,
+     /(?:create|make|generate|build)\s+(?:a\s+)?(?:standard\s+)?(?:aml|kyc|compliance|aml\/kyc)[\s/]*(?:report|check|screening)\s+(?:for|on)[:\s]+(.+)/i,
      // "is X safe/risky"
      /(?:is|are)\s+(.+?)\s+(?:safe|risky|sanctioned|a\s+pep|high\s+risk).*$/i,
      // Last word(s) after "in" or "on" at end - "investing in X"
      /(?:investing|invest)\s+in\s+(.+)/i,
      /(?:onboarding|onboard)\s+(.+)/i,
+     // "summarize entity risks X", "summarize risks of X"
+     /(?:summarize|summary)\s+(?:entity\s+)?(?:risks?|risk\s+(?:of|for))\s+(?:of\s+|for\s+)?(.+)/i,
+     // "map ownership X", "map ownership of X"
+     /(?:map|show|display)\s+(?:the\s+)?ownership\s+(?:structure\s+)?(?:of\s+|for\s+)?(.+)/i,
    ];
 
    for (const pattern of prefixPatterns) {
