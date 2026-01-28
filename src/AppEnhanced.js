@@ -8220,7 +8220,7 @@ ${analysisContext}`;
  {!conversationStarted ? (
  /* Centered Input - Before Conversation */
  <div className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
- <div className="w-full max-w-2xl -mt-32">
+ <div className="w-full max-w-2xl -mt-32 relative">
  <h1
   className="text-3xl font-semibold text-center mb-8 tracking-tight text-amber-600 drop-shadow-sm"
   style={{
@@ -8287,7 +8287,7 @@ ${analysisContext}`;
  </div>
 
  {/* Suggestions Dropdown */}
- <div className="mt-6 flex flex-col items-center relative">
+ <div className="mt-6 flex justify-center">
  <div className="relative group">
  <button
    onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
@@ -8303,8 +8303,9 @@ ${analysisContext}`;
    </div>
  </div>
  </div>
+ </div>
  {suggestionsExpanded && (
- <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+ <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="grid grid-cols-2 gap-2">
    {[
    "Summarize entity risks",
@@ -8328,7 +8329,6 @@ ${analysisContext}`;
    </div>
  </div>
  )}
- </div>
  </div>
  </div>
  ) : (
