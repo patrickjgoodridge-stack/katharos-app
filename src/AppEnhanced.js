@@ -3681,9 +3681,9 @@ Key media coverage and investigations:
 
 (List ALL relevant financial crime typologies - typically 4-8)
 
-## ONBOARDING DECISION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH CAUTION]
+## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH CAUTION]
 
-[Brief explanation of why this decision was made - 1-2 sentences]
+[Brief explanation of why this recommendation was made - 1-2 sentences]
 
 ## DOCUMENTS TO REQUEST
 
