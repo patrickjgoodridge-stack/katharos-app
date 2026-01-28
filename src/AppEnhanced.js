@@ -8055,7 +8055,7 @@ ${analysisContext}`;
 >{currentHeader}</h1>
 
  {/* Centered Input Box */}
- <div className={`${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-400'} rounded-lg border-2 p-4 shadow-sm`}>
+ <div className={`${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'} rounded-2xl border p-5 shadow-lg`}>
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
