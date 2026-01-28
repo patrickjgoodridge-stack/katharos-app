@@ -230,7 +230,7 @@ const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, isPersonalWorkspace } = useAuth();
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
