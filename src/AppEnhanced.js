@@ -230,7 +230,7 @@ const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus } = useAuth();
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, isPersonalWorkspace } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
@@ -420,7 +420,7 @@ export default function Marlowe() {
  useEffect(() => {
  const loadCases = async () => {
    if (isSupabaseConfigured() && user) {
-     const { data, error } = await fetchUserCases();
+     const { data, error } = await fetchUserCases(workspaceId);
      if (data && !error) {
        setCases(data);
      }
@@ -669,7 +669,9 @@ export default function Marlowe() {
      conversationTranscript: [], // Store full conversation
      pdfReports: [], // Store generated PDF reports
      networkArtifacts: [], // Store network graph snapshots
-     riskLevel: 'UNKNOWN'
+     riskLevel: 'UNKNOWN',
+     emailDomain: workspaceId || '',
+     createdByEmail: user?.email || '',
    };
 
    setCases(prev => [newCase, ...prev]);
@@ -3700,27 +3702,43 @@ YOU MUST:
 ✓ Include relevant social media presence and activity (LinkedIn, Twitter/X, Reddit, public posts, controversies)
 ✓ Provide a COMPLETE risk assessment based on what you know
 ✓ Cite authoritative sources WITH HYPERLINKS where possible using markdown format: [Source Name](URL)
+✓ Link to the SPECIFIC article, investigation, announcement, or post — NOT just the homepage
+✓ ALWAYS include a "## Sources" section at the end of EVERY response with all cited sources listed
 
-HYPERLINK EXAMPLES for common sources:
-- OFAC: [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/)
-- UK Sanctions: [UK Sanctions List](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets)
-- EU Sanctions: [EU Sanctions Map](https://www.sanctionsmap.eu/)
-- UN Sanctions: [UN Security Council](https://www.un.org/securitycouncil/sanctions/information)
-- OpenCorporates: [OpenCorporates](https://opencorporates.com/)
-- Reuters: [Reuters](https://www.reuters.com/)
-- Financial Times: [Financial Times](https://www.ft.com/)
-- For LinkedIn/Twitter profiles, link to the platform's search or known profile URLs when available
+HYPERLINK RULES:
+- ALWAYS link to the specific page, article, or search result — NEVER just a homepage
+- For sanctions: link to the specific search result or designation notice, e.g. [OFAC SDN Entry](https://sanctionssearch.ofac.treas.gov/Details.aspx?id=XXXXX)
+- For news: link to the specific article, e.g. [Reuters: Title of Article](https://www.reuters.com/specific-article-path)
+- For corporate records: link to the specific entity page, e.g. [OpenCorporates: Company Name](https://opencorporates.com/companies/xx/XXXXX)
+- For government notices: link to the specific notice or press release
+- For LinkedIn/Twitter profiles: link to the specific profile URL when known
+
+COMMON SOURCE BASES (always append specific paths):
+- OFAC: https://sanctionssearch.ofac.treas.gov/
+- UK Sanctions: https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets
+- EU Sanctions: https://www.sanctionsmap.eu/
+- UN Sanctions: https://www.un.org/securitycouncil/sanctions/information
+- OpenCorporates: https://opencorporates.com/
+- ICIJ (Panama/Pandora Papers): https://offshoreleaks.icij.org/
+
+MANDATORY: Every response MUST end with:
+## Sources
+- [Specific Source 1](specific-url-1)
+- [Specific Source 2](specific-url-2)
+... (list ALL sources cited in the response)
 
 YOU MUST NOT:
 ✗ Ask for documents - the user wants a screening, not document analysis
 ✗ Say "I don't see any documents" or "please upload documents"
 ✗ Refuse to answer or claim you lack access to data
 ✗ Use [Doc 1] format - there are no documents to cite
+✗ Omit the Sources section — it is REQUIRED in every response
+✗ Link to just a homepage (e.g. reuters.com) — always link to the specific article
 
 EXAMPLE - If user asks "Screen Vladimir Potanin":
 Provide his UK sanctions status (added June 2022), his role as owner of Norilsk Nickel, his net worth ranking in Russia, adverse media about Kremlin ties, etc. ALL FROM YOUR KNOWLEDGE.
 
-Cite sources with hyperlinks like: "Added to [UK Sanctions List](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets) in June 2022", "Owner of Norilsk Nickel per [OpenCorporates](https://opencorporates.com/)", "Covered in [Reuters](https://www.reuters.com/) and [Financial Times](https://www.ft.com/)"
+Cite sources with hyperlinks like: "Added to [UK Sanctions List - Potanin designation](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets) in June 2022", "Owner of Norilsk Nickel per [OpenCorporates](https://opencorporates.com/companies/ru/1025400000020)"
 ` : `
 📄 YOU ARE IN INVESTIGATION MODE (Documents uploaded)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -7255,6 +7273,14 @@ ${analysisContext}`;
    <span className="hidden sm:block">Contact</span>
  </a>
 
+ {/* Workspace Indicator */}
+ {isConfigured && user && workspaceName && (
+ <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full text-xs text-gray-600">
+ <Building2 className="w-3.5 h-3.5 text-amber-500" />
+ <span className="font-medium">{workspaceName}</span>
+ </div>
+ )}
+
  {/* User Menu */}
  {isConfigured && user && (
  <div className="relative group">
@@ -7806,6 +7832,12 @@ ${analysisContext}`;
  <Calendar className="w-3.5 h-3.5" />
  {new Date(caseItem.createdAt).toLocaleDateString()}
  </span>
+ {caseItem.createdByEmail && (
+ <span className="flex items-center gap-1" title={caseItem.createdByEmail}>
+ <User className="w-3.5 h-3.5" />
+ {caseItem.createdByEmail.split('@')[0]}
+ </span>
+ )}
  <button
  onClick={(e) => { e.stopPropagation(); toggleMonitoring(caseItem.id); }}
  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors ${

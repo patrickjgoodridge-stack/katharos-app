@@ -2,19 +2,26 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 /**
- * Fetch all cases for the current user
+ * Fetch all cases for a workspace (filtered by email domain or personal email)
  */
-export const fetchUserCases = async () => {
+export const fetchUserCases = async (workspaceId) => {
   if (!isSupabaseConfigured()) {
     console.log('Supabase not configured, using local storage');
     return { data: null, error: null };
   }
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('cases')
       .select('*')
       .order('updated_at', { ascending: false });
+
+    // Filter by workspace if provided
+    if (workspaceId) {
+      query = query.eq('email_domain', workspaceId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -36,10 +43,7 @@ export const createCase = async (caseData) => {
   }
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const supabaseData = transformToSupabase(caseData, user.id);
+    const supabaseData = transformToSupabase(caseData);
 
     const { data, error } = await supabase
       .from('cases')
@@ -78,6 +82,8 @@ export const updateCase = async (caseId, updates) => {
       monitoring_enabled: updates.monitoringEnabled || false,
       monitoring_last_run: updates.monitoringLastRun || null,
       monitoring_alerts: updates.monitoringAlerts || [],
+      email_domain: updates.emailDomain || '',
+      created_by_email: updates.createdByEmail || '',
     };
 
     const { data, error } = await supabase
@@ -128,9 +134,6 @@ export const syncCase = async (caseData) => {
   }
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
     // Check if case exists in Supabase
     const { data: existing } = await supabase
       .from('cases')
@@ -143,7 +146,7 @@ export const syncCase = async (caseData) => {
       return await updateCase(caseData.id, caseData);
     } else {
       // Create new case with the same ID
-      const supabaseData = transformToSupabase(caseData, user.id);
+      const supabaseData = transformToSupabase(caseData);
 
       const { data, error } = await supabase
         .from('cases')
@@ -164,8 +167,7 @@ export const syncCase = async (caseData) => {
 /**
  * Transform app case format to Supabase format
  */
-const transformToSupabase = (caseData, userId) => ({
-  user_id: userId,
+const transformToSupabase = (caseData) => ({
   name: caseData.name,
   description: caseData.description || '',
   risk_level: caseData.riskLevel || 'UNKNOWN',
@@ -178,6 +180,8 @@ const transformToSupabase = (caseData, userId) => ({
   monitoring_enabled: caseData.monitoringEnabled || false,
   monitoring_last_run: caseData.monitoringLastRun || null,
   monitoring_alerts: caseData.monitoringAlerts || [],
+  email_domain: caseData.emailDomain || '',
+  created_by_email: caseData.createdByEmail || '',
 });
 
 /**
@@ -199,6 +203,8 @@ const transformFromSupabase = (data) => ({
   monitoringEnabled: data.monitoring_enabled || false,
   monitoringLastRun: data.monitoring_last_run || null,
   monitoringAlerts: data.monitoring_alerts || [],
+  emailDomain: data.email_domain || '',
+  createdByEmail: data.created_by_email || '',
 });
 
 const casesService = {

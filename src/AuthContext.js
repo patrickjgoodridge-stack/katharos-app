@@ -6,6 +6,31 @@ const AuthContext = createContext({});
 
 const DAILY_FREE_LIMIT = 5;
 
+const PERSONAL_DOMAINS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',
+  'aol.com', 'protonmail.com', 'mail.com', 'zoho.com', 'yandex.com',
+  'live.com', 'msn.com', 'me.com', 'mac.com'
+];
+
+const extractDomain = (email) => email?.split('@')[1]?.toLowerCase() || '';
+const isPersonalEmail = (domain) => PERSONAL_DOMAINS.includes(domain);
+
+// Get workspace ID: domain for work emails, full email for personal
+const getWorkspaceId = (email) => {
+  if (!email) return null;
+  const domain = extractDomain(email);
+  return isPersonalEmail(domain) ? email.toLowerCase() : domain;
+};
+
+// Get display name for workspace
+const getWorkspaceName = (email) => {
+  if (!email) return '';
+  const domain = extractDomain(email);
+  if (isPersonalEmail(domain)) return 'Personal Workspace';
+  const name = domain.split('.')[0];
+  return name.charAt(0).toUpperCase() + name.slice(1) + ' Workspace';
+};
+
 export const useAuth = () => {
   return useContext(AuthContext);
 };
@@ -203,6 +228,11 @@ export const AuthProvider = ({ children }) => {
     trackQuery,
     isAuthenticated: !!userInfo,
     isConfigured: true, // Email gate is always enabled
+    // Workspace features
+    domain: userInfo ? extractDomain(userInfo.email) : null,
+    workspaceId: userInfo ? getWorkspaceId(userInfo.email) : null,
+    workspaceName: userInfo ? getWorkspaceName(userInfo.email) : '',
+    isPersonalWorkspace: userInfo ? isPersonalEmail(extractDomain(userInfo.email)) : true,
     // Usage limit features
     isPaid,
     canScreen,
