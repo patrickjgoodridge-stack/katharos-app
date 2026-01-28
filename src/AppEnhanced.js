@@ -3582,9 +3582,9 @@ YOU MUST:
 ✓ Use your training knowledge of sanctions lists (OFAC, UK, EU, UN)
 ✓ Use your knowledge of PEPs (Politically Exposed Persons)
 ✓ Use your knowledge of major adverse media and public information
-✓ Include relevant social media presence and activity (LinkedIn, Twitter/X, public posts, controversies)
+✓ Include relevant social media presence and activity (LinkedIn, Twitter/X, Reddit, public posts, controversies)
 ✓ Provide a COMPLETE risk assessment based on what you know
-✓ Cite authoritative sources by name (e.g., "UK Sanctions List", "Reuters", "OFAC SDN", "LinkedIn profile", "Twitter/X")
+✓ Cite authoritative sources by name (e.g., "UK Sanctions List", "Reuters", "OFAC SDN", "LinkedIn profile", "Twitter/X", "Reddit")
 
 YOU MUST NOT:
 ✗ Ask for documents - the user wants a screening, not document analysis
