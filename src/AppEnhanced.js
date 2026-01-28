@@ -3584,7 +3584,17 @@ YOU MUST:
 ✓ Use your knowledge of major adverse media and public information
 ✓ Include relevant social media presence and activity (LinkedIn, Twitter/X, Reddit, public posts, controversies)
 ✓ Provide a COMPLETE risk assessment based on what you know
-✓ Cite authoritative sources by name (e.g., "UK Sanctions List", "Reuters", "OFAC SDN", "LinkedIn profile", "Twitter/X", "Reddit")
+✓ Cite authoritative sources WITH HYPERLINKS where possible using markdown format: [Source Name](URL)
+
+HYPERLINK EXAMPLES for common sources:
+- OFAC: [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/)
+- UK Sanctions: [UK Sanctions List](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets)
+- EU Sanctions: [EU Sanctions Map](https://www.sanctionsmap.eu/)
+- UN Sanctions: [UN Security Council](https://www.un.org/securitycouncil/sanctions/information)
+- OpenCorporates: [OpenCorporates](https://opencorporates.com/)
+- Reuters: [Reuters](https://www.reuters.com/)
+- Financial Times: [Financial Times](https://www.ft.com/)
+- For LinkedIn/Twitter profiles, link to the platform's search or known profile URLs when available
 
 YOU MUST NOT:
 ✗ Ask for documents - the user wants a screening, not document analysis
@@ -3595,7 +3605,7 @@ YOU MUST NOT:
 EXAMPLE - If user asks "Screen Vladimir Potanin":
 Provide his UK sanctions status (added June 2022), his role as owner of Norilsk Nickel, his net worth ranking in Russia, adverse media about Kremlin ties, etc. ALL FROM YOUR KNOWLEDGE.
 
-Cite sources like: "Added to UK sanctions list in June 2022 (UK HM Treasury)", "Owner of Norilsk Nickel (OpenCorporates, public filings)", "Covered extensively in Reuters, Financial Times"
+Cite sources with hyperlinks like: "Added to [UK Sanctions List](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets) in June 2022", "Owner of Norilsk Nickel per [OpenCorporates](https://opencorporates.com/)", "Covered in [Reuters](https://www.reuters.com/) and [Financial Times](https://www.ft.com/)"
 ` : `
 📄 YOU ARE IN INVESTIGATION MODE (Documents uploaded)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -8131,7 +8141,7 @@ ${analysisContext}`;
  </div>
  </div>
  {suggestionsExpanded && (
- <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-10 flex flex-wrap justify-center gap-2 max-w-xl animate-in fade-in slide-in-from-top-2 duration-200">
+ <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-10 grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
  {[
  "Summarize the risks of this company/person",
  "Make a standard AML/KYC report for:",
@@ -8146,7 +8156,7 @@ ${analysisContext}`;
    setConversationInput(suggestion);
    setSuggestionsExpanded(false);
  }}
- className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors`}
+ className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors whitespace-nowrap`}
  >
  {suggestion}
  </button>
