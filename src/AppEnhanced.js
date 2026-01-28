@@ -8287,7 +8287,7 @@ ${analysisContext}`;
  </div>
 
  {/* Suggestions Dropdown */}
- <div className="mt-6 flex flex-col items-center">
+ <div className="mt-6 flex flex-col items-center relative">
  <div className="relative group">
  <button
    onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
@@ -8303,9 +8303,8 @@ ${analysisContext}`;
    </div>
  </div>
  </div>
- </div>
  {suggestionsExpanded && (
- <div className="mt-3 w-full flex justify-center animate-in fade-in slide-in-from-top-2 duration-200">
+ <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
    <div className="grid grid-cols-2 gap-2">
    {[
    "Summarize entity risks",
@@ -8321,7 +8320,7 @@ ${analysisContext}`;
      setConversationInput(suggestion);
      setSuggestionsExpanded(false);
    }}
-   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center`}
+   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
    >
    {suggestion}
    </button>
@@ -8329,6 +8328,7 @@ ${analysisContext}`;
    </div>
  </div>
  )}
+ </div>
  </div>
  </div>
  ) : (
