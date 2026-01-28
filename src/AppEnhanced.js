@@ -681,13 +681,42 @@ export default function Marlowe() {
  };
 
  // Update case with new conversation messages
+ // Extract risk level from message content
+ const extractRiskLevel = (messages) => {
+   // Look through messages from newest to oldest for OVERALL RISK
+   for (let i = messages.length - 1; i >= 0; i--) {
+     const msg = messages[i];
+     if (msg.role === 'assistant' && msg.content) {
+       // Match patterns like "## OVERALL RISK: CRITICAL" or "OVERALL RISK: HIGH"
+       const riskMatch = msg.content.match(/OVERALL RISK[:\s]+\*?\*?(CRITICAL|HIGH|MEDIUM|LOW)/i);
+       if (riskMatch) {
+         return riskMatch[1].toUpperCase();
+       }
+     }
+   }
+   return null;
+ };
+
  const updateCaseTranscript = (caseId, messages) => {
    setCases(prev => {
-     const updated = prev.map(c =>
-       c.id === caseId
-         ? { ...c, conversationTranscript: messages, updatedAt: new Date().toISOString() }
-         : c
-     );
+     // Extract risk level from the latest messages
+     const extractedRisk = extractRiskLevel(messages);
+
+     const updated = prev.map(c => {
+       if (c.id === caseId) {
+         const updates = {
+           ...c,
+           conversationTranscript: messages,
+           updatedAt: new Date().toISOString()
+         };
+         // Update risk level if we extracted one (and it's not already set or is UNKNOWN)
+         if (extractedRisk && (c.riskLevel === 'UNKNOWN' || !c.riskLevel || extractedRisk !== c.riskLevel)) {
+           updates.riskLevel = extractedRisk;
+         }
+         return updates;
+       }
+       return c;
+     });
      // Sync update to Supabase (inside updater to avoid stale closure)
      if (isSupabaseConfigured() && user) {
        const updatedCase = updated.find(c => c.id === caseId);
