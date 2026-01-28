@@ -366,6 +366,7 @@ export default function Marlowe() {
  const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
  const [copiedMessageId, setCopiedMessageId] = useState(null);
+ const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
 
@@ -8111,8 +8112,25 @@ ${analysisContext}`;
  </div>
  </div>
 
- {/* Suggestions */}
- <div className="flex flex-wrap justify-center gap-2 mt-6">
+ {/* Suggestions Dropdown */}
+ <div className="mt-6 flex flex-col items-center">
+ <div className="relative group">
+ <button
+   onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border-gray-300'} border`}
+ >
+   <Lightbulb className="w-4 h-4" />
+   <ChevronDown className={`w-4 h-4 transition-transform ${suggestionsExpanded ? 'rotate-180' : ''}`} />
+ </button>
+ {/* Tooltip */}
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+   <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>
+     Suggestions
+   </div>
+ </div>
+ </div>
+ {suggestionsExpanded && (
+ <div className="flex flex-wrap justify-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
  {[
  "Summarize the risks of this company/person",
  "Make a standard AML/KYC report for:",
@@ -8123,12 +8141,17 @@ ${analysisContext}`;
  ].map((suggestion, idx) => (
  <button
  key={idx}
- onClick={() => setConversationInput(suggestion)}
- className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-400 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors`}
+ onClick={() => {
+   setConversationInput(suggestion);
+   setSuggestionsExpanded(false);
+ }}
+ className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors`}
  >
  {suggestion}
  </button>
  ))}
+ </div>
+ )}
  </div>
  </div>
  </div>
