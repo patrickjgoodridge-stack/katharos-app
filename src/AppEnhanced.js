@@ -4,9 +4,9 @@ import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDow
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
-import ForceGraph2D from 'react-force-graph-2d';
 import { pdf } from '@react-pdf/renderer';
 import ComplianceReportPDF from './ComplianceReportPDF';
+import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
@@ -21,212 +21,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
 
 // ============================================================================
-// OWNERSHIP NETWORK GRAPH COMPONENT - Visual network representation
-// ============================================================================
-const OwnershipNetworkGraph = ({ centralEntity, ownedCompanies, beneficialOwners, corporateNetwork, height = 350 }) => {
-  const graphRef = useRef();
-
-  // Build graph data
-  const graphData = React.useMemo(() => {
-    const nodes = [];
-    const links = [];
-
-    // Add central entity node
-    const centralId = 'central';
-    const isPerson = ownedCompanies && ownedCompanies.length > 0;
-    nodes.push({
-      id: centralId,
-      name: centralEntity || 'Subject',
-      type: isPerson ? 'PERSON' : 'ORGANIZATION',
-      isCentral: true,
-      riskLevel: 'SUBJECT'
-    });
-
-    // For individuals: show owned companies
-    if (ownedCompanies && ownedCompanies.length > 0) {
-      ownedCompanies.forEach((company, idx) => {
-        const nodeId = `owned-${idx}`;
-        nodes.push({
-          id: nodeId,
-          name: company.company,
-          type: 'ORGANIZATION',
-          ownershipPercent: company.ownershipPercent,
-          sanctioned: company.sanctionedOwner,
-          riskLevel: company.sanctionedOwner ? 'CRITICAL' :
-                     company.ownershipPercent >= 50 ? 'HIGH' :
-                     company.ownershipPercent >= 25 ? 'MEDIUM' : 'LOW'
-        });
-        links.push({
-          source: centralId,
-          target: nodeId,
-          label: `${company.ownershipPercent}%`,
-          ownershipPercent: company.ownershipPercent,
-          ownershipType: company.ownershipType
-        });
-      });
-    }
-
-    // For organizations: show beneficial owners
-    if (beneficialOwners && beneficialOwners.length > 0) {
-      beneficialOwners.forEach((owner, idx) => {
-        const nodeId = `owner-${idx}`;
-        const pct = owner.ownershipPercent || owner.percent || 0;
-        nodes.push({
-          id: nodeId,
-          name: owner.name,
-          type: 'PERSON',
-          ownershipPercent: pct,
-          sanctioned: owner.sanctionStatus === 'SANCTIONED',
-          riskLevel: owner.sanctionStatus === 'SANCTIONED' ? 'CRITICAL' :
-                     pct >= 50 ? 'HIGH' : pct >= 25 ? 'MEDIUM' : 'LOW'
-        });
-        links.push({
-          source: nodeId,
-          target: centralId,
-          label: `${pct}%`,
-          ownershipPercent: pct
-        });
-      });
-    }
-
-    // Add corporate network entities
-    if (corporateNetwork && corporateNetwork.length > 0) {
-      corporateNetwork.forEach((related, idx) => {
-        const nodeId = `corp-${idx}`;
-        nodes.push({
-          id: nodeId,
-          name: related.entity,
-          type: 'ORGANIZATION',
-          relationship: related.relationship,
-          sanctioned: related.sanctionExposure === 'DIRECT',
-          riskLevel: related.sanctionExposure === 'DIRECT' ? 'CRITICAL' :
-                     related.sanctionExposure === 'INDIRECT' ? 'HIGH' : 'LOW'
-        });
-        links.push({
-          source: centralId,
-          target: nodeId,
-          label: related.relationship,
-          relationship: related.relationship,
-          ownershipPercent: related.ownershipPercent
-        });
-      });
-    }
-
-    return { nodes, links };
-  }, [centralEntity, ownedCompanies, beneficialOwners, corporateNetwork]);
-
-  // Get node color based on risk/status
-  const getNodeColor = (node) => {
-    if (node.isCentral) return '#f59e0b'; // Amber for central entity
-    if (node.sanctioned) return '#dc2626'; // Red for sanctioned
-    if (node.riskLevel === 'CRITICAL') return '#dc2626';
-    if (node.riskLevel === 'HIGH') return '#f43f5e';
-    if (node.riskLevel === 'MEDIUM') return '#f59e0b';
-    return '#10b981'; // Green for low risk
-  };
-
-  // Get link color based on ownership percentage
-  const getLinkColor = (link) => {
-    if (link.ownershipPercent >= 50) return '#dc2626'; // Red for controlling interest
-    if (link.ownershipPercent >= 25) return '#f59e0b'; // Amber for significant
-    return '#94a3b8'; // Gray for minor
-  };
-
-  if (graphData.nodes.length <= 1) {
-    return null;
-  }
-
-  return (
-    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden" style={{ height }}>
-      <ForceGraph2D
-        ref={graphRef}
-        graphData={graphData}
-        nodeLabel={node => `${node.name}${node.ownershipPercent ? `\n${node.ownershipPercent}%` : ''}`}
-        nodeColor={getNodeColor}
-        nodeVal={node => node.isCentral ? 12 : 8}
-        nodeCanvasObject={(node, ctx, globalScale) => {
-          const label = node.name;
-          const fontSize = node.isCentral ? 12 / globalScale : 10 / globalScale;
-          const nodeSize = node.isCentral ? 12 : 8;
-
-          // Draw node circle
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI, false);
-          ctx.fillStyle = getNodeColor(node);
-          ctx.fill();
-
-          // Draw border for sanctioned nodes
-          if (node.sanctioned) {
-            ctx.strokeStyle = '#7f1d1d';
-            ctx.lineWidth = 2 / globalScale;
-            ctx.stroke();
-          }
-
-          // Draw person icon for individuals
-          if (node.type === 'PERSON') {
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(node.x, node.y - 2, 3 / globalScale, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(node.x, node.y + 4, 5 / globalScale, Math.PI, 0);
-            ctx.fill();
-          }
-
-          // Draw building icon for organizations
-          if (node.type === 'ORGANIZATION' && !node.isCentral) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(node.x - 3, node.y - 4, 6, 8);
-          }
-
-          // Draw label below node
-          ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillStyle = node.isCentral ? '#0f172a' : '#475569';
-
-          // Truncate long names
-          const maxLen = 18;
-          const displayLabel = label.length > maxLen ? label.substring(0, maxLen) + '...' : label;
-          ctx.fillText(displayLabel, node.x, node.y + nodeSize + 4);
-        }}
-        linkColor={getLinkColor}
-        linkWidth={link => link.ownershipPercent >= 50 ? 3 : link.ownershipPercent >= 25 ? 2 : 1}
-        linkDirectionalArrowLength={6}
-        linkDirectionalArrowRelPos={0.9}
-        linkCanvasObjectMode={() => 'after'}
-        linkCanvasObject={(link, ctx, globalScale) => {
-          if (!link.label) return;
-          const fontSize = 9 / globalScale;
-          ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
-          ctx.fillStyle = '#64748b';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-
-          // Position label at midpoint
-          const midX = (link.source.x + link.target.x) / 2;
-          const midY = (link.source.y + link.target.y) / 2;
-
-          // Draw background
-          const textWidth = ctx.measureText(link.label).width;
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillRect(midX - textWidth/2 - 2, midY - fontSize/2 - 1, textWidth + 4, fontSize + 2);
-
-          // Draw text
-          ctx.fillStyle = link.ownershipPercent >= 50 ? '#dc2626' : '#64748b';
-          ctx.fillText(link.label, midX, midY);
-        }}
-        d3VelocityDecay={0.4}
-        d3AlphaDecay={0.05}
-        cooldownTime={1500}
-        width={undefined}
-        height={height}
-        backgroundColor="#f9fafb"
-      />
-    </div>
-  );
-};
-
 // Main Marlowe Component
 export default function Marlowe() {
  // Auth state - must be called before any conditional returns
@@ -6900,7 +6694,7 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- <OwnershipNetworkGraph
+ <NetworkGraph
  centralEntity={kycResults.subject?.name || kycQuery}
  ownedCompanies={kycResults.ownedCompanies}
  height={350}
@@ -6929,7 +6723,7 @@ ${analysisContext}`;
  <Network className="w-4 h-4" />
  Corporate Network ({kycResults.ownershipAnalysis.corporateStructure.length} Related {kycResults.ownershipAnalysis.corporateStructure.length === 1 ? 'Entity' : 'Entities'})
  </h5>
- <OwnershipNetworkGraph
+ <NetworkGraph
  centralEntity={kycResults.subject?.name || kycQuery}
  corporateNetwork={kycResults.ownershipAnalysis.corporateStructure}
  height={300}
@@ -9355,6 +9149,20 @@ ${analysisContext}`;
 
  {/* Entities Tab */}
  {activeTab === 'entities' && (
+ <div>
+ {/* Entity Relationship Graph */}
+ {analysis.entities?.length > 1 && (
+ <div className="mb-6">
+ <NetworkGraph
+   entities={analysis.entities}
+   relationships={analysis.relationships}
+   selectedEntityId={selectedEntity?.id}
+   onNodeClick={(entity) => setSelectedEntity(entity)}
+   darkMode={darkMode}
+   height={350}
+ />
+ </div>
+ )}
  <div className="grid lg:grid-cols-3 gap-6">
  {/* Entity List */}
  <div className="lg:col-span-1 bg-white border border-gray-200 rounded-xl p-4">
@@ -9500,7 +9308,7 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- <OwnershipNetworkGraph
+ <NetworkGraph
  centralEntity={selectedEntity.name}
  ownedCompanies={selectedEntity.ownedCompanies}
  height={280}
@@ -9529,7 +9337,7 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- <OwnershipNetworkGraph
+ <NetworkGraph
  centralEntity={selectedEntity.name}
  beneficialOwners={selectedEntity.beneficialOwners}
  height={280}
@@ -9558,7 +9366,7 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- <OwnershipNetworkGraph
+ <NetworkGraph
  centralEntity={selectedEntity.name}
  corporateNetwork={selectedEntity.corporateNetwork}
  height={280}
@@ -9607,6 +9415,7 @@ ${analysisContext}`;
  <p className="text-gray-500">Select an entity to view details</p>
  </div>
  )}
+ </div>
  </div>
  </div>
  )}
@@ -9780,217 +9589,14 @@ ${analysisContext}`;
  Visual representation of all entities and their relationships. Click on any node to select the entity.
  </p>
 
- <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden" style={{ height: '600px' }}>
- <ForceGraph2D
- graphData={(() => {
- const nodes = [];
- const links = [];
- const nodeIdMap = new Map();
-
- // Add entity nodes
- if (analysis.entities) {
- analysis.entities.forEach(entity => {
- nodes.push({
- id: entity.id,
- name: entity.name,
- type: entity.type,
- riskLevel: entity.riskLevel || 'LOW',
- sanctionStatus: entity.sanctionStatus,
- role: entity.role
- });
- nodeIdMap.set(entity.name?.toLowerCase(), entity.id);
- });
- }
-
- const validNodeIds = new Set(nodes.map(n => n.id));
-
- // Add explicit relationships
- if (analysis.relationships) {
- analysis.relationships.forEach(rel => {
- // Support both old format (from/to) and new format (entity1/entity2)
- const entity1 = rel.from || rel.entity1;
- const entity2 = rel.to || rel.entity2;
- const relType = rel.type || rel.relationshipType || 'connected to';
-
- // Try to match by ID first, then by name
- let sourceId = validNodeIds.has(entity1) ? entity1 : nodeIdMap.get(entity1?.toLowerCase());
- let targetId = validNodeIds.has(entity2) ? entity2 : nodeIdMap.get(entity2?.toLowerCase());
-
- if (sourceId && targetId && validNodeIds.has(sourceId) && validNodeIds.has(targetId)) {
- links.push({
- source: sourceId,
- target: targetId,
- relationship: relType + (rel.percentage ? ` (${rel.percentage}%)` : ''),
- description: rel.description,
- strength: relType?.includes('owns') || relType?.includes('control') || rel.percentage >= 50 ? 3 : 1
- });
- }
- });
- }
-
- // Add ownership connections from entity data
- if (analysis.entities) {
- analysis.entities.forEach(entity => {
- // Ownership links
- if (entity.ownedCompanies?.length > 0) {
- entity.ownedCompanies.forEach(company => {
- const targetId = nodeIdMap.get(company.company?.toLowerCase());
- if (targetId && validNodeIds.has(entity.id)) {
- links.push({
- source: entity.id,
- target: targetId,
- relationship: `owns ${company.ownershipPercent}%`,
- description: `Ownership: ${company.ownershipPercent}%`,
- strength: company.ownershipPercent >= 50 ? 4 : 2,
- isOwnership: true
- });
- }
- });
- }
-
- // Beneficial ownership
- if (entity.beneficialOwners?.length > 0) {
- entity.beneficialOwners.forEach(owner => {
- const sourceId = nodeIdMap.get(owner.name?.toLowerCase());
- if (sourceId && validNodeIds.has(entity.id)) {
- const pct = owner.ownershipPercent || owner.percent || 0;
- links.push({
- source: sourceId,
- target: entity.id,
- relationship: `owns ${pct}%`,
- description: `Beneficial owner: ${pct}%`,
- strength: pct >= 50 ? 4 : 2,
- sanctioned: owner.sanctionStatus === 'MATCH'
- });
- }
- });
- }
-
- // Corporate network connections
- if (entity.corporateNetwork?.length > 0) {
- entity.corporateNetwork.forEach(related => {
- const targetId = nodeIdMap.get(related.entity?.toLowerCase());
- if (targetId && validNodeIds.has(entity.id) && validNodeIds.has(targetId)) {
- links.push({
- source: entity.id,
- target: targetId,
- relationship: related.relationship || 'related to',
- description: `Common owner: ${related.commonOwner || 'Unknown'}`,
- strength: related.sanctionExposure === 'DIRECT' ? 4 : 2,
- sanctioned: related.sanctionExposure === 'DIRECT'
- });
- }
- });
- }
- });
- }
-
- // Add connections from ownershipChains if available
- if (analysis.ownershipChains) {
- analysis.ownershipChains.forEach(chain => {
- const ownerId = nodeIdMap.get(chain.ultimateBeneficialOwner?.toLowerCase());
- const entityId = nodeIdMap.get(chain.controlledEntity?.toLowerCase());
- if (ownerId && entityId && validNodeIds.has(ownerId) && validNodeIds.has(entityId)) {
- links.push({
- source: ownerId,
- target: entityId,
- relationship: `controls ${chain.ownershipPercent}%`,
- description: chain.chain || `Ownership: ${chain.ownershipPercent}%`,
- strength: chain.ownershipPercent >= 50 ? 4 : 2,
- isOwnership: true
- });
- }
- });
- }
-
- // Remove duplicates
- const linkMap = new Map();
- links.forEach(link => {
- const key = `${link.source}-${link.target}`;
- if (!linkMap.has(key) || link.strength > linkMap.get(key).strength) {
- linkMap.set(key, link);
- }
- });
-
- return { nodes, links: Array.from(linkMap.values()) };
- })()}
- nodeLabel={node => `${node.name}\n${node.type}\nRisk: ${node.riskLevel}`}
- nodeColor={node => {
- if (node.sanctionStatus === 'MATCH') return '#dc2626';
- if (node.riskLevel === 'CRITICAL') return '#dc2626';
- if (node.riskLevel === 'HIGH') return '#f43f5e';
- if (node.riskLevel === 'MEDIUM') return '#f59e0b';
- return '#10b981';
- }}
- nodeVal={node => {
- if (node.sanctionStatus === 'MATCH') return 6;
- if (node.riskLevel === 'CRITICAL') return 5;
- if (node.riskLevel === 'HIGH') return 4;
- if (node.riskLevel === 'MEDIUM') return 3;
- return 2;
- }}
- linkLabel={link => link.relationship || link.description}
- linkDirectionalArrowLength={4}
- linkDirectionalArrowRelPos={1}
- linkColor={link => {
- if (link.sanctioned) return '#dc2626';
- if (link.isOwnership && link.strength >= 4) return '#f59e0b';
- if (link.isOwnership) return '#06b6d4';
- return '#6b7280';
- }}
- linkWidth={link => link.strength || 1}
- linkDirectionalParticles={link => link.strength >= 3 ? 1 : 0}
- linkDirectionalParticleWidth={2}
- backgroundColor="#f9fafb"
- nodeCanvasObject={(node, ctx, globalScale) => {
- const label = node.name;
- const fontSize = 10/globalScale;
- ctx.font = `${fontSize}px Sans-Serif`;
- ctx.textAlign = 'center';
- ctx.textBaseline = 'middle';
-
- // Draw node circle
- const nodeRadius = Math.sqrt(node.riskLevel === 'CRITICAL' ? 5 : node.riskLevel === 'HIGH' ? 4 : node.riskLevel === 'MEDIUM' ? 3 : 2) * 1.5;
- ctx.beginPath();
- ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI);
- ctx.fillStyle = node.sanctionStatus === 'MATCH' ? '#dc2626' :
- node.riskLevel === 'CRITICAL' ? '#dc2626' :
- node.riskLevel === 'HIGH' ? '#f43f5e' :
- node.riskLevel === 'MEDIUM' ? '#f59e0b' : '#10b981';
- ctx.fill();
-
- // Draw label
- ctx.fillStyle = '#111827';
- ctx.fillText(label, node.x, node.y + nodeRadius + 6);
- }}
- onNodeClick={(node) => {
- setSelectedEntity(node.id);
- setActiveTab('entities');
- }}
- cooldownTicks={100}
- onEngineStop={() => {}}
+ <NetworkGraph
+   entities={analysis.entities}
+   relationships={analysis.relationships}
+   onNodeClick={(entity) => { setSelectedEntity(entity); setActiveTab('entities'); }}
+   darkMode={darkMode}
+   height={600}
  />
- </div>
-
- {/* Legend */}
- <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
- <div className="flex items-center gap-2">
- <div className="w-3 h-3 rounded-full bg-red-600"></div>
- <span className="text-sm text-gray-700">Critical Risk</span>
- </div>
- <div className="flex items-center gap-2">
- <div className="w-3 h-3 rounded-full bg-rose-500"></div>
- <span className="text-sm text-gray-700">High Risk</span>
- </div>
- <div className="flex items-center gap-2">
- <div className="w-3 h-3 rounded-full bg-amber-500"></div>
- <span className="text-sm text-gray-700">Medium Risk</span>
- </div>
- <div className="flex items-center gap-2">
- <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
- <span className="text-sm text-gray-700">Low Risk</span>
- </div>
- </div>
+ <NetworkGraphLegend darkMode={darkMode} />
  </div>
  </div>
  )}
