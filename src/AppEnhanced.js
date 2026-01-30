@@ -1543,17 +1543,28 @@ Format the report professionally with clear headers, bullet points where appropr
  return false;
  };
 
- // Helper to add text with word wrap
+ // Helper to add text with word wrap and proper page breaks
  const addText = (text, fontSize = 10, fontStyle = 'normal', color = [0, 0, 0]) => {
  pdf.setFontSize(fontSize);
  pdf.setFont('helvetica', fontStyle);
  pdf.setTextColor(...color);
+ const lineHeight = fontSize * 0.5;
  const lines = pdf.splitTextToSize(text, contentWidth);
- lines.forEach(line => {
- checkPageBreak();
- pdf.text(line, margin, yPos);
- yPos += fontSize * 0.5;
- });
+ const totalHeight = lines.length * lineHeight + 3;
+
+ // If the whole block fits, print it; otherwise break line by line
+ if (yPos + totalHeight <= pageHeight - margin) {
+   lines.forEach(line => {
+     pdf.text(line, margin, yPos);
+     yPos += lineHeight;
+   });
+ } else {
+   lines.forEach(line => {
+     checkPageBreak(lineHeight + 2);
+     pdf.text(line, margin, yPos);
+     yPos += lineHeight;
+   });
+ }
  yPos += 3;
  };
 
@@ -1948,15 +1959,24 @@ Format the report professionally with clear headers, bullet points where appropr
  let heightLeft = imgHeight;
  let position = margin;
 
- // Add image to PDF, handling multiple pages if needed
- pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
- heightLeft -= pageHeight;
+ // Add image to PDF, handling multiple pages by slicing canvas
+ const canvasWidth = canvas.width;
+ const canvasPageHeight = (pageHeight / imgWidth) * canvasWidth;
+ let srcY = 0;
+ let pageNum = 0;
 
- while (heightLeft > 0) {
-   position = margin - (imgHeight - heightLeft);
-   pdf.addPage();
-   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
-   heightLeft -= pageHeight;
+ while (srcY < canvas.height) {
+   if (pageNum > 0) pdf.addPage();
+   const sliceHeight = Math.min(canvasPageHeight, canvas.height - srcY);
+   const sliceCanvas = document.createElement('canvas');
+   sliceCanvas.width = canvasWidth;
+   sliceCanvas.height = sliceHeight;
+   const sliceCtx = sliceCanvas.getContext('2d');
+   sliceCtx.drawImage(canvas, 0, srcY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
+   const sliceImgHeight = (sliceHeight * imgWidth) / canvasWidth;
+   pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, sliceImgHeight);
+   srcY += canvasPageHeight;
+   pageNum++;
  }
 
  // Generate filename with subject name
@@ -2192,15 +2212,24 @@ Format the report professionally with clear headers, bullet points where appropr
      let heightLeft = imgHeight;
      let position = margin;
 
-     // Add image to PDF with pagination
-     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
-     heightLeft -= pageHeight;
+     // Add image to PDF by slicing canvas per page
+     const canvasWidth = canvas.width;
+     const canvasPageHeight = (pageHeight / imgWidth) * canvasWidth;
+     let srcY = 0;
+     let pageNum = 0;
 
-     while (heightLeft > 0) {
-       position = margin - (imgHeight - heightLeft);
-       pdf.addPage();
-       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight);
-       heightLeft -= pageHeight;
+     while (srcY < canvas.height) {
+       if (pageNum > 0) pdf.addPage();
+       const sliceHeight = Math.min(canvasPageHeight, canvas.height - srcY);
+       const sliceCanvas = document.createElement('canvas');
+       sliceCanvas.width = canvasWidth;
+       sliceCanvas.height = sliceHeight;
+       const sliceCtx = sliceCanvas.getContext('2d');
+       sliceCtx.drawImage(canvas, 0, srcY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
+       const sliceImgHeight = (sliceHeight * imgWidth) / canvasWidth;
+       pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, sliceImgHeight);
+       srcY += canvasPageHeight;
+       pageNum++;
      }
 
      // Generate filename
