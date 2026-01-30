@@ -22,7 +22,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
 
 // Parse vizdata JSON block from AI response
-const parseVizData = (content) => {
+const parseVizData = (content) => { // eslint-disable-line no-unused-vars
   if (!content) return null;
   const match = content.match(/```vizdata\s*\n?([\s\S]*?)```/);
   if (!match) return null;
@@ -5818,7 +5818,7 @@ ${analysisContext}`;
  {/* Contact email link - bottom left */}
 <a
   href="mailto:patrickjgoodridge@gmail.com"
-  title="Contact us"
+  title="Contact"
   className={`fixed bottom-4 left-4 z-50 p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
 >
   <Mail className="w-5 h-5" />

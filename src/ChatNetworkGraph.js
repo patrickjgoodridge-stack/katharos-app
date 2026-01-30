@@ -167,7 +167,7 @@ export default function ChatNetworkGraph({ entities, relationships, darkMode = f
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [hoveredNode, setHoveredNode] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null); // eslint-disable-line no-unused-vars
   const [isFullscreen, setIsFullscreen] = useState(false);
   const simulationRef = useRef(null);
 
