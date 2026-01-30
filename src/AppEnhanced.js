@@ -3932,8 +3932,7 @@ Brief 1-2 sentence summary of why this risk level and score.
 [2-3 sentence summary for senior compliance. What's the core issue and recommended action? Write this like a brief to a busy executive. Do NOT add a heading or title for this section — it flows directly after the risk summary as a single continuous block.]
 
 ## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH CAUTION]
-
-[Brief explanation of why this recommendation was made - 1-2 sentences]
+Do NOT include any text or explanation under this heading. The recommendation label alone is sufficient.
 
 ## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
 
