@@ -8569,7 +8569,7 @@ ${analysisContext}`;
  <div className={`flex items-center justify-between mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
- <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`}>
+ <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
  <Plus className="w-5 h-5" />
  </button>
  </div>
@@ -8757,7 +8757,7 @@ ${analysisContext}`;
  )}
  <div className={`flex items-end gap-3 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-500'} rounded-2xl border p-2`}>
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
- <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`}>
+ <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
  <Plus className="w-5 h-5" />
  </button>
  <textarea
