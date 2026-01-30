@@ -9036,12 +9036,9 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
- </div>
- </div>
-
  {/* Quick search suggestions */}
  {caseDescription.trim() === '' && files.length === 0 && (
- <div className="flex flex-wrap gap-2 mt-4">
+ <div className="flex flex-wrap justify-center gap-2 mt-4">
  <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
  {[
    { name: 'Vladimir Putin', mode: 'scout' },
@@ -9052,13 +9049,15 @@ ${analysisContext}`;
    <button
      key={s.name}
      onClick={() => { setCaseDescription(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
-     className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 border border-gray-200 transition-colors"
+     className="px-3 py-1.5 text-xs rounded-full bg-gray-100 hover:bg-amber-50 text-gray-600 hover:text-amber-700 border border-gray-200 hover:border-amber-300 transition-colors"
    >
      {s.name}
    </button>
  ))}
  </div>
  )}
+ </div>
+ </div>
 
  {/* Uploaded Files */}
  {files.length > 0 && (
