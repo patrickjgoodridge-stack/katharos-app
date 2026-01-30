@@ -3497,42 +3497,41 @@ YOU MUST:
 ✓ Provide a COMPLETE risk assessment based on what you know
 ✓ Cite authoritative sources WITH HYPERLINKS where possible using markdown format: [Source Name](URL)
 ✓ Link to the SPECIFIC article, investigation, announcement, or post — NOT just the homepage
-✓ ALWAYS include a "## Sources" section at the end of EVERY response with all cited sources listed
+✓ Place source links INLINE with each claim — do NOT put sources at the end
 
 HYPERLINK RULES:
-- ALWAYS link to the specific page, article, or search result — NEVER just a homepage
-- For sanctions: link to the specific search result or designation notice, e.g. [OFAC SDN Entry](https://sanctionssearch.ofac.treas.gov/Details.aspx?id=XXXXX)
-- For news: link to the specific article, e.g. [Reuters: Title of Article](https://www.reuters.com/specific-article-path)
-- For corporate records: link to the specific entity page, e.g. [OpenCorporates: Company Name](https://opencorporates.com/companies/xx/XXXXX)
-- For government notices: link to the specific notice or press release
+- ALWAYS link to the SPECIFIC page, article, or search result — NEVER just a homepage
+- For sanctions: link to the specific designation notice or search result page
+- For adverse media: link to the EXACT news article URL (e.g. [Reuters: Oligarch faces new sanctions](https://www.reuters.com/world/europe/specific-article-2024-01-15/))
+- For corporate records: link to the specific entity page (e.g. [OpenCorporates: Company Name](https://opencorporates.com/companies/xx/XXXXX))
+- For government notices: link to the specific notice, press release, or filing
+- For court cases: link to the specific case filing or court record
+- For investigations: link to the specific ICIJ leak page, investigative report, or exposé
 - For LinkedIn/Twitter profiles: link to the specific profile URL when known
 
-COMMON SOURCE BASES (always append specific paths):
-- OFAC: https://sanctionssearch.ofac.treas.gov/
-- UK Sanctions: https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets
-- EU Sanctions: https://www.sanctionsmap.eu/
-- UN Sanctions: https://www.un.org/securitycouncil/sanctions/information
-- OpenCorporates: https://opencorporates.com/
-- ICIJ (Panama/Pandora Papers): https://offshoreleaks.icij.org/
+ADVERSE MEDIA IS CRITICAL — every news article, investigation, or media report mentioned MUST include a direct hyperlink to the specific article. Do NOT just name the publication. Example:
+✓ CORRECT: "Subject was named in [The Guardian: Secret offshore empire exposed](https://www.theguardian.com/news/2024/specific-article)"
+✗ WRONG: "Subject was covered in The Guardian"
+✗ WRONG: "Subject was covered in [The Guardian](https://www.theguardian.com/)"
 
-MANDATORY: Every response MUST end with:
-## Sources
-- [Specific Source 1](specific-url-1)
-- [Specific Source 2](specific-url-2)
-... (list ALL sources cited in the response)
+SOURCE PLACEMENT — INLINE, NOT AT THE END:
+- Place source links INLINE with each claim, directly next to the relevant fact
+- Do NOT collect all sources into a section at the end
+- Every factual claim should have its source hyperlink right there in the text
+- Example: "Designated on [OFAC SDN List](https://url) in March 2022. Named in [Reuters investigation into sanctions evasion](https://url) in June 2023."
 
 YOU MUST NOT:
 ✗ Ask for documents - the user wants a screening, not document analysis
 ✗ Say "I don't see any documents" or "please upload documents"
 ✗ Refuse to answer or claim you lack access to data
 ✗ Use [Doc 1] format - there are no documents to cite
-✗ Omit the Sources section — it is REQUIRED in every response
 ✗ Link to just a homepage (e.g. reuters.com) — always link to the specific article
+✗ Collect sources at the end — put them inline with each claim
+✗ Mention adverse media without linking to the specific article
 
 EXAMPLE - If user asks "Screen Vladimir Potanin":
-Provide his UK sanctions status (added June 2022), his role as owner of Norilsk Nickel, his net worth ranking in Russia, adverse media about Kremlin ties, etc. ALL FROM YOUR KNOWLEDGE.
-
-Cite sources with hyperlinks like: "Added to [UK Sanctions List - Potanin designation](https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets) in June 2022", "Owner of Norilsk Nickel per [OpenCorporates](https://opencorporates.com/companies/ru/1025400000020)"
+Provide his UK sanctions status, his role as owner of Norilsk Nickel, adverse media about Kremlin ties, etc.
+Each fact should have its source inline: "Added to [UK Sanctions List](https://www.gov.uk/government/publications/the-uk-sanctions-list) in June 2022. Controls [Norilsk Nickel](https://opencorporates.com/companies/ru/1025400000020) with a 35.95% stake. Subject of [Reuters: Potanin seeks to shield assets](https://www.reuters.com/example-article) coverage in 2023."
 ` : `
 📄 YOU ARE IN INVESTIGATION MODE (Documents uploaded)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3637,8 +3636,11 @@ Known companies, ownership stakes, shell company concerns:
 
 ## ADVERSE MEDIA SUMMARY
 
-Key media coverage and investigations:
-- [Publication] - [Date] - [Key allegation or finding]
+Key media coverage and investigations (MUST link to the specific article URL for each):
+- [Article Title](https://exact-article-url) - [Publication] - [Date] - [Key allegation or finding]
+- [Article Title](https://exact-article-url) - [Publication] - [Date] - [Key allegation or finding]
+
+IMPORTANT: Each adverse media item MUST be a clickable hyperlink to the specific news article, investigation report, or court filing. Never just name the publication — link to the actual article.
 
 ## TYPOLOGIES PRESENT
 
