@@ -1944,6 +1944,109 @@ Format the report professionally with clear headers, bullet points where appropr
 
  wrapper.appendChild(contentClone);
 
+ // Add Appendix: Entities Included in Screening
+ if (kycResults) {
+   const appendix = document.createElement('div');
+   appendix.style.marginTop = '30px';
+   appendix.style.paddingTop = '20px';
+   appendix.style.borderTop = `2px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
+
+   const appendixTitle = document.createElement('div');
+   appendixTitle.style.fontSize = '16px';
+   appendixTitle.style.fontWeight = '700';
+   appendixTitle.style.color = darkMode ? '#e5e7eb' : '#0f172a';
+   appendixTitle.style.marginBottom = '16px';
+   appendixTitle.textContent = 'Appendix: Entities Included in Screening';
+   appendix.appendChild(appendixTitle);
+
+   const entityList = [];
+
+   // Primary subject
+   if (kycResults.subject?.name) {
+     entityList.push({ name: kycResults.subject.name, type: kycResults.subject.type || 'Subject', category: 'Primary Subject', detail: '' });
+   }
+
+   // Sanctions matches
+   if (kycResults.sanctions?.matches?.length) {
+     kycResults.sanctions.matches.forEach(m => {
+       entityList.push({ name: m.name || m.entity || 'Unknown', type: m.type || 'Entity', category: 'Sanctions Match', detail: m.list || m.source || '' });
+     });
+   }
+
+   // PEP matches
+   if (kycResults.pep?.matches?.length) {
+     kycResults.pep.matches.forEach(m => {
+       entityList.push({ name: m.name || m.entity || 'Unknown', type: m.position || m.role || 'PEP', category: 'PEP Match', detail: m.jurisdiction || '' });
+     });
+   }
+
+   // Adverse media
+   if (kycResults.adverseMedia?.articles?.length) {
+     kycResults.adverseMedia.articles.forEach(a => {
+       entityList.push({ name: a.title || a.headline || 'Article', type: 'Media', category: 'Adverse Media', detail: a.source || a.url || '' });
+     });
+   }
+
+   // Beneficial owners
+   if (kycResults.ownershipAnalysis?.beneficialOwners?.length) {
+     kycResults.ownershipAnalysis.beneficialOwners.forEach(bo => {
+       entityList.push({ name: bo.name, type: 'Beneficial Owner', category: 'Ownership', detail: bo.ownershipPercentage ? bo.ownershipPercentage + '%' : '' });
+     });
+   }
+
+   // Corporate structure
+   if (kycResults.ownershipAnalysis?.corporateStructure?.length) {
+     kycResults.ownershipAnalysis.corporateStructure.forEach(cs => {
+       entityList.push({ name: cs.name, type: cs.type || 'Entity', category: 'Corporate Structure', detail: cs.jurisdiction || '' });
+     });
+   }
+
+   if (entityList.length > 0) {
+     const table = document.createElement('table');
+     table.style.width = '100%';
+     table.style.borderCollapse = 'collapse';
+     table.style.fontSize = '12px';
+     table.style.color = darkMode ? '#d1d5db' : '#334155';
+
+     const thead = document.createElement('thead');
+     const headerBorder = darkMode ? '#4b5563' : '#cbd5e1';
+     const headerColor = darkMode ? '#9ca3af' : '#64748b';
+     thead.innerHTML = `<tr style="border-bottom: 2px solid ${headerBorder};">
+       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Entity</th>
+       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Type</th>
+       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Category</th>
+       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Details</th>
+     </tr>`;
+     table.appendChild(thead);
+
+     const tbody = document.createElement('tbody');
+     entityList.forEach((ent, i) => {
+       const row = document.createElement('tr');
+       const rowBorder = darkMode ? '#374151' : '#e2e8f0';
+       row.style.borderBottom = `1px solid ${rowBorder}`;
+       if (i % 2 === 0) row.style.backgroundColor = darkMode ? '#1f2937' : '#f8fafc';
+       row.innerHTML = `
+         <td style="padding:6px;">${ent.name}</td>
+         <td style="padding:6px;">${ent.type}</td>
+         <td style="padding:6px;">${ent.category}</td>
+         <td style="padding:6px;">${ent.detail || '\u2014'}</td>
+       `;
+       tbody.appendChild(row);
+     });
+     table.appendChild(tbody);
+     appendix.appendChild(table);
+   } else {
+     const noEntities = document.createElement('div');
+     noEntities.style.fontSize = '12px';
+     noEntities.style.color = darkMode ? '#9ca3af' : '#64748b';
+     noEntities.style.fontStyle = 'italic';
+     noEntities.textContent = 'No additional entities identified in this screening.';
+     appendix.appendChild(noEntities);
+   }
+
+   wrapper.appendChild(appendix);
+ }
+
  // Add footer
  const footer = document.createElement('div');
  footer.style.marginTop = '20px';
