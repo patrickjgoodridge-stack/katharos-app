@@ -273,6 +273,13 @@ export default function Marlowe() {
    }
  }, [refreshPaidStatus]);
 
+ // Show email modal on mount if not authenticated
+ useEffect(() => {
+ if (!authLoading && !isAuthenticated) {
+   setShowEmailModal(true);
+ }
+ }, [authLoading, isAuthenticated]);
+
  // Landing page fade-in animation
  useEffect(() => {
  if (currentPage === 'noirLanding') {
