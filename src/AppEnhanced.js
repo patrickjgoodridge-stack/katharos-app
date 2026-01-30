@@ -1853,29 +1853,40 @@ Format the report professionally with clear headers, bullet points where appropr
  const html2canvas = (await import('html2canvas')).default;
  const { jsPDF } = await import('jspdf');
 
- // Try to extract subject name from the content
- const textContent = element.textContent || '';
+ // Try to extract subject name — prefer kycResults, then case name, then content parsing
  let subjectName = 'Unknown Subject';
 
- // Look for common patterns in the screening output
- const namePatterns = [
-   /(?:screening|analysis|report)\s+(?:for|on|of)\s*:?\s*([A-Z][a-zA-Z\s\-']+)/i,
-   /subject:\s*([A-Z][a-zA-Z\s\-']+)/i,
-   /entity:\s*([A-Z][a-zA-Z\s\-']+)/i,
-   /^([A-Z][a-zA-Z\s\-']+?)(?:\s+is|\s+has|\s+was)/m,
- ];
+ // Best source: kycResults subject name
+ if (kycResults?.subject?.name) {
+   subjectName = kycResults.subject.name;
+ } else if (selectedHistoryItem?.name) {
+   subjectName = selectedHistoryItem.name;
+ } else if (activeCase?.name) {
+   subjectName = activeCase.name;
+ }
 
- for (const pattern of namePatterns) {
-   const match = textContent.match(pattern);
-   if (match && match[1]) {
-     subjectName = match[1].trim().substring(0, 50);
-     break;
+ // If still unknown, try to extract from rendered content
+ if (subjectName === 'Unknown Subject') {
+   const textContent = element.textContent || '';
+   const namePatterns = [
+     /(?:screening|analysis|report)\s+(?:for|on|of)\s*:?\s*([A-Z][a-zA-Z\s\-']+)/i,
+     /subject:\s*([A-Z][a-zA-Z\s\-']+)/i,
+     /entity:\s*([A-Z][a-zA-Z\s\-']+)/i,
+     /\*\*Name:\*\*\s*([^\n*]+)/i,
+     /^([A-Z][a-zA-Z\s\-']+?)(?:\s+is|\s+has|\s+was)/m,
+   ];
+   for (const pattern of namePatterns) {
+     const match = textContent.match(pattern);
+     if (match && match[1]) {
+       subjectName = match[1].trim().substring(0, 50);
+       break;
+     }
    }
  }
 
- // Also try to get from active case name
- if (subjectName === 'Unknown Subject' && activeCase?.name) {
-   subjectName = activeCase.name;
+ // Capitalize properly
+ if (subjectName !== 'Unknown Subject') {
+   subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
  }
 
  // Create a wrapper with padding for better PDF margins
@@ -1892,7 +1903,7 @@ Format the report professionally with clear headers, bullet points where appropr
  header.innerHTML = `
    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
      <div>
-       <div style="font-size: 12px; color: ${darkMode ? '#9ca3af' : '#64748b'}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Compliance Screening Report</div>
+       <div style="font-size: 12px; color: ${darkMode ? '#9ca3af' : '#64748b'}; margin-bottom: 4px;">Marlowe Search Results</div>
        <div style="font-size: 20px; font-weight: 600; color: ${darkMode ? '#f3f4f6' : '#0f172a'};">${subjectName}</div>
      </div>
      <div style="text-align: right;">
@@ -1952,12 +1963,9 @@ Format the report professionally with clear headers, bullet points where appropr
  const margin = 10; // mm
  const imgWidth = 210 - (margin * 2); // A4 width minus margins
  const pageHeight = 297 - (margin * 2); // A4 height minus margins
- const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
  // Create PDF
  const pdf = new jsPDF('p', 'mm', 'a4');
- let heightLeft = imgHeight;
- let position = margin;
 
  // Add image to PDF, handling multiple pages by slicing canvas
  const canvasWidth = canvas.width;
@@ -2205,12 +2213,9 @@ Format the report professionally with clear headers, bullet points where appropr
      const margin = 10;
      const imgWidth = 210 - (margin * 2);
      const pageHeight = 297 - (margin * 2);
-     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
      // Create PDF
      const pdf = new jsPDF('p', 'mm', 'a4');
-     let heightLeft = imgHeight;
-     let position = margin;
 
      // Add image to PDF by slicing canvas per page
      const canvasWidth = canvas.width;
