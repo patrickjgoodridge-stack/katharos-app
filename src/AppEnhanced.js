@@ -3747,9 +3747,15 @@ Use well-structured markdown with these exact section headers. This will be rend
 
 REQUIRED STRUCTURE FOR COMPLIANCE SCREENINGS:
 
-## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW]
+## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [XX/100]
 
-Brief 1-2 sentence summary of why this risk level.
+Provide both a qualitative risk level (CRITICAL/HIGH/MEDIUM/LOW) AND a quantitative risk score from 0-100 where:
+- 0-25: LOW risk (minimal concerns)
+- 26-50: MEDIUM risk (some concerns requiring monitoring)
+- 51-75: HIGH risk (significant concerns requiring enhanced due diligence)
+- 76-100: CRITICAL risk (severe concerns, likely prohibited)
+
+Brief 1-2 sentence summary of why this risk level and score.
 
 [2-3 sentence summary for senior compliance. What's the core issue and recommended action? Write this like a brief to a busy executive. Do NOT add a heading or title for this section — it flows directly after the risk summary as a single continuous block.]
 
@@ -8769,6 +8775,27 @@ ${analysisContext}`;
  </div>
  </div>
  </div>
+
+ {/* Quick search suggestions */}
+ {caseDescription.trim() === '' && files.length === 0 && (
+ <div className="flex flex-wrap gap-2 mt-4">
+ <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
+ {[
+   { name: 'Vladimir Putin', mode: 'scout' },
+   { name: 'Sinaloa Cartel', mode: 'scout' },
+   { name: 'Viktor Vekselberg', mode: 'scout' },
+   { name: 'Huawei Technologies', mode: 'scout' },
+ ].map((s) => (
+   <button
+     key={s.name}
+     onClick={() => { setCaseDescription(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
+     className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 border border-gray-200 transition-colors"
+   >
+     {s.name}
+   </button>
+ ))}
+ </div>
+ )}
 
  {/* Uploaded Files */}
  {files.length > 0 && (
