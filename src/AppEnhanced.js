@@ -8932,9 +8932,6 @@ ${analysisContext}`;
  title="Upload Materials"
  >
  <Plus className="w-5 h-5 text-gray-600 group-hover:text-amber-500 transition-colors" />
- <span className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap transition-opacity pointer-events-none ${showUploadDropdown ? "opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
- Upload Materials
- </span>
  </button>
 
  {/* Upload Dropdown Menu */}
