@@ -507,7 +507,7 @@ export default function Marlowe() {
 
  // Auto-create a case when the first message is sent
  const createCaseFromFirstMessage = (userInput, attachedFiles) => {
-   const generatedName = extractEntityName(userInput) || 'New Investigation';
+   const generatedName = generateCaseName(userInput, attachedFiles);
    const newCaseId = Math.random().toString(36).substr(2, 9);
 
    const newCase = {
@@ -830,6 +830,67 @@ export default function Marlowe() {
    }
 
    return entityName || desc.substring(0, 50);
+ };
+
+ // Generate smart case name based on context (files, entity count, description)
+ const generateCaseName = (description, attachedFiles, entityCount = 1) => {
+   // Humanize a filename: "lp_onboarding_packet.docx" -> "LP Onboarding Packet"
+   const humanizeFilename = (name) => {
+     return name
+       .replace(/\.[^/.]+$/, '') // remove extension
+       .replace(/[-_]+/g, ' ')  // replace separators with spaces
+       .replace(/\w/g, c => c.toUpperCase()) // title case
+       .trim();
+   };
+
+   // Check if files are CSV/spreadsheet (batch indicator)
+   const hasCsv = attachedFiles?.some(f => /\.(csv|xlsx?|tsv)$/i.test(f.name));
+   const fileNames = attachedFiles?.map(f => f.name) || [];
+
+   // Multi-entity from CSV/spreadsheet
+   if (hasCsv && entityCount > 1) {
+     // Try to infer context from filename
+     const csvFile = attachedFiles.find(f => /\.(csv|xlsx?|tsv)$/i.test(f.name));
+     const friendlyName = humanizeFilename(csvFile.name);
+     // Check if filename has meaningful context vs generic names
+     const isGeneric = /^(sheet|data|export|download|file|untitled|book)/i.test(friendlyName);
+     if (!isGeneric && friendlyName.length > 3) {
+       return friendlyName;
+     }
+     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+     return `${entityCount} Entity Screening - ${dateStr}`;
+   }
+
+   // Multi-entity from documents (not CSV)
+   if (entityCount > 1 && attachedFiles?.length > 0) {
+     const primaryFile = attachedFiles[0];
+     const friendlyName = humanizeFilename(primaryFile.name);
+     const isGeneric = /^(document|file|untitled|upload|scan)/i.test(friendlyName);
+     if (!isGeneric && friendlyName.length > 3) {
+       return `${friendlyName} - ${entityCount} Entities`;
+     }
+     return `${entityCount} Entity Screening`;
+   }
+
+   // Multi-entity from text input (batch names pasted)
+   if (entityCount > 1) {
+     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+     return `${entityCount} Entity Screening - ${dateStr}`;
+   }
+
+   // Single entity - use extractEntityName
+   if (description?.trim()) {
+     return extractEntityName(description);
+   }
+
+   // Fallback to file name
+   if (fileNames.length > 0) {
+     const name = humanizeFilename(fileNames[0]);
+     if (fileNames.length > 1) return `${name} + ${fileNames.length - 1} more`;
+     return name;
+   }
+
+   return 'New Investigation';
  };
 
  // Go back to Noir landing
@@ -4414,20 +4475,10 @@ NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
  try {
  setAnalysisError(null);
 
- // Generate case name from user input for Scout - extract entity name
+ // Generate case name from context
  let displayCaseName = caseName;
  if (!displayCaseName) {
-   if (caseDescription.trim()) {
-     // Extract entity name from description (e.g., "Tim Allen who is an actor" -> "Tim Allen")
-     displayCaseName = extractEntityName(caseDescription);
-   } else if (files.length > 0) {
-     displayCaseName = files.map(f => f.name.replace(/\.[^/.]+$/, '')).join(', ');
-     if (displayCaseName.length > 60) {
-       displayCaseName = displayCaseName.substring(0, 60) + '...';
-     }
-   } else {
-     displayCaseName = `Scout Screening ${new Date().toLocaleDateString()}`;
-   }
+   displayCaseName = generateCaseName(caseDescription, files);
  }
 
  // Initialize background analysis state for Scout
@@ -4849,10 +4900,17 @@ Respond with JSON:
  // Auto-generate case name based on analysis if not already set
  let finalCaseName = displayCaseName;
  if (!caseName || caseName === '') {
-   const primaryEntities = finalAnalysis.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
+   const entityCount = finalAnalysis.entities?.length || 1;
+   if (entityCount > 1) {
+     // Multi-entity: use context-aware naming
+     finalCaseName = generateCaseName(caseDescription, files, entityCount);
+   } else {
+     const primaryEntity = finalAnalysis.entities?.[0]?.name || displayCaseName;
+     finalCaseName = primaryEntity;
+   }
    const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-   finalCaseName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
+   finalCaseName = `${finalCaseName} - ${riskLevel} - ${dateStr}`;
    setCaseName(finalCaseName);
  }
 
@@ -4885,18 +4943,10 @@ Respond with JSON:
  // CIPHER MODE: Run analysis
  console.log('CIPHER MODE: Starting analysis');
 
- // Generate initial case name from user input - extract entity name
+ // Generate initial case name from context
  let displayCaseName = caseName;
  if (!displayCaseName) {
-   if (caseDescription.trim()) {
-     // Extract entity name from description (e.g., "Tim Allen who is an actor" -> "Tim Allen")
-     displayCaseName = extractEntityName(caseDescription);
-   } else if (files.length > 0) {
-     // Use file names
-     displayCaseName = files.slice(0, 2).map(f => f.name.replace(/\.[^.]+$/, '')).join(', ');
-   } else {
-     displayCaseName = 'New Investigation';
-   }
+   displayCaseName = generateCaseName(caseDescription, files);
  }
 
  // Start progress tracking
@@ -4943,10 +4993,15 @@ setBackgroundAnalysis(prev => ({
 // Process the analysis through automated investigation
 const enhancedAnalysis = await postProcessAnalysis(finalAnalysis);
 
-// Auto-generate case name: use extracted entity name + risk level + date
+// Auto-generate case name with entity-count awareness
+const cipherEntityCount = enhancedAnalysis.entities?.length || 1;
+let cipherContextName = displayCaseName;
+if (cipherEntityCount > 1) {
+  cipherContextName = generateCaseName(caseDescription, files, cipherEntityCount);
+}
 const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
 const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-let finalCaseName = `${displayCaseName} - ${riskLevel} - ${dateStr}`;
+let finalCaseName = `${cipherContextName} - ${riskLevel} - ${dateStr}`;
 setCaseName(finalCaseName);
 
 // Update progress: Finalizing
@@ -5805,10 +5860,15 @@ Respond with a JSON object in this exact structure:
 
  await new Promise(resolve => setTimeout(resolve, 200));
 
- // Auto-generate case name: use extracted entity name + risk level + date
+ // Auto-generate case name with entity-count awareness
+ const entityCount = parsed.entities?.length || 1;
+ let contextName = displayCaseName;
+ if (entityCount > 1) {
+   contextName = generateCaseName(caseDescription, files, entityCount);
+ }
  const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- let finalCaseName = `${displayCaseName} - ${riskLevel} - ${dateStr}`;
+ let finalCaseName = `${contextName} - ${riskLevel} - ${dateStr}`;
  setCaseName(finalCaseName);
 
  // Update progress: Finalizing
