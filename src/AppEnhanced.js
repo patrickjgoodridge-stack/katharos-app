@@ -841,7 +841,7 @@ export default function Marlowe() {
      return name
        .replace(/\.[^/.]+$/, '') // remove extension
        .replace(/[-_]+/g, ' ')  // replace separators with spaces
-       .replace(/\w/g, c => c.toUpperCase()) // title case
+       .replace(/\b\w/g, c => c.toUpperCase()) // title case
        .trim();
    };
 
@@ -880,7 +880,14 @@ export default function Marlowe() {
      return `${entityCount} Entity Screening - ${dateStr}`;
    }
 
-   // Single entity - use extractEntityName
+   // If files are uploaded with no text description, use filename context
+   if ((!description || !description.trim()) && fileNames.length > 0) {
+     const name = humanizeFilename(fileNames[0]);
+     if (fileNames.length > 1) return `${name} + ${fileNames.length - 1} more`;
+     return name;
+   }
+
+   // Single entity with text description - use extractEntityName
    if (description?.trim()) {
      return extractEntityName(description);
    }
@@ -4900,22 +4907,20 @@ Respond with JSON:
    nextSteps: scoutPipelineData.nextSteps || []
  };
 
- // Auto-generate case name based on analysis if not already set
+ // Auto-generate case name based on analysis - always re-evaluate for multi-entity
+ const entityCount = finalAnalysis.entities?.length || 1;
  let finalCaseName = displayCaseName;
- if (!caseName || caseName === '') {
-   const entityCount = finalAnalysis.entities?.length || 1;
-   if (entityCount > 1) {
-     // Multi-entity: use context-aware naming
-     finalCaseName = generateCaseName(caseDescription, files, entityCount);
-   } else {
-     const primaryEntity = finalAnalysis.entities?.[0]?.name || displayCaseName;
-     finalCaseName = primaryEntity;
-   }
-   const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
-   const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-   finalCaseName = `${finalCaseName} - ${riskLevel} - ${dateStr}`;
-   setCaseName(finalCaseName);
+ if (entityCount > 1) {
+   // Multi-entity: always override with context-aware naming
+   finalCaseName = generateCaseName(caseDescription, files, entityCount);
+ } else if (!caseName || caseName === '') {
+   const primaryEntity = finalAnalysis.entities?.[0]?.name || displayCaseName;
+   finalCaseName = primaryEntity;
  }
+ const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
+ const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+ finalCaseName = `${finalCaseName} - ${riskLevel} - ${dateStr}`;
+ setCaseName(finalCaseName);
 
  await new Promise(resolve => setTimeout(resolve, 300));
 
