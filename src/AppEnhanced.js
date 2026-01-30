@@ -176,6 +176,8 @@ export default function Marlowe() {
  const kycChatEndRef = useRef(null);
 
  const chatEndRef = useRef(null);
+ const userScrolledUpRef = useRef(false);
+ const scrollContainerRef = useRef(null);
  const fileInputRef = useRef(null);
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
@@ -2513,9 +2515,9 @@ Format the report professionally with clear headers, bullet points where appropr
    }
  };
 
- // Scroll KYC chat to bottom when new messages arrive
+ // Scroll KYC chat to bottom when new messages arrive (only if user hasn't scrolled up)
  useEffect(() => {
- if (kycChatEndRef.current) {
+ if (kycChatEndRef.current && !userScrolledUpRef.current) {
  kycChatEndRef.current.scrollIntoView({ behavior: 'smooth' });
  }
  }, [kycChatMessages]);
@@ -4075,17 +4077,15 @@ Be thorough - include ALL relevant findings. A high-risk individual might have 8
 
 ## SANCTIONS EXPOSURE
 
-Detail all sanctions designations, past and present:
-- Which lists (OFAC SDN, UK, EU, UN, etc.)
-- Date added
-- Designation reason
-- Any secondary sanctions implications
+Detail all sanctions designations, past and present. Each entry MUST include a source link:
+- **[List Name]** — Date added — Designation reason — [Source link](https://url)
+- Include secondary sanctions implications
 - Related designations (family members, companies)
 
 ## CORPORATE STRUCTURE & BENEFICIAL OWNERSHIP
 
-Known companies, ownership stakes, shell company concerns:
-- **[Company]** - [Ownership %] - [Jurisdiction] - [Risk notes]
+Known companies, ownership stakes, shell company concerns. Cite sources for each:
+- **[Company]** - [Ownership %] - [Jurisdiction] - [Risk notes] — [Source](https://url)
 
 ## ADVERSE MEDIA SUMMARY
 
@@ -4137,6 +4137,7 @@ FORMATTING RULES:
 5. Always include the "Impact:" line after each red flag
 6. Be DIRECT and BLUNT - explain real risks without hedging
 7. Quote evidence directly when available
+8. CRITICAL: Every factual claim MUST have a clickable source link directly below or inline. Use markdown links: [Source Name](https://url). Never make a claim without citing a source with a URL. This applies to ALL sections, not just red flags.
 
 For casual follow-up questions, respond naturally without the full structure.
 
@@ -4285,9 +4286,11 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
    }
  };
 
- // Scroll conversation to bottom
+ // Scroll conversation to bottom (only if user hasn't scrolled up)
  useEffect(() => {
-   conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   if (!userScrolledUpRef.current) {
+     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }
  }, [conversationMessages, streamingText]);
 
  // Sync conversation transcript to current case
@@ -5997,12 +6000,19 @@ const getRiskBg = (level) => {
  return 'bg-emerald-500';
  };
 
- // Scroll chat to bottom when new messages arrive
+ // Scroll chat to bottom when new messages arrive (only if user hasn't scrolled up)
  useEffect(() => {
- if (chatEndRef.current) {
+ if (chatEndRef.current && !userScrolledUpRef.current) {
  chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
  }
  }, [chatMessages]);
+
+ // Track if user has scrolled up to prevent auto-scroll hijacking
+ const handleScrollContainer = (e) => {
+   const el = e.target;
+   const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+   userScrolledUpRef.current = distanceFromBottom > 150;
+ };
 
  // Chat with Marlowe about the case
  const sendChatMessage = async () => {
@@ -8638,7 +8648,7 @@ ${analysisContext}`;
  ) : (
  /* After Conversation Started - Messages with Bottom Input */
  <>
- <div className="flex-1 overflow-y-auto px-4 py-3">
+ <div className="flex-1 overflow-y-auto px-4 py-3" onScroll={handleScrollContainer}>
  <div className="max-w-3xl mx-auto space-y-3">
  {conversationMessages.map((msg, idx) => (
  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
