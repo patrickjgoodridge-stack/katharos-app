@@ -8561,7 +8561,7 @@ ${analysisContext}`;
  sendConversationMessage(caseIdToUse, conversationInput, files);
  }
  }}
- placeholder="Describe what you're investigating, or upload documents..."
+ placeholder="Enter a name, describe a case, or upload files."
  rows={3}
  className={`w-full resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} text-lg`}
  autoFocus
@@ -9037,7 +9037,7 @@ ${analysisContext}`;
  </div>
  </div>
  {/* Quick search suggestions */}
- {caseDescription.trim() === '' && files.length === 0 && (
+ {conversationInput.trim() === '' && files.length === 0 && (
  <div className="flex flex-wrap justify-center gap-2 mt-4">
  <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
  {[
@@ -9048,7 +9048,7 @@ ${analysisContext}`;
  ].map((s) => (
    <button
      key={s.name}
-     onClick={() => { setCaseDescription(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
+     onClick={() => { setConversationInput(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
      className="px-3 py-1.5 text-xs rounded-full bg-gray-100 hover:bg-amber-50 text-gray-600 hover:text-amber-700 border border-gray-200 hover:border-amber-300 transition-colors"
    >
      {s.name}
