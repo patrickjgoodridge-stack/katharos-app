@@ -115,12 +115,21 @@ const getIconForSection = (text) => {
   return null;
 };
 
+// Detect if text is the overall risk section
+const isOverallRiskSection = (text) => {
+  const upperText = (text || '').toUpperCase();
+  return upperText.includes('OVERALL RISK');
+};
+
+// Detect if text is onboarding recommendation/decision
+const isOnboardingSection = (text) => {
+  const upperText = (text || '').toUpperCase();
+  return upperText.includes('ONBOARDING') || upperText.includes('RECOMMENDATION');
+};
+
 // Detect if text is a decision/banner type
 const isDecisionSection = (text) => {
-  const upperText = (text || '').toUpperCase();
-  return upperText.includes('ONBOARDING DECISION') ||
-         upperText.includes('OVERALL RISK') ||
-         upperText.includes('RECOMMENDATION');
+  return isOverallRiskSection(text) || isOnboardingSection(text);
 };
 
 // Detect if text is the memo section
@@ -162,15 +171,39 @@ const CustomHeading = ({ level, children }) => {
 
   // H2 - Major section headers
   if (level === 2) {
-    // Decision banner
-    if (isDecisionSection(text)) {
+    // Overall Risk banner
+    if (isOverallRiskSection(text)) {
       return (
-        <div className={`${styles.bg} ${styles.border} border rounded-xl p-5 mb-5 mt-6`}>
-          <div className="flex items-center gap-3">
-            {Icon && <Icon className={`w-7 h-7 ${styles.icon}`} />}
-            <h2 className={`text-xl font-bold ${styles.text} uppercase tracking-wide`}>
-              {children}
-            </h2>
+        <div className={`${styles.bg} border ${styles.border} rounded-xl p-6 mb-4 mt-6 shadow-sm`}
+             style={{ overflow: 'visible', maxHeight: 'none' }}>
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl ${styles.badgeBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+              {Icon ? <Icon className="w-6 h-6 text-white" /> : <AlertTriangle className="w-6 h-6 text-white" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className={`text-xl font-bold ${styles.text} tracking-wide`} style={{ wordWrap: 'break-word', whiteSpace: 'normal' }}>
+                {children}
+              </h2>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Onboarding Recommendation banner
+    if (isOnboardingSection(text)) {
+      return (
+        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border rounded-xl p-6 mb-4 mt-4 shadow-sm`}
+             style={{ borderLeft: `4px solid`, borderLeftColor: styles.badgeBg === 'bg-red-600' ? '#dc2626' : styles.badgeBg === 'bg-orange-500' ? '#f97316' : styles.badgeBg === 'bg-amber-500' ? '#f59e0b' : styles.badgeBg === 'bg-green-600' ? '#16a34a' : '#64748b', overflow: 'visible', maxHeight: 'none' }}>
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-slate-100'} flex items-center justify-center flex-shrink-0`}>
+              <Gavel className={`w-6 h-6 ${styles.icon}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className={`text-xl font-bold ${styles.text} tracking-wide`} style={{ wordWrap: 'break-word', whiteSpace: 'normal' }}>
+                {children}
+              </h2>
+            </div>
           </div>
         </div>
       );
