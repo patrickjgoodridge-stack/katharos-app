@@ -4001,7 +4001,7 @@ Be thorough - include ALL relevant findings. A high-risk individual might have 8
 
    Impact: [Direct, blunt explanation of what this means for compliance. Be specific about regulatory implications.]
 
-   Sources: [OFAC SDN List, UK FCDO, Reuters, etc. - be specific about which list or publication]
+   Sources: [Link to specific source](https://url) — ALWAYS include clickable URLs. e.g. [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/), [Reuters](https://reuters.com/article-url)
 
 2. **[Next red flag title]**
    [Detailed findings with specifics...]
@@ -4050,6 +4050,14 @@ IMPORTANT: Each adverse media item MUST be a clickable hyperlink to the specific
 - Specific document 3
 
 (Skip this section if not applicable, e.g., for sanctioned individuals)
+
+## SOURCES & REFERENCES
+
+List ALL sources cited throughout the report. Every source must include a clickable URL where possible:
+- [Source Name](https://url) — what information it provided
+- [Source Name](https://url) — what information it provided
+
+Include: OFAC SDN List entries, UN Security Council resolutions, court filings, specific news articles, government press releases, sanctions notices, corporate registry filings, etc. This section is MANDATORY — never omit it.
 
 ## KEEP EXPLORING
 
