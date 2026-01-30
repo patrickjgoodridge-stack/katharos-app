@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const AuthContext = createContext({});
 
-const DAILY_FREE_LIMIT = 5;
+const DAILY_FREE_LIMIT = 50;
 
 const PERSONAL_DOMAINS = [
   'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com',

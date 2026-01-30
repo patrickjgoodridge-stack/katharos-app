@@ -74,7 +74,7 @@ const getRiskStyles = (text) => {
       badgeText: 'text-white',
     };
   }
-  if (upperText.includes('MEDIUM') || upperText.includes('STANDARD')) {
+  if (upperText.includes('MEDIUM') || upperText.includes('STANDARD') || upperText.includes('PROCEED WITH MONITORING')) {
     return {
       bg: 'bg-amber-50',
       border: 'border-amber-200',
@@ -128,7 +128,7 @@ const isOnboardingSection = (text) => {
 };
 
 // Detect if text is a decision/banner type
-const isDecisionSection = (text) => {
+const isDecisionSection = (text) => { // eslint-disable-line no-unused-vars
   return isOverallRiskSection(text) || isOnboardingSection(text);
 };
 
@@ -176,6 +176,19 @@ const CustomHeading = ({ level, children }) => {
       const BannerIcon = isOverallRiskSection(text)
         ? (Icon || AlertTriangle)
         : Gavel;
+      // Parse risk level and score from heading text to render cleanly
+      const riskMatch = text.match(/OVERALL\s+RISK\s*:\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
+      const scoreMatch = text.match(/(\d+)\s*\/\s*100/);
+      const riskLabel = riskMatch ? riskMatch[1].toUpperCase() : null;
+      const riskScore = scoreMatch ? scoreMatch[1] : null;
+      // For onboarding, extract the recommendation text
+      const onboardingMatch = text.match(/(?:ONBOARDING\s+)?RECOMMENDATION\s*:\s*(.+)/i)
+        || text.match(/ONBOARDING\s*:\s*(.+)/i);
+      const onboardingLabel = onboardingMatch ? onboardingMatch[1].trim() : null;
+      // Build clean display text
+      const displayText = isOverallRiskSection(text)
+        ? (riskLabel ? `OVERALL RISK: ${riskLabel}` : text)
+        : (onboardingLabel || text);
       return (
         <div className={`${styles.bg} border ${styles.border} rounded-xl mb-4 ${isOverallRiskSection(text) ? 'mt-6' : 'mt-2'} shadow-md`}
              style={{ overflow: 'visible', maxHeight: 'none' }}>
@@ -183,9 +196,16 @@ const CustomHeading = ({ level, children }) => {
             <div className={`w-11 h-11 rounded-lg ${styles.badgeBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
               <BannerIcon className="w-5 h-5 text-white" />
             </div>
-            <h2 className={`text-lg font-bold ${styles.text} tracking-wide flex-1`} style={{ wordWrap: 'break-word', whiteSpace: 'normal' }}>
-              {children}
-            </h2>
+            <div className="flex items-center gap-3 flex-1">
+              <h2 className={`text-lg font-bold ${styles.text} tracking-wide`} style={{ wordWrap: 'break-word', whiteSpace: 'normal' }}>
+                {displayText}
+              </h2>
+              {riskScore && (
+                <span className={`text-base font-bold ${styles.text} opacity-75`}>
+                  {riskScore} / 100
+                </span>
+              )}
+            </div>
           </div>
         </div>
       );

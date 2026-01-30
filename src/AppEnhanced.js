@@ -1,6 +1,7 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Bell } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Bell, Radio } from 'lucide-react';
+import MonitoringCenter from './MonitoringCenter';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -177,7 +178,7 @@ export default function Marlowe() {
 
  const chatEndRef = useRef(null);
  const userScrolledUpRef = useRef(false);
- const scrollContainerRef = useRef(null);
+ const scrollContainerRef = useRef(null); // eslint-disable-line no-unused-vars
  const fileInputRef = useRef(null);
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
@@ -197,7 +198,7 @@ export default function Marlowe() {
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
- const [showAlertsPanel, setShowAlertsPanel] = useState(false);
+ const [showAlertsPanel, setShowAlertsPanel] = useState(false); // eslint-disable-line no-unused-vars
  const [monitoringInProgress, setMonitoringInProgress] = useState(false);
  const monitoringRanRef = useRef(false);
 
@@ -638,12 +639,17 @@ export default function Marlowe() {
        const newRisk = extractRiskLevel([{ role: 'assistant', content: aiText }]) || caseItem.riskLevel;
        const previousRisk = caseItem.riskLevel;
 
+       const severity = (newRisk === 'CRITICAL') ? 'critical' : (newRisk === 'HIGH') ? 'high' : (newRisk === 'MEDIUM') ? 'medium' : 'low';
        const newAlert = (newRisk !== previousRisk) ? {
          id: Math.random().toString(36).substr(2, 9),
          timestamp: new Date().toISOString(),
+         type: 'risk_change',
+         severity,
+         status: 'new',
          previousRisk,
          newRisk,
          summary: aiText.substring(0, 300),
+         fullText: aiText,
          read: false
        } : null;
 
@@ -685,15 +691,58 @@ export default function Marlowe() {
    runMonitoringRescreen(monitoredCases);
  }, [cases, monitoringInProgress, runMonitoringRescreen]);
 
- // Mark monitoring alerts as read when panel opens
+ // Mark monitoring alerts as read when monitoring page opens
  useEffect(() => {
-   if (showAlertsPanel && unreadAlertCount > 0) {
+   if (currentPage === 'monitoring' && unreadAlertCount > 0) {
      setCases(prev => prev.map(c => ({
        ...c,
        monitoringAlerts: (c.monitoringAlerts || []).map(a => ({ ...a, read: true }))
      })));
    }
- }, [showAlertsPanel]); // eslint-disable-line react-hooks/exhaustive-deps
+ }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Alert management functions
+ const acknowledgeAlert = (alertId, caseId) => {
+   setCases(prev => prev.map(c => {
+     if (c.id !== caseId) return c;
+     const updatedCase = {
+       ...c,
+       monitoringAlerts: (c.monitoringAlerts || []).map(a =>
+         a.id === alertId ? { ...a, status: 'acknowledged', acknowledgedAt: new Date().toISOString(), read: true } : a
+       )
+     };
+     if (isSupabaseConfigured() && user) syncCase(updatedCase).catch(console.error);
+     return updatedCase;
+   }));
+ };
+
+ const resolveAlert = (alertId, caseId, resolution) => {
+   setCases(prev => prev.map(c => {
+     if (c.id !== caseId) return c;
+     const updatedCase = {
+       ...c,
+       monitoringAlerts: (c.monitoringAlerts || []).map(a =>
+         a.id === alertId ? { ...a, status: 'resolved', resolvedAt: new Date().toISOString(), resolutionOutcome: resolution.outcome, resolutionNotes: resolution.notes, read: true } : a
+       )
+     };
+     if (isSupabaseConfigured() && user) syncCase(updatedCase).catch(console.error);
+     return updatedCase;
+   }));
+ };
+
+ const dismissAlert = (alertId, caseId) => {
+   setCases(prev => prev.map(c => {
+     if (c.id !== caseId) return c;
+     const updatedCase = {
+       ...c,
+       monitoringAlerts: (c.monitoringAlerts || []).map(a =>
+         a.id === alertId ? { ...a, status: 'dismissed', read: true } : a
+       )
+     };
+     if (isSupabaseConfigured() && user) syncCase(updatedCase).catch(console.error);
+     return updatedCase;
+   }));
+ };
 
  // Add PDF report to case
  const addPdfReportToCase = (caseId, reportData) => {
@@ -1925,320 +1974,258 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  };
 
- // Export conversation message as PDF by capturing rendered DOM
- const exportMessageAsPdf = async (elementId) => {
- if (!elementId) return;
+ // Parse markdown into structured data for PDF
+ const parseMarkdownForPdf = (markdown) => {
+   if (!markdown) return { sections: [] };
+   const lines = markdown.split('\n');
+   const rawSections = [];
+   let current = null;
+   let preamble = [];
 
- const element = document.getElementById(elementId);
- if (!element) {
-   console.error('Element not found:', elementId);
-   return;
- }
+   for (const line of lines) {
+     if (line.startsWith('## ')) {
+       if (current) {
+         current.content = current.lines.join('\n').trim();
+         rawSections.push(current);
+       }
+       current = { title: line.replace(/^##\s+/, '').trim(), lines: [] };
+     } else if (current) {
+       current.lines.push(line);
+     } else {
+       preamble.push(line);
+     }
+   }
+   if (current) {
+     current.content = current.lines.join('\n').trim();
+     rawSections.push(current);
+   }
+
+   // Parse bold segments from text
+   const parseSegments = (text) => {
+     const segments = [];
+     const parts = text.split(/(\*\*[^*]+\*\*)/g);
+     for (const part of parts) {
+       if (part.startsWith('**') && part.endsWith('**')) {
+         segments.push({ text: part.slice(2, -2), bold: true });
+       } else if (part) {
+         // Strip markdown links [text](url) → text
+         segments.push({ text: part.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') });
+       }
+     }
+     return segments;
+   };
+
+   // Extract risk info
+   let riskLevel = 'MEDIUM';
+   let riskScore = null;
+   let onboardingRecommendation = null;
+   let onboardingRiskLevel = null;
+   let subjectName = 'Unknown Entity';
+
+   for (const sec of rawSections) {
+     const upper = sec.title.toUpperCase();
+     if (upper.includes('OVERALL RISK')) {
+       if (upper.includes('CRITICAL')) riskLevel = 'CRITICAL';
+       else if (upper.includes('HIGH')) riskLevel = 'HIGH';
+       else if (upper.includes('MEDIUM')) riskLevel = 'MEDIUM';
+       else if (upper.includes('LOW')) riskLevel = 'LOW';
+       const scoreMatch = sec.title.match(/(\d+)\s*\/\s*100/);
+       if (scoreMatch) riskScore = parseInt(scoreMatch[1]);
+     }
+     if (upper.includes('ONBOARDING') || upper.includes('RECOMMENDATION')) {
+       const recMatch = sec.title.match(/:\s*(.+)$/);
+       if (recMatch) onboardingRecommendation = recMatch[1].trim();
+       if (upper.includes('IMMEDIATE REJECT') || upper.includes('DO NOT PROCEED')) onboardingRiskLevel = 'CRITICAL';
+       else if (upper.includes('ENHANCED DUE DILIGENCE')) onboardingRiskLevel = 'HIGH';
+       else if (upper.includes('PROCEED WITH MONITORING') || upper.includes('PROCEED WITH CAUTION')) onboardingRiskLevel = 'MEDIUM';
+       else if (upper.includes('STANDARD') || upper.includes('APPROVE')) onboardingRiskLevel = 'LOW';
+     }
+     if (upper.includes('ENTITY SUMMARY')) {
+       const nameMatch = sec.content.match(/\*\*Name:\*\*\s*(.+?)(?:\n|$)/i);
+       if (nameMatch) subjectName = nameMatch[1].trim();
+     }
+   }
+
+   // Classify and parse each section
+   const sections = rawSections.map(sec => {
+     const upper = sec.title.toUpperCase();
+     const contentLines = sec.content.split('\n').filter(l => l.trim());
+
+     // Key-value sections (Entity Summary, Match Confidence)
+     if (upper.includes('ENTITY SUMMARY') || upper.includes('MATCH CONFIDENCE')) {
+       const items = [];
+       for (const line of contentLines) {
+         const kvMatch = line.match(/^\*?\*?\s*\*\*(.+?):\*\*\s*(.+)/);
+         if (kvMatch) {
+           items.push({ label: kvMatch[1].trim(), value: kvMatch[2].trim(), valueSegments: parseSegments(kvMatch[2].trim()) });
+         } else {
+           const simpleKv = line.match(/^[-•*]\s*\*?\*?(.+?):\*?\*?\s+(.+)/);
+           if (simpleKv) {
+             items.push({ label: simpleKv[1].trim(), value: simpleKv[2].trim(), valueSegments: parseSegments(simpleKv[2].trim()) });
+           }
+         }
+       }
+       if (items.length > 0) return { title: sec.title, type: 'key-value', items };
+     }
+
+     // Numbered sections (Red Flags, Typologies)
+     if (upper.includes('RED FLAG') || upper.includes('TYPOLOG')) {
+       const items = [];
+       let currentItem = null;
+       for (const line of contentLines) {
+         const numMatch = line.match(/^\d+\.\s*(.+)/);
+         const bulletBold = line.match(/^[-•*]\s*\*\*(.+?)\*\*\s*[—→:]*\s*(.*)/);
+         if (numMatch || bulletBold) {
+           if (currentItem) items.push(currentItem);
+           const titleText = numMatch ? numMatch[1] : bulletBold[1];
+           const bodyText = numMatch ? '' : (bulletBold[2] || '');
+           currentItem = {
+             title: titleText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+             titleSegments: parseSegments(titleText),
+             body: bodyText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+           };
+         } else if (currentItem) {
+           const cleaned = line.replace(/^\s+/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+           currentItem.body = currentItem.body ? currentItem.body + ' ' + cleaned : cleaned;
+         }
+       }
+       if (currentItem) items.push(currentItem);
+       if (items.length > 0) return { title: sec.title, type: 'numbered', items };
+     }
+
+     // List sections (everything with bullets)
+     const bulletLines = contentLines.filter(l => /^[-•*]\s/.test(l.trim()) || /^\d+\.\s/.test(l.trim()));
+     if (bulletLines.length > contentLines.length * 0.4 && bulletLines.length >= 2) {
+       const items = [];
+       for (const line of contentLines) {
+         const cleaned = line.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+         if (cleaned) {
+           items.push({ text: cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), segments: parseSegments(cleaned) });
+         }
+       }
+       return { title: sec.title, type: 'list', items };
+     }
+
+     // Default: paragraph
+     const content = [];
+     let currentPara = '';
+     for (const line of contentLines) {
+       const cleaned = line.trim();
+       if (!cleaned) {
+         if (currentPara) { content.push({ text: currentPara, segments: parseSegments(currentPara) }); currentPara = ''; }
+       } else {
+         currentPara = currentPara ? currentPara + ' ' + cleaned : cleaned;
+       }
+     }
+     if (currentPara) content.push({ text: currentPara, segments: parseSegments(currentPara) });
+
+     return { title: sec.title, type: 'paragraph', content };
+   });
+
+   return { subjectName, riskLevel, riskScore, onboardingRecommendation, onboardingRiskLevel, sections };
+ };
+
+ // Export conversation message as PDF
+ const exportMessageAsPdf = async (elementId, markdownContent) => {
+ if (!elementId && !markdownContent) return;
 
  setIsGeneratingCaseReport(true);
 
  try {
- // Import html2canvas dynamically
- const html2canvas = (await import('html2canvas')).default;
- const { jsPDF } = await import('jspdf');
 
- // Try to extract subject name — prefer kycResults, then case name, then content parsing
- let subjectName = '';
-
- // Best source: kycResults subject name
- if (kycResults?.subject?.name) {
-   subjectName = kycResults.subject.name;
- } else if (selectedHistoryItem?.name) {
-   subjectName = selectedHistoryItem.name;
- } else if (kycQuery?.trim()) {
-   subjectName = extractEntityName(kycQuery) || kycQuery.trim();
- } else if (activeCase?.name && activeCase.name !== 'New Investigation') {
-   subjectName = activeCase.name;
+ // Get markdown content — either passed directly or from the DOM element
+ let markdown = markdownContent;
+ if (!markdown && elementId) {
+   const element = document.getElementById(elementId);
+   if (element) markdown = element.textContent || '';
+ }
+ if (!markdown) {
+   console.error('No content for PDF export');
+   return;
  }
 
- // If still empty, try to extract from rendered content
- if (!subjectName) {
-   const textContent = element.textContent || '';
-   const namePatterns = [
-     /(?:screening|analysis|report)\s+(?:for|on|of)\s*:?\s*([A-Z][a-zA-Z\s\-']+)/i,
-     /subject:\s*([A-Z][a-zA-Z\s\-']+)/i,
-     /entity:\s*([A-Z][a-zA-Z\s\-']+)/i,
-     /Name:\s*([^\n,]+)/i,
-     /OVERALL RISK:.*?\n+(.+?)(?:\n|$)/,
-   ];
-   for (const pattern of namePatterns) {
-     const match = textContent.match(pattern);
-     if (match && match[1] && match[1].trim().length > 1) {
-       subjectName = match[1].trim().substring(0, 50);
-       break;
-     }
-   }
- }
+ // Parse markdown into structured data
+ const pdfData = parseMarkdownForPdf(markdown);
 
- // Check if this looks like a batch/multi-person report
- if (!subjectName || subjectName.toLowerCase().includes('remaining') || subjectName.toLowerCase().includes('csv') || subjectName.toLowerCase().includes('batch')) {
-   // Count how many OVERALL RISK sections appear (indicates batch)
-   const textContent = element.textContent || '';
-   const riskCount = (textContent.match(/OVERALL RISK/gi) || []).length;
-   if (riskCount > 1) {
-     subjectName = `${riskCount} Entity Screening Report`;
-   } else if (!subjectName) {
-     subjectName = 'Compliance Screening Report';
-   }
+ // Override subject name from case context if available
+ const stripCaseNameSuffix = (name) => {
+   return (name || '').replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
+ };
+ let subjectName = pdfData.subjectName || '';
+ if ((!subjectName || subjectName === 'Unknown Entity') && caseName && caseName !== 'New Investigation') {
+   subjectName = stripCaseNameSuffix(caseName);
+ } else if (!subjectName || subjectName === 'Unknown Entity') {
+   if (kycResults?.subject?.name) subjectName = kycResults.subject.name;
+   else if (kycQuery?.trim()) subjectName = extractEntityName(kycQuery) || kycQuery.trim();
  }
-
- // Capitalize properly
+ if (!subjectName) subjectName = 'Compliance Screening Report';
  subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
- // Create a wrapper with padding for better PDF margins
- const wrapper = document.createElement('div');
- wrapper.style.padding = '20px';
- wrapper.style.backgroundColor = darkMode ? '#1f2937' : '#ffffff';
- wrapper.style.maxWidth = '800px';
-
- // Add header with subject name and date
- const header = document.createElement('div');
- header.style.marginBottom = '20px';
- header.style.paddingBottom = '15px';
- header.style.borderBottom = `2px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
- header.innerHTML = `
-   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-     <div>
-       <div style="font-size: 12px; color: ${darkMode ? '#9ca3af' : '#64748b'}; margin-bottom: 4px;">Marlowe Search Results</div>
-       <div style="font-size: 20px; font-weight: 600; color: ${darkMode ? '#f3f4f6' : '#0f172a'};">${subjectName}</div>
-     </div>
-     <div style="text-align: right;">
-       <div style="font-size: 11px; color: ${darkMode ? '#9ca3af' : '#64748b'};">Generated</div>
-       <div style="font-size: 12px; color: ${darkMode ? '#d1d5db' : '#334155'};">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-     </div>
-   </div>
- `;
-
- wrapper.appendChild(header);
-
- // Clone the element content
- const contentClone = element.cloneNode(true);
-
- // Remove "Keep Exploring" section from the clone (not needed in PDF)
- const keepExploringElements = contentClone.querySelectorAll('h3, h2, div');
- keepExploringElements.forEach(el => {
-   if (el.textContent && el.textContent.toLowerCase().includes('keep exploring')) {
-     // Find the parent card container and remove it
-     const card = el.closest('.border') || el.closest('[class*="rounded"]') || el.parentElement?.parentElement;
-     if (card && card.parentElement) {
-       card.parentElement.removeChild(card);
-     }
-   }
- });
-
- wrapper.appendChild(contentClone);
-
- // Add Appendix: Entities Included in Screening
+ // Build entity appendix list
+ const entities = [];
  if (kycResults) {
-   const appendix = document.createElement('div');
-   appendix.style.marginTop = '30px';
-   appendix.style.paddingTop = '20px';
-   appendix.style.borderTop = `2px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
-
-   const appendixTitle = document.createElement('div');
-   appendixTitle.style.fontSize = '16px';
-   appendixTitle.style.fontWeight = '700';
-   appendixTitle.style.color = darkMode ? '#e5e7eb' : '#0f172a';
-   appendixTitle.style.marginBottom = '16px';
-   appendixTitle.textContent = 'Appendix: Entities Included in Screening';
-   appendix.appendChild(appendixTitle);
-
-   const entityList = [];
-
-   // Primary subject
    if (kycResults.subject?.name) {
-     entityList.push({ name: kycResults.subject.name, type: kycResults.subject.type || 'Subject', category: 'Primary Subject', detail: '' });
+     entities.push({ name: kycResults.subject.name, type: kycResults.subject.type || 'Subject', category: 'Primary Subject', detail: '' });
    }
-
-   // Sanctions matches
    if (kycResults.sanctions?.matches?.length) {
      kycResults.sanctions.matches.forEach(m => {
-       entityList.push({ name: m.name || m.entity || 'Unknown', type: m.type || 'Entity', category: 'Sanctions Match', detail: m.list || m.source || '' });
+       entities.push({ name: m.name || m.entity || 'Unknown', type: m.type || 'Entity', category: 'Sanctions Match', detail: m.list || m.source || '' });
      });
    }
-
-   // PEP matches
    if (kycResults.pep?.matches?.length) {
      kycResults.pep.matches.forEach(m => {
-       entityList.push({ name: m.name || m.entity || 'Unknown', type: m.position || m.role || 'PEP', category: 'PEP Match', detail: m.jurisdiction || '' });
+       entities.push({ name: m.name || m.entity || 'Unknown', type: m.position || m.role || 'PEP', category: 'PEP Match', detail: m.jurisdiction || '' });
      });
    }
-
-   // Adverse media
    if (kycResults.adverseMedia?.articles?.length) {
      kycResults.adverseMedia.articles.forEach(a => {
-       entityList.push({ name: a.title || a.headline || 'Article', type: 'Media', category: 'Adverse Media', detail: a.source || a.url || '' });
+       entities.push({ name: a.title || a.headline || 'Article', type: 'Media', category: 'Adverse Media', detail: a.source || a.url || '' });
      });
    }
-
-   // Beneficial owners
    if (kycResults.ownershipAnalysis?.beneficialOwners?.length) {
      kycResults.ownershipAnalysis.beneficialOwners.forEach(bo => {
-       entityList.push({ name: bo.name, type: 'Beneficial Owner', category: 'Ownership', detail: bo.ownershipPercentage ? bo.ownershipPercentage + '%' : '' });
+       entities.push({ name: bo.name, type: 'Beneficial Owner', category: 'Ownership', detail: bo.ownershipPercentage ? bo.ownershipPercentage + '%' : '' });
      });
    }
-
-   // Corporate structure
    if (kycResults.ownershipAnalysis?.corporateStructure?.length) {
      kycResults.ownershipAnalysis.corporateStructure.forEach(cs => {
-       entityList.push({ name: cs.name, type: cs.type || 'Entity', category: 'Corporate Structure', detail: cs.jurisdiction || '' });
+       entities.push({ name: cs.name, type: cs.type || 'Entity', category: 'Corporate Structure', detail: cs.jurisdiction || '' });
      });
    }
-
-   if (entityList.length > 0) {
-     const table = document.createElement('table');
-     table.style.width = '100%';
-     table.style.borderCollapse = 'collapse';
-     table.style.fontSize = '12px';
-     table.style.color = darkMode ? '#d1d5db' : '#334155';
-
-     const thead = document.createElement('thead');
-     const headerBorder = darkMode ? '#4b5563' : '#cbd5e1';
-     const headerColor = darkMode ? '#9ca3af' : '#64748b';
-     thead.innerHTML = `<tr style="border-bottom: 2px solid ${headerBorder};">
-       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Entity</th>
-       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Type</th>
-       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Category</th>
-       <th style="text-align:left;padding:8px 6px;font-weight:600;color:${headerColor};">Details</th>
-     </tr>`;
-     table.appendChild(thead);
-
-     const tbody = document.createElement('tbody');
-     entityList.forEach((ent, i) => {
-       const row = document.createElement('tr');
-       const rowBorder = darkMode ? '#374151' : '#e2e8f0';
-       row.style.borderBottom = `1px solid ${rowBorder}`;
-       if (i % 2 === 0) row.style.backgroundColor = darkMode ? '#1f2937' : '#f8fafc';
-       row.innerHTML = `
-         <td style="padding:6px;">${ent.name}</td>
-         <td style="padding:6px;">${ent.type}</td>
-         <td style="padding:6px;">${ent.category}</td>
-         <td style="padding:6px;">${ent.detail || '\u2014'}</td>
-       `;
-       tbody.appendChild(row);
-     });
-     table.appendChild(tbody);
-     appendix.appendChild(table);
-   } else {
-     const noEntities = document.createElement('div');
-     noEntities.style.fontSize = '12px';
-     noEntities.style.color = darkMode ? '#9ca3af' : '#64748b';
-     noEntities.style.fontStyle = 'italic';
-     noEntities.textContent = 'No additional entities identified in this screening.';
-     appendix.appendChild(noEntities);
-   }
-
-   wrapper.appendChild(appendix);
  }
 
- // Add footer with "View in Marlowe" link
  const caseUrl = currentCaseId
    ? `https://marlowe-app.vercel.app/?case=${currentCaseId}`
    : 'https://marlowe-app.vercel.app';
- const footer = document.createElement('div');
- footer.style.marginTop = '20px';
- footer.style.paddingTop = '15px';
- footer.style.borderTop = `1px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
- footer.style.fontSize = '10px';
- footer.style.color = darkMode ? '#6b7280' : '#94a3b8';
- footer.style.display = 'flex';
- footer.style.justifyContent = 'space-between';
- footer.style.alignItems = 'center';
- footer.innerHTML = `
-   <span>Marlowe Compliance Platform &bull; Confidential</span>
-   <span style="color: ${darkMode ? '#6b7280' : '#94a3b8'};">View in Marlowe: ${caseUrl}</span>
- `;
- wrapper.appendChild(footer);
 
- // Temporarily add to DOM for rendering
- wrapper.style.position = 'absolute';
- wrapper.style.left = '-9999px';
- document.body.appendChild(wrapper);
-
- // Capture the wrapper element
- const canvas = await html2canvas(wrapper, {
-   scale: 2,
-   useCORS: true,
-   logging: false,
-   backgroundColor: darkMode ? '#1f2937' : '#ffffff',
- });
-
- // Remove wrapper from DOM
- document.body.removeChild(wrapper);
-
- // Calculate dimensions for PDF (A4) with margins
- const margin = 10; // mm
- const imgWidth = 210 - (margin * 2); // A4 width minus margins
- const pageHeight = 297 - (margin * 2); // A4 height minus margins
-
- // Create PDF
- const pdf = new jsPDF('p', 'mm', 'a4');
-
- // Add image to PDF - slice canvas at whitespace gaps to avoid cutting text
- const canvasWidth = canvas.width;
- const canvasPageHeight = (pageHeight / imgWidth) * canvasWidth;
- const canvasCtx = canvas.getContext('2d');
-
- // Find best row to slice near target Y - scan for uniform background rows
- const findBestSliceY = (targetY) => {
-   if (targetY >= canvas.height) return canvas.height;
-   const searchRange = Math.floor(canvasPageHeight * 0.15);
-   const startY = Math.max(0, Math.floor(targetY - searchRange));
-   const endY = Math.min(canvas.height - 1, Math.floor(targetY + 10));
-   let bestY = Math.floor(targetY);
-   let bestScore = -1;
-   for (let y = endY; y >= startY; y--) {
-     const rowData = canvasCtx.getImageData(0, y, canvasWidth, 1).data;
-     let uniformPixels = 0;
-     const r0 = rowData[0], g0 = rowData[1], b0 = rowData[2];
-     for (let x = 0; x < canvasWidth * 4; x += 16) {
-       if (Math.abs(rowData[x] - r0) < 10 && Math.abs(rowData[x+1] - g0) < 10 && Math.abs(rowData[x+2] - b0) < 10) {
-         uniformPixels++;
-       }
-     }
-     const score = uniformPixels / (canvasWidth / 4);
-     if (score > 0.95) return y;
-     if (score > bestScore) { bestScore = score; bestY = y; }
-   }
-   return bestY;
+ const fullPdfData = {
+   ...pdfData,
+   subjectName,
+   generatedAt: new Date().toISOString(),
+   caseUrl,
+   entities,
  };
 
- let srcY = 0;
- let pageNum = 0;
+ // Generate PDF using @react-pdf/renderer
+ const pdfBlob = await pdf(<ComplianceReportPDF data={fullPdfData} />).toBlob();
 
- while (srcY < canvas.height) {
-   if (pageNum > 0) pdf.addPage();
-   const idealEnd = srcY + canvasPageHeight;
-   const sliceEnd = idealEnd >= canvas.height ? canvas.height : findBestSliceY(idealEnd);
-   const sliceHeight = sliceEnd - srcY;
-   if (sliceHeight <= 0) break;
-   const sliceCanvas = document.createElement('canvas');
-   sliceCanvas.width = canvasWidth;
-   sliceCanvas.height = sliceHeight;
-   const sliceCtx = sliceCanvas.getContext('2d');
-   sliceCtx.drawImage(canvas, 0, srcY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
-   const sliceImgHeight = (sliceHeight * imgWidth) / canvasWidth;
-   pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, sliceImgHeight);
-   srcY = sliceEnd;
-   pageNum++;
- }
-
- // Generate filename with subject name
+ // Generate filename
  const dateStr = new Date().toISOString().split('T')[0];
  const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30);
  const fileName = `compliance-report-${subjectSlug}-${dateStr}.pdf`;
 
- // Save the PDF
- pdf.save(fileName);
+ // Download the PDF
+ const url = URL.createObjectURL(pdfBlob);
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = fileName;
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+ URL.revokeObjectURL(url);
 
  // Also save to current case if one exists
  if (currentCaseId) {
-   const blob = pdf.output('blob');
    const reader = new FileReader();
    reader.onloadend = () => {
      const dataUri = reader.result;
@@ -2247,11 +2234,11 @@ Format the report professionally with clear headers, bullet points where appropr
        name: fileName,
        createdAt: new Date().toISOString(),
        dataUri: dataUri,
-       riskLevel: 'UNKNOWN',
+       riskLevel: pdfData.riskLevel || 'UNKNOWN',
        entityName: subjectName,
      });
    };
-   reader.readAsDataURL(blob);
+   reader.readAsDataURL(pdfBlob);
  }
 
  } catch (error) {
@@ -4002,17 +3989,240 @@ Citation rules:
 At end, list: Sources: [Doc 1] - filename, etc.
 `}
 
-Your personality:
-- Direct and clear, never hedge when you're confident
-- You think out loud in your analysis
-- You quote evidence directly and explain what it means in plain terms
-- You're helpful but honest about limitations
+You are Marlowe, an expert AI compliance analyst specializing in financial crimes, anti-money laundering (AML), sanctions, and investigations. You are the equivalent of a senior financial crimes investigator with 15+ years of experience across banking, crypto, and regulatory enforcement.
 
-=== OUTPUT FORMAT ===
+═══════════════════════════════════════════════════════════════════════
+CORE BEHAVIOR
+═══════════════════════════════════════════════════════════════════════
 
-Use well-structured markdown with these exact section headers. This will be rendered with beautiful styled components.
+BE ADAPTIVE
+- Read the user's intent and adjust your output format
+- Questions get conversational answers
+- "Screen X" gets a structured risk report
+- "Investigate X" gets deep analysis with visible reasoning
+- "Help me think through this" gets dialogue
+- Don't force everything into the same template
+- Match the user's tone (casual or formal)
+- Calibrate depth to stakes (quick check vs. $5M commitment)
 
-⚠️ IMPORTANT: Be COMPREHENSIVE and DETAILED. Include ALL relevant findings you know about. A thorough screening should have 5-10 red flags, not just 2-3. Compliance analysts need the full picture.
+BE DIRECT
+- Give clear opinions when asked
+- Don't over-hedge or pad with disclaimers
+- "Yes, this is high risk because..." not "There are many factors to consider..."
+- If you'd flag it, say so
+- When you've answered, stop — don't pad
+
+BE CONVERSATIONAL
+- Support follow-up questions — remember context
+- Ask clarifying questions when input is vague or ambiguous
+- Don't treat each message as a blank slate
+- Suggest next steps and offer to go deeper
+
+SHOW YOUR WORK
+- On complex queries, explain your reasoning
+- Distinguish facts from inferences ("This is confirmed..." vs "This suggests...")
+- Cite sources when possible (regulations, guidance, the uploaded document)
+- Surface contradictions in data — don't hide them
+
+BE A THOUGHT PARTNER
+- Support hypotheticals ("What if...")
+- Support comparisons ("Compare X and Y")
+- Support "check my work" requests
+- Help users think through problems, not just generate reports
+- Know when to recommend escalation to counsel or senior management
+
+═══════════════════════════════════════════════════════════════════════
+DOMAIN KNOWLEDGE
+═══════════════════════════════════════════════════════════════════════
+
+SANCTIONS REGIMES
+- OFAC (SDN List, Sectoral Sanctions, 50% Rule for ownership)
+- EU Consolidated List
+- UN Security Council Consolidated List
+- OFSI (UK)
+- Country-specific programs (Russia, Iran, North Korea, Venezuela, etc.)
+- Secondary sanctions implications
+- Sanctions evasion techniques (front companies, transshipment, false documentation)
+
+AML FRAMEWORKS
+- Bank Secrecy Act (BSA) requirements
+- USA PATRIOT Act (Sections 311, 312, 314)
+- FinCEN guidance and advisories
+- FATF 40 Recommendations
+- EU Anti-Money Laundering Directives (AMLD6)
+- UK Money Laundering Regulations 2017
+- Customer Due Diligence (CDD) and Enhanced Due Diligence (EDD) requirements
+- Suspicious Activity Report (SAR) filing requirements and thresholds
+
+PEP FRAMEWORK
+- Politically Exposed Persons: current and former government officials
+- Family members and close associates
+- Domestic vs. foreign PEPs
+- Risk-based approach to PEP relationships
+- Enhanced due diligence requirements for PEPs
+
+REGULATORY CITATIONS — Cite specific guidance when relevant:
+- FATF Recommendations: R.10 (CDD), R.12 (PEPs), R.15 (new technologies), R.20 (suspicious transaction reporting), R.24 (beneficial ownership)
+- FinCEN Advisories: FIN-2020-A005 (TBML), FIN-2019-A003 (crypto), FIN-2021-A004 (ransomware)
+- OFAC: Framework for OFAC Compliance Commitments (2019), 50% Rule guidance
+- Basel AML Index for jurisdiction risk scoring
+- Transparency International CPI for corruption risk
+- Wolfsberg Group guidance for correspondent banking, PEP screening
+Cite these naturally: "Per FATF Recommendation 12, PEPs require enhanced due diligence including source of wealth verification."
+
+KEY THRESHOLDS
+- US: $10K CTR, $3K funds transfer rule, $5K SAR threshold
+- Structuring: patterns designed to evade reporting
+- Travel Rule: $3K (US), varies by jurisdiction
+
+HIGH-RISK JURISDICTIONS: FATF grey/black list countries, offshore centers (BVI, Cayman, Seychelles, Panama), secrecy jurisdictions, sanctioned countries/regions.
+
+HIGH-RISK INDUSTRIES: Cash-intensive businesses, casinos, MSBs, crypto/virtual assets, real estate, art/antiquities, precious metals, shell company formation services.
+
+═══════════════════════════════════════════════════════════════════════
+TYPOLOGY RECOGNITION
+═══════════════════════════════════════════════════════════════════════
+
+When you see patterns matching these typologies, name them explicitly:
+
+STRUCTURING / SMURFING
+- Multiple deposits just under reporting thresholds
+- Pattern of transactions avoiding $10K CTR trigger
+- Multiple people making deposits to same account
+
+LAYERING THROUGH SHELL COMPANIES
+- Multiple entities in opacity jurisdictions (BVI, Seychelles, Panama)
+- Funds moving through 3+ entities before final destination
+- Nominee directors, bearer shares, no clear business purpose
+- Same registered agent address for multiple entities
+
+TRADE-BASED MONEY LAUNDERING (TBML)
+- Over-invoicing or under-invoicing goods
+- Phantom shipments (no goods actually moved)
+- Multiple invoicing for same goods
+- Payments from/to unrelated third parties
+
+REAL ESTATE LAUNDERING
+- All-cash purchases, especially high-value
+- Purchases through LLCs, trusts, or shell companies
+- Rapid buy/sell cycles with price appreciation
+
+CORRESPONDENT BANKING ABUSE
+- Nested accounts, payable-through accounts
+- Lack of transparency on underlying customers
+
+CRYPTO / VIRTUAL ASSET LAUNDERING
+- Chain hopping, mixing/tumbling services, privacy coins (Monero, Zcash)
+- Rapid movement through multiple wallets
+- Structured off-ramping through high-risk exchanges
+
+PEP CORRUPTION PATTERNS
+- Unexplained wealth relative to official salary
+- Government contracts awarded to family members
+- Complex offshore structures to obscure ownership
+
+SANCTIONS EVASION
+- Front companies in non-sanctioned jurisdictions
+- Transshipment through third countries
+- Name variations and aliases, ownership restructuring to avoid 50% rule
+
+When you identify a typology: (1) name it, (2) explain why the pattern matches, (3) reference specific red flags, (4) suggest investigation steps.
+
+═══════════════════════════════════════════════════════════════════════
+REGULATORY CONTEXT AWARENESS
+═══════════════════════════════════════════════════════════════════════
+
+Adjust analysis based on the user's regulatory context:
+
+US BANK: BSA, OFAC, FinCEN. $10K CTR, $3K funds transfer, $5K SAR. 31 CFR 1010, PATRIOT Act.
+US BROKER-DEALER: FINRA 3310, SEC AML, CIP.
+US INVESTMENT ADVISER: FinCEN AML Rule (effective 2026).
+US MSB: FinCEN registration, state licensing, agent monitoring.
+EU INSTITUTION: AMLD6, EU sanctions, UBO registry checks, national FIU reporting.
+UK INSTITUTION: FCA, MLR 2017, POCA 2002, OFSI sanctions, NCA SARs.
+CRYPTO/VASP: Travel Rule, FATF VASP guidance, wallet screening, jurisdiction licensing.
+If context unknown, ask: "What type of institution are you at? This helps me focus on relevant regulations."
+
+═══════════════════════════════════════════════════════════════════════
+DOCUMENT-SPECIFIC ANALYSIS
+═══════════════════════════════════════════════════════════════════════
+
+BANK STATEMENTS: Structuring, round amounts, rapid movement, high-risk counterparties, velocity mismatches.
+CORPORATE REGISTRIES: Nominee directors, bearer shares, same-address entities, jurisdiction risk, ownership clarity.
+SAR NARRATIVES (review): 5 W's coverage, typology identification, completeness, suggest improvements.
+KYC PACKAGES: ID consistency, address verification, source of funds docs, CDD/EDD completeness.
+TRANSACTION RECORDS: Timing/amount/counterparty/geography patterns. Flag structuring, layering.
+WIRE TRANSFERS: Originator/beneficiary completeness (Travel Rule), intermediary banks, vague purposes.
+INTERVIEW TRANSCRIPTS: Admissions, inconsistencies, evasive responses, follow-up questions.
+LP/INVESTOR PACKETS: Screen all named individuals/entities, verify source of funds, flag PEPs.
+FINANCIAL STATEMENTS: Asset/liability mismatches, related party transactions, offshore holdings.
+
+═══════════════════════════════════════════════════════════════════════
+RISK SCORING METHODOLOGY
+═══════════════════════════════════════════════════════════════════════
+
+Score entities 0-100 with these components:
+
+JURISDICTION (0-25): FATF blacklist=10, greylist=7, offshore=6, high-risk non-listed=8, moderate=3-5, low=0-2.
+STRUCTURE (0-20): Individual=0, LLC=2, LP=4, trust=6, foundation=8, offshore corp=10. +2/layer to UBO, +5 nominees, +5 bearer shares.
+PEP/SANCTIONS (0-25): Direct sanctions=25, current foreign PEP=20, former PEP <5yrs=15, >5yrs=10, domestic PEP=10, family/associate=10.
+SOURCE OF FUNDS (0-15): Unverifiable=15, high-risk industry=10, corrupt govt contracts=10, unverified inheritance=8, verified=3, documented=0.
+ADVERSE MEDIA (0-15): Financial crime conviction=15, investigation=12, civil fraud=8, regulatory action=10, negative news=5, clean=0.
+
+Multipliers: PEP + high-risk jurisdiction=1.2x, offshore + vague funds=1.15x, multiple same-category flags=1.1x. Cap at 100.
+LEVELS: 0-30 LOW, 31-50 MEDIUM, 51-70 MEDIUM-HIGH (EDD), 71-85 HIGH (senior approval), 86-100 CRITICAL (decline).
+Always show component breakdown.
+
+═══════════════════════════════════════════════════════════════════════
+WORKFLOW SUPPORT
+═══════════════════════════════════════════════════════════════════════
+
+ONBOARDING: Screen → score risk → CDD vs EDD → doc checklist → approval memo → approve/conditions/decline
+PERIODIC REVIEW: Re-screen → new adverse media → compare risk → maintain/upgrade/downgrade/exit
+TRANSACTION ALERT: Understand alert → analyze vs typologies → clear/escalate/file SAR → document rationale
+SAR FILING: Subject info → document activity → typologies → draft 5 W's narrative → review completeness
+SANCTIONS ALERT: Match details → systematic comparison → true/false positive → document decision
+EDD: Risk factors → beneficial ownership → source of funds → adverse media → draft EDD memo
+
+═══════════════════════════════════════════════════════════════════════
+OUTPUT TEMPLATES
+═══════════════════════════════════════════════════════════════════════
+
+SAR NARRATIVE: Subject info → suspicious activity summary → chronological detail → typology indicators → red flags → documentation list.
+EDD MEMO: Subject → executive summary → risk factors → EDD performed → findings → beneficial ownership → source of funds → adverse info → mitigating factors → recommendation → rationale.
+INVESTIGATION SUMMARY: Case overview → subjects → timeline → findings → typologies with evidence → network connections → evidence reviewed → conclusion → recommendations.
+APPROVAL MEMO: Customer overview → risk assessment with score → findings → mitigating factors → conditions → monitoring requirements → sign-off.
+
+═══════════════════════════════════════════════════════════════════════
+HANDLING EDGE CASES
+═══════════════════════════════════════════════════════════════════════
+
+AMBIGUOUS NAMES: Ask for clarifying information. List possible matches. Never guess.
+BATCH INPUTS: Acknowledge count, offer to prioritize by risk, summarize first (X high, Y medium, Z low), let user drill down.
+INCOMPLETE DOCUMENTS: Analyze what's available, state what's missing, explain impact, suggest how to obtain.
+CONTRADICTORY INFORMATION: Surface the contradiction, present both versions, recommend verification.
+NO RESULTS: State negatives explicitly ("No OFAC hits. No EU sanctions."). Note limitations. Suggest additional steps.
+TIME-SENSITIVE: Quick summary first, offer to elaborate after.
+USER CORRECTIONS: Accept gracefully, adjust, don't be defensive.
+
+═══════════════════════════════════════════════════════════════════════
+COMMUNICATION GUIDELINES
+═══════════════════════════════════════════════════════════════════════
+
+DO: Be direct, cite regulations/typologies, provide actionable recommendations, admit uncertainty, ask clarifying questions, suggest next steps.
+DON'T: Over-hedge, give generic advice, assume expertise level, ignore red flags, make legal conclusions, present inferences as facts, pad responses.
+
+ESCALATION: Be explicit — "This should go to your BSA Officer", "I'd recommend external sanctions counsel", "This meets SAR filing thresholds."
+UNCERTAINTY: Say so clearly, explain what additional info would help, distinguish "no evidence of X" from "confirmed no X."
+
+You are a senior compliance expert, not a generic AI assistant. Help compliance professionals work faster and more effectively while maintaining the rigor their regulators expect.
+
+
+=== STRUCTURED SCREENING REPORT TEMPLATE ===
+
+Use this template ONLY for screening requests (Intent #1 above). Use well-structured markdown with these exact section headers — they will be rendered as styled cards.
+
+⚠️ When producing a screening report: Be COMPREHENSIVE and DETAILED. Include ALL relevant findings. A thorough screening should have 5-10 red flags, not just 2-3.
 
 REQUIRED STRUCTURE FOR COMPLIANCE SCREENINGS:
 
@@ -4026,10 +4236,16 @@ Provide both a qualitative risk level (CRITICAL/HIGH/MEDIUM/LOW) AND a quantitat
 
 Brief 1-2 sentence summary of why this risk level and score.
 
-[2-3 sentence summary for senior compliance. What's the core issue and recommended action? Write this like a brief to a busy executive. Do NOT add a heading or title for this section — it flows directly after the risk summary as a single continuous block.]
+[3-5 sentence contextual summary for senior compliance. Start by explaining WHO this person/entity is and WHY they matter (their role, industry, jurisdiction, political connections). Then explain the specific risk factors driving the rating. End with the recommended action. Write this like a brief to a busy executive who has never heard of this subject. Use **bold** for key statements and critical facts — e.g., "**former Deputy Minister of Housing in Venezuela (2008-2012)**", "**direct OFAC SDN designation**", "**beneficial owner of three offshore shell companies**". Do NOT add a heading or title for this section — it flows directly after the risk summary as a single continuous block.]
 
-## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH CAUTION]
+## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH MONITORING / APPROVED]
 Do NOT include any text or explanation under this heading. The recommendation label alone is sufficient.
+
+Map the recommendation directly to the risk level:
+- CRITICAL risk (76-100) → IMMEDIATE REJECT
+- HIGH risk (51-75) → ENHANCED DUE DILIGENCE
+- MEDIUM risk (26-50) → PROCEED WITH MONITORING
+- LOW risk (0-25) → APPROVED
 
 ## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
 
@@ -4067,18 +4283,14 @@ List known associates, family members, business partners, and related companies 
 Be thorough - include ALL relevant findings. A high-risk individual might have 8-12 red flags. Don't summarize or consolidate - list each finding separately.
 
 1. **[Clear descriptive title]**
-   [Detailed factual finding - what was discovered, when, by whom. Include specific evidence, dates, amounts, locations. Quote directly when possible.]
+   [Detailed factual finding with source links directly inline. Example: "Designated on the [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/) on March 15, 2022 under [Executive Order 14024](https://url). Named in a [Reuters investigation](https://reuters.com/specific-article) as having moved $50M through shell companies."]
 
-   Impact: [Direct, blunt explanation of what this means for compliance. Be specific about regulatory implications.]
-
-   Sources: [Link to specific source](https://url) — ALWAYS include clickable URLs. e.g. [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/), [Reuters](https://reuters.com/article-url)
+   Impact: [Direct, blunt explanation of what this means for compliance.]
 
 2. **[Next red flag title]**
-   [Detailed findings with specifics...]
+   [Each factual claim has its source link right next to it, not collected at the bottom.]
 
    Impact: [Explanation...]
-
-   Sources: [...]
 
 (Continue for ALL relevant red flags - typically 5-12 for high-risk entities)
 
@@ -4096,7 +4308,16 @@ Known companies, ownership stakes, shell company concerns. Cite sources for each
 
 ## ADVERSE MEDIA SUMMARY
 
-Key media coverage and investigations (MUST link to the specific article URL for each):
+Start with suggested search terms the user can use for their own research:
+
+**Suggested Search Terms:**
+- "[Subject Name] sanctions"
+- "[Subject Name] fraud investigation"
+- "[Subject Name] [relevant company] ownership"
+- "[Subject Name] money laundering"
+- (Include 4-6 specific, tailored search queries based on the subject's known risk areas, associates, and jurisdictions. Make them specific enough to be useful — e.g., "Ricardo Vega Molina Venezuela PDVSA" not just "Ricardo Vega Molina".)
+
+Then list the key media coverage and investigations (MUST link to the specific article URL for each):
 - [Article Title](https://exact-article-url) - [Publication] - [Date] - [Key allegation or finding]
 - [Article Title](https://exact-article-url) - [Publication] - [Date] - [Key allegation or finding]
 
@@ -4113,11 +4334,11 @@ IMPORTANT: Each adverse media item MUST be a clickable hyperlink to the specific
 
 ## DOCUMENTS TO REQUEST
 
-- Specific document 1
-- Specific document 2
-- Specific document 3
+- Specific document 1 (e.g., "Certified beneficial ownership declaration")
+- Specific document 2 (e.g., "Audited financial statements for past 3 years")
+- Specific document 3 (e.g., "Source of funds documentation")
 
-(Skip this section if not applicable, e.g., for sanctioned individuals)
+(Skip this section if not applicable, e.g., for sanctioned individuals. NEVER include "conduct sanctions screening" — Marlowe already did that.)
 
 ## SOURCES & REFERENCES
 
@@ -4129,24 +4350,25 @@ Include: OFAC SDN List entries, UN Security Council resolutions, court filings, 
 
 ## KEEP EXPLORING
 
-- Check sanctions exposure on related entities
-- Screen associates or family members acting as proxies
-- Review corporate network for indirect connections
+- Screen [specific associate name] in Marlowe
 - Upload ownership documents for deeper analysis
+- Review corporate network for indirect connections
+- Analyze [specific document type] for hidden exposures
 
-(3-4 actionable next steps the analyst can take)
+(3-4 actionable next steps — always phrase screening suggestions as "Screen [name] in Marlowe", NEVER "check against OFAC/EU lists")
 
 FORMATTING RULES:
-1. Use ## for section headers (they become styled cards)
-2. Use **bold** for important terms and red flag titles
-3. Use numbered lists (1. 2. 3.) for red flags
-4. Use bullet lists (- item) for typologies, documents, and keep exploring
-5. Always include the "Impact:" line after each red flag
-6. Be DIRECT and BLUNT - explain real risks without hedging
-7. Quote evidence directly when available
-8. CRITICAL: Every factual claim MUST have a clickable source link directly below or inline. Use markdown links: [Source Name](https://url). Never make a claim without citing a source with a URL. This applies to ALL sections, not just red flags.
+1. ⚠️ #1 PRIORITY — INLINE CITATIONS: Every factual claim MUST have a clickable [Source](https://url) link RIGHT NEXT TO IT in the same sentence or immediately after. Do NOT collect sources at the bottom of a section. Do NOT write facts without a link. Example: "Designated on the [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/) in March 2022 under [EO 14024](https://url)." NOT: "Designated on the OFAC SDN List in March 2022. Sources: OFAC SDN List." This applies to EVERY section: Entity Summary, Red Flags, Sanctions Exposure, Corporate Structure, Adverse Media — ALL of them.
+2. Use ## for section headers (they become styled cards)
+3. Use **bold** for important terms and red flag titles
+4. Use numbered lists (1. 2. 3.) for red flags
+5. Use bullet lists (- item) for typologies, documents, and keep exploring
+6. Always include the "Impact:" line after each red flag
+7. Be DIRECT and BLUNT - explain real risks without hedging
+8. Quote evidence directly when available
+9. NEVER tell the user to "screen," "check," or "verify" individuals against sanctions lists, conduct background checks, use third-party screening services, or go to any external platform. Marlowe IS the screening platform — it already performed sanctions screening, PEP checks, adverse media analysis, and background checks. Do not say things like "Requires screening of X against Y list," "Conduct independent background checks," "Use a third-party screening service," or "Check OFAC/EU sanctions." Instead, present the screening RESULTS you already have. If additional entities need screening, say "Screen [name] in Marlowe."
 
-For casual follow-up questions, respond naturally without the full structure.
+REMEMBER: The structured report template above is ONLY for screening requests. For questions, guidance, follow-ups, and investigations — respond conversationally and adapt your format to the user's intent. Never force a rigid template onto a simple question.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
@@ -8462,6 +8684,27 @@ ${analysisContext}`;
  </>
  )}
 
+ {/* Monitoring Center Page */}
+ {currentPage === 'monitoring' && (
+ <MonitoringCenter
+   cases={cases}
+   allMonitoringAlerts={allMonitoringAlerts}
+   unreadAlertCount={unreadAlertCount}
+   monitoringInProgress={monitoringInProgress}
+   onToggleMonitoring={toggleMonitoring}
+   onRescreen={runMonitoringRescreen}
+   onViewCase={(caseId) => {
+     const c = cases.find(cs => cs.id === caseId);
+     if (c) loadCase(c);
+   }}
+   onAcknowledgeAlert={acknowledgeAlert}
+   onResolveAlert={resolveAlert}
+   onDismissAlert={dismissAlert}
+   onGoHome={goToLanding}
+   darkMode={darkMode}
+ />
+ )}
+
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
  <div className={`h-screen flex ${darkMode ? 'bg-gray-900' : 'bg-[#f8f8f8]'}`}>
@@ -8491,6 +8734,23 @@ ${analysisContext}`;
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
+ </div>
+ </div>
+ {/* Monitoring Center */}
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('monitoring')}
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors relative`}
+ >
+ <Radio className={`w-5 h-5 ${unreadAlertCount > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600')} transition-colors`} />
+ {unreadAlertCount > 0 && (
+ <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
+ {unreadAlertCount}
+ </span>
+ )}
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Monitoring Center</div>
  </div>
  </div>
  {/* Dark Mode Toggle */}
@@ -8655,7 +8915,8 @@ ${analysisContext}`;
  <>
  <div className="flex-1 overflow-y-auto px-4 py-3" onScroll={handleScrollContainer}>
  <div className="max-w-3xl mx-auto space-y-3">
- {conversationMessages.map((msg, idx) => (
+ {(() => {
+ return conversationMessages.map((msg, idx) => (
  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
  <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white rounded-2xl px-5 py-3' : ''}`}>
  {msg.role === 'user' && msg.files && msg.files.length > 0 && (
@@ -8713,7 +8974,7 @@ ${analysisContext}`;
  {/* Export PDF button only for screening results */}
  {msg.content.includes('OVERALL RISK') && (
  <button
- onClick={() => exportMessageAsPdf(`chat-message-${idx}`)}
+ onClick={() => exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content))}
  disabled={isGeneratingCaseReport}
  className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >
@@ -8730,7 +8991,8 @@ ${analysisContext}`;
  )}
  </div>
  </div>
- ))}
+ ));
+})()}
 
  {/* Show streaming indicator for current case */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
@@ -8853,13 +9115,13 @@ ${analysisContext}`;
  </div>
  </div>
 
- {/* Monitoring Alerts Bell */}
+ {/* Monitoring Center */}
  <div className="relative group">
  <button
- onClick={() => setShowAlertsPanel(true)}
+ onClick={() => setCurrentPage('monitoring')}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
  >
- <Bell className={`w-4 h-4 ${unreadAlertCount > 0 ? 'text-amber-500' : 'text-gray-400'} group-hover:text-gray-700 transition-colors`} />
+ <Radio className={`w-4 h-4 ${unreadAlertCount > 0 ? 'text-amber-500' : 'text-gray-400'} group-hover:text-gray-700 transition-colors`} />
  {unreadAlertCount > 0 && (
  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
  {unreadAlertCount}
@@ -8867,7 +9129,7 @@ ${analysisContext}`;
  )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Alerts</div>
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Monitoring Center</div>
  </div>
  </div>
 
@@ -10618,52 +10880,7 @@ ${analysisContext}`;
         </div>
         )}
 
-        {/* Monitoring Alerts Slide-Over Panel */}
-        {showAlertsPanel && (
-        <div className="fixed inset-0 z-[60] flex justify-end">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAlertsPanel(false)} />
-          <div className={`relative w-96 h-full shadow-xl overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Monitoring Alerts</h3>
-                <button onClick={() => setShowAlertsPanel(false)} className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-              {monitoringInProgress && (
-                <div className={`flex items-center gap-2 mb-4 px-3 py-2 rounded-lg text-sm ${darkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Re-screening monitored cases...
-                </div>
-              )}
-              {allMonitoringAlerts.length === 0 ? (
-                <div className={`text-center py-12 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  <Bell className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No alerts yet</p>
-                  <p className="text-xs mt-1">Enable monitoring on cases to receive alerts when risk levels change.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {allMonitoringAlerts.map(alert => (
-                    <div key={alert.id} className={`p-3 rounded-lg border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{alert.caseName}</span>
-                        <span className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{new Date(alert.timestamp).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs mb-2">
-                        <span className={`px-1.5 py-0.5 rounded font-bold ${getRiskColor(alert.previousRisk)}`}>{alert.previousRisk}</span>
-                        <ArrowRight className="w-3 h-3 text-gray-400" />
-                        <span className={`px-1.5 py-0.5 rounded font-bold ${getRiskColor(alert.newRisk)}`}>{alert.newRisk}</span>
-                      </div>
-                      <p className={`text-xs leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{alert.summary}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        )}
+        {/* Monitoring Alerts — now handled by MonitoringCenter page */}
 
         {/* Footer */}
         <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
