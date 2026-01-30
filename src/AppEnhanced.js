@@ -56,7 +56,7 @@ export default function Marlowe() {
  // Auth state - must be called before any conditional returns
  const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName } = useAuth();
 
- const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
+ const [currentPage, setCurrentPage] = useState('newCase'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
  const [activeCase, setActiveCase] = useState(null);
  const [currentCaseId, setCurrentCaseId] = useState(null); // Track current case for auto-save
