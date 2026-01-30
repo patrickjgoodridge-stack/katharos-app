@@ -273,6 +273,25 @@ export default function Marlowe() {
    }
  }, [refreshPaidStatus]);
 
+ // Handle case deep-link: ?case=ID
+ useEffect(() => {
+   const urlParams = new URLSearchParams(window.location.search);
+   const caseParam = urlParams.get('case');
+   if (caseParam && cases.length > 0) {
+     const targetCase = cases.find(c => c.id === caseParam);
+     if (targetCase) {
+       setCurrentPage('activeCase');
+       setActiveCase(targetCase);
+       if (targetCase.conversationTranscript) {
+         setChatMessages(targetCase.conversationTranscript);
+       }
+       setCurrentCaseId(targetCase.id);
+     }
+     // Clear the param
+     window.history.replaceState({}, '', window.location.pathname);
+   }
+ }, [cases]); // eslint-disable-line react-hooks/exhaustive-deps
+
  // Show email modal on mount if not authenticated
  useEffect(() => {
  if (!authLoading && !isAuthenticated) {
@@ -2047,15 +2066,23 @@ Format the report professionally with clear headers, bullet points where appropr
    wrapper.appendChild(appendix);
  }
 
- // Add footer
+ // Add footer with "View in Marlowe" link
+ const caseUrl = currentCaseId
+   ? `https://marlowe-app.vercel.app/?case=${currentCaseId}`
+   : 'https://marlowe-app.vercel.app';
  const footer = document.createElement('div');
  footer.style.marginTop = '20px';
  footer.style.paddingTop = '15px';
  footer.style.borderTop = `1px solid ${darkMode ? '#374151' : '#e2e8f0'}`;
  footer.style.fontSize = '10px';
  footer.style.color = darkMode ? '#6b7280' : '#94a3b8';
- footer.style.textAlign = 'center';
- footer.textContent = 'Marlowe Compliance Platform • Confidential';
+ footer.style.display = 'flex';
+ footer.style.justifyContent = 'space-between';
+ footer.style.alignItems = 'center';
+ footer.innerHTML = `
+   <span>Marlowe Compliance Platform &bull; Confidential</span>
+   <span style="color: ${darkMode ? '#6b7280' : '#94a3b8'};">View in Marlowe: ${caseUrl}</span>
+ `;
  wrapper.appendChild(footer);
 
  // Temporarily add to DOM for rendering
