@@ -1854,40 +1854,52 @@ Format the report professionally with clear headers, bullet points where appropr
  const { jsPDF } = await import('jspdf');
 
  // Try to extract subject name — prefer kycResults, then case name, then content parsing
- let subjectName = 'Unknown Subject';
+ let subjectName = '';
 
  // Best source: kycResults subject name
  if (kycResults?.subject?.name) {
    subjectName = kycResults.subject.name;
  } else if (selectedHistoryItem?.name) {
    subjectName = selectedHistoryItem.name;
- } else if (activeCase?.name) {
+ } else if (kycQuery?.trim()) {
+   subjectName = extractEntityName(kycQuery) || kycQuery.trim();
+ } else if (activeCase?.name && activeCase.name !== 'New Investigation') {
    subjectName = activeCase.name;
  }
 
- // If still unknown, try to extract from rendered content
- if (subjectName === 'Unknown Subject') {
+ // If still empty, try to extract from rendered content
+ if (!subjectName) {
    const textContent = element.textContent || '';
    const namePatterns = [
      /(?:screening|analysis|report)\s+(?:for|on|of)\s*:?\s*([A-Z][a-zA-Z\s\-']+)/i,
      /subject:\s*([A-Z][a-zA-Z\s\-']+)/i,
      /entity:\s*([A-Z][a-zA-Z\s\-']+)/i,
-     /\*\*Name:\*\*\s*([^\n*]+)/i,
-     /^([A-Z][a-zA-Z\s\-']+?)(?:\s+is|\s+has|\s+was)/m,
+     /Name:\s*([^\n,]+)/i,
+     /OVERALL RISK:.*?\n+(.+?)(?:\n|$)/,
    ];
    for (const pattern of namePatterns) {
      const match = textContent.match(pattern);
-     if (match && match[1]) {
+     if (match && match[1] && match[1].trim().length > 1) {
        subjectName = match[1].trim().substring(0, 50);
        break;
      }
    }
  }
 
- // Capitalize properly
- if (subjectName !== 'Unknown Subject') {
-   subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
+ // Check if this looks like a batch/multi-person report
+ if (!subjectName || subjectName.toLowerCase().includes('remaining') || subjectName.toLowerCase().includes('csv') || subjectName.toLowerCase().includes('batch')) {
+   // Count how many OVERALL RISK sections appear (indicates batch)
+   const textContent = element.textContent || '';
+   const riskCount = (textContent.match(/OVERALL RISK/gi) || []).length;
+   if (riskCount > 1) {
+     subjectName = `${riskCount} Entity Screening Report`;
+   } else if (!subjectName) {
+     subjectName = 'Compliance Screening Report';
+   }
  }
+
+ // Capitalize properly
+ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
  // Create a wrapper with padding for better PDF margins
  const wrapper = document.createElement('div');
@@ -1967,15 +1979,44 @@ Format the report professionally with clear headers, bullet points where appropr
  // Create PDF
  const pdf = new jsPDF('p', 'mm', 'a4');
 
- // Add image to PDF, handling multiple pages by slicing canvas
+ // Add image to PDF - slice canvas at whitespace gaps to avoid cutting text
  const canvasWidth = canvas.width;
  const canvasPageHeight = (pageHeight / imgWidth) * canvasWidth;
+ const canvasCtx = canvas.getContext('2d');
+
+ // Find best row to slice near target Y - scan for uniform background rows
+ const findBestSliceY = (targetY) => {
+   if (targetY >= canvas.height) return canvas.height;
+   const searchRange = Math.floor(canvasPageHeight * 0.15);
+   const startY = Math.max(0, Math.floor(targetY - searchRange));
+   const endY = Math.min(canvas.height - 1, Math.floor(targetY + 10));
+   let bestY = Math.floor(targetY);
+   let bestScore = -1;
+   for (let y = endY; y >= startY; y--) {
+     const rowData = canvasCtx.getImageData(0, y, canvasWidth, 1).data;
+     let uniformPixels = 0;
+     const r0 = rowData[0], g0 = rowData[1], b0 = rowData[2];
+     for (let x = 0; x < canvasWidth * 4; x += 16) {
+       if (Math.abs(rowData[x] - r0) < 10 && Math.abs(rowData[x+1] - g0) < 10 && Math.abs(rowData[x+2] - b0) < 10) {
+         uniformPixels++;
+       }
+     }
+     const score = uniformPixels / (canvasWidth / 4);
+     if (score > 0.95) return y;
+     if (score > bestScore) { bestScore = score; bestY = y; }
+   }
+   return bestY;
+ };
+
  let srcY = 0;
  let pageNum = 0;
 
  while (srcY < canvas.height) {
    if (pageNum > 0) pdf.addPage();
-   const sliceHeight = Math.min(canvasPageHeight, canvas.height - srcY);
+   const idealEnd = srcY + canvasPageHeight;
+   const sliceEnd = idealEnd >= canvas.height ? canvas.height : findBestSliceY(idealEnd);
+   const sliceHeight = sliceEnd - srcY;
+   if (sliceHeight <= 0) break;
    const sliceCanvas = document.createElement('canvas');
    sliceCanvas.width = canvasWidth;
    sliceCanvas.height = sliceHeight;
@@ -1983,7 +2024,7 @@ Format the report professionally with clear headers, bullet points where appropr
    sliceCtx.drawImage(canvas, 0, srcY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
    const sliceImgHeight = (sliceHeight * imgWidth) / canvasWidth;
    pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, sliceImgHeight);
-   srcY += canvasPageHeight;
+   srcY = sliceEnd;
    pageNum++;
  }
 
@@ -2217,15 +2258,43 @@ Format the report professionally with clear headers, bullet points where appropr
      // Create PDF
      const pdf = new jsPDF('p', 'mm', 'a4');
 
-     // Add image to PDF by slicing canvas per page
+     // Add image to PDF - slice at whitespace gaps to avoid cutting text
      const canvasWidth = canvas.width;
      const canvasPageHeight = (pageHeight / imgWidth) * canvasWidth;
+     const canvasCtx2 = canvas.getContext('2d');
+
+     const findBestSliceY2 = (targetY) => {
+       if (targetY >= canvas.height) return canvas.height;
+       const searchRange = Math.floor(canvasPageHeight * 0.15);
+       const startY = Math.max(0, Math.floor(targetY - searchRange));
+       const endY = Math.min(canvas.height - 1, Math.floor(targetY + 10));
+       let bestY = Math.floor(targetY);
+       let bestScore = -1;
+       for (let y = endY; y >= startY; y--) {
+         const rowData = canvasCtx2.getImageData(0, y, canvasWidth, 1).data;
+         let uniformPixels = 0;
+         const r0 = rowData[0], g0 = rowData[1], b0 = rowData[2];
+         for (let x = 0; x < canvasWidth * 4; x += 16) {
+           if (Math.abs(rowData[x] - r0) < 10 && Math.abs(rowData[x+1] - g0) < 10 && Math.abs(rowData[x+2] - b0) < 10) {
+             uniformPixels++;
+           }
+         }
+         const score = uniformPixels / (canvasWidth / 4);
+         if (score > 0.95) return y;
+         if (score > bestScore) { bestScore = score; bestY = y; }
+       }
+       return bestY;
+     };
+
      let srcY = 0;
      let pageNum = 0;
 
      while (srcY < canvas.height) {
        if (pageNum > 0) pdf.addPage();
-       const sliceHeight = Math.min(canvasPageHeight, canvas.height - srcY);
+       const idealEnd = srcY + canvasPageHeight;
+       const sliceEnd = idealEnd >= canvas.height ? canvas.height : findBestSliceY2(idealEnd);
+       const sliceHeight = sliceEnd - srcY;
+       if (sliceHeight <= 0) break;
        const sliceCanvas = document.createElement('canvas');
        sliceCanvas.width = canvasWidth;
        sliceCanvas.height = sliceHeight;
@@ -2233,7 +2302,7 @@ Format the report professionally with clear headers, bullet points where appropr
        sliceCtx.drawImage(canvas, 0, srcY, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
        const sliceImgHeight = (sliceHeight * imgWidth) / canvasWidth;
        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, imgWidth, sliceImgHeight);
-       srcY += canvasPageHeight;
+       srcY = sliceEnd;
        pageNum++;
      }
 
