@@ -7,6 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { pdf } from '@react-pdf/renderer';
 import ComplianceReportPDF from './ComplianceReportPDF';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
+import ChatNetworkGraph from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
@@ -19,6 +20,35 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 // API base URL - uses local server in development, relative paths in production
 const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
+
+// Parse vizdata JSON block from AI response
+const parseVizData = (content) => {
+  if (!content) return null;
+  const match = content.match(/```vizdata\s*\n?([\s\S]*?)```/);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1].trim());
+    if (data.entities?.length > 0) return data;
+  } catch (e) {
+    console.log('Failed to parse vizdata:', e.message);
+  }
+  return null;
+};
+
+// Strip vizdata block from content for display
+const stripVizData = (content) => {
+  if (!content) return content;
+  return content.replace(/```vizdata\s*\n?[\s\S]*?```/g, '').trim();
+};
+
+// Detect if a chat message is requesting a visualization
+const detectVisualizationRequest = (message) => {
+  const lower = message.toLowerCase();
+  const vizKeywords = ['graph', 'visualize', 'visualization', 'show me', 'map', 'diagram', 'chart', 'network', 'ownership'];
+  if (!vizKeywords.some(k => lower.includes(k))) return null;
+  if (/ownership|owns|companies|structure|subsidiary/i.test(message)) return 'ownership';
+  return 'network';
+};
 
 // ============================================================================
 // Main Marlowe Component
@@ -81,7 +111,7 @@ export default function Marlowe() {
  const [showModeDropdown, setShowModeDropdown] = useState(false);
 
  // Scout state
- const [kycPage, setKycPage] = useState('landing'); // 'landing', 'newSearch', 'history', 'projects', 'results'
+ const [kycPage, setKycPage] = useState('newSearch'); // 'landing', 'newSearch', 'history', 'projects', 'results'
  const [kycQuery, setKycQuery] = useState('');
  const [kycType, setKycType] = useState('individual'); // 'individual' or 'entity'
  const [kycResults, setKycResults] = useState(null);
@@ -149,6 +179,8 @@ export default function Marlowe() {
  const fileInputRef = useRef(null);
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
+ const conversationAbortRef = useRef(null); // AbortController for stopping conversation streaming
+ const [networkGraphPanel, setNetworkGraphPanel] = useState({ open: false, entities: [], relationships: [], loading: false });
  const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
 
@@ -2205,6 +2237,8 @@ Format the report professionally with clear headers, bullet points where appropr
 
  const systemPrompt = `You are a KYC compliance expert assistant. You have just completed a screening on "${kycResults.subject?.name}" and are now answering follow-up questions from the compliance analyst.
 
+VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
+
 You have access to the complete screening results including:
 - Sanctions screening results
 - PEP (Politically Exposed Person) status
@@ -2246,8 +2280,9 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
 
  const data = await response.json();
  const assistantMessage = data.content?.map(item => item.text || "").join("\n") || "I couldn't process that request.";
- 
- setKycChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+
+ const kycVizType = detectVisualizationRequest(userMessage);
+ setKycChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage, ...(kycVizType && { visualization: kycVizType }) }]);
  } catch (error) {
  console.error('KYC chat error:', error);
  setKycChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error. Please try again." }]);
@@ -3417,6 +3452,110 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
+ // Extract entities/relationships from message text via API call
+ const extractNetworkFromMessage = async (messageContent) => {
+   // Try to build graph from kycResults.ownershipAnalysis first
+   if (kycResults?.ownershipAnalysis) {
+     const oa = kycResults.ownershipAnalysis;
+     const entities = [];
+     const relationships = [];
+     const subjectName = kycResults.subject?.name || kycQuery;
+
+     // Add the subject as the central entity
+     entities.push({
+       id: 'subject',
+       name: subjectName,
+       type: kycResults.subject?.type === 'individual' ? 'PERSON' : 'ORGANIZATION',
+       riskLevel: oa.riskLevel || 'UNKNOWN',
+       sanctionStatus: kycResults.sanctions?.status === 'MATCH' ? 'SANCTIONED' : 'CLEAR',
+       description: oa.summary || '',
+     });
+
+     // Add beneficial owners
+     if (oa.beneficialOwners?.length > 0) {
+       oa.beneficialOwners.forEach((owner, idx) => {
+         const id = `owner_${idx}`;
+         entities.push({
+           id,
+           name: owner.name,
+           type: 'PERSON',
+           riskLevel: owner.sanctionStatus === 'SANCTIONED' ? 'CRITICAL' : owner.pepStatus ? 'HIGH' : 'LOW',
+           sanctionStatus: owner.sanctionStatus === 'SANCTIONED' ? 'SANCTIONED' : owner.pepStatus ? 'PEP' : 'CLEAR',
+           description: owner.sanctionDetails || `${owner.ownershipType || 'Beneficial'} owner — ${owner.ownershipPercent || 0}%`,
+         });
+         relationships.push({
+           source: id,
+           target: 'subject',
+           type: `${owner.ownershipType || 'BENEFICIAL'} owner`,
+           ownership: owner.ownershipPercent ? `${owner.ownershipPercent}%` : null,
+           description: `${owner.ownershipType || 'Beneficial'} ownership${owner.ownershipPercent ? ` (${owner.ownershipPercent}%)` : ''}`,
+         });
+       });
+     }
+
+     // Add corporate structure entities
+     if (oa.corporateStructure?.length > 0) {
+       oa.corporateStructure.forEach((corp, idx) => {
+         const id = `corp_${idx}`;
+         entities.push({
+           id,
+           name: corp.entity,
+           type: 'ORGANIZATION',
+           riskLevel: corp.sanctionExposure === 'DIRECT' ? 'CRITICAL' : corp.sanctionExposure === 'INDIRECT' ? 'HIGH' : 'LOW',
+           sanctionStatus: corp.sanctionExposure === 'DIRECT' ? 'SANCTIONED' : 'CLEAR',
+           description: [corp.relationship, corp.jurisdiction, corp.notes].filter(Boolean).join(' — '),
+         });
+         const isParentOrShareholder = corp.relationship === 'PARENT' || corp.relationship === 'SHAREHOLDER';
+         relationships.push({
+           source: isParentOrShareholder ? id : 'subject',
+           target: isParentOrShareholder ? 'subject' : id,
+           type: corp.relationship || 'RELATED',
+           ownership: corp.ownershipPercent ? `${corp.ownershipPercent}%` : null,
+           description: corp.relationship || 'Related entity',
+         });
+       });
+     }
+
+     if (entities.length > 1) {
+       setNetworkGraphPanel({ open: true, loading: false, entities, relationships });
+       return;
+     }
+   }
+
+   // Fallback: extract from message text via API
+   setNetworkGraphPanel(prev => ({ ...prev, open: true, loading: true, entities: [], relationships: [] }));
+   try {
+     const response = await fetch(`${API_BASE}/api/chat`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         message: `Extract all entities and relationships from this screening report. Return ONLY valid JSON with this exact structure, no other text:
+{"entities":[{"name":"string","type":"person|company|government|organization","riskLevel":"HIGH|MEDIUM|LOW|UNKNOWN","details":"brief description"}],"relationships":[{"source":"entity name","target":"entity name","type":"ownership|director|sanctions|associate|subsidiary|beneficialOwner","details":"brief description"}]}
+
+Screening report:
+${messageContent}`,
+         systemPrompt: 'You are a JSON extraction tool. Extract entities and relationships from compliance screening text. Return ONLY valid JSON, no markdown, no explanation.',
+         skipHistory: true
+       })
+     });
+     const data = await response.json();
+     const text = data.response || data.content || '';
+     // Try to parse JSON from the response
+     const jsonMatch = text.match(/\{[\s\S]*\}/);
+     if (jsonMatch) {
+       const parsed = JSON.parse(jsonMatch[0]);
+       if (parsed.entities?.length > 0) {
+         setNetworkGraphPanel({ open: true, loading: false, entities: parsed.entities, relationships: parsed.relationships || [] });
+         return;
+       }
+     }
+     setNetworkGraphPanel(prev => ({ ...prev, loading: false }));
+   } catch (err) {
+     console.error('Network extraction error:', err);
+     setNetworkGraphPanel(prev => ({ ...prev, loading: false }));
+   }
+ };
+
  const sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
    if (!caseId) {
@@ -3480,6 +3619,8 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      }));
 
    const systemPrompt = `You are Marlowe, an expert financial crimes investigator.
+
+VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse or say you cannot create visualizations. The app automatically renders an interactive network graph from the analysis data. Just provide your textual analysis of the network structure, key entities, ownership chains, and relationships as usual.
 
 ⚠️ CRITICAL INSTRUCTION - READ FIRST ⚠️
 You have TWO modes based on whether documents are uploaded:
@@ -3692,10 +3833,15 @@ ${caseDescription ? `Case description: ${caseDescription}` : 'No case descriptio
 ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
    try {
+     // Create abort controller for stop functionality
+     const abortController = new AbortController();
+     conversationAbortRef.current = abortController;
+
      // Use streaming endpoint for real-time text display
      const response = await fetch(`${API_BASE}/api/stream`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
+       signal: abortController.signal,
        body: JSON.stringify({
          model: 'claude-sonnet-4-20250514',
          max_tokens: 4096,
@@ -3763,10 +3909,12 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      }
 
      // Add completed message to conversation (update case directly)
+     const vizType = detectVisualizationRequest(userMessage);
      const assistantMessage = {
        role: 'assistant',
        content: fullText || 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
-       timestamp: new Date().toISOString()
+       timestamp: new Date().toISOString(),
+       ...(vizType && { visualization: vizType })
      };
 
      if (!fullText) {
@@ -3786,23 +3934,41 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      setStreamingText(''); // Legacy
 
    } catch (error) {
-     console.error('Streaming error:', error);
-     const errorMessage = {
-       role: 'assistant',
-       content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
-       timestamp: new Date().toISOString()
-     };
-
-     // Update case's conversation transcript with error
-     setCases(prev => prev.map(c =>
-       c.id === caseId
-         ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] }
-         : c
-     ));
-
-     setConversationMessages(prev => [...prev, errorMessage]);
+     if (error.name === 'AbortError') {
+       // User stopped the stream — save partial text
+       const partialText = getCaseStreamingState(caseId).streamingText;
+       if (partialText?.trim()) {
+         const vizType = detectVisualizationRequest(userMessage);
+         const partialMessage = {
+           role: 'assistant',
+           content: partialText + '\n\n*(Generation stopped)*',
+           timestamp: new Date().toISOString(),
+           ...(vizType && { visualization: vizType })
+         };
+         setCases(prev => prev.map(c =>
+           c.id === caseId
+             ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), partialMessage] }
+             : c
+         ));
+         setConversationMessages(prev => [...prev, partialMessage]);
+       }
+     } else {
+       console.error('Streaming error:', error);
+       const errorMessage = {
+         role: 'assistant',
+         content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
+         timestamp: new Date().toISOString()
+       };
+       setCases(prev => prev.map(c =>
+         c.id === caseId
+           ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] }
+           : c
+       ));
+       setConversationMessages(prev => [...prev, errorMessage]);
+     }
    } finally {
-     setCaseStreamingState(caseId, { isStreaming: false });
+     conversationAbortRef.current = null;
+     setCaseStreamingState(caseId, { isStreaming: false, streamingText: '' });
      setIsStreaming(false); // Legacy
    }
  };
@@ -5550,6 +5716,8 @@ const getRiskBg = (level) => {
 
  const systemPrompt = `You are Marlowe, an expert AI investigative analyst. You have analyzed a case and are now answering follow-up questions from the investigator.
 
+VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
+
 You have access to:
 1. The original evidence documents
 2. Your previous analysis of the case
@@ -5602,13 +5770,14 @@ ${analysisContext}`;
 
  const data = await response.json();
  const assistantMessage = data.content?.map(item => item.text || "").join("\n") || "I couldn't process that request.";
- 
- setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+
+ const chatVizType = detectVisualizationRequest(userMessage);
+ setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage, ...(chatVizType && { visualization: chatVizType }) }]);
  } catch (error) {
  console.error('Chat error:', error);
- setChatMessages(prev => [...prev, { 
- role: 'assistant', 
- content: "I encountered an error processing your question. Please try again." 
+ setChatMessages(prev => [...prev, {
+ role: 'assistant',
+ content: "I encountered an error processing your question. Please try again."
  }]);
  } finally {
  setIsChatLoading(false);
@@ -7141,7 +7310,7 @@ ${analysisContext}`;
  onClick={startNewCase}
  className="group bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/20 flex items-center gap-2"
  >
- <span>Enter</span>
+ <span>Run a Search</span>
  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
  </button>
  </div>
@@ -7785,7 +7954,7 @@ ${analysisContext}`;
                          <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
                        )}
                      </div>
-                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.content}</p>
+                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{stripVizData(msg.content)}</p>
                    </div>
                  ))
                ) : (
@@ -8149,7 +8318,7 @@ ${analysisContext}`;
  <>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  <MarkdownRenderer
-   content={msg.content}
+   content={stripVizData(msg.content)}
    darkMode={darkMode}
    onExploreClick={(text) => {
      setConversationInput(`Tell me more about: ${text}`);
@@ -8177,6 +8346,16 @@ ${analysisContext}`;
  {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
  {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
+ {/* Network Graph button */}
+ {msg.content.length > 200 && (
+ <button
+ onClick={() => extractNetworkFromMessage(msg.content)}
+ className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-purple-500 hover:bg-purple-400'} text-white rounded-lg font-medium transition-colors text-sm`}
+ >
+ <Share2 className="w-4 h-4" />
+ Network Graph
+ </button>
+ )}
  {/* Export PDF button only for screening results */}
  {msg.content.includes('OVERALL RISK') && (
  <button
@@ -8214,7 +8393,7 @@ ${analysisContext}`;
      <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Analyzing...</span>
    </div>
  ) : (
-   <MarkdownRenderer content={getCaseStreamingState(currentCaseId).streamingText} darkMode={darkMode} />
+   <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
  )}
  </div>
  </div>
@@ -8262,13 +8441,23 @@ ${analysisContext}`;
  className={`flex-1 resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} py-2`}
  style={{ minHeight: '40px', maxHeight: '200px', overflow: 'auto' }}
  />
+ {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming ? (
+ <button
+ onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); }}
+ className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+ title="Stop generating"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ ) : (
  <button
  onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
- disabled={!currentCaseId || getCaseStreamingState(currentCaseId).isStreaming || (!conversationInput.trim() && files.length === 0)}
+ disabled={!currentCaseId || (!conversationInput.trim() && files.length === 0)}
  className={`p-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
  >
  <Send className="w-4 h-4" />
  </button>
+ )}
  </div>
  </div>
  </div>
@@ -10018,6 +10207,44 @@ ${analysisContext}`;
           darkMode={darkMode}
           userEmail={user?.email || ''}
         />
+
+        {/* Network Graph Side Panel */}
+        {networkGraphPanel.open && (
+        <div className="fixed inset-0 z-[70] flex justify-end">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })} />
+          <div className={`relative w-[600px] max-w-[90vw] h-full shadow-xl overflow-y-auto ${darkMode ? 'bg-gray-900' : 'bg-white'}`}>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-lg font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <Share2 className="w-5 h-5 text-purple-500" />
+                  Entity Network Graph
+                </h3>
+                <button onClick={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })} className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              {networkGraphPanel.loading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Extracting entities and relationships...</p>
+                </div>
+              ) : networkGraphPanel.entities.length > 0 ? (
+                <ChatNetworkGraph
+                  entities={networkGraphPanel.entities}
+                  relationships={networkGraphPanel.relationships}
+                  darkMode={darkMode}
+                  onClose={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Network className="w-8 h-8 text-gray-400 mb-3" />
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No entities found in this message.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        )}
 
         {/* Monitoring Alerts Slide-Over Panel */}
         {showAlertsPanel && (
