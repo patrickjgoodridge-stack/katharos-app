@@ -5815,7 +5815,16 @@ ${analysisContext}`;
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
 
- {/* Email Gate Modal - Shows when user clicks Enter without email */}
+ {/* Contact email link - bottom left */}
+<a
+  href="mailto:patrickjgoodridge@gmail.com"
+  title="Contact us"
+  className={`fixed bottom-4 left-4 z-50 p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
+>
+  <Mail className="w-5 h-5" />
+</a>
+
+{/* Email Gate Modal - Shows when user clicks Enter without email */}
  {showEmailModal && (
    <AuthPage onSuccess={handleEmailSubmitted} />
  )}
@@ -6516,6 +6525,25 @@ ${analysisContext}`;
  </button>
  </div>
  )}
+ </div>
+
+ {/* Quick search suggestions */}
+ <div className="flex flex-wrap gap-2 mt-4">
+ <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
+ {[
+   { name: 'Vladimir Putin', type: 'individual' },
+   { name: 'Sinaloa Cartel', type: 'entity' },
+   { name: 'Viktor Vekselberg', type: 'individual' },
+   { name: 'Huawei Technologies', type: 'entity' },
+ ].map((s) => (
+   <button
+     key={s.name}
+     onClick={() => { setKycQuery(s.name); setKycType(s.type); }}
+     className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 border border-gray-200 transition-colors"
+   >
+     {s.name}
+   </button>
+ ))}
  </div>
  </div>
  )}
