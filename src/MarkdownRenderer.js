@@ -124,7 +124,7 @@ const isOverallRiskSection = (text) => {
 // Detect if text is onboarding recommendation/decision
 const isOnboardingSection = (text) => {
   const upperText = (text || '').toUpperCase();
-  return upperText.includes('ONBOARDING') || upperText.includes('RECOMMENDATION');
+  return upperText.includes('ONBOARDING') || (upperText.includes('RECOMMENDATION') && !upperText.includes('RECOMMENDED ACTIONS'));
 };
 
 // Detect if text is a decision/banner type
@@ -339,6 +339,19 @@ const CustomParagraph = ({ children }) => {
   const text = getPlainText(children);
   const darkMode = useContext(DarkModeContext);
 
+  // Check for bottom line callout
+  if (text.toLowerCase().startsWith('bottom line:')) {
+    const content = text.replace(/^bottom line:\s*/i, '');
+    return (
+      <div className={`${darkMode ? 'bg-blue-900/20 border-blue-500' : 'bg-blue-50 border-blue-400'} border-l-4 rounded-r-lg p-4 my-4`}>
+        <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-blue-400' : 'text-blue-700'} mb-1`}>
+          Bottom Line
+        </p>
+        <p className={`text-base ${darkMode ? 'text-blue-200' : 'text-blue-900'} leading-relaxed`}>{content}</p>
+      </div>
+    );
+  }
+
   // Check for impact/translation callouts
   if (text.toLowerCase().startsWith('impact:') ||
       text.toLowerCase().startsWith('translation:') ||
@@ -393,6 +406,65 @@ const CustomStrong = ({ children }) => {
     >
       {children}
     </strong>
+  );
+};
+
+// Custom table components — professional styled tables
+const CustomTable = ({ children }) => {
+  const darkMode = useContext(DarkModeContext);
+  return (
+    <div className={`rounded-lg border overflow-hidden my-4 ${darkMode ? 'border-gray-600' : 'border-slate-200'}`}>
+      <table className={`w-full text-sm ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>
+        {children}
+      </table>
+    </div>
+  );
+};
+
+const CustomThead = ({ children }) => {
+  const darkMode = useContext(DarkModeContext);
+  return (
+    <thead className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
+      {children}
+    </thead>
+  );
+};
+
+const CustomTh = ({ children }) => {
+  const darkMode = useContext(DarkModeContext);
+  return (
+    <th className={`px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+      {children}
+    </th>
+  );
+};
+
+const CustomTr = ({ children }) => {
+  const darkMode = useContext(DarkModeContext);
+  const text = getPlainText(children);
+  const isTotal = /\b(total|final)\b/i.test(text);
+  return (
+    <tr className={`border-b ${isTotal ? (darkMode ? 'bg-gray-700 font-bold' : 'bg-slate-100 font-bold') : ''} ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-slate-100 even:bg-slate-50'}`}>
+      {children}
+    </tr>
+  );
+};
+
+const CustomTd = ({ children }) => {
+  const darkMode = useContext(DarkModeContext);
+  const text = getPlainText(children);
+  const scoreMatch = text.match(/^\+?(\d+)/);
+  let scoreColor = '';
+  if (scoreMatch) {
+    const val = parseInt(scoreMatch[1]);
+    if (val >= 50) scoreColor = darkMode ? 'text-red-400' : 'text-red-600';
+    else if (val >= 20) scoreColor = darkMode ? 'text-amber-400' : 'text-amber-600';
+    else scoreColor = darkMode ? 'text-emerald-400' : 'text-emerald-600';
+  }
+  return (
+    <td className={`px-4 py-2.5 ${scoreColor}`}>
+      {children}
+    </td>
   );
 };
 
@@ -542,6 +614,12 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
         </pre>
       );
     },
+    table: CustomTable,
+    thead: CustomThead,
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    tr: CustomTr,
+    th: CustomTh,
+    td: CustomTd,
     hr: CustomHr,
     a: ({ href, children }) => (
       <a

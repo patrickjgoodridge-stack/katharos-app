@@ -260,52 +260,127 @@ const RichText = ({ segments, style }) => {
   );
 };
 
+// Bottom Line callout
+const BottomLineCallout = ({ items }) => {
+  if (!items || items.length === 0) return null;
+  return items.map((item, i) => (
+    <View key={i} style={{ backgroundColor: '#EFF6FF', borderLeftWidth: 4, borderLeftColor: '#3B82F6', borderRadius: 4, padding: 10, marginTop: 8, marginBottom: 4 }}>
+      <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#1D4ED8', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>Bottom Line</Text>
+      <Text style={{ fontSize: 9, color: '#1E3A5F', lineHeight: 1.6 }}>{item.text}</Text>
+    </View>
+  ));
+};
+
+// Score color helper
+const getScoreColor = (text) => {
+  const match = (text || '').match(/^\+?(\d+)/);
+  if (!match) return '#334155';
+  const val = parseInt(match[1]);
+  if (val >= 50) return '#DC2626';
+  if (val >= 20) return '#D97706';
+  return '#16A34A';
+};
+
+// Block renderer — renders a single content block
+const ContentBlock = ({ block, index }) => {
+  if (!block) return null;
+  const { type } = block;
+
+  if (type === 'table' && block.headers && block.rows) {
+    return (
+      <View style={styles.table}>
+        <View style={styles.tableHeaderRow}>
+          {block.headers.map((h, i) => (
+            <Text key={i} style={[styles.tableHeaderCell, { width: `${100 / block.headers.length}%` }]}>{h}</Text>
+          ))}
+        </View>
+        {block.rows.map((row, i) => {
+          const rowText = row.join(' ').toLowerCase();
+          const isTotal = /\b(total|final)\b/.test(rowText);
+          return (
+            <View key={i} style={[i % 2 === 0 ? styles.tableRowAlt : styles.tableRow, isTotal && { backgroundColor: '#E2E8F0' }]}>
+              {row.map((cell, j) => (
+                <Text key={j} style={[
+                  styles.tableCell,
+                  { width: `${100 / block.headers.length}%` },
+                  isTotal && { fontFamily: 'Helvetica-Bold' },
+                  j > 0 && { color: getScoreColor(cell) },
+                ]}>{cell}</Text>
+              ))}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+
+  if (type === 'key-value' && block.items) {
+    return block.items.map((item, i) => (
+      <View key={`kv-${index}-${i}`} style={styles.kvRow}>
+        <Text style={styles.kvLabel}>{item.label}</Text>
+        <RichText segments={item.valueSegments || [{ text: item.value || '' }]} style={styles.kvValue} />
+      </View>
+    ));
+  }
+
+  if (type === 'numbered' && block.items) {
+    return block.items.map((item, i) => (
+      <View key={`num-${index}-${i}`} style={styles.numberedItem}>
+        <View style={styles.numberedHeader}>
+          <Text style={styles.numberedNum}>{i + 1}.</Text>
+          <RichText segments={item.titleSegments || [{ text: item.title || '' }]} style={styles.numberedTitle} />
+        </View>
+        {item.body && <Text style={styles.numberedBody}>{item.body}</Text>}
+      </View>
+    ));
+  }
+
+  if (type === 'list' && block.items) {
+    return block.items.map((item, i) => (
+      <View key={`list-${index}-${i}`} style={styles.listItem}>
+        <Text style={styles.listBullet}>•</Text>
+        <RichText segments={item.segments || [{ text: item.text || '' }]} style={styles.listContent} />
+      </View>
+    ));
+  }
+
+  if (type === 'paragraph' && block.content) {
+    return block.content.map((para, i) => (
+      <RichText key={`p-${index}-${i}`} segments={para.segments || [{ text: para.text || '' }]} style={styles.paragraph} />
+    ));
+  }
+
+  return null;
+};
+
 // Section renderer
 const Section = ({ section }) => {
-  const { title, type, items, content } = section;
+  const { title, blocks, bottomLine } = section;
   const upper = (title || '').toUpperCase();
 
   // Skip risk/onboarding — rendered separately as banners
-  if (upper.includes('OVERALL RISK') || upper.includes('ONBOARDING') || upper.includes('RECOMMENDATION')) return null;
+  if (upper.includes('OVERALL RISK') || upper.includes('ONBOARDING')) return null;
+  // Skip onboarding recommendation but NOT "recommended actions"
+  if (upper.includes('RECOMMENDATION') && !upper.includes('RECOMMENDED')) return null;
   // Skip "Keep Exploring"
   if (upper.includes('KEEP EXPLORING')) return null;
 
-  const itemCount = items ? items.length : null;
+  // Count items across all blocks for display
+  const totalItems = (blocks || []).reduce((sum, b) => sum + (b.items ? b.items.length : 0), 0);
 
   return (
     <View style={styles.sectionContainer} wrap={false}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{title.replace(/:\s*.+$/, '')}</Text>
-        {itemCount > 0 && <Text style={styles.sectionCount}>({itemCount})</Text>}
+        {totalItems > 0 && <Text style={styles.sectionCount}>({totalItems})</Text>}
       </View>
 
-      {type === 'key-value' && items && items.map((item, i) => (
-        <View key={i} style={styles.kvRow}>
-          <Text style={styles.kvLabel}>{item.label}</Text>
-          <RichText segments={item.valueSegments || [{ text: item.value || '' }]} style={styles.kvValue} />
-        </View>
+      {(blocks || []).map((block, i) => (
+        <ContentBlock key={i} block={block} index={i} />
       ))}
 
-      {type === 'numbered' && items && items.map((item, i) => (
-        <View key={i} style={styles.numberedItem}>
-          <View style={styles.numberedHeader}>
-            <Text style={styles.numberedNum}>{i + 1}.</Text>
-            <RichText segments={item.titleSegments || [{ text: item.title || '' }]} style={styles.numberedTitle} />
-          </View>
-          {item.body && <Text style={styles.numberedBody}>{item.body}</Text>}
-        </View>
-      ))}
-
-      {type === 'list' && items && items.map((item, i) => (
-        <View key={i} style={styles.listItem}>
-          <Text style={styles.listBullet}>•</Text>
-          <RichText segments={item.segments || [{ text: item.text || '' }]} style={styles.listContent} />
-        </View>
-      ))}
-
-      {type === 'paragraph' && content && content.map((para, i) => (
-        <RichText key={i} segments={para.segments || [{ text: para.text || '' }]} style={styles.paragraph} />
-      ))}
+      {/* Bottom Line callout for any section type */}
+      <BottomLineCallout items={bottomLine} />
     </View>
   );
 };
@@ -380,10 +455,20 @@ const ComplianceReportPDF = ({ data }) => {
           {riskScore != null && <Text style={styles.riskScore}>{riskScore} / 100</Text>}
         </View>
 
+        {/* Overall Risk section content (table, bottom line, etc.) */}
+        {sections.filter(s => (s.title || '').toUpperCase().includes('OVERALL RISK')).map((sec, i) => (
+          <View key={`risk-content-${i}`} style={{ marginBottom: 12 }}>
+            {(sec.blocks || []).map((block, bi) => (
+              <ContentBlock key={bi} block={block} index={bi} />
+            ))}
+            <BottomLineCallout items={sec.bottomLine} />
+          </View>
+        ))}
+
         {/* Onboarding Banner */}
         {onboardingRecommendation && (
           <View style={[styles.onboardingBanner, { backgroundColor: onbColors.light, borderColor: onbColors.border }]}>
-            <Text style={styles.onboardingLabel}>Onboarding Recommendation</Text>
+            <Text style={styles.onboardingLabel}>Recommendation</Text>
             <Text style={[styles.onboardingValue, { color: onbColors.text }]}>{onboardingRecommendation}</Text>
           </View>
         )}

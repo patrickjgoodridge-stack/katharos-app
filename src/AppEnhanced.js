@@ -2046,80 +2046,188 @@ Format the report professionally with clear headers, bullet points where appropr
      }
    }
 
-   // Classify and parse each section
+   // Classify and parse each section into content blocks
+   // Each section gets an array of blocks: { type, data } to handle mixed content
    const sections = rawSections.map(sec => {
      const upper = sec.title.toUpperCase();
      const contentLines = sec.content.split('\n').filter(l => l.trim());
+     const blocks = [];
+     const bottomLine = [];
 
-     // Key-value sections (Entity Summary, Match Confidence)
-     if (upper.includes('ENTITY SUMMARY') || upper.includes('MATCH CONFIDENCE')) {
-       const items = [];
-       for (const line of contentLines) {
-         const kvMatch = line.match(/^\*?\*?\s*\*\*(.+?):\*\*\s*(.+)/);
-         if (kvMatch) {
-           items.push({ label: kvMatch[1].trim(), value: kvMatch[2].trim(), valueSegments: parseSegments(kvMatch[2].trim()) });
-         } else {
-           const simpleKv = line.match(/^[-•*]\s*\*?\*?(.+?):\*?\*?\s+(.+)/);
-           if (simpleKv) {
-             items.push({ label: simpleKv[1].trim(), value: simpleKv[2].trim(), valueSegments: parseSegments(simpleKv[2].trim()) });
+     // Helper: parse a table from lines
+     const parseTable = (lines) => {
+       const tLines = lines.filter(l => l.includes('|'));
+       const sepLines = lines.filter(l => /^\|[\s:|-]+\|$/.test(l.trim()));
+       if (tLines.length >= 3 && sepLines.length >= 1) {
+         const parseRow = (line) => line.split('|').map(c => c.trim()).filter(c => c !== '');
+         const headers = parseRow(tLines[0]);
+         const rows = tLines.slice(2)
+           .filter(l => !/^[\s:|-]+$/.test(l.replace(/\|/g, '')))
+           .map(l => parseRow(l));
+         return { headers, rows };
+       }
+       return null;
+     };
+
+     // Helper: check if line is part of a table
+     const isTableLine = (line) => line.includes('|') || /^\|[\s:|-]+\|$/.test(line.trim());
+
+     // Helper: extract bottom line from text
+     const checkBottomLine = (text) => {
+       if (text.toLowerCase().startsWith('bottom line:') || text.toLowerCase().startsWith('**bottom line')) {
+         const cleaned = text.replace(/^\*\*bottom line:?\*\*\s*/i, '').replace(/^bottom line:\s*/i, '');
+         bottomLine.push({ text: cleaned, segments: parseSegments(cleaned) });
+         return true;
+       }
+       return false;
+     };
+
+     // Split content into groups: table lines vs non-table lines
+     let currentGroup = [];
+     let currentIsTable = false;
+
+     const flushGroup = () => {
+       if (currentGroup.length === 0) return;
+       if (currentIsTable) {
+         const table = parseTable(currentGroup);
+         if (table) blocks.push({ type: 'table', ...table });
+       } else {
+         // Parse non-table lines into appropriate block types
+         const lines = currentGroup;
+
+         // Check for key-value pairs
+         if (upper.includes('ENTITY SUMMARY') || upper.includes('MATCH CONFIDENCE')) {
+           const items = [];
+           const leftover = [];
+           for (const line of lines) {
+             const kvMatch = line.match(/^\*?\*?\s*\*\*(.+?):\*\*\s*(.+)/);
+             const simpleKv = !kvMatch && line.match(/^[-•*]\s*\*?\*?(.+?):\*?\*?\s+(.+)/);
+             if (kvMatch) {
+               items.push({ label: kvMatch[1].trim(), value: kvMatch[2].trim(), valueSegments: parseSegments(kvMatch[2].trim()) });
+             } else if (simpleKv) {
+               items.push({ label: simpleKv[1].trim(), value: simpleKv[2].trim(), valueSegments: parseSegments(simpleKv[2].trim()) });
+             } else {
+               leftover.push(line);
+             }
+           }
+           if (items.length > 0) blocks.push({ type: 'key-value', items });
+           // Process leftover lines as paragraphs
+           for (const line of leftover) {
+             const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+             if (cleaned && !checkBottomLine(line.trim())) {
+               blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
+             }
+           }
+           currentGroup = [];
+           return;
+         }
+
+         // Check for numbered items (Red Flags, Typologies)
+         if (upper.includes('RED FLAG') || upper.includes('TYPOLOG')) {
+           const items = [];
+           let currentItem = null;
+           const leftover = [];
+           for (const line of lines) {
+             const numMatch = line.match(/^\d+\.\s*(.+)/);
+             const bulletBold = line.match(/^[-•*]\s*\*\*(.+?)\*\*\s*[—→:]*\s*(.*)/);
+             if (numMatch || bulletBold) {
+               if (currentItem) items.push(currentItem);
+               const titleText = numMatch ? numMatch[1] : bulletBold[1];
+               const bodyText = numMatch ? '' : (bulletBold[2] || '');
+               currentItem = {
+                 title: titleText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+                 titleSegments: parseSegments(titleText),
+                 body: bodyText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+               };
+             } else if (currentItem) {
+               const cleaned = line.replace(/^\s+/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+               currentItem.body = currentItem.body ? currentItem.body + ' ' + cleaned : cleaned;
+             } else {
+               leftover.push(line);
+             }
+           }
+           if (currentItem) items.push(currentItem);
+           if (items.length > 0) blocks.push({ type: 'numbered', items });
+           for (const line of leftover) {
+             if (!checkBottomLine(line.trim())) {
+               const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+               if (cleaned) blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
+             }
+           }
+           currentGroup = [];
+           return;
+         }
+
+         // Check for bullet lists
+         const bulletLines = lines.filter(l => /^[-•*]\s/.test(l.trim()) || /^\d+\.\s/.test(l.trim()));
+         if (bulletLines.length > lines.length * 0.4 && bulletLines.length >= 2) {
+           const listItems = [];
+           const leftover = [];
+           for (const line of lines) {
+             if (/^[-•*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim())) {
+               const cleaned = line.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+               if (cleaned) listItems.push({ text: cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), segments: parseSegments(cleaned) });
+             } else {
+               leftover.push(line);
+             }
+           }
+           if (listItems.length > 0) blocks.push({ type: 'list', items: listItems });
+           for (const line of leftover) {
+             if (!checkBottomLine(line.trim())) {
+               const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+               if (cleaned) blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
+             }
+           }
+           currentGroup = [];
+           return;
+         }
+
+         // Default: paragraphs
+         let currentPara = '';
+         for (const line of lines) {
+           const cleaned = line.trim();
+           if (!cleaned) {
+             if (currentPara) {
+               if (!checkBottomLine(currentPara)) {
+                 blocks.push({ type: 'paragraph', content: [{ text: currentPara, segments: parseSegments(currentPara) }] });
+               }
+               currentPara = '';
+             }
+           } else {
+             currentPara = currentPara ? currentPara + ' ' + cleaned : cleaned;
+           }
+         }
+         if (currentPara) {
+           if (!checkBottomLine(currentPara)) {
+             blocks.push({ type: 'paragraph', content: [{ text: currentPara, segments: parseSegments(currentPara) }] });
            }
          }
        }
-       if (items.length > 0) return { title: sec.title, type: 'key-value', items };
-     }
+       currentGroup = [];
+     };
 
-     // Numbered sections (Red Flags, Typologies)
-     if (upper.includes('RED FLAG') || upper.includes('TYPOLOG')) {
-       const items = [];
-       let currentItem = null;
-       for (const line of contentLines) {
-         const numMatch = line.match(/^\d+\.\s*(.+)/);
-         const bulletBold = line.match(/^[-•*]\s*\*\*(.+?)\*\*\s*[—→:]*\s*(.*)/);
-         if (numMatch || bulletBold) {
-           if (currentItem) items.push(currentItem);
-           const titleText = numMatch ? numMatch[1] : bulletBold[1];
-           const bodyText = numMatch ? '' : (bulletBold[2] || '');
-           currentItem = {
-             title: titleText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
-             titleSegments: parseSegments(titleText),
-             body: bodyText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
-           };
-         } else if (currentItem) {
-           const cleaned = line.replace(/^\s+/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-           currentItem.body = currentItem.body ? currentItem.body + ' ' + cleaned : cleaned;
-         }
-       }
-       if (currentItem) items.push(currentItem);
-       if (items.length > 0) return { title: sec.title, type: 'numbered', items };
-     }
-
-     // List sections (everything with bullets)
-     const bulletLines = contentLines.filter(l => /^[-•*]\s/.test(l.trim()) || /^\d+\.\s/.test(l.trim()));
-     if (bulletLines.length > contentLines.length * 0.4 && bulletLines.length >= 2) {
-       const items = [];
-       for (const line of contentLines) {
-         const cleaned = line.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
-         if (cleaned) {
-           items.push({ text: cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), segments: parseSegments(cleaned) });
-         }
-       }
-       return { title: sec.title, type: 'list', items };
-     }
-
-     // Default: paragraph
-     const content = [];
-     let currentPara = '';
      for (const line of contentLines) {
-       const cleaned = line.trim();
-       if (!cleaned) {
-         if (currentPara) { content.push({ text: currentPara, segments: parseSegments(currentPara) }); currentPara = ''; }
-       } else {
-         currentPara = currentPara ? currentPara + ' ' + cleaned : cleaned;
+       const lineIsTable = isTableLine(line);
+       if (currentGroup.length > 0 && lineIsTable !== currentIsTable) {
+         flushGroup();
        }
+       currentIsTable = lineIsTable;
+       currentGroup.push(line);
      }
-     if (currentPara) content.push({ text: currentPara, segments: parseSegments(currentPara) });
+     flushGroup();
 
-     return { title: sec.title, type: 'paragraph', content };
+     // For backwards compatibility, also set top-level type/items/content from the first block
+     const primaryBlock = blocks[0] || { type: 'paragraph', content: [] };
+     return {
+       title: sec.title,
+       type: primaryBlock.type,
+       items: primaryBlock.items,
+       headers: primaryBlock.headers,
+       rows: primaryBlock.rows,
+       content: primaryBlock.content,
+       blocks, // all content blocks
+       bottomLine,
+     };
    });
 
    return { subjectName, riskLevel, riskScore, onboardingRecommendation, onboardingRiskLevel, sections };
@@ -2159,7 +2267,10 @@ Format the report professionally with clear headers, bullet points where appropr
    else if (kycQuery?.trim()) subjectName = extractEntityName(kycQuery) || kycQuery.trim();
  }
  if (!subjectName) subjectName = 'Compliance Screening Report';
- subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
+ // Strip markdown artifacts from subject name
+subjectName = subjectName.replace(/\*\*/g, '').replace(/[#*_~`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\s.,\'-]/g, '').trim();
+if (!subjectName) subjectName = 'Compliance Screening Report';
+subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
  // Build entity appendix list
  const entities = [];
@@ -4668,6 +4779,8 @@ Use this template ONLY for screening requests (Intent #1 above). Use well-struct
 
 REQUIRED STRUCTURE FOR COMPLIANCE SCREENINGS:
 
+⚠️ CRITICAL: Use the EXACT section headings shown below. Do NOT rename, embellish, or add words to any heading. "RED FLAGS" must be "RED FLAGS" — not "RED FLAGS FOR DETECTION" or "RED FLAGS IDENTIFIED". "RECOMMENDED ACTIONS" must be "RECOMMENDED ACTIONS" — not "RECOMMENDED NEXT STEPS". The UI depends on exact heading text to render correctly.
+
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [XX/100]
 
 Provide both a qualitative risk level (CRITICAL/HIGH/MEDIUM/LOW) AND a quantitative risk score from 0-100 where:
@@ -4711,21 +4824,6 @@ Map the recommendation directly to the risk level:
 - MEDIUM risk (26-50) → PROCEED WITH MONITORING
 - LOW risk (0-25) → APPROVED
 
-## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
-
-Assess how confident you are that this is a TRUE POSITIVE match to the high-risk individual/entity (vs. a false positive due to common names, etc.).
-
-**Factors supporting match:**
-- [List factors that increase confidence: unique name, matching DOB, known aliases, geographic ties, matching roles/positions, corroborating details]
-
-**Factors reducing confidence:**
-- [List factors that decrease confidence: common name, limited identifying info provided, multiple people with same name, lack of unique identifiers]
-
-Use these guidelines:
-- HIGH (85-100%): Unique name + multiple corroborating factors (DOB, location, role, aliases)
-- MEDIUM (50-84%): Some matching factors but missing key identifiers, or moderately common name
-- LOW (Below 50%): Very common name, limited info, or significant mismatches in available data
-
 ## RECOMMENDED ACTIONS
 
 Provide SPECIFIC, ACTIONABLE next steps — not vague guidance. Examples:
@@ -4741,7 +4839,24 @@ If EDD is recommended, specify EXACTLY what EDD means:
 - What verifications to perform
 - What approvals are needed
 
-(Skip this section for sanctioned individuals where the recommendation is REJECT. NEVER include "conduct sanctions screening" — Marlowe already did that.)
+⚠️ THIS SECTION IS MANDATORY — NEVER SKIP IT, even for sanctioned individuals.
+For REJECT cases, list actions like: file SAR/STR, notify compliance officer, terminate relationship, document decision rationale.
+NEVER include "conduct sanctions screening" — Marlowe already did that.
+
+## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
+
+Assess how confident you are that this is a TRUE POSITIVE match to the high-risk individual/entity (vs. a false positive due to common names, etc.).
+
+**Factors supporting match:**
+- [List factors that increase confidence: unique name, matching DOB, known aliases, geographic ties, matching roles/positions, corroborating details]
+
+**Factors reducing confidence:**
+- [List factors that decrease confidence: common name, limited identifying info provided, multiple people with same name, lack of unique identifiers]
+
+Use these guidelines:
+- HIGH (85-100%): Unique name + multiple corroborating factors (DOB, location, role, aliases)
+- MEDIUM (50-84%): Some matching factors but missing key identifiers, or moderately common name
+- LOW (Below 50%): Very common name, limited info, or significant mismatches in available data
 
 ## ENTITY SUMMARY
 
@@ -8530,7 +8645,7 @@ ${analysisContext}`;
  <div className="w-12 h-12 bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Building2 className="w-6 h-6 text-emerald-500" />
  </div>
- <h4 className="font-bold text-gray-900 mb-2">Banking</h4>
+ <h4 className="font-bold text-gray-900 mb-2">Banking & Asset Management</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Financial institutions managing AML compliance and fraud investigation teams</p>
  </div>
 
