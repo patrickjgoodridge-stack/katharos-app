@@ -2268,7 +2268,7 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  if (!subjectName) subjectName = 'Compliance Screening Report';
  // Strip markdown artifacts from subject name
-subjectName = subjectName.replace(/\*\*/g, '').replace(/[#*_~`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\s.,\'-]/g, '').trim();
+subjectName = subjectName.replace(/\*\*/g, '').replace(/[#*_~`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\s.,'-]/g, '').trim();
 if (!subjectName) subjectName = 'Compliance Screening Report';
 subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
