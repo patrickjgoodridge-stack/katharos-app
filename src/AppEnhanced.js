@@ -4372,37 +4372,37 @@ Identify and name specific financial crime patterns:
 STRUCTURING / SMURFING
 Pattern: Multiple transactions just under reporting thresholds
 Red flags: $9,500 deposits, multiple branches same day, cash-to-check patterns
-"Translation: They're deliberately avoiding the $10K reporting requirement. This is a federal crime."
+"Bottom Line: They're deliberately avoiding the $10K reporting requirement. This is a federal crime."
 
 LAYERING THROUGH SHELL COMPANIES
 Pattern: Funds flowing through multiple entities with no clear business purpose
 Red flags: BVI → Panama → Cyprus → Luxembourg chains, nominee directors, same registered agent
-"Translation: They're creating distance between dirty money and its source."
+"Bottom Line: They're creating distance between dirty money and its source."
 
 TRADE-BASED MONEY LAUNDERING (TBML)
 Pattern: Manipulating trade transactions to move value
 Red flags: Over/under invoicing, phantom shipments, carousel trading
-"Translation: They're using fake or manipulated invoices to justify moving money across borders."
+"Bottom Line: They're using fake or manipulated invoices to justify moving money across borders."
 
 REAL ESTATE LAUNDERING
 Pattern: Using property purchases to clean money
 Red flags: All-cash purchases, LLCs as buyers, rapid flipping, price manipulation
-"Translation: Real estate is attractive because it's high-value, hard to trace, and appreciates."
+"Bottom Line: Real estate is attractive because it's high-value, hard to trace, and appreciates."
 
 SANCTIONS EVASION
 Pattern: Obscuring the involvement of sanctioned parties
 Red flags: Last-minute ownership changes, transshipment through third countries, name variations
-"Translation: They're trying to hide that a sanctioned person or country is involved."
+"Bottom Line: They're trying to hide that a sanctioned person or country is involved."
 
 PEP CORRUPTION PATTERNS
 Pattern: Unexplained wealth accumulation by government officials
 Red flags: Assets inconsistent with salary, family members in business, government contracts to associates
-"Translation: A government official with $10M probably didn't save it from their salary."
+"Bottom Line: A government official with $10M probably didn't save it from their salary."
 
 MIRROR TRADING
 Pattern: Offsetting trades to move money across borders
 Red flags: Identical trades in different currencies, no economic purpose
-"Translation: They're using securities trades to convert rubles to dollars outside normal channels."
+"Bottom Line: They're using securities trades to convert rubles to dollars outside normal channels."
 
 When you identify a typology, name it, explain why the pattern matches, and suggest investigation steps.
 
@@ -4525,7 +4525,7 @@ Use consistent visual hierarchy:
 PLAIN LANGUAGE TRANSLATIONS
 After technical findings, explain the "so what":
 "Finding: Subject is a PEP per FinCEN guidance.
-Translation: As a former senior government official from a high-corruption country, any significant wealth should be verified. The risk isn't that he's necessarily corrupt — it's that PEPs have opportunity for corruption, so we need to verify legitimacy."
+Bottom Line: As a former senior government official from a high-corruption country, any significant wealth should be verified. The risk isn't that he's necessarily corrupt — it's that PEPs have opportunity for corruption, so we need to verify legitimacy."
 
 SPECIFIC RECOMMENDATIONS
 Not: "Enhanced due diligence required"
@@ -4697,8 +4697,8 @@ Then include a **Risk Score Breakdown** table showing how the score was calculat
 
 Always include this table. Adjust the rows to match the actual factors present. Include only factors that apply (non-zero). Show the math clearly.
 
-After the table, add a **Plain Language Summary** explaining why it matters in simple terms:
-"**Translation:** This person held a government position in a country with endemic corruption. Any wealth accumulated during that time should be verified independently."
+After the table, add a **Bottom Line** explaining why it matters in simple terms:
+"**Bottom Line:** This person held a government position in a country with endemic corruption. Any wealth accumulated during that time should be verified independently."
 
 ## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH MONITORING / APPROVED]
 
@@ -4725,6 +4725,23 @@ Use these guidelines:
 - HIGH (85-100%): Unique name + multiple corroborating factors (DOB, location, role, aliases)
 - MEDIUM (50-84%): Some matching factors but missing key identifiers, or moderately common name
 - LOW (Below 50%): Very common name, limited info, or significant mismatches in available data
+
+## RECOMMENDED ACTIONS
+
+Provide SPECIFIC, ACTIONABLE next steps — not vague guidance. Examples:
+1. Request last 3 years of audited financial statements
+2. Obtain certified beneficial ownership declaration identifying all UBOs above 10%
+3. Request bank reference letter from subject's primary banking relationship
+4. Verify real estate sale with closing documents and proof of proceeds
+5. Schedule compliance committee review before proceeding
+
+If EDD is recommended, specify EXACTLY what EDD means:
+- What documents to collect
+- What questions to ask
+- What verifications to perform
+- What approvals are needed
+
+(Skip this section for sanctioned individuals where the recommendation is REJECT. NEVER include "conduct sanctions screening" — Marlowe already did that.)
 
 ## ENTITY SUMMARY
 
@@ -4811,23 +4828,6 @@ IMPORTANT: Do NOT fabricate specific article URLs. Use Google search verificatio
 - [Add all relevant typologies - be comprehensive]
 
 (List ALL relevant financial crime typologies - typically 4-8)
-
-## RECOMMENDED ACTIONS
-
-Provide SPECIFIC, ACTIONABLE next steps — not vague guidance. Examples:
-1. Request last 3 years of audited financial statements
-2. Obtain certified beneficial ownership declaration identifying all UBOs above 10%
-3. Request bank reference letter from subject's primary banking relationship
-4. Verify real estate sale with closing documents and proof of proceeds
-5. Schedule compliance committee review before proceeding
-
-If EDD is recommended, specify EXACTLY what EDD means:
-- What documents to collect
-- What questions to ask
-- What verifications to perform
-- What approvals are needed
-
-(Skip this section for sanctioned individuals where the recommendation is REJECT. NEVER include "conduct sanctions screening" — Marlowe already did that.)
 
 ## SOURCES & REFERENCES
 
@@ -8390,115 +8390,6 @@ ${analysisContext}`;
  )}
  </div>
 
- {/* Now There's Marlowe Section */}
- <div className="py-20 px-6 bg-gray-900">
- <div className="max-w-4xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Human Speed</h2>
- <p className="text-lg text-gray-400">Marlowe Makes Them Faster, Deeper, Better</p>
- </div>
- <div className="grid md:grid-cols-2 gap-8 mb-12">
- <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
- <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
- </p>
- <div className="flex items-center gap-2 text-rose-400">
- <div className="w-2 h-2 rounded-full bg-rose-400" />
- <span className="text-sm font-semibold">6-8 hours per case</span>
- </div>
- </div>
- <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
- <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- Marlowe processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
- </p>
- <div className="flex items-center gap-2 text-emerald-400">
- <div className="w-2 h-2 rounded-full bg-emerald-400" />
- <span className="text-sm font-semibold">30 minutes per case</span>
- </div>
- </div>
- </div>
- </div>
- </div>
-
- {/* Investigation Pipeline Graphic */}
- <div className="py-20 px-6 bg-gray-100">
- <div className="max-w-5xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">The Investigation Pipeline</h2>
- </div>
-
- {/* Pipeline Graphic */}
- <div className="relative">
- {/* Connection line */}
- <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-amber-400 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
-
- <div className="grid grid-cols-2 md:grid-cols-6 gap-4 relative">
- {/* Already Automated - Collection */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Collection</span>
- </div>
-
- {/* Already Automated - Processing */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Processing</span>
- </div>
-
- {/* Already Automated - Basic Analysis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
- </div>
-
- {/* Marlowe - Advanced Analysis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
- </div>
-
- {/* Marlowe - Synthesis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
- </div>
-
- {/* Marlowe - Interpretation */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
- </div>
- </div>
- </div>
-
- {/* Legend */}
- <div className="flex justify-center gap-8 mt-10">
- <div className="flex items-center gap-2">
- <div className="w-4 h-4 rounded-full bg-emerald-400" />
- <span className="text-sm text-gray-600">Already automated by existing tools</span>
- </div>
- <div className="flex items-center gap-2">
- <div className="w-4 h-4 rounded-full bg-amber-500" />
- <span className="text-sm text-gray-600">Now automated by Marlowe</span>
- </div>
- </div>
- </div>
- </div>
-
  {/* Features Section */}
  <div className="py-20 px-6 bg-gray-50">
  <div className="max-w-7xl mx-auto">
@@ -8609,7 +8500,7 @@ ${analysisContext}`;
  </div>
 
  {/* Customer Types Section */}
- <div className="py-20 px-6">
+ <div className="pt-4 pb-20 px-6">
  <div className="max-w-6xl mx-auto">
  <div className="text-center mb-12">
  <h2 className="text-4xl font-bold tracking-tight mb-4">Designed by Investigators, for Investigators</h2>
@@ -8668,6 +8559,115 @@ ${analysisContext}`;
  </div>
  <h4 className="font-bold text-gray-900 mb-2">Private Investigators</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Licensed investigators conducting asset traces and background research</p>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ {/* Now There's Marlowe Section */}
+ <div className="py-20 px-6 bg-gray-900">
+ <div className="max-w-4xl mx-auto">
+ <div className="text-center mb-12">
+ <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Human Speed</h2>
+ <p className="text-lg text-gray-400">Marlowe Makes Them Faster, Deeper, Better</p>
+ </div>
+ <div className="grid md:grid-cols-2 gap-8 mb-12">
+ <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
+ <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
+ <p className="text-gray-300 leading-relaxed mb-4">
+ An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
+ </p>
+ <div className="flex items-center gap-2 text-rose-400">
+ <div className="w-2 h-2 rounded-full bg-rose-400" />
+ <span className="text-sm font-semibold">6-8 hours per case</span>
+ </div>
+ </div>
+ <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
+ <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
+ <p className="text-gray-300 leading-relaxed mb-4">
+ Marlowe processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
+ </p>
+ <div className="flex items-center gap-2 text-emerald-400">
+ <div className="w-2 h-2 rounded-full bg-emerald-400" />
+ <span className="text-sm font-semibold">30 minutes per case</span>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ {/* Investigation Pipeline Graphic */}
+ <div className="py-20 px-6 bg-gray-100">
+ <div className="max-w-5xl mx-auto">
+ <div className="text-center mb-12">
+ <h2 className="text-4xl font-bold tracking-tight mb-4">The Investigation Pipeline</h2>
+ </div>
+
+ {/* Pipeline Graphic */}
+ <div className="relative">
+ {/* Connection line */}
+ <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-amber-400 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
+
+ <div className="grid grid-cols-2 md:grid-cols-6 gap-4 relative">
+ {/* Already Automated - Collection */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Collection</span>
+ </div>
+
+ {/* Already Automated - Processing */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Processing</span>
+ </div>
+
+ {/* Already Automated - Basic Analysis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
+ <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
+ </div>
+
+ {/* Marlowe - Advanced Analysis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
+ </div>
+
+ {/* Marlowe - Synthesis */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
+ </div>
+
+ {/* Marlowe - Interpretation */}
+ <div className="flex flex-col items-center">
+ <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
+ <Zap className="w-8 h-8 text-amber-500" />
+ </div>
+ <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
+ </div>
+ </div>
+ </div>
+
+ {/* Legend */}
+ <div className="flex justify-center gap-8 mt-10">
+ <div className="flex items-center gap-2">
+ <div className="w-4 h-4 rounded-full bg-emerald-400" />
+ <span className="text-sm text-gray-600">Already automated by existing tools</span>
+ </div>
+ <div className="flex items-center gap-2">
+ <div className="w-4 h-4 rounded-full bg-amber-500" />
+ <span className="text-sm text-gray-600">Now automated by Marlowe</span>
  </div>
  </div>
  </div>
@@ -10164,7 +10164,7 @@ ${analysisContext}`;
  )}
  {flag.translation && (
    <p className="ml-8 mt-2 text-sm text-slate-700 leading-relaxed">
-     <span className="font-semibold text-amber-600">Translation:</span> {flag.translation}
+     <span className="font-semibold text-amber-600">Bottom Line:</span> {flag.translation}
    </p>
  )}
  </div>

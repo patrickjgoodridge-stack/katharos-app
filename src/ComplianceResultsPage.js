@@ -307,7 +307,7 @@ const SectionCard = React.forwardRef(({ section, darkMode, index }, ref) => {
         <div className="flex items-center gap-3 mb-3">
           {Icon && <Icon className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`} />}
           <h2 className={`text-lg font-bold tracking-wide uppercase ${darkMode ? 'text-gray-100' : 'text-slate-800'}`}>
-            {isRisk ? 'Overall Risk Assessment' : isOnboarding ? 'Onboarding Recommendation' : section.title}
+            {isRisk ? 'Overall Risk Assessment' : isOnboarding ? 'Recommendation' : section.title}
           </h2>
           {riskLevel && (darkMode
             ? <RiskBadgeDark level={riskLevel} score={isRisk ? (section.title.match(/(\d+)\s*\/\s*100/)?.[1] ? parseInt(section.title.match(/(\d+)\s*\/\s*100/)[1]) : null) : null} />

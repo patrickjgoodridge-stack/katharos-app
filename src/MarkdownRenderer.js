@@ -184,7 +184,7 @@ const CustomHeading = ({ level, children }) => {
       // For onboarding, extract the recommendation text
       const onboardingMatch = text.match(/(?:ONBOARDING\s+)?RECOMMENDATION\s*:\s*(.+)/i)
         || text.match(/ONBOARDING\s*:\s*(.+)/i);
-      const onboardingLabel = onboardingMatch ? onboardingMatch[1].trim() : null;
+      const onboardingLabel = onboardingMatch ? `Recommendation: ${onboardingMatch[1].trim()}` : null;
       // Build clean display text
       const displayText = isOverallRiskSection(text)
         ? (riskLabel ? `OVERALL RISK: ${riskLabel}` : text)
