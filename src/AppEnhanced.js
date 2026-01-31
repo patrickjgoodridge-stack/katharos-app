@@ -9333,9 +9333,14 @@ ${analysisContext}`;
  <div className={`flex items-center justify-between mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
+ <div className="relative group">
  <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
  <Plus className="w-5 h-5" />
  </button>
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+   <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>Upload Materials</div>
+ </div>
+ </div>
  </div>
  <button
  onClick={() => {
@@ -9525,9 +9530,14 @@ ${analysisContext}`;
  )}
  <div className={`flex items-end gap-3 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-500'} rounded-2xl border p-2`}>
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
+ <div className="relative group">
  <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
  <Plus className="w-5 h-5" />
  </button>
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+ <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>Upload Materials</div>
+ </div>
+ </div>
  <textarea
  ref={bottomInputRef}
  value={conversationInput}
@@ -9693,7 +9703,7 @@ ${analysisContext}`;
  onChange={handleFileInput}
  className="hidden"
  />
- <div className="relative" ref={uploadDropdownRef}>
+ <div className="relative group/tooltip" ref={uploadDropdownRef}>
  <button
  onClick={() => setShowUploadDropdown(!showUploadDropdown)}
  className="group p-2 hover:bg-gray-100 rounded-lg transition-all relative"
@@ -9701,6 +9711,9 @@ ${analysisContext}`;
  >
  <Plus className="w-5 h-5 text-gray-600 group-hover:text-amber-500 transition-colors" />
  </button>
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+ <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">Upload Materials</div>
+ </div>
 
  {/* Upload Dropdown Menu */}
  {showUploadDropdown && (
