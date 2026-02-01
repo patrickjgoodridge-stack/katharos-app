@@ -1040,7 +1040,7 @@ export default function Marlowe() {
 
  try {
  // Step 1: Get REAL sanctions screening data from backend
- setScreeningStep('Step 1/5: Querying global sanctions databases...');
+ setScreeningStep('Step 1/7: Querying global sanctions databases...');
  setScreeningProgress(15);
  const sanctionsResponse = await fetch(`${API_BASE}/api/screen-sanctions`, {
  method: "POST",
@@ -1058,11 +1058,11 @@ export default function Marlowe() {
  let ownershipNetwork = {};
  let ownershipData = null;
  if (kycType === 'wallet') {
- setScreeningStep('Step 2/5: Analyzing blockchain address...');
+ setScreeningStep('Step 2/7: Analyzing blockchain address...');
  setScreeningProgress(50);
  ownershipNetwork = { ownedCompanies: [], totalCompanies: 0, highRiskOwnership: 0 };
  } else {
- setScreeningStep('Step 2/5: Analyzing beneficial ownership structure...');
+ setScreeningStep('Step 2/7: Analyzing beneficial ownership structure...');
  setScreeningProgress(35);
  const networkResponse = await fetch(`${API_BASE}/api/ownership-network`, {
  method: "POST",
@@ -1080,9 +1080,34 @@ export default function Marlowe() {
  }
  }
 
- // Step 3: Build context with REAL data for Claude to analyze
- setScreeningStep('Step 3/5: Building compliance context...');
+ // Step 3: Query external data sources in parallel (ICIJ, SEC, World Bank, etc.)
+ setScreeningStep('Step 3/7: Querying ICIJ, SEC, World Bank, court records...');
  setScreeningProgress(55);
+ let dataSourceResults = null;
+ let adverseMediaResults = null;
+ try {
+ const [dsRes, amRes] = await Promise.all([
+ fetch(`${API_BASE}/api/screening/data-sources`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET' })
+ }),
+ fetch(`${API_BASE}/api/screening/adverse-media`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET', country: kycCountry || null })
+ })
+ ]);
+ if (dsRes.ok) dataSourceResults = await dsRes.json();
+ if (amRes.ok) adverseMediaResults = await amRes.json();
+ } catch (e) {
+ console.error('External data source error:', e);
+ }
+ setScreeningProgress(65);
+
+ // Step 4: Build context with REAL data for Claude to analyze
+ setScreeningStep('Step 4/7: Building compliance context...');
+ setScreeningProgress(68);
  const realDataContext = kycType === 'wallet' ? `
 CRYPTO WALLET SANCTIONS SCREENING RESULTS:
 Wallet Address: ${kycQuery}
@@ -1147,7 +1172,45 @@ CORPORATE NETWORK (Related Entities):
 ${ownershipNetwork.corporateStructure.map(s =>
  `- ${s.entity} (${s.relationship}) - Common Owner: ${s.commonOwner} (${s.ownershipPercent}%) - Sanction Exposure: ${s.sanctionExposure}`
 ).join('\n')}
-` : ''}`;
+` : ''}
+
+${dataSourceResults ? `
+EXTERNAL DATA SOURCE SCREENING RESULTS:
+Risk Score: ${dataSourceResults.riskScore}/100
+${dataSourceResults.riskFactors && dataSourceResults.riskFactors.length > 0 ? `Risk Factors:
+${dataSourceResults.riskFactors.map(f => `- ${f.source}: ${f.detail} (+${f.points} points)`).join('\n')}` : 'No risk factors identified from external sources.'}
+
+${dataSourceResults.sources?.icij?.data?.matches?.length > 0 ? `ICIJ OFFSHORE LEAKS:
+${dataSourceResults.sources.icij.data.matches.slice(0, 10).map(m => `- ${m.type}: ${m.name} (${m.jurisdiction || 'Unknown jurisdiction'}) — Dataset: ${m.sourceDataset || 'Unknown'}${m.linkedTo ? ', Linked to: ' + m.linkedTo : ''}`).join('\n')}
+Datasets found: ${(dataSourceResults.sources.icij.data.datasetsFound || []).join(', ') || 'None'}
+Total results: ${dataSourceResults.sources.icij.data.totalResults || 0}` : 'ICIJ Offshore Leaks: No matches found.'}
+
+${dataSourceResults.sources?.sec?.data ? `SEC EDGAR:
+${dataSourceResults.sources.sec.data.results?.length > 0 ? `Filings: ${dataSourceResults.sources.sec.data.results.slice(0, 5).map(f => `- ${f.form} filed ${f.filingDate} by ${f.companyName}`).join('\n')}` : 'No SEC filings found.'}
+${dataSourceResults.sources.sec.data.hasEnforcement ? `⚠️ SEC ENFORCEMENT ACTIONS:
+${dataSourceResults.sources.sec.data.enforcement.map(e => `- ${e.type} (${e.date}): ${e.description}`).join('\n')}` : 'No SEC enforcement actions.'}` : 'SEC EDGAR: Not queried or unavailable.'}
+
+${dataSourceResults.sources?.worldBank?.data?.matches?.length > 0 ? `WORLD BANK DEBARMENT:
+${dataSourceResults.sources.worldBank.data.matches.slice(0, 5).map(m => `- ${m.firmName || m.individualName} (${m.country}) — ${m.sanctionType}, ${m.fromDate} to ${m.toDate || 'ongoing'}${m.grounds ? ', Grounds: ' + m.grounds : ''}`).join('\n')}` : 'World Bank Debarment: No matches found.'}
+
+${dataSourceResults.sources?.courtListener?.data?.results?.length > 0 ? `FEDERAL COURT RECORDS:
+${dataSourceResults.sources.courtListener.data.results.slice(0, 5).map(r => `- ${r.caseName} (${r.court}) — Filed: ${r.dateFiled}, Docket: ${r.docketNumber}${r.suitNature ? ', Nature: ' + r.suitNature : ''}`).join('\n')}` : 'Federal Court Records: No matches found.'}
+
+${dataSourceResults.sources?.ukCompaniesHouse?.data?.results?.length > 0 ? `UK COMPANIES HOUSE:
+${dataSourceResults.sources.ukCompaniesHouse.data.results.map(co => `- ${co.companyName} (#${co.companyNumber}) — Status: ${co.status}, Incorporated: ${co.incorporationDate}
+  Officers: ${co.officers?.slice(0, 3).map(o => o.name + ' (' + o.role + ')').join(', ') || 'None listed'}
+  PSCs: ${co.pscs?.slice(0, 3).map(p => p.name + ' (' + (p.naturesOfControl || []).join(', ') + ')').join(', ') || 'None listed'}`).join('\n')}` : ''}
+` : ''}
+
+${adverseMediaResults ? `
+ADVERSE MEDIA SCREENING RESULTS:
+Risk Score: ${adverseMediaResults.riskScore || 0}/100
+Total Articles Found: ${adverseMediaResults.totalArticles || 0}
+${adverseMediaResults.articles && adverseMediaResults.articles.length > 0 ? `
+Articles:
+${adverseMediaResults.articles.slice(0, 10).map(a => `- [${a.category || 'GENERAL'}] "${a.title}" (${a.source}, ${a.date || 'undated'}) — Relevance: ${a.relevance || 'UNKNOWN'}${a.url ? ' — Source: ' + a.url : ''}`).join('\n')}` : 'No adverse media articles found.'}
+` : ''}
+`;
 
  const systemPrompt = `You are an expert compliance analyst with deep knowledge of AML/KYC regulations and sanctions programs.
 
@@ -1192,7 +1255,7 @@ RISK SCORING CRITERIA:
 - MEDIUM: PEP status, indirect ownership exposure (25-49%), historical sanctions (delisted)
 - LOW: No matches, no adverse findings, low-risk jurisdiction
 
-IMPORTANT: The sanctions screening and ownership analysis below are REAL DATA from official sources. Use this data directly.
+IMPORTANT: The sanctions screening, ownership analysis, external data sources (ICIJ Offshore Leaks, SEC EDGAR, World Bank Debarment, Federal Court Records, UK Companies House), and adverse media results below are REAL DATA from official sources. Use this data directly. When external source data is provided, incorporate it into your analysis — cite specific ICIJ matches, SEC enforcement actions, court cases, World Bank debarments, and adverse media articles with their inline source links/URLs.
 
 HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - OLEG DERIPASKA (SDN April 2018): Owns EN+ Group (48%), Rusal (48% indirect), Basic Element (100%)
@@ -1372,17 +1435,17 @@ Set subject.type to "WALLET" and include the wallet address and blockchain.` : `
 
 Based on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${kycYearOfBirth ? ', Year of Birth: ' + kycYearOfBirth : ''}${kycCountry ? ', Country: ' + kycCountry : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})
 
-Use the verified sanctions data provided. Add additional analysis for:
+Use the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:
 - PEP (Politically Exposed Person) status
-- Adverse media findings
-- Risk assessment
+- Adverse media findings (incorporate the real articles provided above with their source URLs)
+- Risk assessment incorporating ALL data sources
 - Regulatory guidance
 
 ${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}`;
 
- // Step 4: AI-powered risk analysis
- setScreeningStep('Step 4/5: Running AI-powered risk analysis...');
- setScreeningProgress(65);
+ // Step 5: AI-powered risk analysis
+ setScreeningStep('Step 5/7: Running AI-powered risk analysis...');
+ setScreeningProgress(72);
 
  const response = await fetch(`${API_BASE}/api/messages`, {
  method: "POST",
@@ -1404,8 +1467,8 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  setScreeningProgress(85);
  const text = data.content && data.content[0] && data.content[0].text ? data.content[0].text : "";
 
- // Step 5: Compiling results
- setScreeningStep('Step 5/5: Compiling screening report...');
+ // Step 6: Compiling results
+ setScreeningStep('Step 6/7: Compiling screening report...');
  setScreeningProgress(90);
 
  const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -1431,6 +1494,16 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  if (ownershipNetwork.corporateStructure) {
  if (!finalResult.ownershipAnalysis) finalResult.ownershipAnalysis = {};
  finalResult.ownershipAnalysis.corporateStructure = ownershipNetwork.corporateStructure;
+ }
+
+ // Add external data source results
+ if (dataSourceResults) {
+ finalResult.externalSources = dataSourceResults.sources;
+ finalResult.externalRiskScore = dataSourceResults.riskScore;
+ finalResult.externalRiskFactors = dataSourceResults.riskFactors;
+ }
+ if (adverseMediaResults) {
+ finalResult.adverseMediaRaw = adverseMediaResults;
  }
 
  setKycResults(finalResult);
