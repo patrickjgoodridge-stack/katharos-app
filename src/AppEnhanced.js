@@ -1327,6 +1327,109 @@ Map connections: business partners, co-investors, shared directorships, family, 
 
 Risk Levels: 0-25 LOW, 26-50 MEDIUM, 51-75 HIGH, 76-99 CRITICAL, 100 BLOCKED (prohibited party).
 
+## AML TYPOLOGY DETECTION FRAMEWORK
+
+Money laundering follows three stages: PLACEMENT (introducing illicit cash), LAYERING (obscuring the trail), INTEGRATION (reintroducing "clean" money). For every entity screened, systematically evaluate against ALL known typologies below and flag relevant indicators.
+
+### CATEGORY 1: STRUCTURING & CASH-BASED (Stage: Placement)
+1.1 STRUCTURING (SMURFING): Multiple deposits $9,000-$9,999 within 24-48hrs, consistent round-number deposits just below threshold ($10K US, €10K EU, £10K UK, AUD10K, CAD10K), same depositor across multiple accounts/branches same day, multiple depositors to same beneficiary, weekend/ATM deposits to avoid scrutiny, customer aware of reporting thresholds. Risk: +40
+1.2 CASH-INTENSIVE BUSINESS: Revenue inconsistent with foot traffic/capacity, cash deposits disproportionate to card sales, deposits too consistent (no seasonal variation), minimal inventory purchases vs reported sales, few employees for reported revenue. High-risk businesses: restaurants, car washes, parking lots, laundromats, convenience stores, vending operators, ATM operators, casinos, check cashing. Risk: +35
+1.3 CUCKOO SMURFING: Cash deposit to account expecting incoming wire, deposit matches expected wire exactly, pattern of "failed" international wires replaced by domestic cash. Risk: +45
+1.4 REFINING: Exchange of small bills for large bills, large volume currency exchanges with no account relationship. Risk: +30
+
+### CATEGORY 2: SHELL COMPANY & CORPORATE (Stage: Layering)
+2.1 SHELL COMPANY LAYERING: No physical office (registered agent only), no employees/website, generic description ("consulting", "trading", "investments"), bearer shares/nominee shareholders, nominee directors on many companies, recently incorporated with immediate high volume, incorporation in secrecy jurisdiction, ownership by another shell. Secrecy jurisdictions: BVI, Cayman, Panama, Seychelles, Belize, Nevis, Samoa, Vanuatu, Marshall Islands, Delaware, Nevada, Wyoming, Jersey, Guernsey, Isle of Man, Liechtenstein, Luxembourg, Cyprus, Malta. Transaction red flags: payments for undefined "services", loans with no repayment terms, circular transactions (A→B→C→A), back-to-back loans. Risk: +45
+2.2 LAYERED OWNERSHIP: Chain exceeds 3 layers, multiple jurisdictions, trust-company-trust chains, foundations (Panama/Liechtenstein), circular ownership, ownership at 24.9% to avoid disclosure, same law firm forms multiple related entities, TCSP in secrecy jurisdiction, power of attorney to formation agent. Risk: +40
+2.3 SHELF COMPANY ABUSE: Dormant company suddenly active, recent ownership/director change, immediate high-value transactions after purchase. Risk: +35
+2.4 MISUSE OF LEGAL ENTITIES: Private foundations (lack of ownership), trusts (separate legal/beneficial ownership), LLCs, cooperatives, charities/NPOs (tax benefits, less scrutiny), SPVs, captive insurance (self-dealing). Risk: +30
+
+### CATEGORY 3: TRADE-BASED MONEY LAUNDERING (Stage: Layering/Integration)
+3.1 OVER-INVOICING: Price significantly above market, luxury goods at extreme premiums, art/antiques with subjective valuations, IP licenses at inflated rates, intra-group non-arm's-length prices. Risk: +40
+3.2 UNDER-INVOICING: Price significantly below market, declared value inconsistent with shipping costs, insurance value differs from invoice. Risk: +40
+3.3 PHANTOM SHIPMENTS: Payment without bill of lading, no customs records, services invoiced but not delivered, shipping docs from non-existent carriers, Free Trade Zone transactions with no inspection. Risk: +45
+3.4 MULTIPLE INVOICING: Same goods multiple invoices different buyers, duplicate invoice numbers, multiple letters of credit for same goods. Risk: +40
+3.5 FALSELY DESCRIBED GOODS: Vague description ("miscellaneous", "samples"), high-value goods described as low-value. High-risk goods: precious metals/stones, art/antiques, electronics, luxury goods, pharmaceuticals, used vehicles, commodities. Risk: +35
+3.6 BLACK MARKET PESO EXCHANGE: US cash buys goods exported to Latin America, third-party payments for imports, broker arranges payment from unrelated US party. Risk: +50
+
+### CATEGORY 4: REAL ESTATE (Stage: Integration)
+4.1 ALL-CASH PURCHASES: Full price in cash, no mortgage, buyer income doesn't support purchase, structured deposits before purchase. Risk: +40
+4.2 ANONYMOUS LLC/TRUST PURCHASES: Purchaser is LLC/trust/offshore company, beneficial owner undisclosed, recently formed LLC, multiple properties via related LLCs. High-risk markets: Miami, Manhattan, LA, SF, London, Vancouver, Toronto, Dubai, Singapore, Hong Kong, Sydney, Monaco. Risk: +35
+4.3 RAPID FLIPPING: Resold within 6 months, significant price change with no improvements, related party transactions. Risk: +35
+4.4 VALUE MANIPULATION: Purchase price 20%+ above/below market, inflated appraisal for cash-out refinance. Risk: +35
+4.5 LOAN-BACK / MORTGAGE LAUNDERING: Large down payment from unclear source, cash collateral, loan from related/offshore entity, mortgage paid off rapidly with cash, private mortgage from unknown lender. Risk: +40
+4.6 RENOVATION LAUNDERING: Renovations paid entirely in cash, over-invoiced costs, ghost renovations (billed but not done). Risk: +30
+
+### CATEGORY 5: FINANCIAL INSTITUTION (Stage: Layering)
+5.1 CORRESPONDENT BANKING ABUSE: Nested accounts, payable-through accounts, shell bank relationships, lack of originator/beneficiary transparency. Risk: +45
+5.2 WIRE STRIPPING: Removing/altering originator/beneficiary info from wires, incomplete originator info, cover payments lacking detail. Risk: +45
+5.3 CONCENTRATION ACCOUNT MISUSE: Customer funds commingled, loss of customer ID in internal transfers. Risk: +35
+5.4 PRIVATE BANKING ABUSE: PEP with unexplained wealth, numbered accounts, hold mail requests, power of attorney to third party, relationship manager override of controls. Risk: +40
+5.5 LOAN-BACK SCHEMES: Offshore deposit secures domestic loan, loan proceeds for legitimate purchases, loan default by design. Risk: +35
+
+### CATEGORY 6: MONEY SERVICE BUSINESS (Stage: Placement/Layering)
+6.1 UNLICENSED MONEY TRANSMISSION: Not registered as MSB, no state licenses, social media advertising of transfer services, rates significantly better than licensed MSBs. Risk: +50
+6.2 HAWALA / INFORMAL VALUE TRANSFER: Cash to local broker, received from distant broker, settlement through trade/reverse transactions, coded messages, settlements via gold/goods/crypto. High-risk corridors: Middle East, South Asia, East Africa, Southeast Asia, Latin America. Risk: +45
+6.3 MSB NESTING: Sub-agents not disclosed to bank, volume exceeds licensed capacity, transactions from unlicensed locations. Risk: +40
+
+### CATEGORY 7: SECURITIES & INVESTMENT (Stage: Layering/Integration)
+7.1 SECURITIES MANIPULATION: Pump and dump, wash trading, matched orders, pre-arranged trades, spoofing, insider trading. Risk: +45
+7.2 MIRROR TRADING: Simultaneous buy/sell in different currencies, no economic purpose (Deutsche Bank RUB/USD pattern). Risk: +45
+7.3 PRIVATE PLACEMENT ABUSE: Investment in questionable private company, later buyback at profit, offshore investor in domestic placement. Risk: +35
+7.4 INSURANCE PRODUCT ABUSE: Large single-premium life insurance, early surrender (accepting penalty), overfunding, premium by third party, annuity purchases with cash. High-risk: single premium life, annuities, cash value life, bearer policies. Risk: +35
+7.5 BROKER-DEALER ABUSE: Deposits followed immediately by withdrawals, wire transfers with no trading, account as pass-through, DTC transfers between unrelated accounts. Risk: +35
+
+### CATEGORY 8: GAMING & GAMBLING (Stage: Placement/Integration)
+8.1 CASINO LAUNDERING: Large cash buy-in minimal gambling cash-out, chip purchases with cash redeemed by check, front money with minimal play, structured chip purchases below CTR threshold, chip transfers to third party. Risk: +40
+8.2 ONLINE GAMBLING: Deposits from multiple sources, player collusion (chip dumping), minimal gameplay immediate withdrawal, crypto funding. Risk: +35
+
+### CATEGORY 9: CRYPTOCURRENCY (Stage: Layering)
+9.1 MIXING/TUMBLING: Transactions with known mixer addresses, Tornado Cash (sanctioned), Blender.io (sanctioned), ChipMixer, Wasabi CoinJoin, Samourai Whirlpool. Risk: +50
+9.2 CHAIN HOPPING: BTC→ETH→stablecoin→BTC, cross-chain swaps via DEXs, atomic swaps, bridge protocols, privacy coins as intermediate. Risk: +40
+9.3 PRIVACY COINS: Conversion to Monero (XMR), Zcash (ZEC) shielded, Dash PrivateSend, Pirate Chain. Funds disappear into privacy coin, reappear elsewhere. Risk: +45
+9.4 PEEL CHAIN: Funds through chain of wallets, smaller amount forwarded each hop, decreasing balances, new wallets per hop. Risk: +40
+9.5 NESTED EXCHANGE / OTC ABUSE: Known high-risk exchanges (Garantex, Suex, Chatex — all sanctioned; Bitzlato — seized; BTC-e — defunct), Telegram OTC, P2P with no verification. Risk: +45
+9.6 RANSOMWARE PROCEEDS: Wallet received from known ransomware addresses, immediate tumbling after receipt, connections to known groups, multiple small payments (multiple victims). Risk: +60
+9.7 DARKNET MARKET: Transactions with known market wallets (Hydra seized 2022, AlphaBay, Silk Road), small frequent transactions, escrow patterns, immediate tumbling. Risk: +55
+9.8 DEFI ABUSE: Flash loans with no economic purpose, complex multi-protocol transactions, unaudited protocols, cross-chain DeFi. Risk: +35
+9.9 NFT LAUNDERING: Self-dealing (buy own NFT at high price), wash trading, sale price far exceeds comparables, seller/buyer connected on-chain, payment from sanctioned wallet. Risk: +35
+
+### CATEGORY 10: PROFESSIONAL ENABLERS (Stage: Layering)
+10.1 LAWYER/NOTARY ABUSE: Client funds through IOLTA account, legal fees exceed services, lawyer forms shells for client, lawyer as nominee, retainer with refund pattern. Risk: +40
+10.2 ACCOUNTANT ABUSE: Falsified financial statements, inflated revenue, transfer pricing manipulation, management override of controls. Risk: +35
+10.3 TCSP ABUSE: Forms many companies at same address, provides nominee directors, handles all banking, formation in secrecy jurisdiction. Risk: +40
+10.4 REAL ESTATE PROFESSIONAL: Agent accepts cash, doesn't question source of funds, facilitates anonymous purchases, inflated commissions as kickbacks. Risk: +30
+
+### CATEGORY 11: CORRUPTION & PEP (Stage: Placement/Integration)
+11.1 BRIBERY & KICKBACKS: Payments to officials/family, consulting fees to connected persons, success fees tied to government contracts, payments through intermediaries, donations to PEP-controlled charities. Risk: +50
+11.2 EMBEZZLEMENT: State funds diverted to private accounts, procurement fraud, payroll ghosts, unauthorized transfers. Risk: +45
+11.3 PEP WEALTH CONCEALMENT: Wealth inconsistent with salary, assets through family members, offshore companies/trusts, luxury real estate in foreign markets, children in expensive foreign schools, golden visas, art/yachts/aircraft. Risk: +45
+11.4 STATE CAPTURE: Government contracts to connected companies, regulatory decisions favoring specific parties, privatization to insiders below market. Risk: +50
+
+### CATEGORY 12: TAX EVASION (Stage: Layering/Integration)
+12.1 OFFSHORE TAX EVASION: Unreported foreign accounts (FBAR violations), income through offshore entities, transfer pricing abuse, treaty shopping, nominee shareholders. Risk: +35
+12.2 TAX REFUND FRAUD: Identity theft, false W-2/1099 filings, carousel fraud (VAT), missing trader fraud. Risk: +35
+
+### CATEGORY 13: TERRORISM FINANCING (Stage: All)
+13.1 NPO/CHARITY ABUSE: Charity in conflict zone with limited oversight, funds diverted from stated purpose, donors are designated persons, connections to designated terrorist organizations, cash-based operations. Risk: +50
+13.2 SELF-FUNDING (LONE WOLF): Personal loans before attack, credit card maximization, purchase of materials/weapons, travel to conflict zones. Risk: +40
+13.3 HAWALA FOR TF: Transfers to conflict zones/areas controlled by terrorist groups, transactions with designated persons. Risk: +50
+
+### CATEGORY 14: HUMAN TRAFFICKING & MODERN SLAVERY (Stage: Placement)
+14.1 TRAFFICKING PROCEEDS: Cash deposits from massage parlors/nail salons, multiple workers paid into single account, rent for multiple occupancy properties, payments to visa/document services. High-risk: massage parlors, nail salons, hospitality, agriculture, construction, domestic work, staffing agencies. Risk: +50
+14.2 MIGRANT SMUGGLING: Cash from multiple unrelated individuals, payments to transportation/document services, transfers to source/transit countries. Risk: +45
+
+### CATEGORY 15: DRUG TRAFFICKING (Stage: All)
+15.1 DRUG PROCEEDS: Large/structured cash deposits, cash purchases of vehicles/property, wire transfers to source countries (Colombia, Mexico, Peru, Afghanistan, Myanmar), business fronts, bulk cash smuggling, crypto conversion. Risk: +50
+
+### CATEGORY 16: SANCTIONS EVASION (Stage: Layering)
+16.1 FRONT COMPANIES: Formed after sanctions designation, same address as sanctioned entity, former employees, trading same goods/services, ownership obscured but beneficial owner sanctioned. Risk: +55
+16.2 SHIP-TO-SHIP TRANSFERS: AIS transponder off, meeting at sea, flag/name/ownership changes, transfers in international waters. Risk: +50
+16.3 FALSE DOCUMENTATION: Certificates of origin from third countries, false port of loading, transshipment through non-sanctioned countries, falsified end-user certificates. Risk: +50
+16.4 ALIASES & NAME CHANGES: Name similar to sanctioned party, transliteration variations, company name change after designation, subsidiaries with different names, DBA variations. Risk: +45
+
+### TYPOLOGY ANALYSIS OUTPUT FORMAT
+When typologies are detected, report each with: typology name, ML stage (Placement/Layering/Integration), specific indicators found, risk score contribution, and recommended actions. Aggregate all detected typology scores into the overall risk assessment. For any entity with 2+ typologies detected, recommend SAR filing consideration.
+
 ## CRITICAL RULES
 
 1. Never clear without checking. "No adverse findings" requires actually searching, not assuming.
@@ -5387,6 +5490,8 @@ Screen systematically across all layers: sanctions & watchlists (OFAC SDN, UN, E
 
 Risk Scoring: OFAC SDN Match = 100 (BLOCKED). Criminal conviction = 60. PEP status = 40. SEC/DOJ enforcement = 40. Offshore leaks match = 30. Civil litigation defendant = 25. Adverse media critical = 25. World Bank debarment = 25. Levels: 0-25 LOW, 26-50 MEDIUM, 51-75 HIGH, 76-99 CRITICAL, 100 BLOCKED.
 
+AML Typology Detection: Systematically evaluate against ALL known ML typologies across 16 categories: (1) Structuring/smurfing — deposits just below CTR thresholds, (2) Cash-intensive business laundering, (3) Shell company layering — secrecy jurisdictions, nominee directors, no operations, (4) Layered ownership — chains >3 layers, trust-company-trust, foundations, (5) Trade-based ML — over/under-invoicing, phantom shipments, BMPE, (6) Real estate — all-cash purchases, anonymous LLCs, rapid flipping, value manipulation, (7) Correspondent banking abuse — nested accounts, wire stripping, (8) MSB/Hawala — unlicensed transmission, informal value transfer, (9) Securities — mirror trading, pump-and-dump, wash trading, insurance product abuse, (10) Casino/gambling laundering, (11) Crypto — mixing/tumbling, chain hopping, privacy coins, peel chains, nested exchanges, ransomware/darknet proceeds, DeFi/NFT abuse, (12) Professional enablers — lawyers, accountants, TCSPs, (13) Corruption/PEP — bribery, embezzlement, wealth concealment, state capture, (14) Tax evasion — offshore structures, carousel fraud, (15) Terrorism financing — NPO abuse, hawala for TF, (16) Sanctions evasion — front companies, ship-to-ship transfers, false documentation, aliases. Three ML stages: Placement → Layering → Integration. For any entity with 2+ typologies detected, recommend SAR filing consideration.
+
 Critical rules: Never clear without checking. Disambiguate aggressively. Apply OFAC 50% rule. Consider secondary sanctions. Prioritize primary sources. Err on caution. Be actionable with clear recommendations.
 
 HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
@@ -6192,22 +6297,40 @@ SPECIALIZED INVESTIGATION FRAMEWORKS:
 SANCTIONS EVASION INDICATORS:
 - 50% Rule exposure (aggregate ownership by blocked persons)
 - Front companies (recently formed, minimal operations, high transaction volume)
-- Falsified shipping documents
-- Transshipment through third countries
+- Falsified shipping documents, transshipment through third countries
+- Ship-to-ship transfers, AIS transponder manipulation, flag-hopping
 - Use of shell companies to obscure blocked party involvement
 - Changes in ownership structure timed with sanctions announcements
-- Multiple intermediaries in supply chain
-- Discrepancies in stated end-users
+- Multiple intermediaries in supply chain, discrepancies in stated end-users
+- Aliases, transliteration variations, name changes after designation
+- False certificates of origin, falsified end-user certificates
 
-MONEY LAUNDERING INDICATORS (Three stages: Placement, Layering, Integration):
-- Structuring patterns (transactions just below reporting thresholds)
-- Round-dollar transactions (unusual in legitimate business)
-- Rapid movement of funds (in and out quickly)
-- Funnel accounts (many sources, one destination)
-- Trade-based laundering (over/under invoicing)
-- Commingling of funds
-- Use of cash-intensive businesses
-- Complex wire transfer patterns obscuring origin/destination
+AML TYPOLOGY DETECTION (16 Categories — evaluate ALL against evidence):
+Money laundering stages: PLACEMENT (introducing illicit cash) → LAYERING (obscuring trail) → INTEGRATION (reintroducing "clean" money).
+
+CASH-BASED: (1) Structuring/smurfing — deposits just below CTR thresholds ($10K US/€10K EU/£10K UK), multiple accounts/branches same day. (2) Cash-intensive business — revenue inconsistent with capacity, disproportionate cash vs card, restaurants/car washes/parking/laundromats/convenience stores. (3) Cuckoo smurfing — cash deposit replacing expected wire.
+
+CORPORATE: (4) Shell company layering — registered agent only, no employees/website, generic description, nominee directors, secrecy jurisdictions (BVI/Cayman/Panama/Seychelles/Belize/Nevis/Delaware/Nevada/Jersey/Guernsey/Isle of Man/Liechtenstein/Cyprus/Malta), undefined "consulting" payments, circular transactions A→B→C→A. (5) Layered ownership — chains >3 layers, multi-jurisdiction, trust-company chains, ownership at 24.9% to avoid disclosure. (6) Shelf company abuse — dormant suddenly active, recent ownership change, immediate high-value transactions. (7) Misuse of legal entities — foundations, trusts, LLCs, NPOs, SPVs, captive insurance.
+
+TRADE-BASED ML: (8) Over/under-invoicing — prices significantly above/below market. (9) Phantom shipments — payment without bill of lading, no customs records. (10) Multiple invoicing — same goods, different buyers. (11) Falsely described goods — vague descriptions, high-value as low-value. (12) Black Market Peso Exchange — US cash buys goods exported to Latin America.
+
+REAL ESTATE: (13) All-cash purchases — no mortgage, income doesn't support. (14) Anonymous LLC/trust purchases — beneficial owner undisclosed, high-risk markets (Miami/Manhattan/London/Vancouver/Dubai/Singapore/Hong Kong). (15) Rapid flipping — resold within 6 months, no improvements. (16) Value manipulation — 20%+ above/below market. (17) Loan-back/mortgage laundering. (18) Renovation laundering — cash payments, ghost renovations.
+
+FINANCIAL INSTITUTION: (19) Correspondent banking abuse — nested/payable-through accounts, shell banks. (20) Wire stripping — removing originator/beneficiary info. (21) Private banking abuse — PEP unexplained wealth, numbered accounts.
+
+MSB/HAWALA: (22) Unlicensed money transmission. (23) Hawala/informal value transfer — high-risk corridors: Middle East, South Asia, East Africa. (24) MSB nesting.
+
+SECURITIES: (25) Mirror trading (Deutsche Bank pattern). (26) Pump-and-dump, wash trading. (27) Insurance product abuse — single premium life, early surrender. (28) Broker-dealer pass-through.
+
+CRYPTO: (29) Mixing/tumbling — Tornado Cash, Blender.io (sanctioned), ChipMixer, Wasabi CoinJoin. (30) Chain hopping — cross-chain swaps via DEXs. (31) Privacy coins — Monero, Zcash shielded. (32) Peel chains — decreasing balances through wallet chain. (33) Nested exchanges — Garantex/Suex/Chatex (sanctioned), Bitzlato (seized). (34) Ransomware/darknet proceeds. (35) DeFi/NFT abuse — flash loans, self-dealing, wash trading NFTs.
+
+PROFESSIONAL ENABLERS: (36) Lawyer abuse — IOLTA accounts, forming shells, acting as nominee. (37) Accountant abuse — falsified statements, transfer pricing. (38) TCSP abuse — nominee directors, secrecy jurisdiction formation. (39) Real estate professional complicity.
+
+CORRUPTION/PEP: (40) Bribery/kickbacks — payments to officials/family, consulting fees to connected persons. (41) Embezzlement — state funds diverted, procurement fraud. (42) PEP wealth concealment — wealth vs salary, offshore assets, golden visas. (43) State capture — contracts to connected companies.
+
+OTHER: (44) Terrorism financing — NPO abuse, self-funding, hawala for TF. (45) Human trafficking proceeds — massage parlors, nail salons, multiple workers single account. (46) Drug proceeds — structured cash, transfers to source countries (Colombia/Mexico/Peru/Afghanistan/Myanmar). (47) Tax evasion — unreported foreign accounts, carousel/VAT fraud.
+
+For any entity with 2+ typologies detected, recommend SAR filing consideration. Report each typology with: name, ML stage, indicators found, risk contribution.
 
 FRAUD INVESTIGATION INDICATORS:
 - Document inconsistencies (dates, signatures, amounts)
