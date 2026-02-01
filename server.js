@@ -3,7 +3,9 @@ const cors = require('cors');
 const pdfParse = require('pdf-parse');
 const fs = require('fs');
 const path = require('path');
-const { screenEntity, analyzeOwnership, getOwnershipNetwork, SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES } = require('./sanctions-screener');
+const { screenEntity, analyzeOwnership, getOwnershipNetwork, SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES } = require('./risk-screener');
+const { AdverseMediaService } = require('./services/adverseMedia');
+const { DataSourceManager } = require('./services/dataSources');
 require('dotenv').config();
 
 const app = express();
@@ -75,6 +77,38 @@ app.get('/api/sanctions-database', (req, res) => {
     individuals: SANCTIONED_INDIVIDUALS,
     entities: SANCTIONED_ENTITIES
   });
+});
+
+// Adverse media screening endpoint
+const adverseMediaService = new AdverseMediaService();
+app.post('/api/screening/adverse-media', async (req, res) => {
+  try {
+    const { name, type, country, additionalTerms } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    const result = await adverseMediaService.screen(name, type || 'INDIVIDUAL', { country, additionalTerms });
+    res.json(result);
+  } catch (error) {
+    console.error('Adverse media screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Multi-source data screening endpoint
+const dataSourceManager = new DataSourceManager();
+app.post('/api/screening/data-sources', async (req, res) => {
+  try {
+    const { name, type, options } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    const result = await dataSourceManager.screenEntity(name, type || 'INDIVIDUAL', options || {});
+    res.json(result);
+  } catch (error) {
+    console.error('Data source screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // PDF extraction endpoint

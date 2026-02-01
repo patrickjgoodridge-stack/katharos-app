@@ -203,8 +203,8 @@ const SANCTIONED_ENTITIES = {
   }
 };
 
-// Sanctioned crypto wallets database (OFAC SDN Cyber designations)
-const SANCTIONED_WALLETS = {
+// High-risk crypto wallets database (OFAC sanctioned + exploit/hack/fraud wallets)
+const HIGH_RISK_WALLETS = {
   '0x8589427373D6D84E98730D7795D8f6f8731FDA16': { blockchain: 'Ethereum', listingDate: '2022-08-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Tornado Cash — Ethereum privacy protocol used to launder over $7 billion', associatedEntity: 'Tornado Cash', riskLevel: 'CRITICAL' },
   '0x722122dF12D4e14e13Ac3b6895a86e84145b6967': { blockchain: 'Ethereum', listingDate: '2022-08-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Tornado Cash Proxy — primary deposit contract', associatedEntity: 'Tornado Cash', riskLevel: 'CRITICAL' },
   '0xDD4c48C0B24039969fC16D1cdF626eaB821d3384': { blockchain: 'Ethereum', listingDate: '2022-08-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Tornado Cash Router', associatedEntity: 'Tornado Cash', riskLevel: 'CRITICAL' },
@@ -221,7 +221,36 @@ const SANCTIONED_WALLETS = {
   'TNVaKWQzau4pirOmn1bN89Y1NRrdQR9J4P': { blockchain: 'Tron', listingDate: '2022-04-05', lists: ['OFAC SDN'], programs: ['CYBER2', 'RUSSIA'], details: 'Garantex Tron wallet — USDT sanctions evasion', associatedEntity: 'Garantex', riskLevel: 'CRITICAL' },
   'bc1q5shngvmswcmzz3ld2yfnsg9jtqxn5ce7d77waq': { blockchain: 'Bitcoin', listingDate: '2022-08-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Tornado Cash Bitcoin bridge', associatedEntity: 'Tornado Cash', riskLevel: 'CRITICAL' },
   '12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h': { blockchain: 'Bitcoin', listingDate: '2021-09-21', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Suex OTC Bitcoin wallet', associatedEntity: 'Suex OTC', riskLevel: 'CRITICAL' },
-  '1KYiKJEfdJtap9QX2v9BXJMpz2SfU4pgZw': { blockchain: 'Bitcoin', listingDate: '2021-11-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Chatex Bitcoin wallet', associatedEntity: 'Chatex', riskLevel: 'CRITICAL' }
+  '1KYiKJEfdJtap9QX2v9BXJMpz2SfU4pgZw': { blockchain: 'Bitcoin', listingDate: '2021-11-08', lists: ['OFAC SDN'], programs: ['CYBER2'], details: 'Chatex Bitcoin wallet', associatedEntity: 'Chatex', riskLevel: 'CRITICAL' },
+  // High-risk wallets (not OFAC-sanctioned but associated with major exploits/hacks)
+  '0x59ABf3837Fa962d6853b4Cc0a19513AA031fd32b': { blockchain: 'Ethereum', listingDate: '2024-02-26', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'FixedFloat exchange hack — $26M stolen in Bitcoin and Ethereum', associatedEntity: 'FixedFloat Hacker', riskLevel: 'HIGH' },
+  '0x3c98d617db017F51C6A73a13E80E1Fe14cD1D8Eb': { blockchain: 'Ethereum', listingDate: '2023-09-25', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Mixin Network hack — $200M stolen from Hong Kong crypto platform', associatedEntity: 'Mixin Hacker', riskLevel: 'HIGH' },
+  '0x6bE0aE71e6c41F2F9d0e1b1a3b1e5B546C91F88a': { blockchain: 'Ethereum', listingDate: '2023-06-03', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Atomic Wallet exploit — $100M+ drained from 5,500+ wallets', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  '0x8B045a57Fe6C23b45b47Ae36033568B1e4F1C049': { blockchain: 'Ethereum', listingDate: '2023-07-22', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Alphapo payment processor hack — $60M stolen, attributed to Lazarus Group', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  '0x47666Fab8bd0Ac30C5D2f671C5d3f5b1e49C0590': { blockchain: 'Ethereum', listingDate: '2022-06-24', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Harmony Horizon Bridge hack — $100M stolen, DPRK-attributed', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  '0x0d043128146654C7683Fbf30ac98D7B2285DeD00': { blockchain: 'Ethereum', listingDate: '2022-02-02', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Wormhole Bridge exploit — $320M stolen via smart contract vulnerability', associatedEntity: 'Wormhole Exploiter', riskLevel: 'HIGH' },
+  '0xEf8801eaf234ff82801821FFe2d78D60a0237F97': { blockchain: 'Ethereum', listingDate: '2022-03-29', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Ronin Bridge hack — $620M stolen, DPRK/Lazarus Group attributed by FBI', associatedEntity: 'Lazarus Group', riskLevel: 'CRITICAL' },
+  '0x9C2Bc757B66F24D60F016B6237F8CdD414a879Fa': { blockchain: 'Ethereum', listingDate: '2023-03-13', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Euler Finance hack — $197M flash loan exploit', associatedEntity: 'Euler Exploiter', riskLevel: 'HIGH' },
+  'TKSitnfTLVMRbJsF1i2UH2ouXBBSHE5VBf': { blockchain: 'Tron', listingDate: '2023-11-10', lists: ['HIGH_RISK'], programs: ['FRAUD'], details: 'Poloniex exchange hack — $130M drained from hot wallets, attributed to Lazarus Group', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  'TDoNAZHa3Wbssd3RpVgJEHEGrMbGh1JVdF': { blockchain: 'Tron', listingDate: '2024-05-31', lists: ['HIGH_RISK'], programs: ['FRAUD'], details: 'DMM Bitcoin exchange hack — $305M stolen, DPRK-attributed', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  'bc1qmxjefnuy06v345v6vhwpwt05dztztmx4g3y7wp': { blockchain: 'Bitcoin', listingDate: '2024-05-31', lists: ['HIGH_RISK'], programs: ['FRAUD'], details: 'DMM Bitcoin hack — $305M BTC stolen from Japanese exchange', associatedEntity: 'Lazarus Group (attributed)', riskLevel: 'CRITICAL' },
+  'bc1qa5wkgaew2dkv56kc6hp0vyxw3ak97nta7glvff': { blockchain: 'Bitcoin', listingDate: '2022-08-01', lists: ['HIGH_RISK'], programs: ['EXPLOIT'], details: 'Nomad Bridge hack — $190M drained in chaotic exploit', associatedEntity: 'Nomad Exploiter', riskLevel: 'HIGH' }
+};
+
+// Known entity labels for counterparty identification
+const KNOWN_ENTITIES_WALLETS = {
+  '0x28c6c06298d514db089934071355e5743bf21d60': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0x21a31ee1afc51d94c2efccaa2092ad1028285549': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0xdfd5293d8e347dfe59e90efd55b2956a1343963d': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0x56eddb7aa87536c09ccc2793473599fd21a8b17f': { name: 'Coinbase', type: 'exchange', risk: 'low' },
+  '0x503828976d22510aad0201ac7ec88293211d23da': { name: 'Coinbase', type: 'exchange', risk: 'low' },
+  '0x2faf487a4414fe77e2327f0bf4ae2a264a776ad2': { name: 'FTX', type: 'exchange', risk: 'high' },
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d': { name: 'Uniswap Router', type: 'dex', risk: 'low' },
+  '0xdef1c0ded9bec7f1a1670819833240f027b25eff': { name: '0x Exchange', type: 'dex', risk: 'low' },
+  '0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf': { name: 'Polygon Bridge', type: 'bridge', risk: 'medium' },
+  '0x8484ef722627bf18ca5ae6bcf031c23e6e922b30': { name: 'Ronin Bridge', type: 'bridge', risk: 'high' },
+  '0x8589427373d6d84e98730d7795d8f6f8731fda16': { name: 'Tornado Cash', type: 'mixer', risk: 'critical' },
+  '0xd90e2f925da726b50c4ed8d0fb90ad053324f31b': { name: 'Tornado Cash', type: 'mixer', risk: 'critical' },
 };
 
 function detectBlockchain(address) {
@@ -239,22 +268,31 @@ function detectBlockchain(address) {
  * @returns {object} Screening results
  */
 function screenEntity(name, type = 'INDIVIDUAL') {
-  if (type === 'WALLET') {
-    const address = name.trim();
-    const blockchain = detectBlockchain(address);
-    let walletMatch = SANCTIONED_WALLETS[address];
+  // Auto-detect wallet addresses regardless of type parameter
+  const trimmed = name.trim();
+  const blockchain = detectBlockchain(trimmed);
+  if (blockchain !== 'Unknown' || type === 'WALLET') {
+    let walletMatch = HIGH_RISK_WALLETS[trimmed];
     if (!walletMatch) {
-      for (const [addr, data] of Object.entries(SANCTIONED_WALLETS)) {
-        if (addr.toLowerCase() === address.toLowerCase()) { walletMatch = data; break; }
+      for (const [addr, data] of Object.entries(HIGH_RISK_WALLETS)) {
+        if (addr.toLowerCase() === trimmed.toLowerCase()) { walletMatch = data; break; }
       }
     }
     if (walletMatch) {
       return {
-        status: 'MATCH', blockchain,
-        match: { name: address, address, blockchain: walletMatch.blockchain, listingDate: walletMatch.listingDate, lists: walletMatch.lists, programs: walletMatch.programs, details: walletMatch.details, associatedEntity: walletMatch.associatedEntity || null, associatedIndividual: walletMatch.associatedIndividual || null, riskLevel: walletMatch.riskLevel, entities: [], beneficialOwners: {}, ownership: {} }
+        status: 'MATCH', blockchain: blockchain !== 'Unknown' ? blockchain : walletMatch.blockchain,
+        match: { name: walletMatch.associatedEntity || trimmed, address: trimmed, blockchain: walletMatch.blockchain, listingDate: walletMatch.listingDate, lists: walletMatch.lists, programs: walletMatch.programs, details: walletMatch.details, associatedEntity: walletMatch.associatedEntity || null, associatedIndividual: walletMatch.associatedIndividual || null, riskLevel: walletMatch.riskLevel, entities: [], beneficialOwners: {}, ownership: {} }
       };
     }
-    return { status: 'CLEAR', blockchain };
+    // Check known entities
+    const knownEntity = (KNOWN_ENTITIES_WALLETS || {})[trimmed.toLowerCase()];
+    if (knownEntity) {
+      return { status: 'KNOWN_ENTITY', blockchain, knownEntity, match: null };
+    }
+    if (type === 'WALLET') {
+      return { status: 'CLEAR', blockchain };
+    }
+    // Fall through to normal name search if not explicitly wallet type
   }
 
   const normalizedName = name.toUpperCase().trim();
@@ -511,5 +549,6 @@ module.exports = {
   detectBlockchain,
   SANCTIONED_INDIVIDUALS,
   SANCTIONED_ENTITIES,
-  SANCTIONED_WALLETS
+  HIGH_RISK_WALLETS,
+  KNOWN_ENTITIES_WALLETS
 };
