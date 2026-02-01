@@ -1080,33 +1080,100 @@ export default function Marlowe() {
  }
  }
 
- // Step 3: Query external data sources in parallel (ICIJ, SEC, World Bank, etc.)
- setScreeningStep('Step 3/7: Querying ICIJ, SEC, World Bank, court records...');
+ // Step 3: Query ALL external data sources in parallel
+ setScreeningStep('Step 3/7: Querying 40+ data sources (OFAC, ICIJ, SEC, OCCRP, PEP, blockchain, courts, regulatory, shipping...)');
  setScreeningProgress(55);
  let dataSourceResults = null;
  let adverseMediaResults = null;
  let courtRecordsResults = null;
+ let ofacResults = null;
+ let occrpResults = null;
+ let pepResults = null;
+ let blockchainResults = null;
+ let regulatoryResults = null;
+ let shippingResults = null;
+ let openCorporatesResults = null;
+ let ukCompaniesResults = null;
+ const screeningType = kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET';
  try {
- const [dsRes, amRes, crRes] = await Promise.all([
+ const allPromises = [
  fetch(`${API_BASE}/api/screening/data-sources`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET' })
+ body: JSON.stringify({ name: kycQuery, type: screeningType })
  }),
  fetch(`${API_BASE}/api/screening/adverse-media`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET', country: kycCountry || null })
+ body: JSON.stringify({ name: kycQuery, type: screeningType, country: kycCountry || null })
  }),
  fetch(`${API_BASE}/api/screening/court-records`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({ name: kycQuery, type: kycType })
- })
- ]);
- if (dsRes.ok) dataSourceResults = await dsRes.json();
- if (amRes.ok) adverseMediaResults = await amRes.json();
- if (crRes.ok) courtRecordsResults = await crRes.json();
+ }),
+ fetch(`${API_BASE}/api/screening/ofac`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify(kycType === 'wallet' ? { address: kycQuery, action: 'wallet' } : { name: kycQuery, type: screeningType })
+ }),
+ fetch(`${API_BASE}/api/screening/occrp-aleph`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: kycType })
+ }),
+ fetch(`${API_BASE}/api/screening/pep`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: kycType, country: kycCountry || null })
+ }),
+ fetch(`${API_BASE}/api/screening/regulatory`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: screeningType })
+ }),
+ fetch(`${API_BASE}/api/screening/opencorporates`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery })
+ }),
+ ];
+ // Blockchain screening only for wallet type
+ if (kycType === 'wallet') {
+ allPromises.push(fetch(`${API_BASE}/api/screening/blockchain`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ address: kycQuery })
+ }));
+ }
+ // Shipping/trade screening for entities
+ if (kycType === 'entity') {
+ allPromises.push(fetch(`${API_BASE}/api/screening/shipping`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: 'entity' })
+ }));
+ allPromises.push(fetch(`${API_BASE}/api/screening/uk-companies`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ companyName: kycQuery })
+ }));
+ }
+ const allResponses = await Promise.all(allPromises.map(p => p.catch(() => null)));
+ let idx = 0;
+ if (allResponses[idx]?.ok) dataSourceResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) adverseMediaResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) courtRecordsResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) ofacResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) occrpResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) pepResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) regulatoryResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) openCorporatesResults = await allResponses[idx].json(); idx++;
+ if (kycType === 'wallet' && allResponses[idx]?.ok) { blockchainResults = await allResponses[idx].json(); idx++; }
+ if (kycType === 'entity') {
+ if (allResponses[idx]?.ok) shippingResults = await allResponses[idx].json(); idx++;
+ if (allResponses[idx]?.ok) ukCompaniesResults = await allResponses[idx].json(); idx++;
+ }
  } catch (e) {
  console.error('External data source error:', e);
  }
@@ -1236,6 +1303,86 @@ ${courtRecordsResults.cases.slice(0, 10).map(c => `- [${c.riskSeverity?.toUpperC
   Filed: ${c.dateFiled || 'Unknown'} | Status: ${c.status}${c.natureOfSuit ? ' | Nature: ' + c.natureOfSuit : ''}${c.judge ? ' | Judge: ' + c.judge : ''}
   URL: ${c.url}${c.entries?.length > 0 ? '\n  Recent entries: ' + c.entries.slice(0, 3).map(e => e.description).join('; ') : ''}`).join('\n')}
 ` : courtRecordsResults?.error ? `FEDERAL COURT RECORDS: ${courtRecordsResults.error}` : 'FEDERAL COURT RECORDS: No cases found.'}
+
+${ofacResults ? `
+OFAC SDN LIST (LIVE):
+Total SDN Entries Checked: ${ofacResults.totalSDNEntries || 0}
+Matches Found: ${ofacResults.matchCount || 0}
+Risk Level: ${ofacResults.riskAssessment?.level || 'LOW'} (Score: ${ofacResults.riskAssessment?.score || 0}/100)
+${ofacResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${ofacResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${ofacResults.matches?.length > 0 ? `Top Matches:\n${ofacResults.matches.slice(0, 5).map(m => `- ${m.name} (${m.type}) — Confidence: ${(m.matchConfidence * 100).toFixed(0)}%, Programs: ${(m.programs || []).join(', ')}${m.dateOfBirth ? ', DOB: ' + m.dateOfBirth : ''}`).join('\n')}` : 'No OFAC SDN matches.'}
+` : ''}
+
+${occrpResults ? `
+OCCRP ALEPH INVESTIGATIVE DATA:
+Total Results: ${occrpResults.summary?.totalResults || 0}
+Entity Matches: ${occrpResults.summary?.entityMatches || 0}
+Document Matches: ${occrpResults.summary?.documentMatches || 0}
+Risk Score: ${occrpResults.summary?.riskScore || 0}/100
+${occrpResults.summary?.datasetMatches?.length > 0 ? `Datasets: ${occrpResults.summary.datasetMatches.join(', ')}` : ''}
+${occrpResults.riskFlags?.length > 0 ? `Risk Flags:\n${occrpResults.riskFlags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${occrpResults.entities?.length > 0 ? `Top Entity Matches:\n${occrpResults.entities.slice(0, 5).map(e => `- ${e.name} (${e.type}) — Confidence: ${(e.matchConfidence * 100).toFixed(0)}%, Collection: ${e.collection?.label || 'Unknown'}, URL: ${e.url}`).join('\n')}` : ''}
+${occrpResults.documents?.length > 0 ? `Key Documents:\n${occrpResults.documents.slice(0, 5).map(d => `- ${d.title} (${d.collection?.label || 'Unknown'}) — ${d.date || 'undated'}, URL: ${d.url}`).join('\n')}` : ''}
+` : ''}
+
+${pepResults ? `
+PEP (POLITICALLY EXPOSED PERSON) SCREENING:
+Is PEP: ${pepResults.isPEP ? 'YES' : 'NO'}
+PEP Level: ${pepResults.pepLevel || 'NOT_PEP'}
+Total Matches: ${pepResults.matchCount || 0}
+Risk Level: ${pepResults.riskAssessment?.level || 'LOW'} (Score: ${pepResults.riskAssessment?.score || 0}/100)
+${pepResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${pepResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${pepResults.matches?.length > 0 ? `PEP Matches:\n${pepResults.matches.slice(0, 10).map(m => `- ${m.name}${m.pepPosition ? ' — Position: ' + m.pepPosition : ''}${m.country?.length ? ' — Country: ' + m.country.join(', ') : ''}${m.sanctions?.length ? ' — SANCTIONS: ' + m.sanctions.join(', ') : ''} (Source: ${m.source})${m.url ? ' URL: ' + m.url : ''}`).join('\n')}` : ''}
+` : ''}
+
+${regulatoryResults ? `
+REGULATORY ENFORCEMENT SCREENING (DOJ, CFPB, FTC, CFTC, Fed, FDIC, OCC, FCA, EU):
+Total Actions Found: ${regulatoryResults.totalActions || 0}
+Risk Level: ${regulatoryResults.riskAssessment?.level || 'LOW'} (Score: ${regulatoryResults.riskAssessment?.score || 0}/100)
+${regulatoryResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${regulatoryResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${regulatoryResults.actions?.length > 0 ? `Enforcement Actions:\n${regulatoryResults.actions.slice(0, 10).map(a => `- [${a.agency}] ${a.title} (${a.date || 'undated'}) — Type: ${a.type}${a.url ? ' — URL: ' + a.url : ''}`).join('\n')}` : 'No enforcement actions found.'}
+` : ''}
+
+${openCorporatesResults ? `
+OPENCORPORATES GLOBAL CORPORATE REGISTRY:
+Companies Found: ${openCorporatesResults.totalCompanies || 0}
+Officer Positions Found: ${openCorporatesResults.totalOfficers || 0}
+Risk Level: ${openCorporatesResults.riskAssessment?.level || 'LOW'} (Score: ${openCorporatesResults.riskAssessment?.score || 0}/100)
+${openCorporatesResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${openCorporatesResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${openCorporatesResults.companies?.length > 0 ? `Companies:\n${openCorporatesResults.companies.slice(0, 10).map(c => `- ${c.name} (#${c.companyNumber}) — ${c.jurisdictionCode}, Status: ${c.status || 'Unknown'}, Incorporated: ${c.incorporationDate || 'Unknown'}${c.previousNames?.length ? ', Previous names: ' + c.previousNames.join(', ') : ''}`).join('\n')}` : ''}
+${openCorporatesResults.officers?.length > 0 ? `Officer Positions:\n${openCorporatesResults.officers.slice(0, 10).map(o => `- ${o.name} — ${o.position} at ${o.companyName} (${o.jurisdictionCode})${o.startDate ? ', From: ' + o.startDate : ''}${o.endDate ? ', To: ' + o.endDate : ' (current)'}`).join('\n')}` : ''}
+` : ''}
+
+${blockchainResults ? `
+BLOCKCHAIN ADDRESS SCREENING (Etherscan, Blockchair, Tronscan, Solscan, BSCScan, Polygonscan):
+Chain: ${blockchainResults.query?.blockchain || 'Unknown'}
+Risk Level: ${blockchainResults.riskAssessment?.level || 'LOW'} (Score: ${blockchainResults.riskAssessment?.score || 0}/100)
+${blockchainResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${blockchainResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${Object.keys(blockchainResults.addressInfo?.balances || {}).length > 0 ? `Balances:\n${Object.entries(blockchainResults.addressInfo.balances).map(([src, bal]) => `- ${src}: ${bal}`).join('\n')}` : ''}
+Total Transactions: ${blockchainResults.addressInfo?.totalTxCount || 0}
+${blockchainResults.addressInfo?.tokens?.length > 0 ? `Tokens Held: ${blockchainResults.addressInfo.tokens.slice(0, 10).map(t => t.name || t.symbol).join(', ')}` : ''}
+` : ''}
+
+${shippingResults ? `
+SHIPPING & TRADE SCREENING (UN Comtrade, ITU MARS, MarineTraffic, VesselFinder, Equasis):
+Risk Level: ${shippingResults.riskAssessment?.level || 'LOW'} (Score: ${shippingResults.riskAssessment?.score || 0}/100)
+${shippingResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${shippingResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${shippingResults.findings?.vessels?.length > 0 ? `Vessels:\n${shippingResults.findings.vessels.slice(0, 5).map(v => `- ${v.name} (IMO: ${v.imo || 'N/A'}, MMSI: ${v.mmsi || 'N/A'}) — Flag: ${v.flag || 'Unknown'}, Type: ${v.shipType || v.type || 'Unknown'}`).join('\n')}` : ''}
+${shippingResults.findings?.tradeRecords?.length > 0 ? `Trade Records:\n${shippingResults.findings.tradeRecords.slice(0, 5).map(t => `- ${t.reporter || ''} → ${t.partner || ''}: ${t.flowDesc || ''} ${t.tradeValue ? '$' + t.tradeValue.toLocaleString() : ''}`).join('\n')}` : ''}
+` : ''}
+
+${ukCompaniesResults ? `
+UK COMPANIES HOUSE (FULL SCREENING):
+${ukCompaniesResults.company ? `Company: ${ukCompaniesResults.company.name} (#${ukCompaniesResults.company.number})
+Status: ${ukCompaniesResults.company.status || 'Unknown'}
+Type: ${ukCompaniesResults.company.type || 'Unknown'}
+Incorporated: ${ukCompaniesResults.company.dateOfCreation || 'Unknown'}
+Address: ${ukCompaniesResults.company.registeredAddress || 'Unknown'}
+Risk Score: ${ukCompaniesResults.riskAssessment?.score || 0}/100
+${ukCompaniesResults.riskAssessment?.flags?.length > 0 ? `Risk Flags:\n${ukCompaniesResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+${ukCompaniesResults.officers?.length > 0 ? `Officers:\n${ukCompaniesResults.officers.slice(0, 5).map(o => `- ${o.name} (${o.role})${o.appointedOn ? ', Appointed: ' + o.appointedOn : ''}`).join('\n')}` : ''}
+${ukCompaniesResults.pscs?.length > 0 ? `PSCs:\n${ukCompaniesResults.pscs.slice(0, 5).map(p => `- ${p.name} (${(p.naturesOfControl || []).join(', ')})`).join('\n')}` : ''}` : 'No UK Companies House match.'}
+` : ''}
 `;
 
  const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence that surpasses traditional screening tools.
