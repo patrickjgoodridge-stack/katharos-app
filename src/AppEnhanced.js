@@ -7,6 +7,7 @@ import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
 import { pdf } from '@react-pdf/renderer';
 import ComplianceReportPDF from './ComplianceReportPDF';
+import posthog from 'posthog-js';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 import ChatNetworkGraph from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
@@ -1035,6 +1036,7 @@ export default function Marlowe() {
  setKycResults(null);
  setScreeningStep('Initializing screening...');
  setScreeningProgress(5);
+ posthog.capture('screening_started', { query: kycQuery.trim(), type: kycType, country: kycCountry || null });
 
  try {
  // Step 1: Get REAL sanctions screening data from backend
@@ -1397,6 +1399,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  setSelectedHistoryItem(historyItem);
  setScreeningProgress(100);
  setScreeningStep('Complete!');
+ posthog.capture('screening_completed', { query: kycQuery.trim(), type: kycType, risk_level: parsedResult.overallRisk || null });
  setTimeout(() => {
  setKycPage('results');
  setIsScreening(false);
@@ -1520,6 +1523,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  };
 
  // Generate PDF blob
+ posthog.capture('pdf_exported', { subject: result.subject?.name || 'unknown', risk_level: result.overallRisk || null });
  const pdfBlob = await pdf(<ComplianceReportPDF data={pdfData} />).toBlob();
 
  // Create download link
