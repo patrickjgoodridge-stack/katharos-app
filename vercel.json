@@ -3,17 +3,25 @@
   "outputDirectory": "build",
   "framework": "create-react-app",
   "functions": {
-    "api/messages.js": {
-      "maxDuration": 300
-    },
-    "api/stream.js": {
-      "maxDuration": 300
-    }
+    "api/messages.js": { "maxDuration": 300 },
+    "api/stream.js": { "maxDuration": 300 },
+    "api/screening/ofac.js": { "maxDuration": 60 },
+    "api/screening/occrp-aleph.js": { "maxDuration": 60 },
+    "api/screening/pep.js": { "maxDuration": 60 },
+    "api/screening/blockchain.js": { "maxDuration": 60 },
+    "api/screening/regulatory.js": { "maxDuration": 60 },
+    "api/screening/shipping.js": { "maxDuration": 60 },
+    "api/screening/opencorporates.js": { "maxDuration": 60 },
+    "api/screening/data-sources.js": { "maxDuration": 60 },
+    "api/screening/adverse-media.js": { "maxDuration": 60 },
+    "api/screening/court-records.js": { "maxDuration": 60 },
+    "api/screening/uk-companies.js": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/api/stream", "destination": "/api/stream" },
     { "source": "/api/messages", "destination": "/api/messages" },
     { "source": "/api/screen-sanctions", "destination": "/api/screen-sanctions" },
-    { "source": "/api/ownership-network", "destination": "/api/ownership-network" }
+    { "source": "/api/ownership-network", "destination": "/api/ownership-network" },
+    { "source": "/api/screening/:path*", "destination": "/api/screening/:path*" }
   ]
 }
