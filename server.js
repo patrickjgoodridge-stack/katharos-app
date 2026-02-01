@@ -9,6 +9,7 @@ const { DataSourceManager } = require('./services/dataSources');
 const { CourtRecordsService } = require('./services/courtRecords');
 const { CompaniesHouseStreamService } = require('./services/companiesHouseStream');
 const { UKCompaniesHouseService } = require('./services/ukCompaniesHouse');
+const { OCCRPAlephService } = require('./services/occrpAleph');
 require('dotenv').config();
 
 const app = express();
@@ -142,6 +143,41 @@ app.post('/api/screening/uk-companies', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('UK Companies House screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// OCCRP Aleph screening endpoints
+const occrpAlephService = new OCCRPAlephService();
+app.post('/api/screening/occrp-aleph', async (req, res) => {
+  try {
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await occrpAlephService.screenEntity({ name, type: type || 'individual' });
+    res.json(result);
+  } catch (error) {
+    console.error('OCCRP Aleph screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/screening/occrp-aleph/xref', async (req, res) => {
+  try {
+    const result = await occrpAlephService.crossReference(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('OCCRP Aleph cross-reference error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/screening/occrp-aleph/network/:entityId', async (req, res) => {
+  try {
+    const { depth } = req.query;
+    const result = await occrpAlephService.expandNetwork(req.params.entityId, parseInt(depth) || 1);
+    res.json(result);
+  } catch (error) {
+    console.error('OCCRP Aleph network error:', error);
     res.status(500).json({ error: error.message });
   }
 });
