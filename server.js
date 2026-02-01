@@ -8,6 +8,7 @@ const { AdverseMediaService } = require('./services/adverseMedia');
 const { DataSourceManager } = require('./services/dataSources');
 const { CourtRecordsService } = require('./services/courtRecords');
 const { CompaniesHouseStreamService } = require('./services/companiesHouseStream');
+const { UKCompaniesHouseService } = require('./services/ukCompaniesHouse');
 require('dotenv').config();
 
 const app = express();
@@ -125,6 +126,22 @@ app.post('/api/screening/court-records', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Court records screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UK Companies House REST screening endpoint
+const ukCompaniesHouseService = new UKCompaniesHouseService();
+app.post('/api/screening/uk-companies', async (req, res) => {
+  try {
+    const { companyNumber, companyName } = req.body;
+    if (!companyNumber && !companyName) {
+      return res.status(400).json({ error: 'companyNumber or companyName required' });
+    }
+    const result = await ukCompaniesHouseService.screenCompany({ companyNumber, companyName });
+    res.json(result);
+  } catch (error) {
+    console.error('UK Companies House screening error:', error);
     res.status(500).json({ error: error.message });
   }
 });
