@@ -10,6 +10,7 @@ const { CourtRecordsService } = require('./services/courtRecords');
 const { CompaniesHouseStreamService } = require('./services/companiesHouseStream');
 const { UKCompaniesHouseService } = require('./services/ukCompaniesHouse');
 const { OCCRPAlephService } = require('./services/occrpAleph');
+const { OFACScreeningService } = require('./services/ofacScreening');
 require('dotenv').config();
 
 const app = express();
@@ -180,6 +181,29 @@ app.get('/api/screening/occrp-aleph/network/:entityId', async (req, res) => {
     console.error('OCCRP Aleph network error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// OFAC SDN live screening endpoints
+const ofacService = new OFACScreeningService();
+app.post('/api/screening/ofac', async (req, res) => {
+  try {
+    const { name, type, address, action } = req.body;
+    if (action === 'wallet' || type === 'WALLET') {
+      if (!address && !name) return res.status(400).json({ error: 'Address is required for wallet screening' });
+      const result = await ofacService.screenWallet(address || name);
+      return res.json(result);
+    }
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await ofacService.screenEntity({ name, type: type || 'ALL' });
+    res.json(result);
+  } catch (error) {
+    console.error('OFAC screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/screening/ofac/status', (req, res) => {
+  res.json(ofacService.getStatus());
 });
 
 // Companies House streaming service
