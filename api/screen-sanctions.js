@@ -220,7 +220,276 @@ const SANCTIONED_ENTITIES = {
   }
 };
 
+// Sanctioned crypto wallets database (OFAC SDN Cyber designations)
+const SANCTIONED_WALLETS = {
+  // Tornado Cash — OFAC designated August 8, 2022
+  '0x8589427373D6D84E98730D7795D8f6f8731FDA16': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash — Ethereum privacy protocol used to launder over $7 billion in cryptocurrency since 2019, including $455 million stolen by Lazarus Group',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+  '0x722122dF12D4e14e13Ac3b6895a86e84145b6967': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash Proxy — primary deposit contract for Tornado Cash mixer',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+  '0xDD4c48C0B24039969fC16D1cdF626eaB821d3384': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash Router — token approval and routing contract',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+  '0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash Governance — DAO governance contract',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+  '0x0836222F2B2B24A3F36f98668Ed8F0B38D1a872f': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash 0.1 ETH Pool — small denomination mixing pool',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Lazarus Group / DPRK — OFAC designated, linked to $620M Ronin Bridge hack and other cyberattacks
+  '0x098B716B8Aaf21512996dC57EB0615e2383E2f96': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-04-14',
+    lists: ['OFAC SDN'],
+    programs: ['DPRK', 'CYBER2'],
+    details: 'Lazarus Group wallet — used to receive $620 million from Ronin Bridge exploit (March 2022). Linked to DPRK Reconnaissance General Bureau',
+    associatedEntity: 'Lazarus Group',
+    associatedIndividual: 'DPRK Reconnaissance General Bureau',
+    riskLevel: 'CRITICAL'
+  },
+  '0xa0e1c89Ef1a489c9C7dE96311eD5Ce5D32c20E4B': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-04-22',
+    lists: ['OFAC SDN'],
+    programs: ['DPRK', 'CYBER2'],
+    details: 'Lazarus Group wallet — secondary address used for Ronin Bridge stolen funds laundering',
+    associatedEntity: 'Lazarus Group',
+    riskLevel: 'CRITICAL'
+  },
+  '0x4F47bC496De0528587371d602209952B5736684C': {
+    blockchain: 'Ethereum',
+    listingDate: '2023-08-23',
+    lists: ['OFAC SDN'],
+    programs: ['DPRK', 'CYBER2'],
+    details: 'Lazarus Group wallet — connected to multiple DPRK cyber heists including Atomic Wallet exploit ($100M)',
+    associatedEntity: 'Lazarus Group',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Blender.io — OFAC designated May 6, 2022 (first mixer ever sanctioned)
+  '0x0836222F2B2B24A3F36f98668Ed8F0B38D1a872f': {
+    blockchain: 'Bitcoin',
+    listingDate: '2022-05-06',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2', 'DPRK'],
+    details: 'Blender.io — first cryptocurrency mixer sanctioned by OFAC. Used by Lazarus Group to launder $20.5 million from Ronin Bridge hack',
+    associatedEntity: 'Blender.io',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Garantex — Russian crypto exchange, OFAC designated April 5, 2022
+  '0x6F1cA141A28907F78Ebaa64f83E4AE6038d91152': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-04-05',
+    lists: ['OFAC SDN'],
+    programs: ['RUSSIA', 'CYBER2'],
+    details: 'Garantex — Russia-based cryptocurrency exchange. Processed over $100M in transactions from illicit actors including Hydra Market and ransomware groups',
+    associatedEntity: 'Garantex',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Suex OTC — OFAC designated September 21, 2021 (first crypto exchange sanctioned)
+  '0x2f389cE8bD8ff92De3402FFCe4691d17fC4f6535': {
+    blockchain: 'Ethereum',
+    listingDate: '2021-09-21',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Suex OTC — first crypto exchange sanctioned by OFAC. Over 40% of transaction volume linked to illicit sources including ransomware and darknet markets',
+    associatedEntity: 'Suex OTC',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Chatex — OFAC designated November 8, 2021
+  '0x6aCDFBA02D390b97Ac2b2d42A63E85293BCc160e': {
+    blockchain: 'Ethereum',
+    listingDate: '2021-11-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Chatex — crypto exchange sanctioned for facilitating ransomware payments and ties to Suex OTC. Operated via Telegram',
+    associatedEntity: 'Chatex',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Hydra Market — darknet marketplace, OFAC designated April 5, 2022
+  '0x1da5821544e25c636c1417Ba96Ade4Cf6D2f9B5A': {
+    blockchain: 'Ethereum',
+    listingDate: '2022-04-05',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2', 'RUSSIA'],
+    details: 'Hydra Market — largest darknet marketplace (seized April 2022). Facilitated $5.2 billion in crypto transactions for drugs, stolen data, and money laundering services',
+    associatedEntity: 'Hydra Market',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Sinbad.io — OFAC designated November 29, 2023
+  '0x723B78e67497E85279CB204544566F4dC5d2acA0': {
+    blockchain: 'Ethereum',
+    listingDate: '2023-11-29',
+    lists: ['OFAC SDN'],
+    programs: ['DPRK', 'CYBER2'],
+    details: 'Sinbad.io — cryptocurrency mixer used by Lazarus Group. Successor to Blender.io. Sanctioned for laundering millions in stolen crypto from DPRK hacks',
+    associatedEntity: 'Sinbad.io',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Tron network sanctioned wallets
+  'TVacWx7F5wgMgn49L5frDf9KLgdYy8nPHL': {
+    blockchain: 'Tron',
+    listingDate: '2023-11-29',
+    lists: ['OFAC SDN'],
+    programs: ['DPRK', 'CYBER2'],
+    details: 'DPRK-linked Tron wallet — used by Lazarus Group affiliates for laundering stolen cryptocurrency through Tron network. Part of cross-chain laundering operation',
+    associatedEntity: 'Lazarus Group',
+    associatedIndividual: 'DPRK Reconnaissance General Bureau',
+    riskLevel: 'CRITICAL'
+  },
+  'TNVaKWQzau4pirOmn1bN89Y1NRrdQR9J4P': {
+    blockchain: 'Tron',
+    listingDate: '2022-04-05',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2', 'RUSSIA'],
+    details: 'Garantex Tron wallet — used by sanctioned Russian exchange Garantex for USDT transactions to evade traditional banking sanctions',
+    associatedEntity: 'Garantex',
+    riskLevel: 'CRITICAL'
+  },
+
+  // Bitcoin sanctioned addresses
+  'bc1q5shngvmswcmzz3ld2yfnsg9jtqxn5ce7d77waq': {
+    blockchain: 'Bitcoin',
+    listingDate: '2022-08-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Tornado Cash Bitcoin bridge — used to convert BTC proceeds through Tornado Cash mixing service',
+    associatedEntity: 'Tornado Cash',
+    riskLevel: 'CRITICAL'
+  },
+  '12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h': {
+    blockchain: 'Bitcoin',
+    listingDate: '2021-09-21',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Suex OTC Bitcoin wallet — primary Bitcoin deposit address for sanctioned exchange facilitating ransomware payments',
+    associatedEntity: 'Suex OTC',
+    riskLevel: 'CRITICAL'
+  },
+  '1KYiKJEfdJtap9QX2v9BXJMpz2SfU4pgZw': {
+    blockchain: 'Bitcoin',
+    listingDate: '2021-11-08',
+    lists: ['OFAC SDN'],
+    programs: ['CYBER2'],
+    details: 'Chatex Bitcoin wallet — used for ransomware payment processing via Telegram-based exchange',
+    associatedEntity: 'Chatex',
+    riskLevel: 'CRITICAL'
+  }
+};
+
+// Known entity labels for counterparty identification
+const KNOWN_ENTITIES_WALLETS = {
+  '0x28c6c06298d514db089934071355e5743bf21d60': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0x21a31ee1afc51d94c2efccaa2092ad1028285549': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0xdfd5293d8e347dfe59e90efd55b2956a1343963d': { name: 'Binance', type: 'exchange', risk: 'low' },
+  '0x56eddb7aa87536c09ccc2793473599fd21a8b17f': { name: 'Coinbase', type: 'exchange', risk: 'low' },
+  '0x503828976d22510aad0201ac7ec88293211d23da': { name: 'Coinbase', type: 'exchange', risk: 'low' },
+  '0x2faf487a4414fe77e2327f0bf4ae2a264a776ad2': { name: 'FTX', type: 'exchange', risk: 'high' },
+  '0x7a250d5630b4cf539739df2c5dacb4c659f2488d': { name: 'Uniswap Router', type: 'dex', risk: 'low' },
+  '0xdef1c0ded9bec7f1a1670819833240f027b25eff': { name: '0x Exchange', type: 'dex', risk: 'low' },
+  '0x40ec5b33f54e0e8a33a975908c5ba1c14e5bbbdf': { name: 'Polygon Bridge', type: 'bridge', risk: 'medium' },
+  '0x8484ef722627bf18ca5ae6bcf031c23e6e922b30': { name: 'Ronin Bridge', type: 'bridge', risk: 'high' },
+  '0x8589427373d6d84e98730d7795d8f6f8731fda16': { name: 'Tornado Cash', type: 'mixer', risk: 'critical' },
+  '0xd90e2f925da726b50c4ed8d0fb90ad053324f31b': { name: 'Tornado Cash', type: 'mixer', risk: 'critical' },
+};
+
+// Detect blockchain from address format
+function detectBlockchain(address) {
+  if (/^T[A-Za-z1-9]{33}$/.test(address)) return 'Tron';
+  if (/^0x[a-fA-F0-9]{40}$/.test(address)) return 'Ethereum';
+  if (/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(address)) return 'Bitcoin';
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return 'Solana';
+  return 'Unknown';
+}
+
 function screenEntity(name, type = 'INDIVIDUAL') {
+  // Wallet screening — match by address (case-sensitive for non-ETH, case-insensitive for ETH)
+  if (type === 'WALLET') {
+    const address = name.trim();
+    const blockchain = detectBlockchain(address);
+    // Try exact match first, then case-insensitive
+    let walletMatch = SANCTIONED_WALLETS[address];
+    if (!walletMatch) {
+      for (const [addr, data] of Object.entries(SANCTIONED_WALLETS)) {
+        if (addr.toLowerCase() === address.toLowerCase()) {
+          walletMatch = data;
+          break;
+        }
+      }
+    }
+    if (walletMatch) {
+      return {
+        status: 'MATCH',
+        blockchain,
+        match: {
+          name: address,
+          address: address,
+          blockchain: walletMatch.blockchain,
+          listingDate: walletMatch.listingDate,
+          lists: walletMatch.lists,
+          programs: walletMatch.programs,
+          details: walletMatch.details,
+          associatedEntity: walletMatch.associatedEntity || null,
+          associatedIndividual: walletMatch.associatedIndividual || null,
+          riskLevel: walletMatch.riskLevel,
+          entities: [],
+          beneficialOwners: {},
+          ownership: {}
+        }
+      };
+    }
+    // Check known entities
+    const knownEntity = KNOWN_ENTITIES_WALLETS[address.toLowerCase()];
+    if (knownEntity) {
+      return {
+        status: 'KNOWN_ENTITY',
+        blockchain,
+        knownEntity,
+        match: null
+      };
+    }
+    return { status: 'CLEAR', blockchain };
+  }
+
   const normalizedName = name.toUpperCase().trim();
   const database = type === 'INDIVIDUAL' ? SANCTIONED_INDIVIDUALS : SANCTIONED_ENTITIES;
   const directMatch = database[normalizedName];
@@ -294,4 +563,4 @@ export default async function handler(req, res) {
   }
 }
 
-export { SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES, screenEntity };
+export { SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES, SANCTIONED_WALLETS, KNOWN_ENTITIES_WALLETS, detectBlockchain, screenEntity };

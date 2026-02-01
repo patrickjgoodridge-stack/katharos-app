@@ -1,6 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Radio } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Radio, Wallet } from 'lucide-react';
 import MonitoringCenter from './MonitoringCenter';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
@@ -1047,14 +1047,21 @@ export default function Marlowe() {
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({
  name: kycQuery,
- type: kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'
+ type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET'
  })
  });
 
  const sanctionsData = await sanctionsResponse.json();
  setScreeningProgress(30);
 
- // Step 2: Get ownership network (bidirectional)
+ // Step 2: Get ownership network (skip for wallets)
+ let ownershipNetwork = {};
+ let ownershipData = null;
+ if (kycType === 'wallet') {
+ setScreeningStep('Step 2/5: Analyzing blockchain address...');
+ setScreeningProgress(50);
+ ownershipNetwork = { ownedCompanies: [], totalCompanies: 0, highRiskOwnership: 0 };
+ } else {
  setScreeningStep('Step 2/5: Analyzing beneficial ownership structure...');
  setScreeningProgress(35);
  const networkResponse = await fetch(`${API_BASE}/api/ownership-network`, {
@@ -1065,19 +1072,37 @@ export default function Marlowe() {
  type: kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'
  })
  });
- const ownershipNetwork = await networkResponse.json();
+ ownershipNetwork = await networkResponse.json();
  setScreeningProgress(50);
 
- // Also get traditional ownership analysis for entities
- let ownershipData = null;
  if (kycType === 'entity') {
- ownershipData = ownershipNetwork; // Network already contains ownership analysis for entities
+ ownershipData = ownershipNetwork;
+ }
  }
 
  // Step 3: Build context with REAL data for Claude to analyze
  setScreeningStep('Step 3/5: Building compliance context...');
  setScreeningProgress(55);
- const realDataContext = `
+ const realDataContext = kycType === 'wallet' ? `
+CRYPTO WALLET SANCTIONS SCREENING RESULTS:
+Wallet Address: ${kycQuery}
+Blockchain: ${sanctionsData.blockchain || 'Unknown'}
+${sanctionsData.status === 'MATCH' ? `
+🚨 DIRECT OFAC SANCTIONS MATCH
+- Listed Date: ${sanctionsData.match.listingDate}
+- Lists: ${sanctionsData.match.lists.join(', ')}
+- Programs: ${sanctionsData.match.programs.join(', ')}
+- Details: ${sanctionsData.match.details}
+- Associated Entity: ${sanctionsData.match.associatedEntity || 'Unknown'}
+${sanctionsData.match.associatedIndividual ? `- Associated Individual/Group: ${sanctionsData.match.associatedIndividual}` : ''}
+- Risk Level: ${sanctionsData.match.riskLevel}
+` : sanctionsData.status === 'KNOWN_ENTITY' ? `
+ℹ KNOWN ENTITY IDENTIFIED:
+- Entity: ${sanctionsData.knownEntity.name}
+- Type: ${sanctionsData.knownEntity.type}
+- Risk: ${sanctionsData.knownEntity.risk}
+` : '✓ NO DIRECT SANCTIONS MATCH FOUND - wallet not on OFAC SDN list'}
+` : `
 REAL SANCTIONS SCREENING RESULTS:
 ${sanctionsData.status === 'MATCH' ? `
 ✓ DIRECT MATCH FOUND
@@ -1152,6 +1177,14 @@ CRITICAL SCREENING LOGIC:
 3. For entities 50%+ owned by sanctioned persons → BLOCKED by OFAC 50% rule
 4. For PEPs → Always flag, assess proximity to sanctioned regimes
 5. Check for aliases, transliterations (Cyrillic→Latin variations), name variations
+6. For CRYPTO WALLETS:
+   - If wallet is on OFAC SDN list → CRITICAL risk, DO NOT ONBOARD
+   - Check for association with Tornado Cash, Blender.io, Sinbad.io (sanctioned mixers)
+   - Check for DPRK/Lazarus Group nexus (multiple OFAC designations for DPRK cyber theft)
+   - Check for Garantex, Suex, Chatex associations (sanctioned Russian/ransomware exchanges)
+   - Check for Hydra Market darknet associations
+   - Analyze transaction patterns: mixer usage, rapid movement, cross-chain transfers
+   - Even if NOT directly sanctioned, flag wallets that transacted with sanctioned addresses
 
 RISK SCORING CRITERIA:
 - CRITICAL: Direct SDN match, 50% rule triggered, active comprehensive sanctions
@@ -1182,11 +1215,13 @@ Return a JSON object with this EXACT structure (all fields required):
 {
  "subject": {
  "name": "string",
- "type": "INDIVIDUAL|ENTITY",
+ "type": "INDIVIDUAL|ENTITY|WALLET",
  "aliases": ["array of known aliases or empty array"],
  "jurisdiction": "string or null",
  "incorporationDate": "YYYY-MM-DD or null",
- "stateOwned": true|false
+ "stateOwned": true|false,
+ "walletAddress": "blockchain address if type=WALLET, null otherwise",
+ "blockchain": "Ethereum|Bitcoin|Tron|Solana|null"
  },
  "overallRisk": "LOW|MEDIUM|HIGH|CRITICAL",
  "riskScore": 0-100,
@@ -1315,9 +1350,25 @@ IMPORTANT FOR ENTITIES: Always populate corporateStructure with parent companies
 
 IMPORTANT FOR INDIVIDUALS: Include any known corporate affiliations in corporateStructure showing companies they own or control.
 
+IMPORTANT FOR CRYPTO WALLETS: Set subject.type to "WALLET". Set subject.walletAddress to the wallet address and subject.blockchain to the detected chain. For subject.name, use the associated entity name if sanctioned (e.g., "Tornado Cash", "Lazarus Group"), or the truncated address if unknown. Populate adverseMedia with relevant articles about the associated entity/protocol. Include mixer exposure, darknet connections, ransomware links, and cross-chain laundering in riskFactors. The ownershipAnalysis should show the entity/group attributed as the wallet controller if known.
+
 Always return complete, detailed responses with all arrays populated.`;
 
- const userPrompt = `${realDataContext}
+ const userPrompt = kycType === 'wallet' ? `${realDataContext}
+
+Screen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)
+
+Using the sanctions screening data above, provide a complete compliance analysis including:
+- Who owns/controls this wallet (entity attribution)
+- OFAC sanctions status and specific designations
+- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations
+- DPRK/Lazarus Group nexus if applicable
+- Transaction risk patterns (cross-chain laundering, structured transfers)
+- Adverse media about the associated entity
+- Regulatory guidance for financial institutions encountering this address
+- Whether to block transactions involving this wallet
+
+Set subject.type to "WALLET" and include the wallet address and blockchain.` : `${realDataContext}
 
 Based on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${kycYearOfBirth ? ', Year of Birth: ' + kycYearOfBirth : ''}${kycCountry ? ', Country: ' + kycCountry : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})
 
@@ -1399,7 +1450,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  setSelectedHistoryItem(historyItem);
  setScreeningProgress(100);
  setScreeningStep('Complete!');
- posthog.capture('screening_completed', { query: kycQuery.trim(), type: kycType, risk_level: parsedResult.overallRisk || null });
+ posthog.capture('screening_completed', { query: kycQuery.trim(), type: kycType, risk_level: finalResult.overallRisk || null });
  setTimeout(() => {
  setKycPage('results');
  setIsScreening(false);
@@ -7559,13 +7610,24 @@ ${analysisContext}`;
  <button
  onClick={() => setKycType('entity')}
  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium tracking-wide transition-all ${
- kycType === 'entity' 
- ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500' 
+ kycType === 'entity'
+ ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500'
  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-gray-400'
  }`}
  >
  <Building2 className="w-4 h-4" />
  Entity
+ </button>
+ <button
+ onClick={() => setKycType('wallet')}
+ className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium tracking-wide transition-all ${
+ kycType === 'wallet'
+ ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500'
+ : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-gray-400'
+ }`}
+ >
+ <Wallet className="w-4 h-4" />
+ Crypto Wallet
  </button>
  </div>
 
@@ -7650,7 +7712,7 @@ ${analysisContext}`;
  )}
  </button>
  </div>
- ) : (
+ ) : kycType === 'entity' ? (
  <div className="flex gap-3">
  <input
  type="text"
@@ -7673,6 +7735,50 @@ ${analysisContext}`;
  Screen
  </button>
  </div>
+ ) : (
+ <div className="space-y-4">
+ <div>
+ <label className="block text-sm font-medium tracking-wide text-gray-600 mb-2">
+ Wallet Address <span className="text-rose-600">*</span>
+ </label>
+ <input
+ type="text"
+ value={kycQuery}
+ onChange={(e) => setKycQuery(e.target.value)}
+ onKeyPress={(e) => e.key === 'Enter' && runKycScreening()}
+ placeholder="e.g., 0x8589427373D6D84E98730D7795D8f6f8731FDA16"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400 font-mono text-sm"
+ />
+ </div>
+ {kycQuery.trim() && (
+ <div className="flex items-center gap-2 text-xs text-gray-500">
+ <span className="px-2 py-1 rounded-md bg-gray-100 border border-gray-200 font-medium">
+ {/^T[A-Za-z1-9]{33}$/.test(kycQuery.trim()) ? 'Tron' :
+  /^0x[a-fA-F0-9]{40}$/.test(kycQuery.trim()) ? 'Ethereum' :
+  /^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(kycQuery.trim()) ? 'Bitcoin' :
+  /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(kycQuery.trim()) ? 'Solana' : 'Unknown'}
+ </span>
+ <span>blockchain detected</span>
+ </div>
+ )}
+ <button
+ onClick={runKycScreening}
+ disabled={!kycQuery.trim() || isScreening}
+ className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+ >
+ {isScreening ? (
+ <>
+ <Loader2 className="w-5 h-5 animate-spin" />
+ Screening...
+ </>
+ ) : (
+ <>
+ <Shield className="w-5 h-5" />
+ Screen Wallet
+ </>
+ )}
+ </button>
+ </div>
  )}
  </div>
 
@@ -7684,13 +7790,15 @@ ${analysisContext}`;
    { name: 'Sinaloa Cartel', type: 'entity' },
    { name: 'Viktor Vekselberg', type: 'individual' },
    { name: 'Huawei Technologies', type: 'entity' },
+   { name: 'TVacWx7F5wgMgn49L5frDf9KLgdYy8nPHL', type: 'wallet', label: 'DPRK Tron Wallet' },
+   { name: '0x8589427373D6D84E98730D7795D8f6f8731FDA16', type: 'wallet', label: 'Tornado Cash' },
  ].map((s) => (
    <button
      key={s.name}
      onClick={() => { setKycQuery(s.name); setKycType(s.type); }}
      className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 border border-gray-200 transition-colors"
    >
-     {s.name}
+     {s.label || s.name}
    </button>
  ))}
  </div>
