@@ -7,6 +7,7 @@ const { screenEntity, analyzeOwnership, getOwnershipNetwork, SANCTIONED_INDIVIDU
 const { AdverseMediaService } = require('./services/adverseMedia');
 const { DataSourceManager } = require('./services/dataSources');
 const { CourtRecordsService } = require('./services/courtRecords');
+const { CompaniesHouseStreamService } = require('./services/companiesHouseStream');
 require('dotenv').config();
 
 const app = express();
@@ -128,6 +129,57 @@ app.post('/api/screening/court-records', async (req, res) => {
   }
 });
 
+// Companies House streaming service
+const chStreamService = new CompaniesHouseStreamService();
+
+app.get('/api/streaming/companies-house/status', (req, res) => {
+  res.json(chStreamService.getStatus());
+});
+
+app.get('/api/streaming/companies-house/alerts', (req, res) => {
+  const { severity, companyNumber, limit, offset } = req.query;
+  const alerts = chStreamService.getAlerts({
+    severity,
+    companyNumber,
+    limit: parseInt(limit) || 50,
+    offset: parseInt(offset) || 0
+  });
+  res.json({ alerts, counts: chStreamService.getAlertCounts() });
+});
+
+app.get('/api/streaming/companies-house/watchlist', (req, res) => {
+  res.json({ watchlist: chStreamService.getWatchlist() });
+});
+
+app.post('/api/streaming/companies-house/watchlist', (req, res) => {
+  const { companyNumber } = req.body;
+  if (!companyNumber) return res.status(400).json({ error: 'companyNumber is required' });
+  chStreamService.addToWatchlist(companyNumber);
+  res.json({ success: true, watchlistSize: chStreamService.getWatchlist().length });
+});
+
+app.delete('/api/streaming/companies-house/watchlist/:companyNumber', (req, res) => {
+  chStreamService.removeFromWatchlist(req.params.companyNumber);
+  res.json({ success: true, watchlistSize: chStreamService.getWatchlist().length });
+});
+
+app.post('/api/streaming/companies-house/connect', (req, res) => {
+  chStreamService.connectAllStreams();
+  res.json({ success: true, status: chStreamService.getStatus() });
+});
+
+app.post('/api/streaming/companies-house/disconnect', (req, res) => {
+  chStreamService.disconnectAll();
+  res.json({ success: true });
+});
+
+app.get('/api/streaming/companies-house/check-officer', (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  const match = chStreamService.checkDisqualifiedOfficer(name);
+  res.json({ match: match || null, isDisqualified: !!match });
+});
+
 // PDF extraction endpoint
 app.post('/api/extract-pdf', async (req, res) => {
   try {
@@ -228,4 +280,10 @@ app.listen(PORT, () => {
   console.log(`✅ Marlowe backend server running on http://localhost:${PORT}`);
   console.log(`✅ API key configured: ${ANTHROPIC_API_KEY ? 'Yes' : 'No'}`);
   console.log(`✅ Ready to proxy requests to Anthropic API`);
+  if (process.env.COMPANIES_HOUSE_STREAM_KEY) {
+    chStreamService.connectAllStreams();
+    console.log(`✅ Companies House streaming initialized`);
+  } else {
+    console.log(`ℹ️  Companies House streaming disabled (no COMPANIES_HOUSE_STREAM_KEY)`);
+  }
 });
