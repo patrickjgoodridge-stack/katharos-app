@@ -37,6 +37,16 @@ class AdverseMediaService {
         .catch(e => ({ source: 'Government', articles: [], error: e.message }))
     );
 
+    // Wayback Machine — historical web captures
+    sourcePromises.push(
+      this.searchWaybackMachine(name).catch(e => ({ source: 'Wayback Machine', articles: [], error: e.message }))
+    );
+
+    // MediaCloud — open-source media analysis
+    sourcePromises.push(
+      this.searchMediaCloud(name).catch(e => ({ source: 'MediaCloud', articles: [], error: e.message }))
+    );
+
     const results = await Promise.all(sourcePromises);
 
     // Flatten and deduplicate articles
@@ -258,6 +268,72 @@ class AdverseMediaService {
       // Skip
     }
     return { source: 'Bing News', articles };
+  }
+
+  // Wayback Machine CDX API — historical captures of pages mentioning the subject
+  async searchWaybackMachine(name) {
+    const articles = [];
+    // Search for archived pages from key regulatory/news domains mentioning the name
+    const domains = ['reuters.com', 'bbc.co.uk', 'justice.gov', 'sec.gov', 'ft.com'];
+    for (const domain of domains) {
+      try {
+        const url = `https://web.archive.org/cdx/search/cdx?url=${domain}/*&output=json&limit=5&filter=statuscode:200&fl=original,timestamp,mimetype&matchType=domain&collapse=urlkey&query=${encodeURIComponent(name)}`;
+        const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) continue;
+        const data = await response.json();
+        // First row is headers
+        for (const row of data.slice(1)) {
+          const [original, timestamp, mimetype] = row;
+          if (mimetype && !mimetype.includes('html')) continue;
+          const dateStr = timestamp ? `${timestamp.substring(0, 4)}-${timestamp.substring(4, 6)}-${timestamp.substring(6, 8)}` : '';
+          articles.push({
+            headline: `Archived page from ${domain}`,
+            source: domain,
+            sourceCredibility: this.assessSourceCredibility(domain),
+            date: dateStr,
+            summary: `Wayback Machine capture: ${original}`,
+            url: `https://web.archive.org/web/${timestamp}/${original}`,
+            category: 'OTHER',
+            relevance: 'LOW',
+            rawSource: 'Wayback Machine',
+          });
+        }
+      } catch {
+        // Skip individual domain failures
+      }
+    }
+    return { source: 'Wayback Machine', articles };
+  }
+
+  // MediaCloud — open-source news/media analysis platform
+  async searchMediaCloud(name) {
+    const articles = [];
+    try {
+      const query = encodeURIComponent(`"${name}"`);
+      // MediaCloud search API (public, rate-limited)
+      const response = await fetch(`https://search.mediacloud.org/api/search?q=${query}&limit=10`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) return { source: 'MediaCloud', articles: [] };
+      const data = await response.json();
+      for (const item of (data.results || data.articles || data.stories || [])) {
+        articles.push({
+          headline: item.title || item.headline || '',
+          source: item.media_name || item.source || 'MediaCloud',
+          sourceCredibility: this.assessSourceCredibility(item.media_name || item.source || ''),
+          date: item.publish_date ? item.publish_date.substring(0, 10) : '',
+          summary: item.snippet || item.title || '',
+          url: item.url || item.stories_id ? `https://search.mediacloud.org/stories/${item.stories_id}` : '',
+          category: 'OTHER',
+          relevance: 'MEDIUM',
+          rawSource: 'MediaCloud',
+        });
+      }
+    } catch {
+      // Skip
+    }
+    return { source: 'MediaCloud', articles };
   }
 
   parseRSSItems(xml) {

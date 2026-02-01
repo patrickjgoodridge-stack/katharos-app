@@ -11,6 +11,11 @@ const { CompaniesHouseStreamService } = require('./services/companiesHouseStream
 const { UKCompaniesHouseService } = require('./services/ukCompaniesHouse');
 const { OCCRPAlephService } = require('./services/occrpAleph');
 const { OFACScreeningService } = require('./services/ofacScreening');
+const { PEPScreeningService } = require('./services/pepScreening');
+const { BlockchainScreeningService } = require('./services/blockchainScreening');
+const { RegulatoryEnforcementService } = require('./services/regulatoryEnforcement');
+const { ShippingTradeService } = require('./services/shippingTrade');
+const { OpenCorporatesService } = require('./services/openCorporates');
 require('dotenv').config();
 
 const app = express();
@@ -204,6 +209,76 @@ app.post('/api/screening/ofac', async (req, res) => {
 
 app.get('/api/screening/ofac/status', (req, res) => {
   res.json(ofacService.getStatus());
+});
+
+// PEP screening endpoint
+const pepService = new PEPScreeningService();
+app.post('/api/screening/pep', async (req, res) => {
+  try {
+    const { name, type, country, dateOfBirth } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await pepService.screenEntity({ name, type: type || 'individual', country, dateOfBirth });
+    res.json(result);
+  } catch (error) {
+    console.error('PEP screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Blockchain address screening endpoint
+const blockchainService = new BlockchainScreeningService();
+app.post('/api/screening/blockchain', async (req, res) => {
+  try {
+    const { address, blockchain } = req.body;
+    if (!address) return res.status(400).json({ error: 'Address is required' });
+    const result = await blockchainService.screenAddress({ address, blockchain });
+    res.json(result);
+  } catch (error) {
+    console.error('Blockchain screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Regulatory enforcement screening endpoint
+const regulatoryService = new RegulatoryEnforcementService();
+app.post('/api/screening/regulatory', async (req, res) => {
+  try {
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await regulatoryService.screenEntity({ name, type: type || 'ALL' });
+    res.json(result);
+  } catch (error) {
+    console.error('Regulatory screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Shipping & trade screening endpoint
+const shippingService = new ShippingTradeService();
+app.post('/api/screening/shipping', async (req, res) => {
+  try {
+    const { name, type, imo, mmsi } = req.body;
+    if (!name && !imo && !mmsi) return res.status(400).json({ error: 'Name, IMO, or MMSI required' });
+    const result = await shippingService.screenEntity({ name: name || '', type, imo, mmsi });
+    res.json(result);
+  } catch (error) {
+    console.error('Shipping screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// OpenCorporates screening endpoint
+const openCorporatesService = new OpenCorporatesService();
+app.post('/api/screening/opencorporates', async (req, res) => {
+  try {
+    const { name, jurisdiction } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await openCorporatesService.screenEntity({ name, jurisdiction });
+    res.json(result);
+  } catch (error) {
+    console.error('OpenCorporates screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Companies House streaming service
