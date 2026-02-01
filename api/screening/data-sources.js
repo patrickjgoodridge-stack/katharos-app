@@ -3,7 +3,7 @@
 
 class DataSourceManager {
   constructor() {
-    this.ukCompaniesHouseKey = process.env.UK_COMPANIES_HOUSE_KEY || null;
+    this.ukCompaniesHouseKey = process.env.COMPANIES_HOUSE_API_KEY || null;
     this.courtListenerKey = process.env.COURTLISTENER_KEY || null;
   }
 
