@@ -6,6 +6,7 @@ const path = require('path');
 const { screenEntity, analyzeOwnership, getOwnershipNetwork, SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES } = require('./risk-screener');
 const { AdverseMediaService } = require('./services/adverseMedia');
 const { DataSourceManager } = require('./services/dataSources');
+const { CourtRecordsService } = require('./services/courtRecords');
 require('dotenv').config();
 
 const app = express();
@@ -107,6 +108,22 @@ app.post('/api/screening/data-sources', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Data source screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Court records screening endpoint
+const courtRecordsService = new CourtRecordsService();
+app.post('/api/screening/court-records', async (req, res) => {
+  try {
+    const { name, type } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    const result = await courtRecordsService.screenEntity({ name, type: type || 'individual' });
+    res.json(result);
+  } catch (error) {
+    console.error('Court records screening error:', error);
     res.status(500).json({ error: error.message });
   }
 });

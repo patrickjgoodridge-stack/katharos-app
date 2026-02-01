@@ -1085,8 +1085,9 @@ export default function Marlowe() {
  setScreeningProgress(55);
  let dataSourceResults = null;
  let adverseMediaResults = null;
+ let courtRecordsResults = null;
  try {
- const [dsRes, amRes] = await Promise.all([
+ const [dsRes, amRes, crRes] = await Promise.all([
  fetch(`${API_BASE}/api/screening/data-sources`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
@@ -1096,10 +1097,16 @@ export default function Marlowe() {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  body: JSON.stringify({ name: kycQuery, type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET', country: kycCountry || null })
+ }),
+ fetch(`${API_BASE}/api/screening/court-records`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ name: kycQuery, type: kycType })
  })
  ]);
  if (dsRes.ok) dataSourceResults = await dsRes.json();
  if (amRes.ok) adverseMediaResults = await amRes.json();
+ if (crRes.ok) courtRecordsResults = await crRes.json();
  } catch (e) {
  console.error('External data source error:', e);
  }
@@ -1210,6 +1217,25 @@ ${adverseMediaResults.articles && adverseMediaResults.articles.length > 0 ? `
 Articles:
 ${adverseMediaResults.articles.slice(0, 10).map(a => `- [${a.category || 'GENERAL'}] "${a.title}" (${a.source}, ${a.date || 'undated'}) — Relevance: ${a.relevance || 'UNKNOWN'}${a.url ? ' — Source: ' + a.url : ''}`).join('\n')}` : 'No adverse media articles found.'}
 ` : ''}
+
+${courtRecordsResults && courtRecordsResults.cases?.length > 0 ? `
+FEDERAL COURT RECORDS (CourtListener):
+Total Cases: ${courtRecordsResults.summary?.totalCases || 0}
+As Defendant: ${courtRecordsResults.summary?.asDefendant || 0}
+As Plaintiff: ${courtRecordsResults.summary?.asPlaintiff || 0}
+Criminal Cases: ${courtRecordsResults.summary?.criminalCases || 0}
+Civil Cases: ${courtRecordsResults.summary?.civilCases || 0}
+Court Records Risk Score: ${courtRecordsResults.summary?.riskScore || 0}/100
+
+${courtRecordsResults.riskFlags?.length > 0 ? `Risk Flags:
+${courtRecordsResults.riskFlags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
+
+Cases:
+${courtRecordsResults.cases.slice(0, 10).map(c => `- [${c.riskSeverity?.toUpperCase()}] ${c.caseName} (${c.court})
+  Case #: ${c.caseNumber} | Type: ${c.caseType} | Role: ${c.partyRole}
+  Filed: ${c.dateFiled || 'Unknown'} | Status: ${c.status}${c.natureOfSuit ? ' | Nature: ' + c.natureOfSuit : ''}${c.judge ? ' | Judge: ' + c.judge : ''}
+  URL: ${c.url}${c.entries?.length > 0 ? '\n  Recent entries: ' + c.entries.slice(0, 3).map(e => e.description).join('; ') : ''}`).join('\n')}
+` : courtRecordsResults?.error ? `FEDERAL COURT RECORDS: ${courtRecordsResults.error}` : 'FEDERAL COURT RECORDS: No cases found.'}
 `;
 
  const systemPrompt = `You are an expert compliance analyst with deep knowledge of AML/KYC regulations and sanctions programs.
@@ -1504,6 +1530,9 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  }
  if (adverseMediaResults) {
  finalResult.adverseMediaRaw = adverseMediaResults;
+ }
+ if (courtRecordsResults) {
+ finalResult.courtRecords = courtRecordsResults;
  }
 
  setKycResults(finalResult);
