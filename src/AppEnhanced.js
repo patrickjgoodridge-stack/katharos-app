@@ -10284,7 +10284,7 @@ ${analysisContext}`;
      Complex Laundering Network
    </button>
    <button
-     onClick={() => loadSampleDocument('/samples/lp-onboarding-packet.txt', 'LP Onboarding Packet.txt')}
+     onClick={() => loadSampleDocument('/samples/lp_onboarding_packet.docx', 'LP Onboarding Packet.docx')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      LP Onboarding Packet
