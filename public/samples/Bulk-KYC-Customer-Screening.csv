@@ -1,0 +1,101 @@
+Customer ID,Full Name,Date of Birth,Country of Residence,Nationality,Occupation,Account Type,Source of Funds
+C-001,James Patterson,1978-03-14,United States,American,Software Engineer,Individual,Employment salary
+C-002,Sarah Lindqvist,1985-07-22,Sweden,Swedish,Marketing Director,Individual,Employment salary
+C-003,Michael Torres,1972-11-08,United States,American,Dentist,Individual,Professional practice income
+C-004,Noor Al-Harthi,1976-03-09,Oman,Omani,Jewelry Wholesale Dealer,Corporate,Precious stones and metals trading
+C-005,Tomoko Hayashi,1990-02-28,Japan,Japanese,Graphic Designer,Individual,Freelance income
+C-006,William Clarke,1968-09-03,United Kingdom,British,Retired Teacher,Individual,Pension
+C-007,Maria Fernandez,1983-12-19,Spain,Spanish,Pharmacist,Individual,Pharmacy business income
+C-008,David Kim,1975-06-25,South Korea,South Korean,Civil Engineer,Individual,Employment salary
+C-009,Rachel Abernathy,1992-01-11,United States,American,Nurse Practitioner,Individual,Employment salary
+C-010,Hans Muller,1970-08-30,Germany,German,Mechanical Engineer,Individual,Employment salary
+C-011,Giorgi Beridze,1963-11-24,Georgia,Georgian,Casino Operator,Corporate,Gaming revenue from Tbilisi casino chain
+C-012,Priya Sharma,1988-10-04,India,Indian,IT Consultant,Individual,Consulting fees
+C-013,Thomas Bergstrom,1979-03-21,Norway,Norwegian,Fisheries Manager,Individual,Employment salary
+C-014,Lisa Chen,1993-08-16,Canada,Canadian,Accountant,Individual,Employment salary
+C-015,Robert Nakamura,1971-12-07,United States,American,Film Producer,Individual,Entertainment royalties and investments
+C-016,Claudia Rossi,1986-04-29,Italy,Italian,Architect,Individual,Professional practice income
+C-017,Farid Mammadov,1970-07-15,Azerbaijan,Azerbaijani,Former Deputy Minister of Transport,Corporate,Government pension and private investments
+C-018,Jennifer O'Brien,1981-07-03,Ireland,Irish,Veterinarian,Individual,Veterinary practice income
+C-019,Kenji Watanabe,1974-11-14,Japan,Japanese,Restaurant Owner,Individual,Restaurant business income
+C-020,Natasha Volkov,1984-02-09,United States,American,Physical Therapist,Individual,Employment salary
+C-021,Carlos Mendez,1977-05-26,Mexico,Mexican,Agricultural Engineer,Individual,Employment salary
+C-022,Anna Johansson,1991-09-17,Sweden,Swedish,Data Analyst,Individual,Employment salary
+C-023,Gregory Hines,1969-01-22,United States,American,Insurance Broker,Individual,Commission income
+C-024,Fatima Hassan,1987-06-11,Morocco,Moroccan,University Lecturer,Individual,Academic salary
+C-025,Viktor Petrenko,1973-08-05,Ukraine,Ukrainian,Shipping Executive,Corporate,Maritime shipping company revenue
+C-026,Susan Miller,1982-04-13,United States,American,HR Manager,Individual,Employment salary
+C-027,Jean-Pierre Dubois,1976-10-31,France,French,Winemaker,Individual,Vineyard business income
+C-028,Olga Smirnova,1989-03-08,Russia,Russian,Translator,Individual,Freelance income
+C-029,Daniel Wright,1971-12-27,Australia,Australian,Mining Engineer,Individual,Employment salary
+C-030,Mei Lin Zhang,1994-07-19,Singapore,Singaporean,Financial Analyst,Individual,Employment salary
+C-031,Patrick O'Connor,1980-05-14,Ireland,Irish,Construction Manager,Individual,Employment salary
+C-032,Isabelle Martin,1986-11-22,France,French,Art Gallery Owner,Individual,Gallery sales income
+C-033,Rajesh Patel,1973-02-16,United Kingdom,British,General Practitioner,Individual,NHS salary and private practice
+C-034,Monica Gutierrez,1990-09-05,Colombia,Colombian,Marketing Coordinator,Individual,Employment salary
+C-035,Alexander Voloshyn,1978-07-28,Portugal,Ukrainian,Cryptocurrency Consultant,Corporate,Crypto OTC trading and advisory fees
+C-036,Karen Thompson,1967-04-09,United States,American,School Principal,Individual,Employment salary
+C-037,Lars Nielsen,1983-01-17,Denmark,Danish,Wind Energy Technician,Individual,Employment salary
+C-038,Yuki Tanaka,1995-06-23,Japan,Japanese,Junior Developer,Individual,Employment salary
+C-039,Emmanuel Okafor,1976-12-02,Nigeria,Nigerian,Petroleum Engineer,Individual,Oil and gas contract income
+C-040,Catherine Schmidt,1985-08-14,Germany,German,Biotech Researcher,Individual,Research grant and university salary
+C-041,Ryan Mitchell,1979-03-30,Canada,Canadian,Airline Pilot,Individual,Employment salary
+C-042,Lucia Fernandez-Vega,1988-10-11,Argentina,Argentinian,Journalist,Individual,Media salary
+C-043,John Harrington,1972-07-06,United States,American,Plumber,Individual,Self-employment income
+C-044,Amira Osman,1991-02-25,Sudan,Sudanese,NGO Program Director,Individual,NGO salary
+C-045,Stefan Horvat,1981-09-19,Croatia,Croatian,Hotel Manager,Individual,Employment salary
+C-046,Rebecca Foster,1987-05-08,United Kingdom,British,Solicitor,Individual,Legal practice income
+C-047,Tariq Mahmoud,1970-11-30,Pakistan,Pakistani,Textile Exporter,Corporate,Textile export revenue
+C-048,Helga Brandt,1975-04-22,Austria,Austrian,Museum Curator,Individual,Employment salary
+C-049,Christopher Lee,1993-08-03,United States,American,Personal Trainer,Individual,Self-employment income
+C-050,Nadia Bensaid,1984-06-17,France,Algerian,Social Worker,Individual,Government salary
+C-051,George Papadopoulos,1968-12-09,Greece,Greek,Shipping Agent,Individual,Maritime agency commissions
+C-052,Marisol Reyes,1990-01-28,Philippines,Filipino,Registered Nurse,Individual,Employment salary
+C-053,Jonathan Blake,1977-10-15,United Kingdom,British,Financial Advisor,Individual,Advisory fees
+C-054,Sven Eriksson,1982-03-06,Sweden,Swedish,Forestry Manager,Individual,Employment salary
+C-055,Diana Popescu,1986-07-24,Romania,Romanian,Dentist,Individual,Dental practice income
+C-056,Abdul Kareem Al-Zahrani,1960-08-20,Saudi Arabia,Saudi,Government Procurement Official,Corporate,Government salary and family business income
+C-057,Nancy Chen,1992-05-12,Taiwan,Taiwanese,UX Designer,Individual,Employment salary
+C-058,Brendan Murphy,1974-09-27,Ireland,Irish,Dairy Farmer,Individual,Farm income
+C-059,Youssef El-Amin,1983-01-03,Lebanon,Lebanese,Money Exchange Operator,Corporate,Currency exchange and remittance fees
+C-060,Katrina Volkov,1989-11-18,Latvia,Russian,Import/Export Manager,Corporate,Trade revenue from Baltic-CIS corridor
+C-061,Michael Anderson,1971-06-14,United States,American,Electrician,Individual,Self-employment income
+C-062,Ingrid Solberg,1987-04-02,Norway,Norwegian,Marine Biologist,Individual,Research salary
+C-063,Paolo Conti,1976-08-21,Italy,Italian,Olive Oil Producer,Individual,Agricultural business income
+C-064,Sandra Hughes,1980-12-30,Australia,Australian,Occupational Therapist,Individual,Employment salary
+C-065,Kwame Asante,1985-05-16,Ghana,Ghanaian,Civil Servant,Individual,Government salary
+C-066,Margaret O'Leary,1973-10-07,United States,American,Librarian,Individual,Employment salary
+C-067,Dmitri Sorokin,1969-03-25,Russia,Russian,Metals Trading Executive,Corporate,Precious metals export revenue
+C-068,Emma Bjorkman,1994-09-13,Finland,Finnish,Kindergarten Teacher,Individual,Employment salary
+C-069,Roberto Alvarez,1978-07-01,Spain,Spanish,Chef,Individual,Restaurant salary
+C-070,Aisha Mohammed,1991-04-19,United Kingdom,British,Pediatrician,Individual,NHS salary
+C-071,Peter Hoffman,1966-11-08,Germany,German,Retired Banker,Individual,Pension and investment returns
+C-072,Camille Lefevre,1988-02-14,France,French,Veterinarian,Individual,Veterinary practice income
+C-073,Takeshi Ito,1975-05-29,Japan,Japanese,Automotive Engineer,Individual,Employment salary
+C-074,Laura Bennett,1983-08-10,United States,American,Real Estate Agent,Individual,Commission income
+C-075,Oscar Nilsson,1979-01-23,Sweden,Swedish,Logistics Coordinator,Individual,Employment salary
+C-076,Zainab Al-Farsi,1986-06-05,Oman,Omani,University Professor,Individual,Academic salary
+C-077,Frank Morrison,1972-10-18,Canada,Canadian,Truck Driver,Individual,Employment salary
+C-078,Valentina Duarte,1990-03-27,Brazil,Brazilian,Fashion Designer,Individual,Design business income
+C-079,Ian MacGregor,1981-12-01,United Kingdom,Scottish,Pub Owner,Individual,Pub business income
+C-080,Hana Park,1993-07-16,South Korea,South Korean,Pharmacist,Individual,Pharmacy salary
+C-081,Martin Schultz,1970-04-08,Germany,German,Factory Foreman,Individual,Employment salary
+C-082,Esperanza Cruz,1985-11-22,Mexico,Mexican,Elementary Teacher,Individual,Teaching salary
+C-083,Nicholas Stavros,1977-02-13,Cyprus,Greek,Offshore Company Administrator,Corporate,Corporate formation and administration fees
+C-084,Alice Vandermeer,1988-09-04,Netherlands,Dutch,Tulip Farm Owner,Individual,Agricultural business income
+C-085,Sergei Morozov,1964-06-30,Russia,Russian,Former State Enterprise Director,Corporate,Privatization-era investment returns
+C-086,Bridget Kelly,1992-01-19,United States,American,Dental Hygienist,Individual,Employment salary
+C-087,Andres Gutierrez,1976-05-11,Colombia,Colombian,Coffee Exporter,Individual,Coffee export revenue
+C-088,Fiona MacLeod,1984-08-26,United Kingdom,Scottish,Optometrist,Individual,Optometry practice income
+C-089,Hassan Jibril,1971-10-03,Somalia,Somali,Hawala Remittance Operator,Corporate,Remittance service fees
+C-090,Christine Bauer,1987-03-15,Austria,Austrian,Graphic Designer,Individual,Freelance income
+C-091,Liam Doyle,1979-12-08,Ireland,Irish,Software Developer,Individual,Employment salary
+C-092,Sumiko Abe,1991-06-21,Japan,Japanese,Translator,Individual,Freelance income
+C-093,Douglas Reed,1974-09-14,United States,American,Firefighter,Individual,Government salary
+C-094,Pilar Santos,1982-04-30,Portugal,Portuguese,Bank Teller,Individual,Employment salary
+C-095,Henrik Dahl,1986-07-07,Denmark,Danish,Wind Turbine Technician,Individual,Employment salary
+C-096,Oluwafemi Adeyemi,1980-11-25,Nigeria,Nigerian,Oil and Gas Contractor,Corporate,Oil services contract revenue
+C-097,Martha Williams,1973-02-18,United States,American,Social Studies Teacher,Individual,Employment salary
+C-098,Renzo Marchetti,1989-05-09,Italy,Italian,Sommelier,Individual,Employment salary
+C-099,Ananya Desai,1994-10-31,India,Indian,Graduate Student,Individual,Scholarship and family support
+C-100,Brian Fitzgerald,1977-08-13,United States,American,Plumbing Contractor,Individual,Self-employment income

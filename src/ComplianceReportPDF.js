@@ -415,8 +415,8 @@ const AppendixTable = ({ entities }) => {
 
 const ComplianceReportPDF = ({ data }) => {
   const {
-    subjectName = 'Unknown Entity',
-    riskLevel = 'MEDIUM',
+    subjectName,  // No default - only show if found in content
+    riskLevel,    // No default - only show if found in content
     riskScore,
     onboardingRecommendation,
     onboardingRiskLevel,
@@ -430,17 +430,21 @@ const ComplianceReportPDF = ({ data }) => {
     ? new Date(generatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const riskColors = colors[riskLevel] || colors.MEDIUM;
-  const onbColors = colors[onboardingRiskLevel] || riskColors;
+  // Only use risk colors if riskLevel is actually provided
+  const riskColors = riskLevel ? (colors[riskLevel] || colors.MEDIUM) : null;
+  const onbColors = onboardingRiskLevel ? (colors[onboardingRiskLevel] || riskColors) : riskColors;
+
+  // Use fallback title if no subject name found
+  const displayName = subjectName || 'Compliance Report';
 
   return (
-    <Document title={`${subjectName} — ${formattedDate}`}>
+    <Document title={`${displayName} — ${formattedDate}`}>
       <Page size="A4" style={styles.page} wrap>
         {/* Header */}
         <View style={styles.headerRow} fixed>
           <View>
             <Text style={styles.headerBrand}>Marlowe Compliance Platform</Text>
-            <Text style={styles.headerSubject}>{subjectName} — {formattedDate}</Text>
+            <Text style={styles.headerSubject}>{displayName} — {formattedDate}</Text>
           </View>
           <View>
             <Text style={styles.headerMeta}>Screening Report</Text>
@@ -448,11 +452,13 @@ const ComplianceReportPDF = ({ data }) => {
         </View>
         <View style={styles.headerDivider} />
 
-        {/* Risk Banner */}
-        <View style={[styles.riskBanner, { backgroundColor: riskColors.bg }]}>
-          <Text style={styles.riskLabel}>OVERALL RISK: {riskLevel}</Text>
-          {riskScore != null && <Text style={styles.riskScore}>{riskScore} / 100</Text>}
-        </View>
+        {/* Risk Banner - only show if riskLevel was found in chat content */}
+        {riskLevel && riskColors && (
+          <View style={[styles.riskBanner, { backgroundColor: riskColors.bg }]}>
+            <Text style={styles.riskLabel}>OVERALL RISK: {riskLevel}</Text>
+            {riskScore != null && <Text style={styles.riskScore}>{riskScore} / 100</Text>}
+          </View>
+        )}
 
         {/* Overall Risk section content (table, bottom line, etc.) */}
         {sections.filter(s => (s.title || '').toUpperCase().includes('OVERALL RISK')).map((sec, i) => (

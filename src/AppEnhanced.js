@@ -996,8 +996,11 @@ export default function Marlowe() {
      return `${entityCount} Entity Screening - ${dateStr}`;
    }
 
-   // If files are uploaded with no text description, use filename context
-   if ((!description || !description.trim()) && fileNames.length > 0) {
+   // Check if description is a generic document command (not an entity name)
+   const isGenericDocumentCommand = description && /^(analyze|review|screen|check|read|summarize|look at|examine|process|parse|assess|evaluate)\s+(this|the|these|my|uploaded?)\s+(document|file|files|documents|materials?|attachment|pdf|doc|docx)/i.test(description.trim());
+
+   // If files are uploaded with no text description OR a generic document command, use filename context
+   if (((!description || !description.trim()) || isGenericDocumentCommand) && fileNames.length > 0) {
      const name = humanizeFilename(fileNames[0]);
      if (fileNames.length > 1) return `${name} + ${fileNames.length - 1} more`;
      return name;
@@ -1871,11 +1874,11 @@ Format the report professionally with clear headers, bullet points where appropr
    };
 
    // Extract risk info
-   let riskLevel = 'MEDIUM';
+   let riskLevel = null; // Only set if found in content
    let riskScore = null;
    let onboardingRecommendation = null;
    let onboardingRiskLevel = null;
-   let subjectName = 'Unknown Entity';
+   let subjectName = null; // Only set if found in content
 
    for (const sec of rawSections) {
      const upper = sec.title.toUpperCase();
@@ -2110,55 +2113,25 @@ Format the report professionally with clear headers, bullet points where appropr
  // Parse markdown into structured data
  const pdfData = parseMarkdownForPdf(markdown);
 
- // Override subject name from case context if available
+ // Get subject name ONLY from markdown content or case name - no external data sources
  const stripCaseNameSuffix = (name) => {
    return (name || '').replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
  };
+ // Priority: 1) From markdown content, 2) From case name, 3) Generic fallback
  let subjectName = pdfData.subjectName || '';
- if ((!subjectName || subjectName === 'Unknown Entity') && caseName && caseName !== 'New Investigation') {
+ if (!subjectName && caseName && caseName !== 'New Investigation') {
    subjectName = stripCaseNameSuffix(caseName);
- } else if (!subjectName || subjectName === 'Unknown Entity') {
-   if (kycResults?.subject?.name) subjectName = kycResults.subject.name;
-   else if (kycQuery?.trim()) subjectName = extractEntityName(kycQuery) || kycQuery.trim();
  }
- if (!subjectName) subjectName = 'Compliance Screening Report';
+ // Do NOT pull from kycResults or kycQuery - PDF must only show what's in the chat
+ if (!subjectName) subjectName = 'Compliance Report';
  // Strip markdown artifacts from subject name
 subjectName = subjectName.replace(/\*\*/g, '').replace(/[#*_~`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\s.,'-]/g, '').trim();
 if (!subjectName) subjectName = 'Compliance Screening Report';
 subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
- // Build entity appendix list
+ // Entity appendix list - only include if found in chat content
+ // Do NOT pull from external data sources (kycResults, etc.) - PDF must mirror chat exactly
  const entities = [];
- if (kycResults) {
-   if (kycResults.subject?.name) {
-     entities.push({ name: kycResults.subject.name, type: kycResults.subject.type || 'Subject', category: 'Primary Subject', detail: '' });
-   }
-   if (kycResults.sanctions?.matches?.length) {
-     kycResults.sanctions.matches.forEach(m => {
-       entities.push({ name: m.name || m.entity || 'Unknown', type: m.type || 'Entity', category: 'Sanctions Match', detail: m.list || m.source || '' });
-     });
-   }
-   if (kycResults.pep?.matches?.length) {
-     kycResults.pep.matches.forEach(m => {
-       entities.push({ name: m.name || m.entity || 'Unknown', type: m.position || m.role || 'PEP', category: 'PEP Match', detail: m.jurisdiction || '' });
-     });
-   }
-   if (kycResults.adverseMedia?.articles?.length) {
-     kycResults.adverseMedia.articles.forEach(a => {
-       entities.push({ name: a.title || a.headline || 'Article', type: 'Media', category: 'Adverse Media', detail: a.source || a.url || '' });
-     });
-   }
-   if (kycResults.ownershipAnalysis?.beneficialOwners?.length) {
-     kycResults.ownershipAnalysis.beneficialOwners.forEach(bo => {
-       entities.push({ name: bo.name, type: 'Beneficial Owner', category: 'Ownership', detail: bo.ownershipPercentage ? bo.ownershipPercentage + '%' : '' });
-     });
-   }
-   if (kycResults.ownershipAnalysis?.corporateStructure?.length) {
-     kycResults.ownershipAnalysis.corporateStructure.forEach(cs => {
-       entities.push({ name: cs.name, type: cs.type || 'Entity', category: 'Corporate Structure', detail: cs.jurisdiction || '' });
-     });
-   }
- }
 
  const caseUrl = currentCaseId
    ? `https://marlowe-app.vercel.app/?case=${currentCaseId}`
@@ -7544,7 +7517,8 @@ ${analysisContext}`;
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
 
- {/* Contact email link - bottom left */}
+ {/* Contact email link - bottom left (hidden on landing page) */}
+{currentPage !== 'noirLanding' && (
 <a
   href="mailto:patrickjgoodridge@gmail.com"
   title="Contact"
@@ -7552,6 +7526,7 @@ ${analysisContext}`;
 >
   <Mail className="w-5 h-5" />
 </a>
+)}
 
 {/* Email Gate Modal - Shows when user clicks Enter without email */}
  {showEmailModal && (
@@ -9496,7 +9471,7 @@ ${analysisContext}`;
  </button>
  <a
    href="mailto:patrickjgoodridge@gmail.com"
-   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors"
+   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors text-sm"
  >
    <Mail className="w-4 h-4" />
    <span>Contact Us</span>
@@ -10086,7 +10061,7 @@ ${analysisContext}`;
  >
  <FolderOpen className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
@@ -10173,10 +10148,10 @@ ${analysisContext}`;
  if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
- // For scout screenings, always create a new case so each search gets its own card
- const isNewScreening = investigationMode === 'scout' && currentCaseId && conversationInput.trim();
- const caseIdToUse = isNewScreening ? createCaseFromFirstMessage(conversationInput, files) : (currentCaseId || createCaseFromFirstMessage(conversationInput, files));
- sendConversationMessage(caseIdToUse, conversationInput, files);
+ // ALWAYS create a new case for each new search/upload from the main input
+ // This ensures each search appears as a separate case in Case Management
+ const newCaseId = createCaseFromFirstMessage(conversationInput, files);
+ sendConversationMessage(newCaseId, conversationInput, files);
  }
  }}
  placeholder="Enter a name, describe a case, or upload files."
@@ -10200,10 +10175,10 @@ ${analysisContext}`;
  onClick={() => {
  if (conversationInput.trim() || files.length > 0) {
  setConversationStarted(true);
- // For scout screenings, always create a new case so each search gets its own card
- const isNewScreening = investigationMode === 'scout' && currentCaseId && conversationInput.trim();
- const caseIdToUse = isNewScreening ? createCaseFromFirstMessage(conversationInput, files) : (currentCaseId || createCaseFromFirstMessage(conversationInput, files));
- sendConversationMessage(caseIdToUse, conversationInput, files);
+ // ALWAYS create a new case for each new search/upload from the main input
+ // This ensures each search appears as a separate case in Case Management
+ const newCaseId = createCaseFromFirstMessage(conversationInput, files);
+ sendConversationMessage(newCaseId, conversationInput, files);
  }
  }}
  disabled={!conversationInput.trim() && files.length === 0}
@@ -10218,7 +10193,7 @@ ${analysisContext}`;
  <div className="mt-6 flex justify-center">
  <div className="relative group">
  <button
-   onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+   onClick={() => { setSuggestionsExpanded(!suggestionsExpanded); setSamplesExpanded(false); }}
    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border-gray-300'} border`}
  >
    <Lightbulb className="w-4 h-4" />
@@ -10264,7 +10239,7 @@ ${analysisContext}`;
  <div className="mt-3 flex justify-center">
  <div className="relative group">
  <button
-   onClick={() => setSamplesExpanded(!samplesExpanded)}
+   onClick={() => { setSamplesExpanded(!samplesExpanded); setSuggestionsExpanded(false); }}
    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border-gray-300'} border`}
  >
    <FileText className="w-4 h-4" />
@@ -10280,6 +10255,12 @@ ${analysisContext}`;
  {samplesExpanded && (
  <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="flex gap-2">
+   <button
+     onClick={() => loadSampleDocument('/samples/Bulk-KYC-Customer-Screening.csv', 'Bulk-KYC-Customer-Screening.csv')}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+   >
+     Bulk KYC Screening
+   </button>
    <button
      onClick={() => loadSampleDocument('/samples/The Meridian Group Laundering Case.docx', 'The Meridian Group Laundering Case.docx')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
@@ -10497,7 +10478,7 @@ ${analysisContext}`;
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
@@ -10849,7 +10830,7 @@ ${analysisContext}`;
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
