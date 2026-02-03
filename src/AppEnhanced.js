@@ -610,14 +610,26 @@ export default function Marlowe() {
  // Update case with new conversation messages
  // Extract risk level from message content
  const extractRiskLevel = (messages) => {
-   // Look through messages from newest to oldest for OVERALL RISK
+   // Multiple patterns to catch different AI output formats
+   const riskPatterns = [
+     /OVERALL RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /OVERALL RISK[:\s*]+\**\s*\(?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /##\s*OVERALL RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /\*\*OVERALL RISK:?\*\*[:\s]*\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /RISK\s*LEVEL[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /RISK\s*RATING[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,
+     /RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)\s*(?:RISK)?/i,
+     /(CRITICAL|HIGH|MEDIUM|LOW)\s+RISK(?:\s*[-—]\s*\d+)?/i,
+   ];
+   // Look through messages from newest to oldest
    for (let i = messages.length - 1; i >= 0; i--) {
      const msg = messages[i];
      if (msg.role === 'assistant' && msg.content) {
-       // Match patterns like "## OVERALL RISK: CRITICAL" or "OVERALL RISK: HIGH"
-       const riskMatch = msg.content.match(/OVERALL RISK[:\s]+\*?\*?(CRITICAL|HIGH|MEDIUM|LOW)/i);
-       if (riskMatch) {
-         return riskMatch[1].toUpperCase();
+       for (const pattern of riskPatterns) {
+         const match = msg.content.match(pattern);
+         if (match) {
+           return match[1].toUpperCase();
+         }
        }
      }
    }
@@ -5533,8 +5545,25 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      }
 
      // Update case's conversation transcript and extract risk level
-     const riskMatch = fullText.match(/OVERALL RISK[:\s]+\*?\*?(CRITICAL|HIGH|MEDIUM|LOW)/i);
-     const extractedRisk = riskMatch ? riskMatch[1].toUpperCase() : null;
+     // Try multiple patterns to catch different AI output formats
+     let extractedRisk = null;
+     const riskPatterns = [
+       /OVERALL RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,           // "OVERALL RISK: HIGH" or "OVERALL RISK: **HIGH**"
+       /OVERALL RISK[:\s*]+\**\s*\(?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,     // "OVERALL RISK: (HIGH)"
+       /##\s*OVERALL RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,      // "## OVERALL RISK: HIGH"
+       /\*\*OVERALL RISK:?\*\*[:\s]*\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,  // "**OVERALL RISK:** HIGH"
+       /RISK\s*LEVEL[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,           // "RISK LEVEL: HIGH"
+       /RISK\s*RATING[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)/i,          // "RISK RATING: HIGH"
+       /RISK[:\s*]+\**\s*(CRITICAL|HIGH|MEDIUM|LOW)\s*(?:RISK)?/i,       // "RISK: HIGH" or "RISK: HIGH RISK"
+       /(CRITICAL|HIGH|MEDIUM|LOW)\s+RISK(?:\s*[-—]\s*\d+)?/i,           // "HIGH RISK" or "HIGH RISK — 72"
+     ];
+     for (const pattern of riskPatterns) {
+       const match = fullText.match(pattern);
+       if (match) {
+         extractedRisk = match[1].toUpperCase();
+         break;
+       }
+     }
 
      // Get case name for notification before updating state
      const currentCaseForNotification = cases.find(c => c.id === caseId);
