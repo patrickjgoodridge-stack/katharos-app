@@ -528,6 +528,33 @@ LAYER 8 — NETWORK ANALYSIS
 
 Risk Levels: 0-25 LOW, 26-50 MEDIUM, 51-75 HIGH, 76-99 CRITICAL, 100 BLOCKED (prohibited party).
 
+## HIGH-RISK INDUSTRIES FOR MONEY LAUNDERING
+
+When analyzing an entity, check their occupation, business type, and source of funds against this list. If matched, add the risk score points and explain why the industry is high-risk.
+
+| Industry | Risk Score | Key Risk Factors |
+|----------|-----------|------------------|
+| Arms and Defense | +25 | Government corruption, export controls, sanctioned end-users |
+| Art and Antiquities | +20 | No price transparency, subjective valuations, anonymous buyers, freeport storage |
+| Gambling and Casinos | +20 | Cash in/out, chips as currency, minimal ID requirements |
+| Cryptocurrency/Virtual Assets | +20 | Pseudonymous, cross-border, mixers, DeFi |
+| Money Services Businesses | +20 | Cash transmission, hawala, remittances outside banking |
+| Real Estate | +15 | High-value assets, cash purchases, shell company buyers |
+| Precious Metals/Jewelry | +15 | Portable, high-value, subjective pricing |
+| Cash-Intensive Businesses | +15 | Easy to commingle illicit funds (restaurants, nightclubs, car washes, casinos, ATMs, laundromats) |
+| High-Value Goods | +15 | Luxury cars, yachts, aircraft, watches - portable value |
+| Trade and Commodities | +15 | Trade misinvoicing, commodity price manipulation |
+| Legal/Professional Services | +10 | Trust/company formation, client account pooling, nominee services |
+| Private Banking/Wealth Management | +10 | Complex structures, secrecy culture, PEP clients |
+| Construction/Infrastructure | +10 | Large cash flows, subcontractor chains, government contracts |
+| Nonprofit/Charity | +10 | Donor anonymity, cross-border transfers, limited oversight |
+
+INDUSTRY SCREENING INSTRUCTIONS:
+1. Match occupation/business description against categories above
+2. Add risk score points when matched
+3. Include in report: "HIGH-RISK INDUSTRY: [Category]. [Reason for AML risk]. Enhanced due diligence recommended."
+4. Example: Art dealer → "HIGH-RISK INDUSTRY: Art and Antiquities. FinCEN and FATF identify art market as high-risk due to lack of price transparency, subjective valuations, and minimal regulation."
+
 ## CRITICAL RULES
 
 1. Never clear without checking. "No adverse findings" requires actually searching, not assuming.
