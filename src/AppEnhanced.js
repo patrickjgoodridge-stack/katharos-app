@@ -8,6 +8,7 @@ import { pdf } from '@react-pdf/renderer';
 import ComplianceReportPDF from './ComplianceReportPDF';
 import posthog from 'posthog-js';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
+// eslint-disable-next-line no-unused-vars
 import ChatNetworkGraph from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
@@ -226,6 +227,7 @@ export default function Marlowe() {
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
  const conversationAbortRef = useRef(null); // AbortController for stopping conversation streaming
+ // eslint-disable-next-line no-unused-vars
  const [networkGraphPanel, setNetworkGraphPanel] = useState({ open: false, entities: [], relationships: [], loading: false });
  const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
@@ -3785,6 +3787,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
  // Extract entities/relationships from message text via API call
+ // eslint-disable-next-line no-unused-vars
  const extractNetworkFromMessage = async (messageContent) => {
    // Try to build graph from kycResults.ownershipAnalysis first
    if (kycResults?.ownershipAnalysis) {
@@ -10345,16 +10348,6 @@ ${analysisContext}`;
  {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
  {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
- {/* Network Graph button */}
- {msg.content.length > 200 && (
- <button
- onClick={() => extractNetworkFromMessage(msg.content)}
- className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-purple-500 hover:bg-purple-400'} text-white rounded-lg font-medium transition-colors text-sm`}
- >
- <Share2 className="w-4 h-4" />
- Network Graph
- </button>
- )}
  {/* Export PDF button only for screening results */}
  {msg.content.includes('OVERALL RISK') && (
  <button
@@ -12233,43 +12226,6 @@ ${analysisContext}`;
           userEmail={user?.email || ''}
         />
 
-        {/* Network Graph Side Panel */}
-        {networkGraphPanel.open && (
-        <div className="fixed inset-0 z-[70] flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })} />
-          <div className={`relative w-[600px] max-w-[90vw] h-full shadow-xl overflow-y-auto ${darkMode ? 'bg-gray-900' : 'bg-white'}`}>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-lg font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  <Share2 className="w-5 h-5 text-purple-500" />
-                  Entity Network Graph
-                </h3>
-                <button onClick={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })} className={`p-1 rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-              {networkGraphPanel.loading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-3" />
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Extracting entities and relationships...</p>
-                </div>
-              ) : networkGraphPanel.entities.length > 0 ? (
-                <ChatNetworkGraph
-                  entities={networkGraphPanel.entities}
-                  relationships={networkGraphPanel.relationships}
-                  darkMode={darkMode}
-                  onClose={() => setNetworkGraphPanel({ open: false, entities: [], relationships: [], loading: false })}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <Network className="w-8 h-8 text-gray-400 mb-3" />
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No entities found in this message.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        )}
 
 
         {/* Footer */}
