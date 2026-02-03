@@ -5601,7 +5601,9 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      const entityName = caseNameForNotification.split(' - ')[0] || caseNameForNotification;
 
      // Show completion notification if we found a risk assessment
+     console.log('[Notification] Risk extraction:', { extractedRisk, extractedRiskScore, entityName, caseName: caseNameForNotification });
      if (extractedRisk) {
+       console.log('[Notification] Showing completion notification');
        setChatCompletionNotification({
          show: true,
          caseId: caseId,
@@ -5611,6 +5613,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          riskScore: extractedRiskScore,
          isPaused: false
        });
+     } else {
+       console.log('[Notification] No risk level found in response. First 500 chars:', fullText.substring(0, 500));
      }
 
      setCases(prev => prev.map(c => {
@@ -12271,7 +12275,7 @@ ${analysisContext}`;
  {/* Chat Completion Notification - shows when conversational response completes with risk assessment */}
  {chatCompletionNotification.show && (
    <div
-     className="fixed bottom-20 right-6 z-50 animate-slideUp"
+     className="fixed bottom-24 right-6 z-[9999] animate-slideUp"
      onMouseEnter={() => setChatCompletionNotification(prev => ({ ...prev, isPaused: true }))}
      onMouseLeave={() => setChatCompletionNotification(prev => ({ ...prev, isPaused: false }))}
    >
