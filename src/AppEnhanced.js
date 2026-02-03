@@ -10278,7 +10278,7 @@ ${analysisContext}`;
  <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="flex gap-2">
    <button
-     onClick={() => loadSampleDocument('/samples/complex-laundering-network.txt', 'Complex Laundering Network.txt')}
+     onClick={() => loadSampleDocument('/samples/The Meridian Group Laundering Case.docx', 'The Meridian Group Laundering Case.docx')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      Complex Laundering Network
