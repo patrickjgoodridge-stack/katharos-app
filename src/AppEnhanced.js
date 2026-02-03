@@ -132,6 +132,9 @@ export default function Marlowe() {
  // Track if floating notification has been dismissed (separate from completion card)
  const [notificationDismissed, setNotificationDismissed] = useState(false);
 
+ // Conversational completion notification (shows briefly when chat response completes with risk assessment)
+ const [chatCompletionNotification, setChatCompletionNotification] = useState({ show: false, caseName: '', riskLevel: '' });
+
  // Email gate modal state - shows when user tries to enter without email
  const [showEmailModal, setShowEmailModal] = useState(false);
 
@@ -5529,12 +5532,28 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        console.error('No text received from API');
      }
 
-     // Update case's conversation transcript
-     setCases(prev => prev.map(c =>
-       c.id === caseId
-         ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), assistantMessage] }
-         : c
-     ));
+     // Update case's conversation transcript and extract risk level
+     const riskMatch = fullText.match(/OVERALL RISK[:\s]+\*?\*?(CRITICAL|HIGH|MEDIUM|LOW)/i);
+     const extractedRisk = riskMatch ? riskMatch[1].toUpperCase() : null;
+
+     // Get case name for notification before updating state
+     const currentCaseForNotification = cases.find(c => c.id === caseId);
+     const caseNameForNotification = currentCaseForNotification?.name || 'Analysis';
+
+     // Show completion notification if we found a risk assessment (stays until user dismisses)
+     if (extractedRisk) {
+       setChatCompletionNotification({ show: true, caseName: caseNameForNotification, riskLevel: extractedRisk });
+     }
+
+     setCases(prev => prev.map(c => {
+       if (c.id !== caseId) return c;
+       const updatedTranscript = [...(c.conversationTranscript || []), assistantMessage];
+       return {
+         ...c,
+         conversationTranscript: updatedTranscript,
+         ...(extractedRisk && { riskLevel: extractedRisk })
+       };
+     }));
 
      // Also update global state for compatibility
      setConversationMessages(prev => [...prev, assistantMessage]);
@@ -12177,6 +12196,52 @@ ${analysisContext}`;
          <Eye className="w-4 h-4" />
          View Results
        </button>
+     </div>
+   </div>
+ )}
+
+ {/* Chat Completion Notification - shows briefly when conversational response completes with risk assessment */}
+ {chatCompletionNotification.show && (
+   <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
+     <div className={`bg-white border rounded-xl shadow-xl p-4 max-w-sm ${
+       chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-300' :
+       chatCompletionNotification.riskLevel === 'HIGH' ? 'border-orange-300' :
+       chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-300' :
+       'border-emerald-300'
+     }`}>
+       <div className="flex items-start gap-3">
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+           chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
+           chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100' :
+           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
+           'bg-emerald-100'
+         }`}>
+           <CheckCircle2 className={`w-5 h-5 ${
+             chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
+             chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+             'text-emerald-600'
+           }`} />
+         </div>
+         <div className="flex-1 min-w-0">
+           <h4 className="font-semibold text-gray-900 text-sm">Analysis Complete</h4>
+           <p className="text-xs text-gray-500 truncate">{chatCompletionNotification.caseName}</p>
+           <p className={`text-xs font-medium mt-0.5 ${
+             chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
+             chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+             'text-emerald-600'
+           }`}>
+             {chatCompletionNotification.riskLevel} RISK
+           </p>
+         </div>
+         <button
+           onClick={() => setChatCompletionNotification({ show: false, caseName: '', riskLevel: '' })}
+           className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+         >
+           <X className="w-4 h-4 text-gray-400" />
+         </button>
+       </div>
      </div>
    </div>
  )}
