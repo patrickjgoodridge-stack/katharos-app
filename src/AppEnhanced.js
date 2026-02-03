@@ -665,6 +665,7 @@ export default function Marlowe() {
  };
 
  // Aggregated monitoring alerts across all cases
+ // eslint-disable-next-line no-unused-vars
  const allMonitoringAlerts = useMemo(() => {
    return cases.flatMap(c =>
      (c.monitoringAlerts || []).map(a => ({ ...a, caseName: c.name, caseId: c.id }))
@@ -763,6 +764,7 @@ export default function Marlowe() {
  }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Alert management functions
+ // eslint-disable-next-line no-unused-vars
  const acknowledgeAlert = (alertId, caseId) => {
    setCases(prev => prev.map(c => {
      if (c.id !== caseId) return c;
@@ -777,6 +779,7 @@ export default function Marlowe() {
    }));
  };
 
+ // eslint-disable-next-line no-unused-vars
  const resolveAlert = (alertId, caseId, resolution) => {
    setCases(prev => prev.map(c => {
      if (c.id !== caseId) return c;
@@ -791,6 +794,7 @@ export default function Marlowe() {
    }));
  };
 
+ // eslint-disable-next-line no-unused-vars
  const dismissAlert = (alertId, caseId) => {
    setCases(prev => prev.map(c => {
      if (c.id !== caseId) return c;
@@ -5628,7 +5632,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
  // Scroll conversation to bottom (only if user hasn't scrolled up)
  useEffect(() => {
    if (!userScrolledUpRef.current) {
-     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+     conversationEndRef.current?.scrollIntoView({ behavior: 'instant' });
    }
  }, [conversationMessages, streamingText]);
 
