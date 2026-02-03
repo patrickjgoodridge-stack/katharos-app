@@ -2,9 +2,11 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 /**
- * Fetch all cases for a workspace (filtered by email domain or personal email)
+ * Fetch all cases for a workspace (filtered by email domain or user email)
+ * @param {string} workspaceId - The email domain for workspace filtering
+ * @param {string} userEmail - The user's email for personal case filtering
  */
-export const fetchUserCases = async (workspaceId) => {
+export const fetchUserCases = async (workspaceId, userEmail) => {
   if (!isSupabaseConfigured()) {
     console.log('Supabase not configured, using local storage');
     return { data: null, error: null };
@@ -16,9 +18,12 @@ export const fetchUserCases = async (workspaceId) => {
       .select('*')
       .order('updated_at', { ascending: false });
 
-    // Filter by workspace if provided
+    // Filter by workspace (email domain) if provided
     if (workspaceId) {
       query = query.eq('email_domain', workspaceId);
+    } else if (userEmail) {
+      // Otherwise filter by user's email
+      query = query.eq('created_by_email', userEmail);
     }
 
     const { data, error } = await query;
@@ -27,6 +32,7 @@ export const fetchUserCases = async (workspaceId) => {
 
     // Transform Supabase data to match app format
     const cases = data?.map(transformFromSupabase) || [];
+    console.log(`[Cases] Loaded ${cases.length} cases from database`);
     return { data: cases, error: null };
   } catch (error) {
     console.error('Error fetching cases:', error);
@@ -75,8 +81,11 @@ export const updateCase = async (caseId, updates) => {
       risk_level: updates.riskLevel,
       status: updates.status,
       chat_history: updates.chatHistory || [],
+      conversation_transcript: updates.conversationTranscript || [], // Full conversation
       documents: updates.documents || [],
-      analysis_data: updates.analysisData || {},
+      files: updates.files || [], // Uploaded files
+      analysis_data: updates.analysis || updates.analysisData || {}, // Analysis results
+      screenings: updates.screenings || [], // KYC screenings
       pdf_reports: updates.pdfReports || [],
       network_artifacts: updates.networkArtifacts || [],
       monitoring_enabled: updates.monitoringEnabled || false,
@@ -84,6 +93,7 @@ export const updateCase = async (caseId, updates) => {
       monitoring_alerts: updates.monitoringAlerts || [],
       email_domain: updates.emailDomain || '',
       created_by_email: updates.createdByEmail || '',
+      updated_at: new Date().toISOString(), // Update timestamp
     };
 
     const { data, error } = await supabase
@@ -173,8 +183,11 @@ const transformToSupabase = (caseData) => ({
   risk_level: caseData.riskLevel || 'UNKNOWN',
   status: caseData.status || 'active',
   chat_history: caseData.chatHistory || [],
+  conversation_transcript: caseData.conversationTranscript || [], // Full conversation history
   documents: caseData.documents || [],
-  analysis_data: caseData.analysisData || {},
+  files: caseData.files || [], // Uploaded files
+  analysis_data: caseData.analysis || caseData.analysisData || {}, // Analysis results
+  screenings: caseData.screenings || [], // KYC screening results
   pdf_reports: caseData.pdfReports || [],
   network_artifacts: caseData.networkArtifacts || [],
   monitoring_enabled: caseData.monitoringEnabled || false,
@@ -191,13 +204,17 @@ const transformFromSupabase = (data) => ({
   id: data.id,
   name: data.name,
   description: data.description,
-  riskLevel: data.risk_level,
+  riskLevel: data.risk_level || 'UNKNOWN',
   status: data.status,
   createdAt: data.created_at,
   updatedAt: data.updated_at,
   chatHistory: data.chat_history || [],
+  conversationTranscript: data.conversation_transcript || [], // Full conversation history
   documents: data.documents || [],
+  files: data.files || [], // Uploaded files
+  analysis: data.analysis_data || {}, // Analysis results
   analysisData: data.analysis_data || {},
+  screenings: data.screenings || [], // KYC screening results
   pdfReports: data.pdf_reports || [],
   networkArtifacts: data.network_artifacts || [],
   monitoringEnabled: data.monitoring_enabled || false,

@@ -301,18 +301,22 @@ export default function Marlowe() {
  return () => clearInterval(interval);
  }, [placeholderExamples.length]);
 
- // Load cases from Supabase when user logs in
+ // Load cases from Supabase when user logs in or page loads
  useEffect(() => {
  const loadCases = async () => {
    if (isSupabaseConfigured() && user) {
-     const { data, error } = await fetchUserCases(workspaceId);
+     console.log('[Cases] Loading cases for user:', user.email, 'workspace:', workspaceId);
+     const { data, error } = await fetchUserCases(workspaceId, user.email);
      if (data && !error) {
+       console.log('[Cases] Loaded', data.length, 'cases from database');
        setCases(data);
+     } else if (error) {
+       console.error('[Cases] Failed to load cases:', error);
      }
    }
  };
  loadCases();
- }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+ }, [user, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Handle payment success redirect from Stripe
  useEffect(() => {
