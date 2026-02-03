@@ -28,6 +28,18 @@ class RegulatoryEnforcementService {
       this.searchFCA(name).catch(e => ({ source: 'fca', data: null, error: e.message })),
       // EU
       this.searchEUCompetition(name).catch(e => ({ source: 'eu_competition', data: null, error: e.message })),
+      // US — FinCEN
+      this.searchFinCEN(name).catch(e => ({ source: 'fincen', data: null, error: e.message })),
+      // UK — Serious Fraud Office
+      this.searchSFO(name).catch(e => ({ source: 'sfo', data: null, error: e.message })),
+      // Germany — BaFin
+      this.searchBaFin(name).catch(e => ({ source: 'bafin', data: null, error: e.message })),
+      // Singapore — MAS
+      this.searchMAS(name).catch(e => ({ source: 'mas', data: null, error: e.message })),
+      // Hong Kong — HKMA
+      this.searchHKMA(name).catch(e => ({ source: 'hkma', data: null, error: e.message })),
+      // Australia — ASIC
+      this.searchASIC(name).catch(e => ({ source: 'asic', data: null, error: e.message })),
     ];
 
     const results = await Promise.all(promises);
@@ -295,6 +307,216 @@ class RegulatoryEnforcementService {
   }
 
   // ============================================
+  // FinCEN — Financial Crimes Enforcement Network
+  // ============================================
+
+  async searchFinCEN(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // FinCEN enforcement actions page (HTML scrape)
+      const response = await fetch(`https://www.fincen.gov/news-room/enforcement-actions?field_news_title_value=${query}`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'fincen.gov', 'fincen');
+      const html = await response.text();
+      const actions = this.parseEnforcementHTML(html, 'FinCEN', 'fincen');
+
+      // Also check FinCEN's SAR stats / 311 special measures via GDELT
+      if (actions.length === 0) {
+        return this._gdeltDomainSearch(name, 'fincen.gov', 'fincen');
+      }
+      return { source: 'fincen', data: { actions, total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'fincen.gov', 'fincen');
+    }
+  }
+
+  // ============================================
+  // SFO — UK Serious Fraud Office
+  // ============================================
+
+  async searchSFO(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // SFO case search (HTML scrape)
+      const response = await fetch(`https://www.sfo.gov.uk/?s=${query}`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'sfo.gov.uk', 'sfo');
+      const html = await response.text();
+
+      // Parse SFO search results — typically <article> or <h2> with links
+      const actions = [];
+      const articleRegex = /<article[^>]*>([\s\S]*?)<\/article>/gi;
+      let match;
+      while ((match = articleRegex.exec(html)) !== null) {
+        const titleMatch = match[1].match(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+        const dateMatch = match[1].match(/<time[^>]*>([\s\S]*?)<\/time>/i);
+        if (titleMatch) {
+          const title = titleMatch[2].replace(/<[^>]+>/g, '').trim();
+          if (title.toLowerCase().includes(name.toLowerCase().split(/\s+/)[0])) {
+            actions.push({
+              agency: 'SFO',
+              title,
+              date: dateMatch ? dateMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+              type: title.toLowerCase().includes('conviction') ? 'CRIMINAL_CONVICTION' :
+                    title.toLowerCase().includes('charged') ? 'CRIMINAL_CHARGE' :
+                    title.toLowerCase().includes('investigation') ? 'INVESTIGATION' : 'ENFORCEMENT_ACTION',
+              url: titleMatch[1].startsWith('http') ? titleMatch[1] : `https://www.sfo.gov.uk${titleMatch[1]}`,
+              source: 'sfo'
+            });
+          }
+        }
+      }
+
+      if (actions.length === 0) return this._gdeltDomainSearch(name, 'sfo.gov.uk', 'sfo');
+      return { source: 'sfo', data: { actions: actions.slice(0, 20), total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'sfo.gov.uk', 'sfo');
+    }
+  }
+
+  // ============================================
+  // BaFin — German Federal Financial Supervisory Authority
+  // ============================================
+
+  async searchBaFin(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // BaFin search page
+      const response = await fetch(`https://www.bafin.de/SiteGlobals/Forms/Suche/Servicesuche_Formular.html?queryString=${query}&cl2Categories_Typ=Sanktionen`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept-Language': 'en-US,en;q=0.9' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'bafin.de', 'bafin');
+      const html = await response.text();
+      const actions = this.parseEnforcementHTML(html, 'BaFin', 'bafin');
+
+      if (actions.length === 0) return this._gdeltDomainSearch(name, 'bafin.de', 'bafin');
+      return { source: 'bafin', data: { actions, total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'bafin.de', 'bafin');
+    }
+  }
+
+  // ============================================
+  // MAS — Monetary Authority of Singapore
+  // ============================================
+
+  async searchMAS(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // MAS enforcement actions search
+      const response = await fetch(`https://www.mas.gov.sg/search?q=${query}&Content=enforcement`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'mas.gov.sg', 'mas');
+      const html = await response.text();
+      const actions = this.parseEnforcementHTML(html, 'MAS', 'mas');
+
+      // Also check MAS investor alert list
+      const alertRes = await fetch(`https://www.mas.gov.sg/investor-alert-list?q=${query}`, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      }).catch(() => null);
+      if (alertRes?.ok) {
+        const alertHtml = await alertRes.text();
+        if (alertHtml.toLowerCase().includes(name.toLowerCase().split(/\s+/)[0].toLowerCase())) {
+          actions.push({
+            agency: 'MAS',
+            title: `MAS Investor Alert List mention: ${name}`,
+            date: '',
+            type: 'REGULATORY_WARNING',
+            url: 'https://www.mas.gov.sg/investor-alert-list',
+            source: 'mas'
+          });
+        }
+      }
+
+      if (actions.length === 0) return this._gdeltDomainSearch(name, 'mas.gov.sg', 'mas');
+      return { source: 'mas', data: { actions: actions.slice(0, 20), total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'mas.gov.sg', 'mas');
+    }
+  }
+
+  // ============================================
+  // HKMA — Hong Kong Monetary Authority
+  // ============================================
+
+  async searchHKMA(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // HKMA press releases and enforcement
+      const response = await fetch(`https://www.hkma.gov.hk/eng/search-result/?q=${query}`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'hkma.gov.hk', 'hkma');
+      const html = await response.text();
+      const actions = this.parseEnforcementHTML(html, 'HKMA', 'hkma');
+
+      if (actions.length === 0) return this._gdeltDomainSearch(name, 'hkma.gov.hk', 'hkma');
+      return { source: 'hkma', data: { actions, total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'hkma.gov.hk', 'hkma');
+    }
+  }
+
+  // ============================================
+  // ASIC — Australian Securities and Investments Commission
+  // ============================================
+
+  async searchASIC(name) {
+    const query = encodeURIComponent(`"${name}"`);
+    try {
+      // ASIC enforcement search
+      const response = await fetch(`https://asic.gov.au/search/?q=${query}&collection=asic-meta&profile=_default`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+      });
+      if (!response.ok) return this._gdeltDomainSearch(name, 'asic.gov.au', 'asic');
+      const html = await response.text();
+
+      // Parse ASIC search results
+      const actions = [];
+      const resultRegex = /<li[^>]*class="[^"]*search-result[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+      let match;
+      while ((match = resultRegex.exec(html)) !== null) {
+        const titleMatch = match[1].match(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+        const dateMatch = match[1].match(/(\d{1,2}\s+\w+\s+\d{4})/);
+        if (titleMatch) {
+          const title = titleMatch[2].replace(/<[^>]+>/g, '').trim();
+          const t = title.toLowerCase();
+          const isEnforcement = t.includes('banned') || t.includes('cancel') || t.includes('penalty') ||
+            t.includes('court') || t.includes('charged') || t.includes('enforceable') || t.includes('infringement');
+          if (isEnforcement || t.includes(name.toLowerCase().split(/\s+/)[0])) {
+            actions.push({
+              agency: 'ASIC',
+              title,
+              date: dateMatch ? dateMatch[1] : '',
+              type: t.includes('banned') ? 'BAN' :
+                    t.includes('penalty') || t.includes('infringement') ? 'PENALTY' :
+                    t.includes('cancel') ? 'LICENCE_CANCELLATION' :
+                    t.includes('court') || t.includes('charged') ? 'CRIMINAL_CHARGE' : 'ENFORCEMENT_ACTION',
+              url: titleMatch[1].startsWith('http') ? titleMatch[1] : `https://asic.gov.au${titleMatch[1]}`,
+              source: 'asic'
+            });
+          }
+        }
+      }
+
+      if (actions.length === 0) return this._gdeltDomainSearch(name, 'asic.gov.au', 'asic');
+      return { source: 'asic', data: { actions: actions.slice(0, 20), total: actions.length } };
+    } catch (e) {
+      return this._gdeltDomainSearch(name, 'asic.gov.au', 'asic');
+    }
+  }
+
+  // ============================================
   // GDELT FALLBACK — Domain-specific news
   // ============================================
 
@@ -369,14 +591,14 @@ class RegulatoryEnforcementService {
     }
 
     // Sanctions/warnings
-    const warnings = actions.filter(a => ['SANCTIONS', 'FCA_WARNING'].includes(a.type));
+    const warnings = actions.filter(a => ['SANCTIONS', 'FCA_WARNING', 'REGULATORY_WARNING', 'BAN', 'LICENCE_CANCELLATION', 'INVESTIGATION'].includes(a.type));
     if (warnings.length > 0) {
       score += 30;
       flags.push({ severity: 'HIGH', type: 'REGULATORY_WARNING', message: `${warnings.length} regulatory warning(s)/sanctions` });
     }
 
     // Settlements/fines
-    const settlements = actions.filter(a => ['SETTLEMENT', 'FORFEITURE'].includes(a.type));
+    const settlements = actions.filter(a => ['SETTLEMENT', 'FORFEITURE', 'PENALTY'].includes(a.type));
     if (settlements.length > 0) {
       score += 20;
       flags.push({ severity: 'MEDIUM', type: 'SETTLEMENT', message: `${settlements.length} settlement(s)/forfeiture(s)` });

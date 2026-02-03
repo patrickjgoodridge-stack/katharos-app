@@ -19,10 +19,11 @@ class OFACScreeningService {
 
   async _fetchAndParse() {
     const entries = [];
+    const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)', 'Accept': 'text/csv, text/plain, */*' };
     for (const url of [this.sdnListUrl, this.consolidatedUrl, 'https://www.treasury.gov/ofac/downloads/sdn.csv']) {
       if (entries.length > 0) break;
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(30000), headers: { 'Accept': 'text/csv' } });
+        const res = await fetch(url, { signal: AbortSignal.timeout(60000), headers, redirect: 'follow' });
         if (res.ok) { const text = await res.text(); entries.push(...this.parseSDNCSV(text)); }
       } catch (e) { console.error(`OFAC fetch error (${url}):`, e.message); }
     }
@@ -116,11 +117,22 @@ class OFACScreeningService {
   matchName(qLower, entry) {
     const eName = entry.name.toLowerCase();
     if (qLower === eName) return 1.0;
-    if (eName.includes(qLower) || qLower.includes(eName)) return 0.9;
-    for (const alias of entry.aliases) { const a = alias.toLowerCase(); if (qLower === a) return 0.95; if (a.includes(qLower) || qLower.includes(a)) return 0.85; }
-    const sim = this.similarity(qLower, eName);
-    if (eName.includes(',')) { const last = eName.split(',')[0].trim(); return Math.max(sim, this.similarity(qLower, last) * 0.85); }
-    return sim;
+    const qVars = this.nameVariants(qLower);
+    const eVars = this.nameVariants(eName);
+    for (const q of qVars) for (const e of eVars) { if (q === e) return 1.0; }
+    for (const q of qVars) for (const e of eVars) { if (e.includes(q) || q.includes(e)) return 0.9; }
+    for (const alias of entry.aliases) { const a = alias.toLowerCase(); for (const q of qVars) { if (q === a) return 0.95; if (a.includes(q) || q.includes(a)) return 0.85; } }
+    let best = 0;
+    for (const q of qVars) for (const e of eVars) { best = Math.max(best, this.similarity(q, e)); }
+    if (eName.includes(',')) { const last = eName.split(',')[0].trim(); best = Math.max(best, this.similarity(qLower, last) * 0.85); }
+    return best;
+  }
+
+  nameVariants(name) {
+    const v = [name];
+    if (name.includes(',')) { const p = name.split(',').map(s => s.trim()); if (p.length === 2 && p[0] && p[1]) v.push(`${p[1]} ${p[0]}`); }
+    else { const p = name.trim().split(/\s+/); if (p.length === 2) v.push(`${p[1]}, ${p[0]}`); }
+    return v;
   }
 
   calculateRisk(matches) {

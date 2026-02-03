@@ -15,13 +15,17 @@
     "api/screening/data-sources.js": { "maxDuration": 60 },
     "api/screening/adverse-media.js": { "maxDuration": 60 },
     "api/screening/court-records.js": { "maxDuration": 60 },
-    "api/screening/uk-companies.js": { "maxDuration": 60 }
+    "api/screening/uk-companies.js": { "maxDuration": 60 },
+    "api/screening/transaction-monitoring.js": { "maxDuration": 60 },
+    "api/rag.js": { "maxDuration": 60 },
+    "api/screening/unified.js": { "maxDuration": 300 }
   },
   "rewrites": [
     { "source": "/api/stream", "destination": "/api/stream" },
     { "source": "/api/messages", "destination": "/api/messages" },
     { "source": "/api/screen-sanctions", "destination": "/api/screen-sanctions" },
     { "source": "/api/ownership-network", "destination": "/api/ownership-network" },
-    { "source": "/api/screening/:path*", "destination": "/api/screening/:path*" }
+    { "source": "/api/screening/:path*", "destination": "/api/screening/:path*" },
+    { "source": "/api/rag", "destination": "/api/rag" }
   ]
 }

@@ -16,6 +16,12 @@ const { BlockchainScreeningService } = require('./services/blockchainScreening')
 const { RegulatoryEnforcementService } = require('./services/regulatoryEnforcement');
 const { ShippingTradeService } = require('./services/shippingTrade');
 const { OpenCorporatesService } = require('./services/openCorporates');
+const { TransactionMonitoringService } = require('./services/transactionMonitoring');
+const { RAGService } = require('./services/ragService');
+const { SanctionsAnnouncementService } = require('./services/sanctionsAnnouncements');
+const { WalletScreeningService } = require('./services/walletScreening');
+const { WebIntelligenceService } = require('./services/webIntelligence');
+const { ScreeningPipeline } = require('./services/screeningPipeline');
 require('dotenv').config();
 
 const app = express();
@@ -211,6 +217,66 @@ app.get('/api/screening/ofac/status', (req, res) => {
   res.json(ofacService.getStatus());
 });
 
+// Sanctions Announcements screening endpoint
+const sanctionsAnnouncementService = new SanctionsAnnouncementService();
+app.post('/api/screening/sanctions-announcements', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await sanctionsAnnouncementService.screen(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Sanctions announcement screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Wallet screening endpoint
+const walletScreeningService = new WalletScreeningService();
+app.post('/api/screening/wallet', async (req, res) => {
+  try {
+    const { address } = req.body;
+    if (!address) return res.status(400).json({ error: 'Address is required' });
+    const result = await walletScreeningService.screenWallet(address);
+    res.json(result);
+  } catch (error) {
+    console.error('Wallet screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/screening/wallet/status', (req, res) => {
+  res.json(walletScreeningService.getStatus());
+});
+
+// Web Intelligence screening endpoint (Claude web search)
+const webIntelligenceService = new WebIntelligenceService();
+app.post('/api/screening/web-intelligence', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await webIntelligenceService.search(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Web intelligence error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Full screening pipeline endpoint (all layers)
+const screeningPipeline = new ScreeningPipeline();
+app.post('/api/screening/full', async (req, res) => {
+  try {
+    const { query, type, layers } = req.body;
+    if (!query) return res.status(400).json({ error: 'query is required' });
+    const result = await screeningPipeline.screenEntity(query, { type, layers });
+    res.json(result);
+  } catch (error) {
+    console.error('Full screening pipeline error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // PEP screening endpoint
 const pepService = new PEPScreeningService();
 app.post('/api/screening/pep', async (req, res) => {
@@ -281,6 +347,35 @@ app.post('/api/screening/opencorporates', async (req, res) => {
   }
 });
 
+// Financial Regulatory Registration Sources endpoint
+const { FinancialRegistrationsService } = require('./services/financialRegistrations');
+const finregService = new FinancialRegistrationsService();
+app.post('/api/screening/finreg', async (req, res) => {
+  try {
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await finregService.screenEntity({ name, type });
+    res.json(result);
+  } catch (error) {
+    console.error('Financial registrations screening error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Transaction Monitoring & Fraud Detection endpoint
+const transactionMonitoringService = new TransactionMonitoringService();
+app.post('/api/screening/transaction-monitoring', async (req, res) => {
+  try {
+    const { transactions, entityProfile, options } = req.body;
+    if (!transactions || !Array.isArray(transactions)) return res.status(400).json({ error: 'transactions array is required' });
+    const result = await transactionMonitoringService.analyzeTransactions({ transactions, entityProfile, options });
+    res.json(result);
+  } catch (error) {
+    console.error('Transaction monitoring error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Companies House streaming service
 const chStreamService = new CompaniesHouseStreamService();
 
@@ -330,6 +425,43 @@ app.get('/api/streaming/companies-house/check-officer', (req, res) => {
   if (!name) return res.status(400).json({ error: 'name is required' });
   const match = chStreamService.checkDisqualifiedOfficer(name);
   res.json({ match: match || null, isDisqualified: !!match });
+});
+
+// RAG (Retrieval-Augmented Generation) endpoint
+const ragService = new RAGService();
+app.post('/api/rag', async (req, res) => {
+  try {
+    if (!process.env.PINECONE_API_KEY) {
+      return res.status(503).json({ error: 'Pinecone not configured' });
+    }
+    const { action, query, filters, namespace, text, metadata, id } = req.body;
+
+    if (action === 'search') {
+      const results = await Promise.race([
+        ragService.search(query, filters || {}),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+      ]);
+      return res.json({ results });
+    } else if (action === 'index') {
+      if (!namespace || !text) return res.status(400).json({ error: 'namespace and text required' });
+      const vecId = id || `${namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const result = await ragService.index(namespace, vecId, text, metadata || {});
+      return res.json(result);
+    } else if (action === 'findCases') {
+      const { findings } = req.body;
+      const cases = await ragService.findRelevantCases(findings || {});
+      return res.json({ cases });
+    } else if (action === 'delete') {
+      if (!namespace || !id) return res.status(400).json({ error: 'namespace and id required' });
+      const result = await ragService.delete(namespace, id);
+      return res.json(result);
+    } else {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+  } catch (error) {
+    console.error('RAG error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // PDF extraction endpoint

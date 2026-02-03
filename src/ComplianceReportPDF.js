@@ -434,17 +434,16 @@ const ComplianceReportPDF = ({ data }) => {
   const onbColors = colors[onboardingRiskLevel] || riskColors;
 
   return (
-    <Document>
+    <Document title={`${subjectName} — ${formattedDate}`}>
       <Page size="A4" style={styles.page} wrap>
         {/* Header */}
         <View style={styles.headerRow} fixed>
           <View>
             <Text style={styles.headerBrand}>Marlowe Compliance Platform</Text>
-            <Text style={styles.headerSubject}>{subjectName}</Text>
+            <Text style={styles.headerSubject}>{subjectName} — {formattedDate}</Text>
           </View>
           <View>
             <Text style={styles.headerMeta}>Screening Report</Text>
-            <Text style={styles.headerMeta}>{formattedDate}</Text>
           </View>
         </View>
         <View style={styles.headerDivider} />

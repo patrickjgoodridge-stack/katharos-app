@@ -33,28 +33,25 @@ class OFACScreeningService {
 
   async _fetchAndParse() {
     const entries = [];
+    const fetchHeaders = {
+      'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)',
+      'Accept': 'text/csv, text/plain, */*'
+    };
 
-    // Try the SDN CSV endpoint
-    try {
-      const response = await fetch(this.sdnListUrl, {
-        signal: AbortSignal.timeout(30000),
-        headers: { 'Accept': 'text/csv' }
-      });
-      if (response.ok) {
-        const text = await response.text();
-        const parsed = this.parseSDNCSV(text);
-        entries.push(...parsed);
-      }
-    } catch (e) {
-      console.error('OFAC SDN CSV fetch error:', e.message);
-    }
+    // Try each SDN CSV endpoint in order until one works
+    const urls = [
+      this.sdnListUrl,
+      this.consolidatedUrl,
+      'https://www.treasury.gov/ofac/downloads/sdn.csv'
+    ];
 
-    // Fallback: try consolidated list if SDN is empty
-    if (entries.length === 0) {
+    for (const url of urls) {
+      if (entries.length > 0) break;
       try {
-        const response = await fetch(this.consolidatedUrl, {
-          signal: AbortSignal.timeout(30000),
-          headers: { 'Accept': 'text/csv' }
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(60000),
+          headers: fetchHeaders,
+          redirect: 'follow'
         });
         if (response.ok) {
           const text = await response.text();
@@ -62,23 +59,7 @@ class OFACScreeningService {
           entries.push(...parsed);
         }
       } catch (e) {
-        console.error('OFAC consolidated list fetch error:', e.message);
-      }
-    }
-
-    // Fallback: XML-based SDN list
-    if (entries.length === 0) {
-      try {
-        const response = await fetch('https://www.treasury.gov/ofac/downloads/sdn.csv', {
-          signal: AbortSignal.timeout(30000)
-        });
-        if (response.ok) {
-          const text = await response.text();
-          const parsed = this.parseSDNCSV(text);
-          entries.push(...parsed);
-        }
-      } catch (e) {
-        console.error('OFAC SDN fallback fetch error:', e.message);
+        console.error(`OFAC fetch error (${url}):`, e.message);
       }
     }
 
@@ -356,27 +337,68 @@ class OFACScreeningService {
     // Exact match
     if (queryLower === entryNameLower) return 1.0;
 
-    // Contains match
-    if (entryNameLower.includes(queryLower) || queryLower.includes(entryNameLower)) return 0.9;
+    // Normalize both names for order-independent comparison
+    // SDN uses "LAST, First" but users may search "First Last"
+    const queryVariants = this.nameVariants(queryLower);
+    const entryVariants = this.nameVariants(entryNameLower);
+
+    // Check all variant combinations for exact match
+    for (const qv of queryVariants) {
+      for (const ev of entryVariants) {
+        if (qv === ev) return 1.0;
+      }
+    }
+
+    // Contains match (check all variants)
+    for (const qv of queryVariants) {
+      for (const ev of entryVariants) {
+        if (ev.includes(qv) || qv.includes(ev)) return 0.9;
+      }
+    }
 
     // Check aliases
     for (const alias of entry.aliases) {
       const aliasLower = alias.toLowerCase();
       if (queryLower === aliasLower) return 0.95;
-      if (aliasLower.includes(queryLower) || queryLower.includes(aliasLower)) return 0.85;
+      for (const qv of queryVariants) {
+        if (qv === aliasLower) return 0.95;
+        if (aliasLower.includes(qv) || qv.includes(aliasLower)) return 0.85;
+      }
     }
 
-    // Fuzzy matching via Levenshtein
-    const similarity = this.calculateSimilarity(queryLower, entryNameLower);
+    // Fuzzy matching via Levenshtein — compare best variant pair
+    let bestSim = 0;
+    for (const qv of queryVariants) {
+      for (const ev of entryVariants) {
+        bestSim = Math.max(bestSim, this.calculateSimilarity(qv, ev));
+      }
+    }
 
     // Also check against last name only (SDN format is often "LAST, First")
     if (entryNameLower.includes(',')) {
       const lastName = entryNameLower.split(',')[0].trim();
       const lastNameSim = this.calculateSimilarity(queryLower, lastName);
-      return Math.max(similarity, lastNameSim * 0.85);
+      bestSim = Math.max(bestSim, lastNameSim * 0.85);
     }
 
-    return similarity;
+    return bestSim;
+  }
+
+  // Generate name order variants: "first last" ↔ "last, first"
+  nameVariants(name) {
+    const variants = [name];
+    if (name.includes(',')) {
+      const parts = name.split(',').map(p => p.trim());
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        variants.push(`${parts[1]} ${parts[0]}`); // "last, first" → "first last"
+      }
+    } else {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 2) {
+        variants.push(`${parts[1]}, ${parts[0]}`); // "first last" → "last, first"
+      }
+    }
+    return variants;
   }
 
   // ============================================

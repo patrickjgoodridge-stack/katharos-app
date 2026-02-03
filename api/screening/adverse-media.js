@@ -77,9 +77,44 @@ class AdverseMediaService {
   buildSearchTerms(name, type, country, additionalTerms) {
     const complianceTerms = ['sanctions', 'fraud', 'money laundering', 'corruption', 'indictment', 'prosecution', 'investigation', 'enforcement'];
     const baseQuery = `"${name}"`;
-    const terms = [baseQuery, ...complianceTerms.slice(0, 4).map(t => `${baseQuery} ${t}`), ...additionalTerms.map(t => `${baseQuery} ${t}`)];
+    const terms = [baseQuery, ...complianceTerms.slice(0, 4).map(t => `${baseQuery} ${t}`)];
+
+    // Generate name variants for "LAST, First" format (common in OFAC/sanctions data)
+    const nameVariants = this.generateNameVariants(name);
+    for (const variant of nameVariants) {
+      if (variant !== name) {
+        terms.push(`"${variant}" sanctions`, `"${variant}"`);
+      }
+    }
+
+    terms.push(...additionalTerms.map(t => `${baseQuery} ${t}`));
     if (country) terms.push(`${baseQuery} ${country} sanctions`);
     return terms;
+  }
+
+  generateNameVariants(name) {
+    const variants = [name];
+    // Handle "LAST, First" → "First Last"
+    if (name.includes(',')) {
+      const parts = name.split(',').map(p => p.trim());
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        // "DAMDIN, Erdenebalsuren" → "Erdenebalsuren Damdin"
+        const firstLast = `${parts[1]} ${parts[0].charAt(0) + parts[0].slice(1).toLowerCase()}`;
+        variants.push(firstLast);
+        // Also try title-case both: "Erdenebalsuren DAMDIN"
+        variants.push(`${parts[1]} ${parts[0]}`);
+        // Last name only (useful for short/unique surnames)
+        if (parts[0].length > 4) variants.push(parts[0]);
+      }
+    } else {
+      // Handle "First Last" → "LAST, First"
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 2) {
+        variants.push(`${parts[1]}, ${parts[0]}`);
+        variants.push(`${parts[1].toUpperCase()}, ${parts[0]}`);
+      }
+    }
+    return variants;
   }
 
   async searchGDELT(searchTerms) {

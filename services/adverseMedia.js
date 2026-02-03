@@ -101,23 +101,53 @@ class AdverseMediaService {
     const terms = [
       baseQuery,
       ...complianceTerms.slice(0, 4).map(t => `${baseQuery} ${t}`),
-      ...additionalTerms.map(t => `${baseQuery} ${t}`),
     ];
+
+    // Generate name variants for "LAST, First" format (common in OFAC/sanctions data)
+    const nameVariants = this.generateNameVariants(name);
+    for (const variant of nameVariants) {
+      if (variant !== name) {
+        terms.push(`"${variant}" sanctions`, `"${variant}"`);
+      }
+    }
+
+    terms.push(...additionalTerms.map(t => `${baseQuery} ${t}`));
     if (country) {
       terms.push(`${baseQuery} ${country} sanctions`);
     }
     return terms;
   }
 
+  generateNameVariants(name) {
+    const variants = [name];
+    // Handle "LAST, First" → "First Last"
+    if (name.includes(',')) {
+      const parts = name.split(',').map(p => p.trim());
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        const firstLast = `${parts[1]} ${parts[0].charAt(0) + parts[0].slice(1).toLowerCase()}`;
+        variants.push(firstLast);
+        variants.push(`${parts[1]} ${parts[0]}`);
+        if (parts[0].length > 4) variants.push(parts[0]);
+      }
+    } else {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 2) {
+        variants.push(`${parts[1]}, ${parts[0]}`);
+        variants.push(`${parts[1].toUpperCase()}, ${parts[0]}`);
+      }
+    }
+    return variants;
+  }
+
   // GDELT DOC API - free, no key needed
   async searchGDELT(searchTerms) {
     const articles = [];
     // Use the first 3 search terms to avoid overloading
-    for (const term of searchTerms.slice(0, 3)) {
+    for (const term of searchTerms.slice(0, 2)) {
       const query = encodeURIComponent(term);
       const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=10&format=json&timespan=2y`;
       try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!response.ok) continue;
         const data = await response.json();
         if (data.articles) {
@@ -149,7 +179,7 @@ class AdverseMediaService {
     const query = encodeURIComponent(`"${name}" (${domainFilter})`);
     const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=10&format=json&timespan=5y`;
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (response.ok) {
         const data = await response.json();
         if (data.articles) {
@@ -177,11 +207,11 @@ class AdverseMediaService {
   // Google News RSS - free, no key needed
   async searchGoogleNewsRSS(searchTerms) {
     const articles = [];
-    for (const term of searchTerms.slice(0, 3)) {
+    for (const term of searchTerms.slice(0, 2)) {
       const query = encodeURIComponent(term);
       const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
       try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!response.ok) continue;
         const xml = await response.text();
         const items = this.parseRSSItems(xml);
@@ -211,7 +241,7 @@ class AdverseMediaService {
     const query = searchTerms[0]; // Use primary search term
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=relevancy&pageSize=20&apiKey=${this.newsApiKey}`;
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (response.ok) {
         const data = await response.json();
         if (data.articles) {
@@ -244,7 +274,7 @@ class AdverseMediaService {
     try {
       const response = await fetch(url, {
         headers: { 'Ocp-Apim-Subscription-Key': this.bingApiKey },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(8000),
       });
       if (response.ok) {
         const data = await response.json();
@@ -391,8 +421,8 @@ class AdverseMediaService {
   async analyzeWithAI(name, type, articles) {
     if (!this.anthropicKey || articles.length === 0) return articles;
 
-    // Batch articles for analysis (max 20)
-    const batch = articles.slice(0, 20);
+    // Batch articles for analysis (max 10 for speed)
+    const batch = articles.slice(0, 10);
     const articleList = batch.map((a, i) =>
       `[${i}] "${a.headline}" - ${a.source} (${a.date})`
     ).join('\n');
@@ -423,7 +453,7 @@ Do not include any text outside the JSON array.`;
           max_tokens: 2048,
           messages: [{ role: 'user', content: prompt }],
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) return batch;

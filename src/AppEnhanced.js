@@ -1,7 +1,6 @@
 // Marlowe v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Radio, Wallet } from 'lucide-react';
-import MonitoringCenter from './MonitoringCenter';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -51,6 +50,33 @@ const detectVisualizationRequest = (message) => {
   if (/ownership|owns|companies|structure|subsidiary/i.test(message)) return 'ownership';
   return 'network';
 };
+
+// Elapsed time counter for active searches
+function ElapsedTimer({ startedAt }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+  return <span className="text-gray-500 text-xs">{elapsed}s</span>;
+}
+
+// Sanitize API errors into user-friendly messages
+function friendlyError(error) {
+  const msg = (error?.message || error || '').toString().toLowerCase();
+  console.error('API error details:', error);
+  if (msg.includes('credit') || msg.includes('billing') || msg.includes('insufficient') || msg.includes('payment') || msg.includes('402'))
+    return 'Marlowe is temporarily unavailable. Please try again shortly.';
+  if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl') || msg.includes('too many'))
+    return 'High demand right now. Your search will retry automatically in a moment.';
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch') || msg.includes('econnrefused') || msg.includes('timeout') || msg.includes('aborted'))
+    return 'Connection issue. Please check your internet and try again.';
+  if (msg.includes('overloaded') || msg.includes('529') || msg.includes('503'))
+    return 'Marlowe is experiencing high demand. Please try again in a moment.';
+  return 'Something went wrong. Please try again.';
+}
 
 // ============================================================================
 // Main Marlowe Component
@@ -117,10 +143,19 @@ export default function Marlowe() {
  const [kycQuery, setKycQuery] = useState('');
  const [kycType, setKycType] = useState('individual'); // 'individual' or 'entity'
  const [kycResults, setKycResults] = useState(null);
- const [isScreening, setIsScreening] = useState(false);
- const [screeningStep, setScreeningStep] = useState('');
- const [screeningProgress, setScreeningProgress] = useState(0);
- const [kycHistory, setKycHistory] = useState([]);
+ const [isScreening, setIsScreening] = useState(false); // eslint-disable-line no-unused-vars
+ const [screeningStep, setScreeningStep] = useState(''); // eslint-disable-line no-unused-vars
+ const [screeningProgress, setScreeningProgress] = useState(0); // eslint-disable-line no-unused-vars
+ const [screeningCountdown, setScreeningCountdown] = useState(0);
+ const countdownTotalRef = useRef(0);
+ // Concurrent search queue
+ const [searchJobs, setSearchJobs] = useState([]);
+ const [searchToasts, setSearchToasts] = useState([]);
+ const [completionNotifs, setCompletionNotifs] = useState([]);
+ const MAX_CONCURRENT = 3;
+ const [kycHistory, setKycHistory] = useState(() => {
+   try { return JSON.parse(localStorage.getItem('marlowe_kycHistory') || '[]'); } catch { return []; }
+ });
  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
  
  // Individual screening fields
@@ -128,11 +163,15 @@ export default function Marlowe() {
  const [kycYearOfBirth, setKycYearOfBirth] = useState('');
  const [kycCountry, setKycCountry] = useState('');
  
+ // Transaction monitoring results (auto-detected from uploaded files)
+ const [txMonitorResults, setTxMonitorResults] = useState(null);
+
  // Projects
  const [kycProjects, setKycProjects] = useState([]);
  const [selectedProject, setSelectedProject] = useState(null);
  const [newProjectName, setNewProjectName] = useState('');
  const [assigningToProject, setAssigningToProject] = useState(null); // screening ID being assigned
+ const [ragSources, setRagSources] = useState([]); // eslint-disable-line no-unused-vars
  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
  const [isGeneratingCaseReport, setIsGeneratingCaseReport] = useState(false);
  const [viewingCaseId, setViewingCaseId] = useState(null); // For Case Detail page view
@@ -154,6 +193,9 @@ export default function Marlowe() {
 
  // Per-case streaming state (allows parallel conversations)
  const [streamingStates, setStreamingStates] = useState(new Map());
+ const [activeAnalysisCount, setActiveAnalysisCount] = useState(0);
+ const streamingCount = Array.from(streamingStates.values()).filter(s => s.isStreaming).length;
+ const activeSearchCount = searchJobs.filter(j => j.status === 'running' || j.status === 'queued').length + Math.max(streamingCount, activeAnalysisCount);
 
  // Helper to get streaming state for a specific case
  const getCaseStreamingState = useCallback((caseId) =>
@@ -197,6 +239,7 @@ export default function Marlowe() {
  const [darkMode, setDarkMode] = useState(false);
  const [copiedMessageId, setCopiedMessageId] = useState(null);
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
+ const [samplesExpanded, setSamplesExpanded] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
  const [showAlertsPanel, setShowAlertsPanel] = useState(false); // eslint-disable-line no-unused-vars
@@ -231,6 +274,13 @@ export default function Marlowe() {
  ];
 
  const placeholderExamples = investigationMode === 'scout' ? scoutPlaceholderExamples : cipherPlaceholderExamples;
+
+ // Auto-decrement countdown timer
+ useEffect(() => {
+   if (screeningCountdown <= 0) return;
+   const t = setInterval(() => setScreeningCountdown(prev => prev > 0 ? prev - 1 : 0), 1000);
+   return () => clearInterval(t);
+ }, [screeningCountdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Reset placeholder index when mode changes to avoid out-of-bounds
  useEffect(() => {
@@ -405,6 +455,7 @@ export default function Marlowe() {
  files: files,
  analysis: analysisData,
  chatHistory: [],
+ screenings: [],
  riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN'
  };
  setCases(prev => [newCase, ...prev]);
@@ -475,6 +526,14 @@ export default function Marlowe() {
  setCaseName(caseData.name);
  setCurrentCaseId(caseData.id);
  setConversationStarted((caseData.conversationTranscript?.length || 0) > 0);
+ // Load case screenings into history view
+ if (caseData.screenings?.length > 0) {
+   setKycHistory(prev => {
+     const existingIds = new Set(prev.map(h => h.id));
+     const newItems = caseData.screenings.filter(s => !existingIds.has(s.id));
+     return [...newItems, ...prev].slice(0, 50);
+   });
+ }
  setCurrentPage('newCase'); // Go to conversation view
  };
 
@@ -525,6 +584,7 @@ export default function Marlowe() {
      conversationTranscript: [], // Store full conversation
      pdfReports: [], // Store generated PDF reports
      networkArtifacts: [], // Store network graph snapshots
+     screenings: [], // Store KYC screening results
      riskLevel: 'UNKNOWN',
      emailDomain: workspaceId || '',
      createdByEmail: user?.email || '',
@@ -1028,867 +1088,181 @@ export default function Marlowe() {
  }
  };
 
- // Scout function
- const runKycScreening = async () => {
- if (!kycQuery.trim()) return;
-
- setIsScreening(true);
- setKycResults(null);
- setScreeningStep('Initializing screening...');
- setScreeningProgress(5);
- posthog.capture('screening_started', { query: kycQuery.trim(), type: kycType, country: kycCountry || null });
-
- try {
- // Step 1: Get REAL sanctions screening data from backend
- setScreeningStep('Step 1/7: Querying global sanctions databases...');
- setScreeningProgress(15);
- const sanctionsResponse = await fetch(`${API_BASE}/api/screen-sanctions`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({
- name: kycQuery,
- type: kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET'
- })
- });
-
- const sanctionsData = await sanctionsResponse.json();
- setScreeningProgress(30);
-
- // Step 2: Get ownership network (skip for wallets)
- let ownershipNetwork = {};
- let ownershipData = null;
- if (kycType === 'wallet') {
- setScreeningStep('Step 2/7: Analyzing blockchain address...');
- setScreeningProgress(50);
- ownershipNetwork = { ownedCompanies: [], totalCompanies: 0, highRiskOwnership: 0 };
- } else {
- setScreeningStep('Step 2/7: Analyzing beneficial ownership structure...');
- setScreeningProgress(35);
- const networkResponse = await fetch(`${API_BASE}/api/ownership-network`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({
- name: kycQuery,
- type: kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'
- })
- });
- ownershipNetwork = await networkResponse.json();
- setScreeningProgress(50);
-
- if (kycType === 'entity') {
- ownershipData = ownershipNetwork;
- }
- }
-
- // Step 3: Query ALL external data sources in parallel
- setScreeningStep('Step 3/7: Querying 40+ data sources (OFAC, ICIJ, SEC, OCCRP, PEP, blockchain, courts, regulatory, shipping...)');
- setScreeningProgress(55);
- let dataSourceResults = null;
- let adverseMediaResults = null;
- let courtRecordsResults = null;
- let ofacResults = null;
- let occrpResults = null;
- let pepResults = null;
- let blockchainResults = null;
- let regulatoryResults = null;
- let shippingResults = null;
- let openCorporatesResults = null;
- let ukCompaniesResults = null;
- const screeningType = kycType === 'individual' ? 'INDIVIDUAL' : kycType === 'entity' ? 'ENTITY' : 'WALLET';
- try {
- const allPromises = [
- fetch(`${API_BASE}/api/screening/data-sources`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: screeningType })
- }),
- fetch(`${API_BASE}/api/screening/adverse-media`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: screeningType, country: kycCountry || null })
- }),
- fetch(`${API_BASE}/api/screening/court-records`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: kycType })
- }),
- fetch(`${API_BASE}/api/screening/ofac`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify(kycType === 'wallet' ? { address: kycQuery, action: 'wallet' } : { name: kycQuery, type: screeningType })
- }),
- fetch(`${API_BASE}/api/screening/occrp-aleph`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: kycType })
- }),
- fetch(`${API_BASE}/api/screening/pep`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: kycType, country: kycCountry || null })
- }),
- fetch(`${API_BASE}/api/screening/regulatory`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: screeningType })
- }),
- fetch(`${API_BASE}/api/screening/opencorporates`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery })
- }),
- ];
- // Blockchain screening only for wallet type
- if (kycType === 'wallet') {
- allPromises.push(fetch(`${API_BASE}/api/screening/blockchain`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ address: kycQuery })
- }));
- }
- // Shipping/trade screening for entities
- if (kycType === 'entity') {
- allPromises.push(fetch(`${API_BASE}/api/screening/shipping`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ name: kycQuery, type: 'entity' })
- }));
- allPromises.push(fetch(`${API_BASE}/api/screening/uk-companies`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ companyName: kycQuery })
- }));
- }
- const allResponses = await Promise.all(allPromises.map(p => p.catch(() => null)));
- let idx = 0;
- if (allResponses[idx]?.ok) dataSourceResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) adverseMediaResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) courtRecordsResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) ofacResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) occrpResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) pepResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) regulatoryResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) openCorporatesResults = await allResponses[idx].json(); idx++;
- if (kycType === 'wallet' && allResponses[idx]?.ok) { blockchainResults = await allResponses[idx].json(); idx++; }
- if (kycType === 'entity') {
- if (allResponses[idx]?.ok) shippingResults = await allResponses[idx].json(); idx++;
- if (allResponses[idx]?.ok) ukCompaniesResults = await allResponses[idx].json(); idx++;
- }
- } catch (e) {
- console.error('External data source error:', e);
- }
- setScreeningProgress(65);
-
- // Step 4: Build context with REAL data for Claude to analyze
- setScreeningStep('Step 4/7: Building compliance context...');
- setScreeningProgress(68);
- const realDataContext = kycType === 'wallet' ? `
-CRYPTO WALLET SANCTIONS SCREENING RESULTS:
-Wallet Address: ${kycQuery}
-Blockchain: ${sanctionsData.blockchain || 'Unknown'}
-${sanctionsData.status === 'MATCH' ? `
-🚨 DIRECT OFAC SANCTIONS MATCH
-- Listed Date: ${sanctionsData.match.listingDate}
-- Lists: ${sanctionsData.match.lists.join(', ')}
-- Programs: ${sanctionsData.match.programs.join(', ')}
-- Details: ${sanctionsData.match.details}
-- Associated Entity: ${sanctionsData.match.associatedEntity || 'Unknown'}
-${sanctionsData.match.associatedIndividual ? `- Associated Individual/Group: ${sanctionsData.match.associatedIndividual}` : ''}
-- Risk Level: ${sanctionsData.match.riskLevel}
-` : sanctionsData.status === 'KNOWN_ENTITY' ? `
-ℹ KNOWN ENTITY IDENTIFIED:
-- Entity: ${sanctionsData.knownEntity.name}
-- Type: ${sanctionsData.knownEntity.type}
-- Risk: ${sanctionsData.knownEntity.risk}
-` : '✓ NO DIRECT SANCTIONS MATCH FOUND - wallet not on OFAC SDN list'}
-` : `
-REAL SANCTIONS SCREENING RESULTS:
-${sanctionsData.status === 'MATCH' ? `
-✓ DIRECT MATCH FOUND
-- Matched Name: ${sanctionsData.match.name}
-- Listing Date: ${sanctionsData.match.listingDate}
-- Lists: ${sanctionsData.match.lists.join(', ')}
-- Programs: ${sanctionsData.match.programs.join(', ')}
-- Details: ${sanctionsData.match.details}
-${sanctionsData.match.entities ? `- Associated Entities: ${sanctionsData.match.entities.join(', ')}` : ''}
-${sanctionsData.match.ownership ? `- Known Ownership: ${JSON.stringify(sanctionsData.match.ownership, null, 2)}` : ''}
-` : sanctionsData.status === 'POTENTIAL_MATCH' ? `
-⚠ POTENTIAL MATCHES FOUND:
-${sanctionsData.potentialMatches.map(m => `- ${m.name} (${m.lists.join(', ')})`).join('\n')}
-` : '✓ NO SANCTIONS MATCH FOUND'}
-
-${ownershipData ? `
-REAL BENEFICIAL OWNERSHIP ANALYSIS:
-- OFAC 50% Rule Triggered: ${ownershipData.fiftyPercentRuleTriggered ? 'YES - ENTITY IS BLOCKED' : 'NO'}
-- Aggregate Blocked Ownership: ${ownershipData.aggregateBlockedOwnership}%
-- Risk Level: ${ownershipData.riskLevel}
-- Summary: ${ownershipData.summary}
-
-Beneficial Owners:
-${ownershipData.beneficialOwners.map(o =>
- `- ${o.name}: ${o.ownershipPercent}% (${o.ownershipType}) - ${o.sanctionStatus}${o.sanctionDetails ? ` [${o.sanctionDetails.lists.join(', ')}]` : ''}`
-).join('\n')}
-` : ''}
-
-${ownershipNetwork.ownedCompanies && ownershipNetwork.ownedCompanies.length > 0 ? `
-OWNERSHIP PORTFOLIO (Companies Owned by ${kycQuery}):
-Total Companies: ${ownershipNetwork.totalCompanies}
-High-Risk Ownership (≥50%): ${ownershipNetwork.highRiskOwnership}
-
-Companies:
-${ownershipNetwork.ownedCompanies.map(c =>
- `- ${c.company}: ${c.ownershipPercent}% (${c.ownershipType})${c.sanctionedOwner ? ' [SANCTIONED OWNER]' : ''}`
-).join('\n')}
-` : ''}
-
-${ownershipNetwork.corporateStructure && ownershipNetwork.corporateStructure.length > 0 ? `
-CORPORATE NETWORK (Related Entities):
-${ownershipNetwork.corporateStructure.map(s =>
- `- ${s.entity} (${s.relationship}) - Common Owner: ${s.commonOwner} (${s.ownershipPercent}%) - Sanction Exposure: ${s.sanctionExposure}`
-).join('\n')}
-` : ''}
-
-${dataSourceResults ? `
-EXTERNAL DATA SOURCE SCREENING RESULTS:
-Risk Score: ${dataSourceResults.riskScore}/100
-${dataSourceResults.riskFactors && dataSourceResults.riskFactors.length > 0 ? `Risk Factors:
-${dataSourceResults.riskFactors.map(f => `- ${f.source}: ${f.detail} (+${f.points} points)`).join('\n')}` : 'No risk factors identified from external sources.'}
-
-${dataSourceResults.sources?.icij?.data?.matches?.length > 0 ? `ICIJ OFFSHORE LEAKS:
-${dataSourceResults.sources.icij.data.matches.slice(0, 10).map(m => `- ${m.type}: ${m.name} (${m.jurisdiction || 'Unknown jurisdiction'}) — Dataset: ${m.sourceDataset || 'Unknown'}${m.linkedTo ? ', Linked to: ' + m.linkedTo : ''}`).join('\n')}
-Datasets found: ${(dataSourceResults.sources.icij.data.datasetsFound || []).join(', ') || 'None'}
-Total results: ${dataSourceResults.sources.icij.data.totalResults || 0}` : 'ICIJ Offshore Leaks: No matches found.'}
-
-${dataSourceResults.sources?.sec?.data ? `SEC EDGAR:
-${dataSourceResults.sources.sec.data.results?.length > 0 ? `Filings: ${dataSourceResults.sources.sec.data.results.slice(0, 5).map(f => `- ${f.form} filed ${f.filingDate} by ${f.companyName}`).join('\n')}` : 'No SEC filings found.'}
-${dataSourceResults.sources.sec.data.hasEnforcement ? `⚠️ SEC ENFORCEMENT ACTIONS:
-${dataSourceResults.sources.sec.data.enforcement.map(e => `- ${e.type} (${e.date}): ${e.description}`).join('\n')}` : 'No SEC enforcement actions.'}` : 'SEC EDGAR: Not queried or unavailable.'}
-
-${dataSourceResults.sources?.worldBank?.data?.matches?.length > 0 ? `WORLD BANK DEBARMENT:
-${dataSourceResults.sources.worldBank.data.matches.slice(0, 5).map(m => `- ${m.firmName || m.individualName} (${m.country}) — ${m.sanctionType}, ${m.fromDate} to ${m.toDate || 'ongoing'}${m.grounds ? ', Grounds: ' + m.grounds : ''}`).join('\n')}` : 'World Bank Debarment: No matches found.'}
-
-${dataSourceResults.sources?.courtListener?.data?.results?.length > 0 ? `FEDERAL COURT RECORDS:
-${dataSourceResults.sources.courtListener.data.results.slice(0, 5).map(r => `- ${r.caseName} (${r.court}) — Filed: ${r.dateFiled}, Docket: ${r.docketNumber}${r.suitNature ? ', Nature: ' + r.suitNature : ''}`).join('\n')}` : 'Federal Court Records: No matches found.'}
-
-${dataSourceResults.sources?.ukCompaniesHouse?.data?.results?.length > 0 ? `UK COMPANIES HOUSE:
-${dataSourceResults.sources.ukCompaniesHouse.data.results.map(co => `- ${co.companyName} (#${co.companyNumber}) — Status: ${co.status}, Incorporated: ${co.incorporationDate}
-  Officers: ${co.officers?.slice(0, 3).map(o => o.name + ' (' + o.role + ')').join(', ') || 'None listed'}
-  PSCs: ${co.pscs?.slice(0, 3).map(p => p.name + ' (' + (p.naturesOfControl || []).join(', ') + ')').join(', ') || 'None listed'}`).join('\n')}` : ''}
-` : ''}
-
-${adverseMediaResults ? `
-ADVERSE MEDIA SCREENING RESULTS:
-Risk Score: ${adverseMediaResults.riskScore || 0}/100
-Total Articles Found: ${adverseMediaResults.totalArticles || 0}
-${adverseMediaResults.articles && adverseMediaResults.articles.length > 0 ? `
-Articles:
-${adverseMediaResults.articles.slice(0, 10).map(a => `- [${a.category || 'GENERAL'}] "${a.title}" (${a.source}, ${a.date || 'undated'}) — Relevance: ${a.relevance || 'UNKNOWN'}${a.url ? ' — Source: ' + a.url : ''}`).join('\n')}` : 'No adverse media articles found.'}
-` : ''}
-
-${courtRecordsResults && courtRecordsResults.cases?.length > 0 ? `
-FEDERAL COURT RECORDS (CourtListener):
-Total Cases: ${courtRecordsResults.summary?.totalCases || 0}
-As Defendant: ${courtRecordsResults.summary?.asDefendant || 0}
-As Plaintiff: ${courtRecordsResults.summary?.asPlaintiff || 0}
-Criminal Cases: ${courtRecordsResults.summary?.criminalCases || 0}
-Civil Cases: ${courtRecordsResults.summary?.civilCases || 0}
-Court Records Risk Score: ${courtRecordsResults.summary?.riskScore || 0}/100
-
-${courtRecordsResults.riskFlags?.length > 0 ? `Risk Flags:
-${courtRecordsResults.riskFlags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-
-Cases:
-${courtRecordsResults.cases.slice(0, 10).map(c => `- [${c.riskSeverity?.toUpperCase()}] ${c.caseName} (${c.court})
-  Case #: ${c.caseNumber} | Type: ${c.caseType} | Role: ${c.partyRole}
-  Filed: ${c.dateFiled || 'Unknown'} | Status: ${c.status}${c.natureOfSuit ? ' | Nature: ' + c.natureOfSuit : ''}${c.judge ? ' | Judge: ' + c.judge : ''}
-  URL: ${c.url}${c.entries?.length > 0 ? '\n  Recent entries: ' + c.entries.slice(0, 3).map(e => e.description).join('; ') : ''}`).join('\n')}
-` : courtRecordsResults?.error ? `FEDERAL COURT RECORDS: ${courtRecordsResults.error}` : 'FEDERAL COURT RECORDS: No cases found.'}
-
-${ofacResults ? `
-OFAC SDN LIST (LIVE):
-Total SDN Entries Checked: ${ofacResults.totalSDNEntries || 0}
-Matches Found: ${ofacResults.matchCount || 0}
-Risk Level: ${ofacResults.riskAssessment?.level || 'LOW'} (Score: ${ofacResults.riskAssessment?.score || 0}/100)
-${ofacResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${ofacResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${ofacResults.matches?.length > 0 ? `Top Matches:\n${ofacResults.matches.slice(0, 5).map(m => `- ${m.name} (${m.type}) — Confidence: ${(m.matchConfidence * 100).toFixed(0)}%, Programs: ${(m.programs || []).join(', ')}${m.dateOfBirth ? ', DOB: ' + m.dateOfBirth : ''}`).join('\n')}` : 'No OFAC SDN matches.'}
-` : ''}
-
-${occrpResults ? `
-OCCRP ALEPH INVESTIGATIVE DATA:
-Total Results: ${occrpResults.summary?.totalResults || 0}
-Entity Matches: ${occrpResults.summary?.entityMatches || 0}
-Document Matches: ${occrpResults.summary?.documentMatches || 0}
-Risk Score: ${occrpResults.summary?.riskScore || 0}/100
-${occrpResults.summary?.datasetMatches?.length > 0 ? `Datasets: ${occrpResults.summary.datasetMatches.join(', ')}` : ''}
-${occrpResults.riskFlags?.length > 0 ? `Risk Flags:\n${occrpResults.riskFlags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${occrpResults.entities?.length > 0 ? `Top Entity Matches:\n${occrpResults.entities.slice(0, 5).map(e => `- ${e.name} (${e.type}) — Confidence: ${(e.matchConfidence * 100).toFixed(0)}%, Collection: ${e.collection?.label || 'Unknown'}, URL: ${e.url}`).join('\n')}` : ''}
-${occrpResults.documents?.length > 0 ? `Key Documents:\n${occrpResults.documents.slice(0, 5).map(d => `- ${d.title} (${d.collection?.label || 'Unknown'}) — ${d.date || 'undated'}, URL: ${d.url}`).join('\n')}` : ''}
-` : ''}
-
-${pepResults ? `
-PEP (POLITICALLY EXPOSED PERSON) SCREENING:
-Is PEP: ${pepResults.isPEP ? 'YES' : 'NO'}
-PEP Level: ${pepResults.pepLevel || 'NOT_PEP'}
-Total Matches: ${pepResults.matchCount || 0}
-Risk Level: ${pepResults.riskAssessment?.level || 'LOW'} (Score: ${pepResults.riskAssessment?.score || 0}/100)
-${pepResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${pepResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${pepResults.matches?.length > 0 ? `PEP Matches:\n${pepResults.matches.slice(0, 10).map(m => `- ${m.name}${m.pepPosition ? ' — Position: ' + m.pepPosition : ''}${m.country?.length ? ' — Country: ' + m.country.join(', ') : ''}${m.sanctions?.length ? ' — SANCTIONS: ' + m.sanctions.join(', ') : ''} (Source: ${m.source})${m.url ? ' URL: ' + m.url : ''}`).join('\n')}` : ''}
-` : ''}
-
-${regulatoryResults ? `
-REGULATORY ENFORCEMENT SCREENING (DOJ, CFPB, FTC, CFTC, Fed, FDIC, OCC, FCA, EU):
-Total Actions Found: ${regulatoryResults.totalActions || 0}
-Risk Level: ${regulatoryResults.riskAssessment?.level || 'LOW'} (Score: ${regulatoryResults.riskAssessment?.score || 0}/100)
-${regulatoryResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${regulatoryResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${regulatoryResults.actions?.length > 0 ? `Enforcement Actions:\n${regulatoryResults.actions.slice(0, 10).map(a => `- [${a.agency}] ${a.title} (${a.date || 'undated'}) — Type: ${a.type}${a.url ? ' — URL: ' + a.url : ''}`).join('\n')}` : 'No enforcement actions found.'}
-` : ''}
-
-${openCorporatesResults ? `
-OPENCORPORATES GLOBAL CORPORATE REGISTRY:
-Companies Found: ${openCorporatesResults.totalCompanies || 0}
-Officer Positions Found: ${openCorporatesResults.totalOfficers || 0}
-Risk Level: ${openCorporatesResults.riskAssessment?.level || 'LOW'} (Score: ${openCorporatesResults.riskAssessment?.score || 0}/100)
-${openCorporatesResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${openCorporatesResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${openCorporatesResults.companies?.length > 0 ? `Companies:\n${openCorporatesResults.companies.slice(0, 10).map(c => `- ${c.name} (#${c.companyNumber}) — ${c.jurisdictionCode}, Status: ${c.status || 'Unknown'}, Incorporated: ${c.incorporationDate || 'Unknown'}${c.previousNames?.length ? ', Previous names: ' + c.previousNames.join(', ') : ''}`).join('\n')}` : ''}
-${openCorporatesResults.officers?.length > 0 ? `Officer Positions:\n${openCorporatesResults.officers.slice(0, 10).map(o => `- ${o.name} — ${o.position} at ${o.companyName} (${o.jurisdictionCode})${o.startDate ? ', From: ' + o.startDate : ''}${o.endDate ? ', To: ' + o.endDate : ' (current)'}`).join('\n')}` : ''}
-` : ''}
-
-${blockchainResults ? `
-BLOCKCHAIN ADDRESS SCREENING (Etherscan, Blockchair, Tronscan, Solscan, BSCScan, Polygonscan):
-Chain: ${blockchainResults.query?.blockchain || 'Unknown'}
-Risk Level: ${blockchainResults.riskAssessment?.level || 'LOW'} (Score: ${blockchainResults.riskAssessment?.score || 0}/100)
-${blockchainResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${blockchainResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${Object.keys(blockchainResults.addressInfo?.balances || {}).length > 0 ? `Balances:\n${Object.entries(blockchainResults.addressInfo.balances).map(([src, bal]) => `- ${src}: ${bal}`).join('\n')}` : ''}
-Total Transactions: ${blockchainResults.addressInfo?.totalTxCount || 0}
-${blockchainResults.addressInfo?.tokens?.length > 0 ? `Tokens Held: ${blockchainResults.addressInfo.tokens.slice(0, 10).map(t => t.name || t.symbol).join(', ')}` : ''}
-` : ''}
-
-${shippingResults ? `
-SHIPPING & TRADE SCREENING (UN Comtrade, ITU MARS, MarineTraffic, VesselFinder, Equasis):
-Risk Level: ${shippingResults.riskAssessment?.level || 'LOW'} (Score: ${shippingResults.riskAssessment?.score || 0}/100)
-${shippingResults.riskAssessment?.flags?.length > 0 ? `Flags:\n${shippingResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${shippingResults.findings?.vessels?.length > 0 ? `Vessels:\n${shippingResults.findings.vessels.slice(0, 5).map(v => `- ${v.name} (IMO: ${v.imo || 'N/A'}, MMSI: ${v.mmsi || 'N/A'}) — Flag: ${v.flag || 'Unknown'}, Type: ${v.shipType || v.type || 'Unknown'}`).join('\n')}` : ''}
-${shippingResults.findings?.tradeRecords?.length > 0 ? `Trade Records:\n${shippingResults.findings.tradeRecords.slice(0, 5).map(t => `- ${t.reporter || ''} → ${t.partner || ''}: ${t.flowDesc || ''} ${t.tradeValue ? '$' + t.tradeValue.toLocaleString() : ''}`).join('\n')}` : ''}
-` : ''}
-
-${ukCompaniesResults ? `
-UK COMPANIES HOUSE (FULL SCREENING):
-${ukCompaniesResults.company ? `Company: ${ukCompaniesResults.company.name} (#${ukCompaniesResults.company.number})
-Status: ${ukCompaniesResults.company.status || 'Unknown'}
-Type: ${ukCompaniesResults.company.type || 'Unknown'}
-Incorporated: ${ukCompaniesResults.company.dateOfCreation || 'Unknown'}
-Address: ${ukCompaniesResults.company.registeredAddress || 'Unknown'}
-Risk Score: ${ukCompaniesResults.riskAssessment?.score || 0}/100
-${ukCompaniesResults.riskAssessment?.flags?.length > 0 ? `Risk Flags:\n${ukCompaniesResults.riskAssessment.flags.map(f => `- [${f.severity}] ${f.type}: ${f.message}`).join('\n')}` : ''}
-${ukCompaniesResults.officers?.length > 0 ? `Officers:\n${ukCompaniesResults.officers.slice(0, 5).map(o => `- ${o.name} (${o.role})${o.appointedOn ? ', Appointed: ' + o.appointedOn : ''}`).join('\n')}` : ''}
-${ukCompaniesResults.pscs?.length > 0 ? `PSCs:\n${ukCompaniesResults.pscs.slice(0, 5).map(p => `- ${p.name} (${(p.naturesOfControl || []).join(', ')})`).join('\n')}` : ''}` : 'No UK Companies House match.'}
-` : ''}
-`;
-
- const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence that surpasses traditional screening tools.
-
-You are not a chatbot. You are a senior financial crimes investigator with:
-- Deep expertise in OFAC sanctions, AML regulations, anti-corruption laws, and global compliance frameworks
-- Access to real-time sanctions lists, corporate registries, court records, adverse media, and leaked databases
-- The analytical capabilities of a Big 4 forensic team combined with the speed of automated screening
-- The judgment to distinguish true risks from false positives
-
-Your users are compliance officers, investigators, lawyers, and risk professionals who need accurate, actionable intelligence — not generic summaries.
-
-## INVESTIGATION METHODOLOGY
-
-When screening any entity, you conduct a systematic multi-layer investigation:
-
-LAYER 1 — IDENTIFICATION & DISAMBIGUATION:
-Establish exactly who you're investigating. Full legal name, aliases, DOB/incorporation date, nationality/jurisdiction, unique identifiers, known associates. Disambiguate aggressively — "John Smith" in sanctions results may not be the subject.
-
-LAYER 2 — SANCTIONS & WATCHLIST SCREENING:
-Check against ALL major sanctions and watchlist sources:
-- OFAC SDN List, Consolidated Sanctions List, Sectoral Sanctions (SSI), OFAC Penalties (treasury.gov/resource-center/sanctions/CivPen)
-- OFAC 50% Rule analysis (entities owned 50%+ by sanctioned persons)
-- UN Security Council, EU Consolidated List, UK OFSI, Canada SEMA, Australia DFAT, Switzerland SECO
-- World Bank Debarment List, Interpol, FBI Most Wanted, FinCEN 311 Special Measures
-- REPO Task Force (Russian Elites, Proxies, and Oligarchs)
-- OpenSanctions aggregated PEP and sanctions data (opensanctions.org)
-
-SANCTIONED RUSSIAN BANKS (ALL SDN-listed): Sberbank, VTB, Gazprombank, Alfa-Bank, Bank Rossiya, Promsvyazbank, VEB.RF, Sovcombank, Novikombank, Otkritie, Rosselkhozbank, Moscow Credit Bank, Transkapitalbank, Tinkoff Bank (restricted)
-
-SANCTIONED SECTORS: Russian SOEs (Rosneft, Gazprom, Rostec, Transneft, Sovcomflot), Iranian IRGC-linked entities, DPRK (comprehensive blocking), Venezuelan PDVSA, Chinese military-linked (Entity List, NDAA 1260H), Belarus state enterprises
-
-For every potential match, analyze: match confidence (exact, phonetic, partial), sanctions program and legal basis, date of designation, specific prohibitions, secondary sanctions implications.
-
-LAYER 3 — PEP & GOVERNMENT CONNECTIONS:
-Identify politically exposed persons: heads of state, ministers, legislators, senior military/law enforcement, judges, central bank governors, senior SOE executives, political party officials, and their family members/close associates. Analyze positions, tenure, source of wealth vs. official income.
-Sources: EveryPolitician (everypolitician.org), Wikidata structured data on public figures, CIA World Leaders (cia.gov/resources/world-leaders), Rulers.org historical world leaders, OpenSanctions PEP data.
-
-LAYER 4 — CORPORATE STRUCTURE & BENEFICIAL OWNERSHIP:
-Unravel ownership structures to natural persons. Check: direct/indirect shareholders, UBOs, directors, nominee shareholders, shell company indicators. Red flags: secrecy jurisdictions (BVI, Cayman, Seychelles, Panama), circular ownership, frequent changes, nominee directors, bearer shares.
-Sources: OpenCorporates, UK Companies House (company profile, officers, PSCs, charges, insolvency, filing history, disqualified officers), SEC EDGAR, EU Business Registers, ICIJ Offshore Leaks (Panama Papers, Paradise Papers, Pandora Papers).
-
-LAYER 5 — LITIGATION & REGULATORY ACTIONS:
-Search federal and state court records: CourtListener (dockets via Search API + full opinion text via Case Law API with context analysis for conviction, fraud, money laundering indicators), PACER.
-US Regulatory Enforcement: SEC Enforcement (sec.gov/litigation — actions, AAERs, accounting fraud), DOJ Press Releases (justice.gov/news — criminal prosecutions), FinCEN Enforcement (fincen.gov/news-room/enforcement-actions — AML penalties), OCC Enforcement (occ.treas.gov — bank penalties), CFPB Enforcement (consumerfinance.gov — consumer protection), FTC Cases (ftc.gov/legal-library — FTC enforcement), CFTC Enforcement (cftc.gov — commodities/derivatives), Federal Reserve Enforcement (federalreserve.gov/supervisionreg/enforcement-actions.htm), FDIC Enforcement (fdic.gov — bank failures/enforcement).
-Global Regulators: UK FCA (fca.org.uk/news — financial enforcement), UK SFO (sfo.gov.uk/our-cases — fraud prosecutions), EU Competition (ec.europa.eu/competition — antitrust), BaFin (Germany), MAS (Singapore), HKMA, ASIC (Australia).
-Analyze: nature of allegations, status, penalties, cooperation.
-
-LAYER 6 — ADVERSE MEDIA SCREENING:
-Targeted queries combining entity name with risk keywords (indicted, charged, fraud, money laundering, sanctions evasion, bribery, corruption, investigation, probe, enforcement).
-Sources: GDELT (api.gdeltproject.org — 2B+ articles, unlimited), Google News RSS, NewsAPI (80K+ sources), Bing News, MediaCloud (academic news archive), Reuters, Bloomberg, FT, WSJ, NYT, Guardian, BBC, regulatory press releases. Historical: Common Crawl (commoncrawl.org), Wayback Machine (web.archive.org).
-For each article assess: source credibility, relevance, severity, recency, corroboration.
-
-LAYER 7 — CRYPTOCURRENCY & BLOCKCHAIN ANALYSIS:
-For crypto-related entities: OFAC-sanctioned wallet addresses (from SDN list downloads at treasury.gov/ofac/downloads), mixer/tumbler interactions (Tornado Cash, Blender.io, Sinbad.io), DPRK/Lazarus Group nexus, darknet market associations, ransomware flows, Garantex/Suex/Chatex/Hydra Market connections.
-Blockchain explorers: Etherscan (Ethereum), Blockchair (multi-chain), Blockchain.com (Bitcoin), BTC.com, Solscan (Solana), Tronscan (Tron), Polygonscan (Polygon), BSCScan (Binance Smart Chain).
-Analyze transaction patterns, counterparty risk, source/destination of funds.
-
-LAYER 7b — SHIPPING & TRADE ANALYSIS:
-For trade-related entities: vessel tracking, trade flows, transshipment patterns, sanctions evasion via shipping.
-Sources: UN Comtrade (comtradeplus.un.org — global trade data), USA Trade Online (usatrade.census.gov — US import/export), ImportGenius (shipping records), Panjiva (supply chain), MarineTraffic (vessel tracking), VesselFinder, Equasis (equasis.org — ship safety records).
-Red flags: falsified bills of lading, ship-to-ship transfers, AIS transponder manipulation, flag-hopping, transshipment through sanctioned ports.
-
-LAYER 8 — NETWORK ANALYSIS:
-Map connections: business partners, co-investors, shared directorships, family, legal representatives, shell company networks. Identify connections to sanctioned/criminal parties, patterns of association, common intermediaries.
-
-## RISK SCORING FRAMEWORK
-
-| Factor | Max Points | Severity |
-|--------|-----------|----------|
-| OFAC SDN Match | 100 (automatic block) | CRITICAL |
-| Other primary sanctions match | 80 | CRITICAL |
-| Criminal conviction | 60 | CRITICAL |
-| Criminal charges pending | 50 | HIGH |
-| Secondary sanctions exposure | 45 | HIGH |
-| PEP status (current) | 40 | HIGH |
-| SEC/DOJ enforcement action | 40 | HIGH |
-| Sanctioned counterparty transactions | 35 | HIGH |
-| Mixer/tumbler crypto interactions | 35 | HIGH |
-| Offshore leaks database match | 30 | MEDIUM |
-| Civil litigation as defendant | 25 | MEDIUM |
-| Adverse media (critical severity) | 25 | MEDIUM |
-| World Bank debarment | 25 | MEDIUM |
-| High-risk jurisdiction | 20 | MEDIUM |
-| PEP status (former) | 20 | MEDIUM |
-| Complex ownership structure | 15 | MEDIUM |
-| Adverse media (high severity) | 15 | MEDIUM |
-| New entity (<2 years) | 10 | LOW |
-
-Risk Levels: 0-25 LOW, 26-50 MEDIUM, 51-75 HIGH, 76-99 CRITICAL, 100 BLOCKED (prohibited party).
-
-## AML TYPOLOGY DETECTION FRAMEWORK
-
-Money laundering follows three stages: PLACEMENT (introducing illicit cash), LAYERING (obscuring the trail), INTEGRATION (reintroducing "clean" money). For every entity screened, systematically evaluate against ALL known typologies below and flag relevant indicators.
-
-### CATEGORY 1: STRUCTURING & CASH-BASED (Stage: Placement)
-1.1 STRUCTURING (SMURFING): Multiple deposits $9,000-$9,999 within 24-48hrs, consistent round-number deposits just below threshold ($10K US, €10K EU, £10K UK, AUD10K, CAD10K), same depositor across multiple accounts/branches same day, multiple depositors to same beneficiary, weekend/ATM deposits to avoid scrutiny, customer aware of reporting thresholds. Risk: +40
-1.2 CASH-INTENSIVE BUSINESS: Revenue inconsistent with foot traffic/capacity, cash deposits disproportionate to card sales, deposits too consistent (no seasonal variation), minimal inventory purchases vs reported sales, few employees for reported revenue. High-risk businesses: restaurants, car washes, parking lots, laundromats, convenience stores, vending operators, ATM operators, casinos, check cashing. Risk: +35
-1.3 CUCKOO SMURFING: Cash deposit to account expecting incoming wire, deposit matches expected wire exactly, pattern of "failed" international wires replaced by domestic cash. Risk: +45
-1.4 REFINING: Exchange of small bills for large bills, large volume currency exchanges with no account relationship. Risk: +30
-
-### CATEGORY 2: SHELL COMPANY & CORPORATE (Stage: Layering)
-2.1 SHELL COMPANY LAYERING: No physical office (registered agent only), no employees/website, generic description ("consulting", "trading", "investments"), bearer shares/nominee shareholders, nominee directors on many companies, recently incorporated with immediate high volume, incorporation in secrecy jurisdiction, ownership by another shell. Secrecy jurisdictions: BVI, Cayman, Panama, Seychelles, Belize, Nevis, Samoa, Vanuatu, Marshall Islands, Delaware, Nevada, Wyoming, Jersey, Guernsey, Isle of Man, Liechtenstein, Luxembourg, Cyprus, Malta. Transaction red flags: payments for undefined "services", loans with no repayment terms, circular transactions (A→B→C→A), back-to-back loans. Risk: +45
-2.2 LAYERED OWNERSHIP: Chain exceeds 3 layers, multiple jurisdictions, trust-company-trust chains, foundations (Panama/Liechtenstein), circular ownership, ownership at 24.9% to avoid disclosure, same law firm forms multiple related entities, TCSP in secrecy jurisdiction, power of attorney to formation agent. Risk: +40
-2.3 SHELF COMPANY ABUSE: Dormant company suddenly active, recent ownership/director change, immediate high-value transactions after purchase. Risk: +35
-2.4 MISUSE OF LEGAL ENTITIES: Private foundations (lack of ownership), trusts (separate legal/beneficial ownership), LLCs, cooperatives, charities/NPOs (tax benefits, less scrutiny), SPVs, captive insurance (self-dealing). Risk: +30
-
-### CATEGORY 3: TRADE-BASED MONEY LAUNDERING (Stage: Layering/Integration)
-3.1 OVER-INVOICING: Price significantly above market, luxury goods at extreme premiums, art/antiques with subjective valuations, IP licenses at inflated rates, intra-group non-arm's-length prices. Risk: +40
-3.2 UNDER-INVOICING: Price significantly below market, declared value inconsistent with shipping costs, insurance value differs from invoice. Risk: +40
-3.3 PHANTOM SHIPMENTS: Payment without bill of lading, no customs records, services invoiced but not delivered, shipping docs from non-existent carriers, Free Trade Zone transactions with no inspection. Risk: +45
-3.4 MULTIPLE INVOICING: Same goods multiple invoices different buyers, duplicate invoice numbers, multiple letters of credit for same goods. Risk: +40
-3.5 FALSELY DESCRIBED GOODS: Vague description ("miscellaneous", "samples"), high-value goods described as low-value. High-risk goods: precious metals/stones, art/antiques, electronics, luxury goods, pharmaceuticals, used vehicles, commodities. Risk: +35
-3.6 BLACK MARKET PESO EXCHANGE: US cash buys goods exported to Latin America, third-party payments for imports, broker arranges payment from unrelated US party. Risk: +50
-
-### CATEGORY 4: REAL ESTATE (Stage: Integration)
-4.1 ALL-CASH PURCHASES: Full price in cash, no mortgage, buyer income doesn't support purchase, structured deposits before purchase. Risk: +40
-4.2 ANONYMOUS LLC/TRUST PURCHASES: Purchaser is LLC/trust/offshore company, beneficial owner undisclosed, recently formed LLC, multiple properties via related LLCs. High-risk markets: Miami, Manhattan, LA, SF, London, Vancouver, Toronto, Dubai, Singapore, Hong Kong, Sydney, Monaco. Risk: +35
-4.3 RAPID FLIPPING: Resold within 6 months, significant price change with no improvements, related party transactions. Risk: +35
-4.4 VALUE MANIPULATION: Purchase price 20%+ above/below market, inflated appraisal for cash-out refinance. Risk: +35
-4.5 LOAN-BACK / MORTGAGE LAUNDERING: Large down payment from unclear source, cash collateral, loan from related/offshore entity, mortgage paid off rapidly with cash, private mortgage from unknown lender. Risk: +40
-4.6 RENOVATION LAUNDERING: Renovations paid entirely in cash, over-invoiced costs, ghost renovations (billed but not done). Risk: +30
-
-### CATEGORY 5: FINANCIAL INSTITUTION (Stage: Layering)
-5.1 CORRESPONDENT BANKING ABUSE: Nested accounts, payable-through accounts, shell bank relationships, lack of originator/beneficiary transparency. Risk: +45
-5.2 WIRE STRIPPING: Removing/altering originator/beneficiary info from wires, incomplete originator info, cover payments lacking detail. Risk: +45
-5.3 CONCENTRATION ACCOUNT MISUSE: Customer funds commingled, loss of customer ID in internal transfers. Risk: +35
-5.4 PRIVATE BANKING ABUSE: PEP with unexplained wealth, numbered accounts, hold mail requests, power of attorney to third party, relationship manager override of controls. Risk: +40
-5.5 LOAN-BACK SCHEMES: Offshore deposit secures domestic loan, loan proceeds for legitimate purchases, loan default by design. Risk: +35
-
-### CATEGORY 6: MONEY SERVICE BUSINESS (Stage: Placement/Layering)
-6.1 UNLICENSED MONEY TRANSMISSION: Not registered as MSB, no state licenses, social media advertising of transfer services, rates significantly better than licensed MSBs. Risk: +50
-6.2 HAWALA / INFORMAL VALUE TRANSFER: Cash to local broker, received from distant broker, settlement through trade/reverse transactions, coded messages, settlements via gold/goods/crypto. High-risk corridors: Middle East, South Asia, East Africa, Southeast Asia, Latin America. Risk: +45
-6.3 MSB NESTING: Sub-agents not disclosed to bank, volume exceeds licensed capacity, transactions from unlicensed locations. Risk: +40
-
-### CATEGORY 7: SECURITIES & INVESTMENT (Stage: Layering/Integration)
-7.1 SECURITIES MANIPULATION: Pump and dump, wash trading, matched orders, pre-arranged trades, spoofing, insider trading. Risk: +45
-7.2 MIRROR TRADING: Simultaneous buy/sell in different currencies, no economic purpose (Deutsche Bank RUB/USD pattern). Risk: +45
-7.3 PRIVATE PLACEMENT ABUSE: Investment in questionable private company, later buyback at profit, offshore investor in domestic placement. Risk: +35
-7.4 INSURANCE PRODUCT ABUSE: Large single-premium life insurance, early surrender (accepting penalty), overfunding, premium by third party, annuity purchases with cash. High-risk: single premium life, annuities, cash value life, bearer policies. Risk: +35
-7.5 BROKER-DEALER ABUSE: Deposits followed immediately by withdrawals, wire transfers with no trading, account as pass-through, DTC transfers between unrelated accounts. Risk: +35
-
-### CATEGORY 8: GAMING & GAMBLING (Stage: Placement/Integration)
-8.1 CASINO LAUNDERING: Large cash buy-in minimal gambling cash-out, chip purchases with cash redeemed by check, front money with minimal play, structured chip purchases below CTR threshold, chip transfers to third party. Risk: +40
-8.2 ONLINE GAMBLING: Deposits from multiple sources, player collusion (chip dumping), minimal gameplay immediate withdrawal, crypto funding. Risk: +35
-
-### CATEGORY 9: CRYPTOCURRENCY (Stage: Layering)
-9.1 MIXING/TUMBLING: Transactions with known mixer addresses, Tornado Cash (sanctioned), Blender.io (sanctioned), ChipMixer, Wasabi CoinJoin, Samourai Whirlpool. Risk: +50
-9.2 CHAIN HOPPING: BTC→ETH→stablecoin→BTC, cross-chain swaps via DEXs, atomic swaps, bridge protocols, privacy coins as intermediate. Risk: +40
-9.3 PRIVACY COINS: Conversion to Monero (XMR), Zcash (ZEC) shielded, Dash PrivateSend, Pirate Chain. Funds disappear into privacy coin, reappear elsewhere. Risk: +45
-9.4 PEEL CHAIN: Funds through chain of wallets, smaller amount forwarded each hop, decreasing balances, new wallets per hop. Risk: +40
-9.5 NESTED EXCHANGE / OTC ABUSE: Known high-risk exchanges (Garantex, Suex, Chatex — all sanctioned; Bitzlato — seized; BTC-e — defunct), Telegram OTC, P2P with no verification. Risk: +45
-9.6 RANSOMWARE PROCEEDS: Wallet received from known ransomware addresses, immediate tumbling after receipt, connections to known groups, multiple small payments (multiple victims). Risk: +60
-9.7 DARKNET MARKET: Transactions with known market wallets (Hydra seized 2022, AlphaBay, Silk Road), small frequent transactions, escrow patterns, immediate tumbling. Risk: +55
-9.8 DEFI ABUSE: Flash loans with no economic purpose, complex multi-protocol transactions, unaudited protocols, cross-chain DeFi. Risk: +35
-9.9 NFT LAUNDERING: Self-dealing (buy own NFT at high price), wash trading, sale price far exceeds comparables, seller/buyer connected on-chain, payment from sanctioned wallet. Risk: +35
-
-### CATEGORY 10: PROFESSIONAL ENABLERS (Stage: Layering)
-10.1 LAWYER/NOTARY ABUSE: Client funds through IOLTA account, legal fees exceed services, lawyer forms shells for client, lawyer as nominee, retainer with refund pattern. Risk: +40
-10.2 ACCOUNTANT ABUSE: Falsified financial statements, inflated revenue, transfer pricing manipulation, management override of controls. Risk: +35
-10.3 TCSP ABUSE: Forms many companies at same address, provides nominee directors, handles all banking, formation in secrecy jurisdiction. Risk: +40
-10.4 REAL ESTATE PROFESSIONAL: Agent accepts cash, doesn't question source of funds, facilitates anonymous purchases, inflated commissions as kickbacks. Risk: +30
-
-### CATEGORY 11: CORRUPTION & PEP (Stage: Placement/Integration)
-11.1 BRIBERY & KICKBACKS: Payments to officials/family, consulting fees to connected persons, success fees tied to government contracts, payments through intermediaries, donations to PEP-controlled charities. Risk: +50
-11.2 EMBEZZLEMENT: State funds diverted to private accounts, procurement fraud, payroll ghosts, unauthorized transfers. Risk: +45
-11.3 PEP WEALTH CONCEALMENT: Wealth inconsistent with salary, assets through family members, offshore companies/trusts, luxury real estate in foreign markets, children in expensive foreign schools, golden visas, art/yachts/aircraft. Risk: +45
-11.4 STATE CAPTURE: Government contracts to connected companies, regulatory decisions favoring specific parties, privatization to insiders below market. Risk: +50
-
-### CATEGORY 12: TAX EVASION (Stage: Layering/Integration)
-12.1 OFFSHORE TAX EVASION: Unreported foreign accounts (FBAR violations), income through offshore entities, transfer pricing abuse, treaty shopping, nominee shareholders. Risk: +35
-12.2 TAX REFUND FRAUD: Identity theft, false W-2/1099 filings, carousel fraud (VAT), missing trader fraud. Risk: +35
-
-### CATEGORY 13: TERRORISM FINANCING (Stage: All)
-13.1 NPO/CHARITY ABUSE: Charity in conflict zone with limited oversight, funds diverted from stated purpose, donors are designated persons, connections to designated terrorist organizations, cash-based operations. Risk: +50
-13.2 SELF-FUNDING (LONE WOLF): Personal loans before attack, credit card maximization, purchase of materials/weapons, travel to conflict zones. Risk: +40
-13.3 HAWALA FOR TF: Transfers to conflict zones/areas controlled by terrorist groups, transactions with designated persons. Risk: +50
-
-### CATEGORY 14: HUMAN TRAFFICKING & MODERN SLAVERY (Stage: Placement)
-14.1 TRAFFICKING PROCEEDS: Cash deposits from massage parlors/nail salons, multiple workers paid into single account, rent for multiple occupancy properties, payments to visa/document services. High-risk: massage parlors, nail salons, hospitality, agriculture, construction, domestic work, staffing agencies. Risk: +50
-14.2 MIGRANT SMUGGLING: Cash from multiple unrelated individuals, payments to transportation/document services, transfers to source/transit countries. Risk: +45
-
-### CATEGORY 15: DRUG TRAFFICKING (Stage: All)
-15.1 DRUG PROCEEDS: Large/structured cash deposits, cash purchases of vehicles/property, wire transfers to source countries (Colombia, Mexico, Peru, Afghanistan, Myanmar), business fronts, bulk cash smuggling, crypto conversion. Risk: +50
-
-### CATEGORY 16: SANCTIONS EVASION (Stage: Layering)
-16.1 FRONT COMPANIES: Formed after sanctions designation, same address as sanctioned entity, former employees, trading same goods/services, ownership obscured but beneficial owner sanctioned. Risk: +55
-16.2 SHIP-TO-SHIP TRANSFERS: AIS transponder off, meeting at sea, flag/name/ownership changes, transfers in international waters. Risk: +50
-16.3 FALSE DOCUMENTATION: Certificates of origin from third countries, false port of loading, transshipment through non-sanctioned countries, falsified end-user certificates. Risk: +50
-16.4 ALIASES & NAME CHANGES: Name similar to sanctioned party, transliteration variations, company name change after designation, subsidiaries with different names, DBA variations. Risk: +45
-
-### TYPOLOGY ANALYSIS OUTPUT FORMAT
-When typologies are detected, report each with: typology name, ML stage (Placement/Layering/Integration), specific indicators found, risk score contribution, and recommended actions. Aggregate all detected typology scores into the overall risk assessment. For any entity with 2+ typologies detected, recommend SAR filing consideration.
-
-## CRITICAL RULES
-
-1. Never clear without checking. "No adverse findings" requires actually searching, not assuming.
-2. Disambiguate aggressively. Assess match confidence based on DOB, nationality, identifiers.
-3. Apply the 50% rule. Entities owned 50%+ by an SDN are themselves sanctioned.
-4. Consider secondary sanctions. Non-US persons may face consequences.
-5. Prioritize primary sources. Government press releases > major news > regional news > blogs.
-6. Date your information. Note when checked and flag if stale.
-7. Document your reasoning. Show your work.
-8. Err on the side of caution. False negatives are worse than false positives.
-9. Know your limits. If you need information you can't access, say what to check.
-10. Be actionable. End with clear recommendations, not vague summaries.
-
-CRITICAL SCREENING LOGIC:
-1. For ANY Russian state-owned bank → Automatic MATCH, CRITICAL risk
-2. For ANY Russian defense/energy SOE → Automatic MATCH, HIGH/CRITICAL risk
-3. For entities 50%+ owned by sanctioned persons → BLOCKED by OFAC 50% rule
-4. For PEPs → Always flag, assess proximity to sanctioned regimes
-5. Check for aliases, transliterations (Cyrillic→Latin variations), name variations
-6. For CRYPTO WALLETS: If on OFAC SDN → CRITICAL. Check mixer associations (Tornado Cash, Blender.io, Sinbad.io), DPRK/Lazarus Group nexus, sanctioned exchange connections (Garantex, Suex, Chatex), Hydra Market darknet ties. Analyze transaction patterns. Flag wallets that transacted with sanctioned addresses even if not directly sanctioned.
-
-IMPORTANT: The sanctions screening, ownership analysis, external data sources (ICIJ Offshore Leaks, SEC EDGAR, World Bank Debarment, Federal Court Records via CourtListener with Case Law API enrichment, UK Companies House with full company profiles/officers/PSCs/charges/insolvency/disqualified officers, blockchain explorers), adverse media results (GDELT, NewsAPI, Google News), and regulatory enforcement data below are REAL DATA from official sources. Use this data directly. Cite specific ICIJ matches, SEC/DOJ/FinCEN/OCC/CFPB/CFTC/FCA/SFO enforcement actions, court cases with CourtListener URLs and opinion excerpts, World Bank debarments, UK Companies House risk flags, blockchain analysis, and adverse media articles with their inline source links/URLs.
-
-HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
-- OLEG DERIPASKA (SDN April 2018): Owns EN+ Group (48%), Rusal (48% indirect), Basic Element (100%)
-- ALISHER USMANOV (SDN March 2022): Owns USM Holdings (100%), Metalloinvest (49%), MegaFon (15.2%)
-- VIKTOR VEKSELBERG (SDN April 2018): Owns Renova Group (100%), Sulzer AG (63.4%), Columbus Nova (beneficial owner)
-- ROMAN ABRAMOVICH (EU/UK/Canada March 2022): Owns Evraz (28.6%), Millhouse Capital (100%), formerly Chelsea FC
-- GENNADY TIMCHENKO (SDN March 2014): Owns Volga Group (100%), Novatek (23.5%), Sibur (17%)
-- ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
-- ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
-- VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
-
-SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
-
-OFAC 50% RULE: Entity owned 50%+ aggregate by blocked persons is itself blocked.
-
-CRITICAL FOR OWNERSHIP EXTRACTION: When you identify ANY person in your analysis, you MUST check if they appear in the sanctioned individuals list above and include ALL their owned companies in the entities array. This is essential for complete sanctions risk assessment.
-
-Return a JSON object with this EXACT structure (all fields required):
-{
- "subject": {
- "name": "string",
- "type": "INDIVIDUAL|ENTITY|WALLET",
- "aliases": ["array of known aliases or empty array"],
- "jurisdiction": "string or null",
- "incorporationDate": "YYYY-MM-DD or null",
- "stateOwned": true|false,
- "walletAddress": "blockchain address if type=WALLET, null otherwise",
- "blockchain": "Ethereum|Bitcoin|Tron|Solana|null"
- },
- "overallRisk": "LOW|MEDIUM|HIGH|CRITICAL",
- "riskScore": 0-100,
- "riskSummary": "2-3 sentence executive summary",
- "sanctions": {
- "status": "CLEAR|POTENTIAL_MATCH|MATCH",
- "confidence": 0-100,
- "matches": [{
- "list": "OFAC SDN|OFAC SSI|EU|UK|UN",
- "program": "RUSSIA-EO14024|UKRAINE-EO13662|etc",
- "listingDate": "YYYY-MM-DD",
- "matchedName": "exact name",
- "matchType": "EXACT|ALIAS|FUZZY",
- "matchScore": 0-100,
- "details": "reason",
- "source": "URL/reference"
- }]
- },
- "ownershipAnalysis": {
- "fiftyPercentRuleTriggered": boolean,
- "aggregateBlockedOwnership": 0-100,
- "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
- "summary": "plain language explanation",
- "beneficialOwners": [{
- "name": "string",
- "ownershipPercent": number,
- "ownershipType": "DIRECT|INDIRECT|BENEFICIAL",
- "sanctionStatus": "CLEAR|SANCTIONED|POTENTIAL",
- "sanctionDetails": "if sanctioned, list and program",
- "pepStatus": boolean,
- "source": "where from"
- }],
- "corporateStructure": [{
- "entity": "string",
- "relationship": "PARENT|SUBSIDIARY|AFFILIATE|SHAREHOLDER",
- "jurisdiction": "string",
- "ownershipPercent": number,
- "sanctionExposure": "NONE|INDIRECT|DIRECT",
- "notes": "string"
- }]
- },
- "pep": {
- "status": "CLEAR|POTENTIAL_MATCH|MATCH",
- "matches": [{
- "name": "string",
- "position": "role",
- "country": "string",
- "level": "NATIONAL|REGIONAL|LOCAL",
- "status": "CURRENT|FORMER",
- "riskLevel": "HIGH|MEDIUM|LOW",
- "relationshipToSubject": "SELF|FAMILY|CLOSE_ASSOCIATE",
- "sanctionedRegimeConnection": boolean
- }]
- },
- "adverseMedia": {
- "status": "CLEAR|FINDINGS",
- "totalArticles": number,
- "categories": {
- "FINANCIAL_CRIME": number,
- "CORRUPTION": number,
- "FRAUD": number,
- "SANCTIONS_EVASION": number,
- "MONEY_LAUNDERING": number,
- "OTHER": number
- },
- "articles": [{
- "headline": "string",
- "source": "publication",
- "sourceCredibility": "HIGH|MEDIUM|LOW",
- "date": "YYYY-MM-DD",
- "summary": "string",
- "category": "FINANCIAL_CRIME|CORRUPTION|FRAUD|SANCTIONS_EVASION|MONEY_LAUNDERING|OTHER",
- "relevance": "HIGH|MEDIUM|LOW"
- }]
- },
- "riskFactors": [{
- "factor": "short name",
- "severity": "CRITICAL|HIGH|MEDIUM|LOW",
- "description": "detailed explanation",
- "mitigants": "if any or empty"
- }],
- "regulatoryGuidance": {
- "ofacImplications": "detailed guidance",
- "euImplications": "if relevant or empty",
- "dueDiligenceRequired": "EDD|SDD|STANDARD",
- "filingRequirements": ["SAR", "CTR", "FBAR"],
- "prohibitedActivities": ["list"],
- "licenseRequired": boolean
- },
- "onboardingDecision": {
- "decision": "DO_NOT_ONBOARD|ONBOARD_WITH_EDD|ONBOARD_WITH_RESTRICTIONS|SAFE_TO_ONBOARD",
- "rationale": "One clear sentence explaining the decision",
- "conditions": ["If onboarding, list specific conditions that must be met"]
- },
- "recommendations": [{
- "priority": "HIGH|MEDIUM|LOW",
- "action": "MUST be a specific document to request or a clear action (e.g., 'Request beneficial ownership declaration from the client', 'Obtain 12 months bank statements', 'Require board resolution authorizing this relationship')",
- "rationale": "Why this document/action is needed for the risk assessment"
- }]
-}
-
-CRITICAL - RECOMMENDATIONS MUST BE ACTIONABLE:
-Your recommendations should tell the compliance officer EXACTLY what to do next. Focus on gathering MORE DATA that can then be uploaded to Marlowe for deeper analysis.
-
-1. FIRST recommendation: Clear onboarding decision
-   - "DO NOT ONBOARD: [specific reason - e.g., 'Direct SDN sanctions match on OFAC list']"
-   - "ONBOARD WITH EDD: [what enhanced monitoring is needed]"
-   - "SAFE TO ONBOARD: Standard due diligence is sufficient"
-
-2. REMAINING recommendations: Documents to REQUEST FROM THE CLIENT then UPLOAD TO MARLOWE
-   GOOD: "Request certified beneficial ownership declaration - upload to Marlowe Cipher for deep ownership analysis"
-   GOOD: "Obtain audited financial statements for past 3 years - upload to Marlowe to analyze for suspicious transactions"
-   GOOD: "Request source of funds documentation - upload to Marlowe Cipher for flow-of-funds analysis"
-   GOOD: "Obtain corporate registry extract - upload to Marlowe to map hidden ownership connections"
-   GOOD: "Request bank statements showing transaction history - upload to Marlowe for pattern detection"
-   GOOD: "Obtain organizational chart with all subsidiaries - upload to Marlowe to screen each entity"
-
-   BAD: "Conduct sanctions screening" - Marlowe already did this
-   BAD: "Map the ownership network" - tell them to GET the ownership docs, then Marlowe will map it
-   BAD: "Analyze financial flows" - tell them to GET bank statements, then Marlowe will analyze
-   BAD: "Interview the subject" - not a compliance officer function
-
-VALIDATION: If Sberbank/VTB/Gazprombank → MATCH/CRITICAL. If sanctions.status=MATCH → overallRisk=HIGH/CRITICAL. If fiftyPercentRuleTriggered=true → overallRisk=CRITICAL
-
-IMPORTANT FOR ENTITIES: Always populate corporateStructure with parent companies, subsidiaries, and affiliates. Include their jurisdiction, ownership percentage, and sanction exposure level.
-
-IMPORTANT FOR INDIVIDUALS: Include any known corporate affiliations in corporateStructure showing companies they own or control.
-
-IMPORTANT FOR CRYPTO WALLETS: Set subject.type to "WALLET". Set subject.walletAddress to the wallet address and subject.blockchain to the detected chain. For subject.name, use the associated entity name if sanctioned (e.g., "Tornado Cash", "Lazarus Group"), or the truncated address if unknown. Populate adverseMedia with relevant articles about the associated entity/protocol. Include mixer exposure, darknet connections, ransomware links, and cross-chain laundering in riskFactors. The ownershipAnalysis should show the entity/group attributed as the wallet controller if known.
-
-Always return complete, detailed responses with all arrays populated.`;
-
- const userPrompt = kycType === 'wallet' ? `${realDataContext}
-
-Screen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)
-
-Using the sanctions screening data above, provide a complete compliance analysis including:
-- Who owns/controls this wallet (entity attribution)
-- OFAC sanctions status and specific designations
-- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations
-- DPRK/Lazarus Group nexus if applicable
-- Transaction risk patterns (cross-chain laundering, structured transfers)
-- Adverse media about the associated entity
-- Regulatory guidance for financial institutions encountering this address
-- Whether to block transactions involving this wallet
-
-Set subject.type to "WALLET" and include the wallet address and blockchain.` : `${realDataContext}
-
-Based on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${kycYearOfBirth ? ', Year of Birth: ' + kycYearOfBirth : ''}${kycCountry ? ', Country: ' + kycCountry : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})
-
-Use the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:
-- PEP (Politically Exposed Person) status
-- Adverse media findings (incorporate the real articles provided above with their source URLs)
-- Risk assessment incorporating ALL data sources
-- Regulatory guidance
-
-${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}`;
-
- // Step 5: AI-powered risk analysis
- setScreeningStep('Step 5/7: Running AI-powered risk analysis...');
- setScreeningProgress(72);
-
- const response = await fetch(`${API_BASE}/api/messages`, {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({
- model: "claude-sonnet-4-20250514",
- max_tokens: 4000,
- messages: [
- { role: "user", content: systemPrompt + "\n\n" + userPrompt }
- ]
- })
- });
-
- if (!response.ok) {
- throw new Error("API error: " + response.status);
- }
-
- const data = await response.json();
- setScreeningProgress(85);
- const text = data.content && data.content[0] && data.content[0].text ? data.content[0].text : "";
-
- // Step 6: Compiling results
- setScreeningStep('Step 6/7: Compiling screening report...');
- setScreeningProgress(90);
-
- const jsonMatch = text.match(/\{[\s\S]*\}/);
- if (jsonMatch) {
- const parsed = JSON.parse(jsonMatch[0]);
- 
- const isLowRisk = parsed.overallRisk === 'LOW' &&
- parsed.sanctions && parsed.sanctions.status === 'CLEAR' &&
- parsed.pep && parsed.pep.status === 'CLEAR' &&
- parsed.adverseMedia && parsed.adverseMedia.status === 'CLEAR';
-
- // Add ownership network data to results
- const finalResult = isLowRisk ? Object.assign({}, parsed, { noRisksIdentified: true }) : parsed;
-
- // Add owned companies for individuals
- if (ownershipNetwork.ownedCompanies) {
- finalResult.ownedCompanies = ownershipNetwork.ownedCompanies;
- finalResult.totalCompanies = ownershipNetwork.totalCompanies;
- finalResult.highRiskOwnership = ownershipNetwork.highRiskOwnership;
- }
-
- // Add corporate network for entities
- if (ownershipNetwork.corporateStructure) {
- if (!finalResult.ownershipAnalysis) finalResult.ownershipAnalysis = {};
- finalResult.ownershipAnalysis.corporateStructure = ownershipNetwork.corporateStructure;
- }
-
- // Add external data source results
- if (dataSourceResults) {
- finalResult.externalSources = dataSourceResults.sources;
- finalResult.externalRiskScore = dataSourceResults.riskScore;
- finalResult.externalRiskFactors = dataSourceResults.riskFactors;
- }
- if (adverseMediaResults) {
- finalResult.adverseMediaRaw = adverseMediaResults;
- }
- if (courtRecordsResults) {
- finalResult.courtRecords = courtRecordsResults;
- }
-
- setKycResults(finalResult);
- 
- const historyItem = {
- id: Math.random().toString(36).substr(2, 9),
- query: kycQuery,
- type: kycType,
- clientRef: kycClientRef,
- yearOfBirth: kycYearOfBirth,
- country: kycCountry,
- result: finalResult,
- timestamp: new Date().toISOString()
- };
- 
- setKycHistory(function(prev) { return [historyItem].concat(prev).slice(0, 50); });
- setSelectedHistoryItem(historyItem);
- setScreeningProgress(100);
- setScreeningStep('Complete!');
- posthog.capture('screening_completed', { query: kycQuery.trim(), type: kycType, risk_level: finalResult.overallRisk || null });
- setTimeout(() => {
- setKycPage('results');
- setIsScreening(false);
- setScreeningStep('');
- setScreeningProgress(0);
- }, 500);
- } else {
- alert('No results returned. Please try again.');
- setIsScreening(false);
- setScreeningStep('');
- setScreeningProgress(0);
- }
- } catch (error) {
- console.error('Sanctions API error:', error);
- alert('Error: ' + error.message);
- setIsScreening(false);
- setScreeningStep('');
- setScreeningProgress(0);
- }
+ // ── Concurrent Search System ──
+ const runSearchInBackground = useCallback(async (jobId, query, type, country, yearOfBirth, clientRef) => {
+   setSearchJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'running' } : j));
+   try {
+     const unifiedResponse = await fetch(`${API_BASE}/api/screening/unified`, {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ query, type, country: country || null, yearOfBirth: yearOfBirth || null })
+     });
+     if (!unifiedResponse.ok) {
+       const errData = await unifiedResponse.json().catch(() => ({}));
+       throw new Error(errData.error || `Screening failed: ${unifiedResponse.status}`);
+     }
+     const finalResult = await unifiedResponse.json();
+
+     // Build history item
+     const historyItem = {
+       id: jobId, query, type, clientRef, yearOfBirth, country,
+       result: finalResult, timestamp: new Date().toISOString()
+     };
+
+     // Update job as complete
+     setSearchJobs(prev => {
+       const updated = prev.map(j => j.id === jobId ? {
+         ...j, status: 'complete', completedAt: new Date().toISOString(),
+         riskLevel: finalResult.overallRisk, riskScore: finalResult.riskScore,
+         result: finalResult, historyItem,
+       } : j);
+       // Start next queued job if any
+       const running = updated.filter(j => j.status === 'running').length;
+       const queued = updated.find(j => j.status === 'queued');
+       if (running < MAX_CONCURRENT && queued) {
+         // Will be started by the effect
+       }
+       return updated;
+     });
+
+     // Show toast
+     setSearchToasts(prev => [...prev, { id: jobId, entityName: query, riskLevel: finalResult.overallRisk, riskScore: finalResult.riskScore, shownAt: Date.now() }]);
+
+     // Show completion notification if user is not on screening page
+     setCompletionNotifs(prev => [...prev, { id: jobId, entityName: query, riskLevel: finalResult.overallRisk, riskScore: finalResult.riskScore, caseId: currentCaseId, shownAt: Date.now() }]);
+
+     // Update tab title if hidden
+     if (document.hidden) {
+       document.title = `Search Complete — ${query} — Marlowe`;
+     }
+
+     // Save to history
+     setKycHistory(function(prev) {
+       const updated = [historyItem].concat(prev).slice(0, 50);
+       try {
+         const slim = updated.map(h => ({
+           id: h.id, query: h.query, type: h.type, clientRef: h.clientRef,
+           yearOfBirth: h.yearOfBirth, country: h.country, timestamp: h.timestamp,
+           result: {
+             overallRisk: h.result?.overallRisk, riskScore: h.result?.riskScore,
+             riskSummary: h.result?.riskSummary,
+             sanctions: { status: h.result?.sanctions?.status },
+             subject: h.result?.subject, onboardingDecision: h.result?.onboardingDecision,
+           }
+         }));
+         localStorage.setItem('marlowe_kycHistory', JSON.stringify(slim));
+       } catch {}
+       return updated;
+     });
+
+     // Index to RAG
+     fetch(`${API_BASE}/api/rag`, {
+       method: 'POST', headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         action: 'index', namespace: 'prior_screenings',
+         text: `Entity: ${query} | Type: ${type} | Risk: ${finalResult.overallRisk} | Sanctions: ${finalResult.sanctions?.status} | Summary: ${finalResult.riskSummary || ''}`,
+         metadata: { entityName: query, entityType: type, riskLevel: finalResult.overallRisk, matchStatus: finalResult.sanctions?.status, caseId: currentCaseId }
+       })
+     }).catch(() => {});
+
+     // Save to active case
+     if (currentCaseId) {
+       setCases(prev => {
+         const upd = prev.map(c => c.id === currentCaseId
+           ? { ...c, screenings: [historyItem, ...(c.screenings || [])], updatedAt: new Date().toISOString() } : c);
+         const updCase = upd.find(c => c.id === currentCaseId);
+         if (updCase && isSupabaseConfigured() && user) syncCase(updCase).catch(console.error);
+         return upd;
+       });
+     }
+
+     posthog.capture('screening_completed', { query, type, risk_level: finalResult.overallRisk || null });
+
+   } catch (error) {
+     console.error('Screening error:', error);
+     setSearchJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'error', error: friendlyError(error) } : j));
+     setSearchToasts(prev => [...prev, { id: jobId + '-err', entityName: query, error: friendlyError(error), shownAt: Date.now() }]);
+   }
+ }, [currentCaseId, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Process queued jobs when a slot opens
+ useEffect(() => {
+   const running = searchJobs.filter(j => j.status === 'running').length;
+   if (running < MAX_CONCURRENT) {
+     const queued = searchJobs.find(j => j.status === 'queued');
+     if (queued) {
+       runSearchInBackground(queued.id, queued.query, queued.type, queued.country, queued.yearOfBirth, queued.clientRef);
+     }
+   }
+ }, [searchJobs, runSearchInBackground]);
+
+ // Auto-dismiss toasts after 8 seconds
+ useEffect(() => {
+   if (searchToasts.length === 0) return;
+   const t = setTimeout(() => {
+     setSearchToasts(prev => prev.filter(t => Date.now() - t.shownAt < 8000));
+   }, 1000);
+   return () => clearTimeout(t);
+ }, [searchToasts]);
+
+ // Auto-dismiss completion notifications after 15 seconds
+ useEffect(() => {
+   if (completionNotifs.length === 0) return;
+   const t = setTimeout(() => {
+     setCompletionNotifs(prev => prev.filter(n => Date.now() - n.shownAt < 15000));
+   }, 1000);
+   return () => clearTimeout(t);
+ }, [completionNotifs]);
+
+ // Reset tab title when user returns
+ useEffect(() => {
+   const handler = () => { if (!document.hidden) document.title = 'Marlowe'; };
+   document.addEventListener('visibilitychange', handler);
+   return () => document.removeEventListener('visibilitychange', handler);
+ }, []);
+
+ // View a completed search result
+ const viewSearchResult = useCallback((jobId) => {
+   const job = searchJobs.find(j => j.id === jobId);
+   if (job?.result) {
+     setKycResults(job.result);
+     setSelectedHistoryItem(job.historyItem);
+     setKycQuery(job.query);
+     setKycType(job.type);
+     setKycPage('results');
+     if (currentPage !== 'kycScreening') setCurrentPage('kycScreening');
+   }
+ }, [searchJobs, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Submit a search — can be called with explicit params or from current form state
+ const submitSearch = useCallback((query, type, country, yearOfBirth, clientRef) => {
+   if (!query?.trim()) return;
+   const activeCount = searchJobs.filter(j => j.status === 'running').length;
+   const jobId = Math.random().toString(36).substr(2, 9);
+   const job = {
+     id: jobId, query: query.trim(), type: type || 'individual', country: country || null,
+     yearOfBirth: yearOfBirth || null, clientRef: clientRef || null,
+     status: activeCount >= MAX_CONCURRENT ? 'queued' : 'running',
+     startedAt: new Date().toISOString(), completedAt: null,
+     riskLevel: null, riskScore: null, result: null, historyItem: null, error: null,
+   };
+   setSearchJobs(prev => [job, ...prev]);
+   posthog.capture('screening_started', { query: query.trim(), type, country: country || null });
+   if (job.status === 'running') {
+     runSearchInBackground(jobId, query.trim(), type || 'individual', country, yearOfBirth, clientRef);
+   }
+   // Go to history page so user can see active searches and start more
+   setKycPage('history');
+ }, [searchJobs, runSearchInBackground]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Scout function — now non-blocking, redirects to history
+ const runKycScreening = () => {
+   if (!kycQuery.trim()) return;
+   submitSearch(kycQuery, kycType, kycCountry, kycYearOfBirth, kycClientRef);
+   setKycQuery('');
+   setKycYearOfBirth('');
+   setKycCountry('');
+   setKycClientRef('');
  };
 
  const clearKycResults = () => {
@@ -1967,6 +1341,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
 
  // Transform screening data into the format expected by ComplianceReportPDF
  const pdfData = {
+ subjectName: result.subject?.name || screening.query || 'Unknown Entity',
  caseNumber: `SCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
  riskLevel: result.overallRisk || 'unknown',
  entity: {
@@ -2000,7 +1375,7 @@ ${kycType === 'entity' ? 'Include corporate structure with parent companies, sub
  const url = URL.createObjectURL(pdfBlob);
  const a = document.createElement('a');
  a.href = url;
- a.download = `compliance-report-${result.subject?.name?.replace(/\s+/g, '-').toLowerCase() || 'entity'}-${new Date().toISOString().split('T')[0]}.pdf`;
+ a.download = `${(result.subject?.name || 'entity').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${new Date().toISOString().split('T')[0]}.pdf`;
  document.body.appendChild(a);
  a.click();
  document.body.removeChild(a);
@@ -2796,8 +2171,8 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
 
  // Generate filename
  const dateStr = new Date().toISOString().split('T')[0];
- const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30);
- const fileName = `compliance-report-${subjectSlug}-${dateStr}.pdf`;
+ const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
+ const fileName = `${subjectSlug}-${dateStr}.pdf`;
 
  // Download the PDF
  const url = URL.createObjectURL(pdfBlob);
@@ -3131,6 +2506,8 @@ You have access to the complete screening results including:
 Always be specific and reference the screening data when making claims. Be concise but thorough.
 Help the analyst understand the findings, suggest additional due diligence steps, and explain regulatory implications.
 
+ANTI-HALLUCINATION RULES: Never fabricate findings, dates, or case numbers. Cite the screening data for every claim. Distinguish confirmed facts from inferences. Mark confidence levels: [CONFIRMED], [PROBABLE], [POSSIBLE], [UNVERIFIED]. If the screening data doesn't cover something, say so — never imply clearance from an unchecked source.
+
 SCREENING RESULTS:
 ${screeningContext}
 
@@ -3243,6 +2620,59 @@ If this is a scanned document, please use OCR software to convert it to searchab
  })
  );
  setFiles(prev => [...prev, ...processedFiles]);
+
+ // Auto-detect transaction data in uploaded files and run monitoring engine
+ for (const pf of processedFiles) {
+ const fn = pf.name.toLowerCase();
+ const content = pf.content || '';
+ if (!(fn.endsWith('.csv') || fn.endsWith('.json') || fn.endsWith('.xlsx') || fn.endsWith('.txt'))) continue;
+ try {
+ let transactions = null;
+ // Try JSON parse
+ try {
+ const parsed = JSON.parse(content);
+ const arr = Array.isArray(parsed) ? parsed : parsed.transactions || parsed.data || parsed.records || null;
+ if (arr && arr.length > 0) {
+ const sample = arr[0];
+ const txFields = ['amount','date','transaction','counterparty','beneficiary','debit','credit','value','payment'];
+ const keys = Object.keys(sample).map(k => k.toLowerCase());
+ if (txFields.some(f => keys.some(k => k.includes(f)))) transactions = arr;
+ }
+ } catch {}
+ // Try CSV parse
+ if (!transactions && content.includes(',') && content.includes('\n')) {
+ const lines = content.trim().split('\n');
+ if (lines.length >= 3) {
+ const headerLine = lines[0].toLowerCase();
+ const txFields = ['amount','date','transaction','counterparty','beneficiary','debit','credit','value','payment'];
+ if (txFields.some(f => headerLine.includes(f))) {
+ const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+ transactions = lines.slice(1).filter(l => l.trim()).map(line => {
+ const vals = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+ const obj = {};
+ headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+ return obj;
+ });
+ }
+ }
+ }
+ if (transactions && transactions.length > 0) {
+ console.log(`[Marlowe] Transaction data detected in ${pf.name}: ${transactions.length} records — running detection engine`);
+ fetch(`${API_BASE}/api/screening/transaction-monitoring`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ transactions, options: {} })
+ }).then(r => r.ok ? r.json() : null).then(result => {
+ if (result) {
+ setTxMonitorResults(result);
+ console.log(`[Marlowe] Transaction monitoring complete: ${result.alerts?.length || 0} alerts, risk ${result.riskAssessment?.level}`);
+ }
+ }).catch(e => console.error('[Marlowe] Transaction monitoring error:', e));
+ }
+ } catch (e) {
+ // Not transaction data, skip silently
+ }
+ }
  };
 
  const handleDrop = useCallback((e) => {
@@ -3258,6 +2688,20 @@ If this is a scanned document, please use OCR software to convert it to searchab
  if (e.target.files && e.target.files[0]) {
  processFiles(e.target.files);
  }
+ };
+
+ const loadSampleDocument = async (url, fileName) => {
+   try {
+     const response = await fetch(url);
+     if (!response.ok) throw new Error('Failed to fetch');
+     const blob = await response.blob();
+     const file = new File([blob], fileName, { type: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+     await processFiles([file]);
+     setSamplesExpanded(false);
+     setConversationInput('Analyze this document');
+   } catch (err) {
+     console.error('Error loading sample document:', err);
+   }
  };
 
  const removeFile = (id) => {
@@ -3436,7 +2880,8 @@ If this is a scanned document, please use OCR software to convert it to searchab
  }
 
  // All retries failed
- throw new Error(`API call failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
+ console.error(`API call failed after ${maxRetries} attempts. Last error:`, lastError.message);
+ throw lastError;
  };
 
  // Multi-step analysis pipeline
@@ -4475,12 +3920,298 @@ ${messageContent}`,
 
    // Set per-case streaming state
    setCaseStreamingState(caseId, { isStreaming: true, streamingText: '' });
+   setActiveAnalysisCount(prev => prev + 1);
+   countdownTotalRef.current = 45; setScreeningCountdown(45);
    // Keep legacy global state for compatibility
    setIsStreaming(true);
    setStreamingText('');
 
+   // RAG retrieval — non-blocking with 5s timeout
+   let ragContext = '';
+   try {
+     const ragResponse = await Promise.race([
+       fetch(`${API_BASE}/api/rag`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+           action: 'search',
+           query: userMessage,
+           filters: { workspaceId: currentCaseId, excludeCaseId: currentCaseId }
+         })
+       }).then(r => r.json()),
+       new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+     ]);
+
+     if (ragResponse.results?.length > 0) {
+       setRagSources(ragResponse.results);
+       const sections = { prior_screenings: [], regulatory_docs: [], enforcement_actions: [], enforcement_cases: [], case_notes: [] };
+       ragResponse.results.forEach(r => {
+         const pct = Math.round(r.score * 100);
+         const label = r.namespace === 'enforcement_cases'
+           ? `${r.metadata?.name || r.id} (${r.metadata?.year || ''}, ${r.metadata?.penalty || ''}): ${r.metadata?.lessonForScreening?.substring(0, 200) || ''}`
+           : (r.metadata?.entityName || r.metadata?.title || r.metadata?.text?.substring(0, 80) || r.id);
+         sections[r.namespace]?.push(`- [${pct}% match] ${label}`);
+       });
+       const parts = [];
+       if (sections.prior_screenings.length) parts.push('Prior Screenings:\n' + sections.prior_screenings.join('\n'));
+       if (sections.regulatory_docs.length) parts.push('Regulatory Guidance:\n' + sections.regulatory_docs.join('\n'));
+       if (sections.enforcement_actions.length) parts.push('Enforcement Precedents:\n' + sections.enforcement_actions.join('\n'));
+       if (sections.enforcement_cases.length) parts.push('Enforcement Case Studies:\n' + sections.enforcement_cases.join('\n'));
+       if (sections.case_notes.length) parts.push('Related Case Notes:\n' + sections.case_notes.join('\n'));
+       if (parts.length) ragContext = '\n\n[RETRIEVED CONTEXT FROM MARLOWE KNOWLEDGE BASE]\n\n' + parts.join('\n\n') + '\n\n---\n';
+     }
+   } catch (e) {
+     console.warn('[Marlowe] RAG retrieval skipped:', e);
+   }
+
+   // Full screening pipeline — runs all 7 layers (sanctions, regulatory, PEP, adverse media, litigation, corporate, crypto/trade)
+   let liveSanctionsContext = '';
+   try {
+     const trimmed = userMessage.trim();
+
+     // Detect wallet addresses
+     const walletPatterns = [
+       { re: /0x[a-fA-F0-9]{40}/, chain: 'ETH' },
+       { re: /(bc1)[a-zA-HJ-NP-Z0-9]{25,90}/, chain: 'BTC' },
+       { re: /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/, chain: 'BTC' },
+       { re: /T[a-zA-Z0-9]{33}/, chain: 'TRX' },
+       { re: /r[0-9a-zA-Z]{24,34}/, chain: 'XRP' },
+       { re: /[1-9A-HJ-NP-Za-km-z]{32,44}/, chain: 'SOL' },
+     ];
+     let detectedWallet = null;
+     for (const { re } of walletPatterns) {
+       const m = trimmed.match(re);
+       if (m) { detectedWallet = m[0]; break; }
+     }
+
+     const looksLikeName = !detectedWallet && /^[A-Za-z\s,.\-']{3,80}$/.test(trimmed) && trimmed.split(/\s+/).length <= 6;
+     const hasScreeningIntent = !detectedWallet && /screen|check|look up|search|investigate|who is|kyc|sanctions|pep|compliance/i.test(trimmed);
+     const queryToScreen = detectedWallet || (looksLikeName ? trimmed : null) || (hasScreeningIntent ? trimmed.replace(/^(screen|check|look up|search|investigate|who is)\s+/i, '').trim() : null);
+
+     if (queryToScreen && queryToScreen.length > 2 && queryToScreen.length < 80) {
+       console.log('[Marlowe] Full screening pipeline for:', queryToScreen);
+
+       const pipelineRes = await Promise.race([
+         fetch(`${API_BASE}/api/screening/full`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ query: queryToScreen, type: 'auto' })
+         }).then(r => r.ok ? r.json() : null),
+         new Promise((_, reject) => setTimeout(() => reject('pipeline-timeout'), 60000))
+       ]).catch(e => { console.warn('[Marlowe] Screening pipeline timeout:', e); return null; });
+
+       if (pipelineRes) {
+         console.log('[Marlowe] Pipeline result:', pipelineRes.overallRisk?.level, pipelineRes.overallRisk?.score, '— sources:', pipelineRes.sourcesChecked?.length, '— duration:', pipelineRes.durationMs + 'ms');
+
+         // Build context from pipeline result
+         const lines = [];
+         lines.push(`[FULL SCREENING PIPELINE — REAL-TIME DATA FROM ${pipelineRes.sourcesChecked?.length || 0} SOURCES]`);
+         lines.push(`⚠️ THIS IS LIVE DATA from real-time screening. Trust this over your training knowledge.`);
+         lines.push(`Query: "${pipelineRes.query}" | Type: ${pipelineRes.entityType}`);
+         lines.push(`Overall Risk: ${pipelineRes.overallRisk?.score}/100 ${pipelineRes.overallRisk?.level}`);
+         lines.push(`Duration: ${pipelineRes.durationMs}ms`);
+         lines.push('');
+
+         // Risk flags
+         if (pipelineRes.overallRisk?.flags?.length > 0) {
+           lines.push('RISK FLAGS:');
+           for (const f of pipelineRes.overallRisk.flags) {
+             const icon = f.severity === 'CRITICAL' ? '🚨' : f.severity === 'HIGH' ? '🔴' : f.severity === 'MEDIUM' ? '🟡' : '🟢';
+             lines.push(`${icon} [${f.severity}] ${f.message}${f.source ? ` (${f.source})` : ''}`);
+           }
+           lines.push('');
+         }
+
+         // Layer details
+         const l = pipelineRes.layers || {};
+
+         // OFAC
+         if (l.ofac) {
+           lines.push('--- OFAC SDN LIST ---');
+           if (l.ofac.matches?.length > 0) {
+             const top = l.ofac.matches[0];
+             lines.push(`🚨 MATCH: ${top.name} (${(top.matchConfidence * 100).toFixed(0)}% confidence)`);
+             lines.push(`Type: ${top.type} | Programs: ${(top.programs || []).join(', ')}`);
+             if (top.nationality) lines.push(`Nationality: ${top.nationality}`);
+             if (top.dateOfBirth) lines.push(`DOB: ${top.dateOfBirth}`);
+             if (top.remarks) lines.push(`Remarks: ${top.remarks}`);
+             lines.push(`Total: ${l.ofac.matchCount} matches from ${l.ofac.totalSDNEntries} entries`);
+           } else {
+             lines.push(`✓ No match (${l.ofac.totalSDNEntries || 0} entries checked)`);
+           }
+           lines.push('');
+         }
+
+         // Sanctions announcements
+         if (l.announcements) {
+           lines.push('--- SANCTIONS ANNOUNCEMENTS ---');
+           if (l.announcements.totalFindings > 0) {
+             lines.push(`Findings: ${l.announcements.totalFindings} | Risk: ${l.announcements.riskDelta?.level || 'N/A'}`);
+             for (const f of (l.announcements.riskDelta?.flags || []).slice(0, 5)) {
+               lines.push(`  🚩 [${f.severity}] ${f.message}${f.url ? ` — ${f.url}` : ''}`);
+             }
+             for (const f of (l.announcements.findings || []).slice(0, 10)) {
+               lines.push(`  - [${f.severity}] ${f.source}: "${f.title}"${f.url ? ` (${f.url})` : ''}`);
+             }
+           } else {
+             lines.push(`✓ No sanctions announcements found`);
+           }
+           lines.push('');
+         }
+
+         // Web intelligence
+         if (l.webIntelligence) {
+           lines.push('--- WEB INTELLIGENCE (Claude Web Search) ---');
+           if (l.webIntelligence.sanctioned) {
+             lines.push(`🚨 SANCTIONED — ${l.webIntelligence.authority || 'Unknown'} | Program: ${l.webIntelligence.program || 'N/A'} | Date: ${l.webIntelligence.date || 'N/A'}`);
+             lines.push(`Confidence: ${l.webIntelligence.confidence}`);
+           }
+           lines.push(`Summary: ${l.webIntelligence.summary || 'No findings'}`);
+           for (const s of (l.webIntelligence.sources || []).slice(0, 5)) {
+             lines.push(`  Source: ${s.title} — ${s.url}`);
+           }
+           lines.push('');
+         }
+
+         // Wallet
+         if (l.wallet) {
+           lines.push('--- WALLET SCREENING ---');
+           lines.push(`Status: ${l.wallet.status} | Risk: ${l.wallet.riskScore}`);
+           if (l.wallet.matches?.length > 0) {
+             for (const m of l.wallet.matches.slice(0, 5)) {
+               lines.push(`  Match: ${m.source} — ${m.service || m.entity || 'OFAC SDN'} (${m.chain}, ${m.program})`);
+             }
+           }
+           lines.push('');
+         }
+
+         // Regulatory
+         if (l.regulatory?.riskAssessment?.score > 0) {
+           lines.push('--- REGULATORY ENFORCEMENT ---');
+           lines.push(`Risk: ${l.regulatory.riskAssessment.score}/100 ${l.regulatory.riskAssessment.level}`);
+           for (const f of (l.regulatory.riskAssessment.flags || []).slice(0, 5)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // PEP
+         if (l.pep?.riskAssessment) {
+           lines.push('--- PEP SCREENING ---');
+           lines.push(`PEP: ${l.pep.riskAssessment.isPEP ? 'YES' : 'No'} | Risk: ${l.pep.riskAssessment.score || 0}/100`);
+           for (const f of (l.pep.riskAssessment.flags || []).slice(0, 5)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // Adverse media
+         if (l.adverseMedia?.riskDelta?.score > 0) {
+           lines.push('--- ADVERSE MEDIA ---');
+           lines.push(`Risk: ${l.adverseMedia.riskDelta.score}/100 ${l.adverseMedia.riskDelta.level}`);
+           for (const f of (l.adverseMedia.riskDelta.flags || []).slice(0, 5)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           for (const a of (l.adverseMedia.articles || []).slice(0, 5)) {
+             lines.push(`  - "${a.title}" (${a.source}) ${a.url || ''}`);
+           }
+           lines.push('');
+         }
+
+         // Court records
+         if (l.courtRecords?.riskAssessment?.score > 0) {
+           lines.push('--- COURT RECORDS ---');
+           lines.push(`Risk: ${l.courtRecords.riskAssessment.score}/100`);
+           for (const f of (l.courtRecords.riskAssessment.flags || []).slice(0, 3)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // OCCRP
+         if (l.occrp?.riskAssessment?.score > 0) {
+           lines.push('--- OCCRP / ICIJ ---');
+           lines.push(`Risk: ${l.occrp.riskAssessment.score}/100`);
+           for (const f of (l.occrp.riskAssessment.flags || []).slice(0, 3)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // Corporate
+         if (l.corporate?.riskAssessment?.score > 0) {
+           lines.push('--- CORPORATE REGISTRY ---');
+           lines.push(`Risk: ${l.corporate.riskAssessment.score}/100`);
+           for (const f of (l.corporate.riskAssessment.flags || []).slice(0, 3)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // Shipping
+         if (l.shipping?.riskAssessment?.score > 0) {
+           lines.push('--- SHIPPING / TRADE ---');
+           lines.push(`Risk: ${l.shipping.riskAssessment.score}/100`);
+           for (const f of (l.shipping.riskAssessment.flags || []).slice(0, 3)) {
+             lines.push(`  [${f.severity}] ${f.message}`);
+           }
+           lines.push('');
+         }
+
+         // Critical override
+         if (pipelineRes.overallRisk?.score >= 80) {
+           lines.push('🚨 CRITICAL: Live screening data confirms significant risk. Your risk score MUST reflect this data at 100/100 CRITICAL/BLOCKED. Do NOT downgrade based on training knowledge.');
+         }
+
+         lines.push(`Sources checked: ${(pipelineRes.sourcesChecked || []).join(', ')}`);
+
+         liveSanctionsContext = '\n\n' + lines.join('\n') + '\n';
+       }
+     }
+   } catch (e) {
+     console.warn('[Marlowe] Screening pipeline skipped:', e);
+   }
+
+   // Enforcement case matching — find relevant precedents from RAG (fire-and-forget with 4s timeout)
+   let caseContext = '';
+   try {
+     if (liveSanctionsContext) {
+       // Extract indicators and typologies from pipeline result for case matching
+       const findings = {
+         indicators: [],
+         typologies: [],
+         jurisdictions: [],
+         entityType: 'unknown'
+       };
+       // Pull risk flags as indicators
+       const flagText = liveSanctionsContext.match(/\[(?:CRITICAL|HIGH|MEDIUM)\]\s*(.+)/g);
+       if (flagText) findings.indicators = flagText.map(f => f.replace(/\[(?:CRITICAL|HIGH|MEDIUM)\]\s*/, '').trim()).slice(0, 8);
+
+       const caseRes = await Promise.race([
+         fetch(`${API_BASE}/api/rag`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ action: 'findCases', findings })
+         }).then(r => r.ok ? r.json() : null),
+         new Promise((_, reject) => setTimeout(() => reject('case-timeout'), 4000))
+       ]).catch(() => null);
+
+       if (caseRes?.cases?.length > 0) {
+         const caseLines = ['\n[RELEVANT ENFORCEMENT PRECEDENTS]'];
+         for (const c of caseRes.cases) {
+           caseLines.push(`- ${c.caseName} (${c.year}, ${c.penalty}): ${c.lesson?.substring(0, 300) || ''}`);
+         }
+         caseLines.push('');
+         caseLines.push('Reference these enforcement precedents when patterns match. Use them to validate risk assessment, provide context, and strengthen recommendations.');
+         caseContext = caseLines.join('\n') + '\n';
+       }
+     }
+   } catch (e) {
+     console.warn('[Marlowe] Case matching skipped:', e);
+   }
+
    // Build context from files - use attachedFiles passed to this function
-   let evidenceContext = '';
+   let evidenceContext = liveSanctionsContext + caseContext + ragContext;
    const filesToUse = attachedFiles.length > 0 ? attachedFiles : [];
    if (filesToUse.length > 0) {
      evidenceContext = filesToUse.map((file, idx) =>
@@ -4488,6 +4219,27 @@ ${messageContent}`,
      ).join('\n\n---\n\n');
      // Clear files after adding to context
      setFiles([]);
+   }
+
+   // Append transaction monitoring results if available (auto-detected from uploaded files)
+   if (txMonitorResults && !txMonitorResults.error && txMonitorResults.alerts?.length > 0) {
+     const tmContext = `\n\n---\n\n[AUTOMATED TRANSACTION MONITORING ANALYSIS]
+Transactions Analyzed: ${txMonitorResults.transactionCount}
+Composite Risk Score: ${txMonitorResults.riskAssessment?.score}/100 (${txMonitorResults.riskAssessment?.level})
+Priority: ${txMonitorResults.riskAssessment?.priority || 'N/A'} | SLA: ${txMonitorResults.riskAssessment?.sla || 'N/A'}
+SAR Required: ${txMonitorResults.riskAssessment?.sarRequired ? 'YES' : 'NO'}
+Alerts Triggered: ${txMonitorResults.riskAssessment?.alertCount}
+${txMonitorResults.riskAssessment?.recommendedActions?.length ? `Recommended Actions: ${txMonitorResults.riskAssessment.recommendedActions.join(', ')}` : ''}
+
+${txMonitorResults.alerts.slice(0, 25).map(a => `- [${a.severity}] ${a.ruleId} (${a.category}): ${a.message}${a.details ? ' — ' + JSON.stringify(a.details) : ''}`).join('\n')}
+
+${txMonitorResults.entityProfile ? `Entity Profile: Avg tx $${txMonitorResults.entityProfile.avgAmount?.toFixed(0) || 0}, Total volume $${txMonitorResults.entityProfile.totalVolume?.toFixed(0) || 0}, ${txMonitorResults.entityProfile.uniqueCounterparties || 0} unique counterparties, ${txMonitorResults.entityProfile.uniqueCountries || 0} countries` : ''}
+
+Category Breakdown: ${Object.entries(txMonitorResults.categorySummary || {}).map(([cat, d]) => `${cat}: ${d.count} alert(s)`).join(', ')}
+${txMonitorResults.compositeScoring ? `Category Scores: ${Object.entries(txMonitorResults.compositeScoring.categoryScores || {}).map(([cat, s]) => `${cat}=${s}`).join(', ')} | Active categories: ${txMonitorResults.compositeScoring.activeCategoryCount} | Severity multiplier: ${txMonitorResults.compositeScoring.severityMultiplier}x` : ''}`;
+     evidenceContext += tmContext;
+     // Clear after consumption so it's not re-sent on every message
+     setTxMonitorResults(null);
    }
 
    // Build conversation history from the case's transcript - filter out any empty messages
@@ -4596,6 +4348,39 @@ Citation rules:
 4. Multiple sources: [Doc 1, Doc 3]
 
 At end, list: Sources: [Doc 1] - filename, etc.
+
+TRANSACTION MONITORING & FRAUD DETECTION ENGINE:
+When the user uploads transaction data (CSV, JSON, bank statements), Marlowe's detection engine automatically runs 42+ rules across 18 categories with composite risk scoring:
+- STRUCTURING (STR-001 to STR-004): just-below-threshold, round amounts, split deposits, incremental patterns
+- VELOCITY (VEL-001 to VEL-004): volume spikes, rapid-fire, excessive daily counts, pass-through/flow-through
+- GEOGRAPHIC (GEO-001 to GEO-003): high-risk jurisdictions (FATF), tax havens, unusual geographic spread
+- COUNTERPARTY (CTY-001 to CTY-004): shell company indicators, concentration risk, new counterparty large tx, circular flows
+- BEHAVIORAL (BEH-001 to BEH-005): dormant reactivation, off-hours activity, channel switching, amount outliers, high-risk MCCs
+- CRYPTO (CRY-001 to CRY-006): exchange on/off ramps, rapid crypto-fiat conversion, mixer/tumbler/P2P, privacy coins, peel chains, DeFi/NFT
+- TBML (TBML-001 to TBML-002): over/under invoicing, phantom shipments
+- REAL ESTATE (RE-001): structured cash → property purchases, LLC/trust purchases
+- GAMBLING (GAM-001): casino buy-in/cash-out, minimal-loss patterns
+- INTEGRATION (INT-001): loan-back schemes, deposit-as-collateral
+- MSB/HAWALA (MSB-001): unlicensed remittance, high-risk corridor transfers
+- SECURITIES (SEC-001): brokerage pass-through, deposit-withdrawal patterns
+- HUMAN TRAFFICKING (HT-001): cash from high-risk businesses, visa/document services
+- CASH BUSINESS (CIB-001): cash-to-card ratio anomaly, suspiciously consistent deposits
+- SANCTIONS EVASION (SAN-001): intermediary country corridors, triangular patterns
+- CORRUPTION (PEP-001): government payment → consulting fee kickback patterns
+- NETWORK ANALYSIS (NET-001 to NET-003): high-risk network clusters, circular fund flow cycle detection (2-node and 3-node), funnel/distribution account patterns
+- FRAUD (FRD-001 to FRD-006): duplicate invoice payments, ghost employees/payroll fraud, procurement kickbacks, asset misappropriation, insurance claims fraud, financial statement fraud (revenue recognition manipulation, channel stuffing)
+
+COMPOSITE RISK SCORING: Each category has a score cap (preventing single-category dominance) and weight (SANCTIONS_EVASION 1.5x, HUMAN_TRAFFICKING 1.4x, CORRUPTION 1.3x, CRYPTO/TBML/NETWORK 1.2x). Severity multipliers apply for CRITICAL alerts. Cross-category correlation bonuses increase scores when 3+ categories trigger. Output includes priority (P1-P4), SLA, SAR requirement flag, and recommended actions.
+
+If transaction monitoring results appear in the context (tagged [AUTOMATED TRANSACTION MONITORING ANALYSIS]):
+- Explain each triggered alert in plain language with its compliance significance
+- Assess the overall pattern: is this consistent with money laundering, structuring, terrorist financing, fraud, or legitimate activity?
+- Interpret the composite risk score: explain which categories drove the score and why the priority/SLA was assigned
+- If SAR Required = YES, explain why and draft SAR narrative elements
+- Recommend specific next steps: file SAR, enhanced due diligence, request source of funds, block account, law enforcement referral, etc.
+- Cross-reference alerts with any entity screening data available
+- For fraud alerts (FRD rules): identify the specific fraud typology, assess intent vs. error, recommend investigation steps
+- For network alerts (NET rules): explain the network topology detected and its money laundering implications
 `}
 
 You are Marlowe, an expert AI compliance analyst specializing in financial crimes, anti-money laundering (AML), sanctions, and investigations. You are the equivalent of a senior financial crimes investigator with 15+ years of experience across banking, crypto, and regulatory enforcement.
@@ -4639,6 +4424,108 @@ BE A THOUGHT PARTNER
 - Support "check my work" requests
 - Help users think through problems, not just generate reports
 - Know when to recommend escalation to counsel or senior management
+
+
+═══════════════════════════════════════════════════════════════════════
+INVESTIGATION REASONING FRAMEWORK
+═══════════════════════════════════════════════════════════════════════
+
+For EVERY screening, follow these 8 steps internally. Show your reasoning in the report.
+
+STEP 1 — IDENTIFY
+Establish the subject precisely. Full legal name, aliases, transliterations, DOB, nationality, unique identifiers. If the name is ambiguous, list all possible matches before proceeding. Never assume — verify.
+
+STEP 2 — CONTEXTUALIZE
+Before searching, establish what you already know. What is this person/entity's role, industry, jurisdiction? What risk factors are inherent to their profile? What would a senior investigator expect to find?
+
+STEP 3 — SEARCH
+Document every source checked. For each source, note: what you searched, what you found (or didn't find), and the date/recency of the data. A source checked with no hits is just as important as a source with findings — it narrows the risk picture.
+
+STEP 4 — DISAMBIGUATE
+For every potential match, systematically compare: name (exact, phonetic, transliteration), DOB, nationality, known associates, business affiliations. Assign a match confidence percentage. Explain your reasoning. Never assume a match without corroborating evidence — "John Smith" on a sanctions list is not necessarily YOUR John Smith.
+
+STEP 5 — CONNECT
+Map relationships. Who are the associates, family members, business partners, co-directors? Do any connections lead to sanctioned parties, PEPs, or criminal networks? Follow the ownership chain to natural persons. Identify patterns: shared addresses, shared registered agents, circular ownership.
+
+STEP 6 — WEIGH
+Assess each finding on three dimensions:
+- SEVERITY: How serious is this finding? (sanctions designation vs. minor adverse media)
+- RELIABILITY: How trustworthy is the source? (government database vs. unverified blog)
+- RECENCY: How current is this information? (2024 designation vs. 2005 resolved case)
+Distinguish confirmed facts from allegations, ongoing cases from resolved ones, primary sources from secondary reporting.
+
+STEP 7 — CONCLUDE
+Synthesize all findings into a clear risk assessment. State your conclusion directly: "This entity is HIGH risk because..." Explain what drives the risk score. Identify the single most important risk factor. State what would change your assessment (e.g., "If source of funds documentation confirms legitimate origin, risk could be downgraded to MEDIUM").
+
+STEP 8 — RECOMMEND
+Provide specific, actionable recommendations. Not "conduct EDD" but "obtain certified beneficial ownership declaration, verify 2019 property sale proceeds, schedule compliance committee review." Include regulatory basis where relevant. Prioritize recommendations by urgency.
+
+
+═══════════════════════════════════════════════════════════════════════
+RAG-ENHANCED REASONING
+═══════════════════════════════════════════════════════════════════════
+
+Before every screening, retrieve relevant context from the Marlowe knowledge base. Use this context to REASON about findings, not just report them.
+
+TYPOLOGY MATCHING:
+When you find suspicious patterns, match them against known typologies from the knowledge base:
+1. After gathering all findings, ask: "What AML or fraud typology does this pattern match?"
+2. Reference specific typologies by name:
+   - "This pattern is consistent with SHELL COMPANY LAYERING (AML typology): entity registered in BVI, no physical office, nominee directors, payments for undefined consulting services"
+   - "This matches STRUCTURING (AML typology): 14 cash deposits between $8,000-$9,500 over 10 days, all to the same account, variance under $500"
+   - "This is consistent with PUMP AND DUMP (fraud typology): unusual volume spike in thinly traded stock, insider selling during promotional campaign"
+3. If multiple typologies match, list all of them ranked by confidence
+
+TRANSACTION MONITORING RULES:
+When analyzing transaction data, apply the detection rules from the knowledge base:
+- "Rule STR-001 triggered: multiple cash deposits totaling $47,000 in 24 hours, all below $10,000 threshold"
+- "Rule VEL-002 triggered: 94% of inbound funds moved out within 3 hours to a different beneficiary"
+- "Rule GEO-001 triggered: wire transfer to FATF blacklisted jurisdiction (Myanmar)"
+- "Rule CRY-001 triggered: transaction with known Tornado Cash router address"
+
+RISK SCORING WITH REASONING:
+Don't just output a number. Show your work using the scoring framework from the knowledge base:
+"Risk Score Breakdown:
+ - OFAC SDN match (confirmed): +100 → BLOCKED
+
+ OR for a more complex case:
+
+ - PEP status (current minister of finance, Nigeria): +45
+ - ICIJ Offshore Leaks match (Panama Papers, 2 entities): +30
+ - Adverse media (Reuters article re: corruption probe, 2024): +15
+ - Corporate structure (3 layers, BVI holding company): +15
+ - Geographic risk (Nigeria, TI CPI 25): +10
+ Subtotal: 115 → Capped at 100
+ Risk Level: CRITICAL
+
+ Recommendation: DECLINE. Entity is a current PEP with offshore structures and active corruption investigation. Even without sanctions match, the combination of PEP status, offshore leaks presence, and adverse media makes this unacceptable risk."
+
+DATA SOURCE AWARENESS:
+When reasoning, reference which specific data sources hit on matches and what each source contributed:
+"Sources checked:
+ ✓ OFAC SDN — No match (checked 2026-02-02)
+ ✓ OpenSanctions — Match found: PEP record, Nigerian minister
+ ✓ ICIJ Offshore Leaks — 2 entities linked in Panama Papers
+ ✓ GDELT adverse media — 7 articles found, 3 critical severity
+ ✓ UK Companies House — Director of 4 UK companies"
+
+ENFORCEMENT CASE PATTERN MATCHING:
+When findings resemble known enforcement cases from the knowledge base, reference them:
+- "This pattern resembles the DANSKE BANK case: high-volume transfers through a branch in a high-risk jurisdiction with inadequate KYC on non-resident accounts"
+- "Similar to the 1MDB scheme: funds flowing through multiple shell companies across jurisdictions with no apparent business purpose"
+- "This echoes the TD BANK enforcement action: failure to monitor structured cash deposits across multiple branches"
+This gives compliance officers recognizable reference points and demonstrates depth of analysis.
+
+CONNECTING THE DOTS:
+The most valuable thing Marlowe can do is connect findings across sources that a human analyst might miss:
+
+"CROSS-REFERENCE FINDING: Entity cleared on OFAC SDN list, but ICIJ Offshore Leaks shows they co-own a BVI company with [Person X], who IS on the SDN list with 55% ownership. Under the 50% rule, this BVI entity may be blocked property. Recommend immediate escalation for beneficial ownership analysis."
+
+"PATTERN DETECTED: Entity has no direct sanctions exposure, but three of their five business partners have adverse media for money laundering. Combined with entity's use of a secrecy jurisdiction and lack of transparent ownership, this suggests possible LAYERING through legitimate-appearing business relationships."
+
+"TEMPORAL ANALYSIS: Entity incorporated 3 weeks after their former employer was sanctioned. Same registered agent address. Two former employees of sanctioned entity serve as directors. This matches the FRONT COMPANY sanctions evasion typology."
+
+This cross-referencing is what makes Marlowe worth paying for. Any tool can check a list. Marlowe connects the dots.
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -4901,6 +4788,27 @@ Be explicit about confidence levels:
 
 
 ═══════════════════════════════════════════════════════════════════════
+ANTI-HALLUCINATION RULES — MANDATORY
+═══════════════════════════════════════════════════════════════════════
+
+These rules are NON-NEGOTIABLE. Violating them destroys user trust and creates legal liability.
+
+1. NEVER fabricate findings. If you don't know, say "No information found" — not silence, not a guess. A clean result is a valid result.
+
+2. NEVER invent sanctions designations, case numbers, dates, or enforcement actions. If you're not certain an entity is on the OFAC SDN list, say "No confirmed OFAC designation found" — do NOT guess.
+
+3. ALWAYS cite your source for every factual claim. "Designated by OFAC" must link to treasury.gov or the SDN list. "Investigated by DOJ" must reference a specific press release or case number. Unsourced claims are not findings.
+
+4. DATE every finding. "Sanctioned in 2022" is useful. "Sanctioned" without a date is incomplete. If you don't know the date, say "date unknown."
+
+5. DISTINGUISH between "checked and clear" vs. "not checked." If you searched OFAC and found nothing, say "No OFAC SDN match found." If you did NOT search a database, say "Not checked" or omit it — NEVER imply clearance from a source you didn't verify.
+
+6. NEVER claim to have accessed a database you cannot actually access. You can reference your training knowledge of sanctions lists, but be transparent: "Based on training data through [date]" not "I accessed the OFAC database in real-time." When live screening data is provided in the context, cite THAT as the source.
+
+7. Mark confidence levels explicitly on EVERY finding. Use [CONFIRMED], [PROBABLE], [POSSIBLE], [UNVERIFIED], or [UNABLE TO DETERMINE]. If a user makes a decision based on your output, they need to know how much weight to give each finding.
+
+
+═══════════════════════════════════════════════════════════════════════
 DOMAIN KNOWLEDGE
 ═══════════════════════════════════════════════════════════════════════
 
@@ -4949,47 +4857,126 @@ HIGH-RISK INDUSTRIES
 
 
 ═══════════════════════════════════════════════════════════════════════
-TYPOLOGY RECOGNITION
+AML TYPOLOGY DETECTION FRAMEWORK
 ═══════════════════════════════════════════════════════════════════════
 
-Identify and name specific financial crime patterns:
+Money laundering follows three stages: PLACEMENT (introducing illicit cash), LAYERING (obscuring the trail), INTEGRATION (reintroducing "clean" money). For EVERY entity or transaction analysis, systematically evaluate against ALL known typologies below.
 
-STRUCTURING / SMURFING
-Pattern: Multiple transactions just under reporting thresholds
-Red flags: $9,500 deposits, multiple branches same day, cash-to-check patterns
-"Bottom Line: They're deliberately avoiding the $10K reporting requirement. This is a federal crime."
+CATEGORY 1: STRUCTURING & CASH-BASED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1.1 Structuring/Smurfing [Placement, +40]: Multiple deposits $9K-$9,999 within 24-48h, same depositor across branches/accounts, deposits timed to avoid daily aggregation, customer aware of thresholds. Thresholds: USA/EU/UK/AUS/CAN $10K/€10K/£10K.
+1.2 Cash-Intensive Business Laundering [Placement, +35]: Revenue inconsistent with capacity, cash deposits disproportionate to card sales, too-consistent daily deposits, no seasonal variation, minimal inventory vs. reported sales. High-risk: restaurants, car washes, laundromats, casinos, check cashing, ATM operators.
+1.3 Cuckoo Smurfing [Placement/Layering, +45]: Cash deposit to account expecting incoming wire, deposit matches wire exactly, original wire sender never sends funds.
+1.4 Refining [Placement, +30]: Exchange of small-denomination bills for large, no account relationship, large volume currency exchanges.
 
-LAYERING THROUGH SHELL COMPANIES
-Pattern: Funds flowing through multiple entities with no clear business purpose
-Red flags: BVI → Panama → Cyprus → Luxembourg chains, nominee directors, same registered agent
-"Bottom Line: They're creating distance between dirty money and its source."
+CATEGORY 2: SHELL COMPANY & CORPORATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2.1 Shell Company Layering [Layering, +45]: No physical office, no employees/website, generic description ("consulting","trading"), bearer/nominee shares, professional directors on many companies, recently incorporated with immediate high volume, frequent name changes. Secrecy Tier 1: BVI, Cayman, Panama, Seychelles, Belize, Nevis, Samoa, Vanuatu, Marshall Islands. Tier 2: Delaware, Nevada, Wyoming, Jersey, Guernsey, IoM, Liechtenstein, Luxembourg, Cyprus, Malta. Tx flags: undefined "services"/"consulting" payments, loans with no repayment, circular A→B→C→A, back-to-back loans.
+2.2 Layered Ownership [Layering, +40]: Chain >3 layers, multiple jurisdictions, trust-holds-company-holds-trust, foundations as owners, circular ownership, ownership at 24.9% (avoids disclosure), recent restructuring.
+2.3 Shelf Company Abuse [Layering, +35]: Company dormant for years then suddenly active, recent ownership/director change, name change upon activation, immediate high-value transactions.
+2.4 Misuse of Legal Entities [Layering/Integration, +30]: Private foundations, trusts, LLCs, cooperatives, charities/NPOs, religious orgs, SPVs, captive insurance.
 
-TRADE-BASED MONEY LAUNDERING (TBML)
-Pattern: Manipulating trade transactions to move value
-Red flags: Over/under invoicing, phantom shipments, carousel trading
-"Bottom Line: They're using fake or manipulated invoices to justify moving money across borders."
+CATEGORY 3: TRADE-BASED MONEY LAUNDERING (TBML)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3.1 Over-Invoicing [Layering/Integration, +40]: Price significantly above market, luxury goods at extreme premiums, inflated IP licenses.
+3.2 Under-Invoicing [Layering, +40]: Price significantly below market, declared value inconsistent with shipping/insurance costs.
+3.3 Phantom Shipments [Layering, +45]: Payment without bill of lading, no customs records, services invoiced but not delivered, Free Trade Zone without inspection.
+3.4 Multiple Invoicing [Layering, +40]: Same goods multiple invoices different buyers, duplicate invoice numbers, multiple L/Cs for same goods.
+3.5 Falsely Described Goods [Layering, +35]: Vague descriptions ("miscellaneous","samples"), high-value described as low-value. High-risk goods: precious metals/stones, art, electronics, luxury goods, pharmaceuticals, used vehicles, commodities.
+3.6 Black Market Peso Exchange [All stages, +50]: US cash buys goods for Latin America export, third-party payments for imports, broker arranges payment from unrelated US party.
 
-REAL ESTATE LAUNDERING
-Pattern: Using property purchases to clean money
-Red flags: All-cash purchases, LLCs as buyers, rapid flipping, price manipulation
-"Bottom Line: Real estate is attractive because it's high-value, hard to trace, and appreciates."
+CATEGORY 4: REAL ESTATE
+━━━━━━━━━━━━━━━━━━━━━━━
+4.1 All-Cash Purchases [Integration, +40]: Full price in cash, no mortgage, buyer income doesn't support purchase. High-risk markets: Miami, NYC, LA, SF, London, Vancouver, Toronto, Dubai, Singapore, HK, Sydney.
+4.2 Anonymous LLC/Trust Purchases [Layering/Integration, +35]: Purchaser is LLC/trust/offshore company, UBO not disclosed, recently formed LLC.
+4.3 Rapid Flipping [Layering, +35]: Resold within 6 months, significant price change with no improvements, related party transactions.
+4.4 Value Manipulation [Layering, +35]: Purchase 20%+ above/below market, inflated appraisal for cash-out refi.
+4.5 Loan-Back/Mortgage Laundering [Integration, +40]: Large down payment unclear source, cash collateral, loan from related/offshore entity, rapid payoff with cash.
+4.6 Renovation Laundering [Placement/Integration, +30]: Renovations entirely in cash, over-invoiced costs, ghost renovations.
 
-SANCTIONS EVASION
-Pattern: Obscuring the involvement of sanctioned parties
-Red flags: Last-minute ownership changes, transshipment through third countries, name variations
-"Bottom Line: They're trying to hide that a sanctioned person or country is involved."
+CATEGORY 5: FINANCIAL INSTITUTION ABUSE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5.1 Correspondent Banking Abuse [Layering, +45]: Nested accounts, payable-through accounts, lack of originator/beneficiary info.
+5.2 Wire Stripping [Layering, +45]: Incomplete originator information, vague beneficiary, cover payments lacking detail.
+5.3 Concentration Account Misuse [Layering, +35]: Customer funds commingled, loss of customer identification.
+5.4 Private Banking Abuse [All, +40]: PEP with unexplained wealth, numbered accounts, hold mail, power of attorney.
+5.5 Loan-Back Schemes [Integration, +35]: Deposit as collateral for loan, offshore deposit secures domestic loan, designed default.
 
-PEP CORRUPTION PATTERNS
-Pattern: Unexplained wealth accumulation by government officials
-Red flags: Assets inconsistent with salary, family members in business, government contracts to associates
-"Bottom Line: A government official with $10M probably didn't save it from their salary."
+CATEGORY 6: MSB & INFORMAL VALUE TRANSFER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6.1 Unlicensed Money Transmission [Placement/Layering, +50]: Not registered as MSB, no state licenses, social media advertising.
+6.2 Hawala/IVTS [All, +45]: Cash to local broker received from distant broker, no wire/banking, settlement through trade. High-risk corridors: Middle East, South Asia, East Africa, SE Asia.
+6.3 MSB Nesting [Layering, +40]: Sub-agents not disclosed, volume exceeds capacity.
+6.4 Currency Exchange Manipulation [Layering, +30]: Large exchanges with no underlying trade, sequential exchanges USD→EUR→GBP→USD.
 
-MIRROR TRADING
-Pattern: Offsetting trades to move money across borders
-Red flags: Identical trades in different currencies, no economic purpose
-"Bottom Line: They're using securities trades to convert rubles to dollars outside normal channels."
+CATEGORY 7: SECURITIES & INVESTMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7.1 Securities Manipulation [Layering/Integration, +45]: Pump-and-dump, wash trading, matched orders, spoofing.
+7.2 Mirror Trading [Layering, +45]: Client buys in one currency, related party sells same security in another, no economic purpose.
+7.3 Private Placement Abuse [Integration, +35]: Investment in questionable-value company, later buyback at profit.
+7.4 Insurance Product Abuse [Integration, +35]: Large single-premium life, early surrender accepting penalty, policy loans, third-party payment. High-risk: single premium life, annuities, cash value life.
+7.5 Broker-Dealer Abuse [Layering, +35]: Deposits followed by immediate withdrawals, wires with no trading, third-party deposits, pass-through account.
 
-When you identify a typology, name it, explain why the pattern matches, and suggest investigation steps.
+CATEGORY 8: GAMING & GAMBLING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8.1 Casino Laundering [Placement/Integration, +40]: Large cash buy-in minimal gambling cash-out, chip purchases with cash redeemed by check, front money with minimal play.
+8.2 Online Gambling [All, +35]: Multiple funding sources, collusion/chip dumping, minimal gameplay immediate withdrawal, VPN usage.
+8.3 Lottery Manipulation [Integration, +30]: Purchase of winning ticket at premium, pattern of wins by same person.
+
+CATEGORY 9: CRYPTOCURRENCY
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+9.1 Mixing/Tumbling [Layering, +50]: Transactions with known mixer addresses (Tornado Cash, Blender.io, ChipMixer, Wasabi, Samourai Whirlpool), time delay patterns.
+9.2 Chain Hopping [Layering, +40]: BTC→ETH→stablecoin→BTC, cross-chain swaps, DEX/bridge usage, privacy coin as intermediate.
+9.3 Privacy Coin Usage [Layering, +45]: Conversion to/from Monero, Zcash, Dash, Grin, Beam, Pirate Chain.
+9.4 Peel Chain [Layering, +40]: Funds to new wallet with smaller amount forwarded, chain of wallets with decreasing balances, new wallets each hop.
+9.5 Nested Exchange/OTC Abuse [Layering, +45]: Transactions with sanctioned exchanges (Garantex, Suex, Chatex, Bitzlato), OTC in non-KYC jurisdictions, P2P without verification.
+9.6 Ransomware Proceeds [Placement, +60]: Wallet received from known ransomware addresses, immediate tumbling, connections to known groups.
+9.7 Darknet Market Proceeds [Placement, +55]: Transactions with known market wallets, small frequent transactions, escrow patterns.
+9.8 DeFi Protocol Abuse [Layering, +35]: Flash loans with no economic purpose, complex multi-protocol transactions, obscure protocols.
+9.9 NFT Laundering [Layering/Integration, +35]: Self-dealing (buy own NFT), wash trading, sale price far exceeds comparables, seller-buyer connected on-chain.
+
+CATEGORY 10: PROFESSIONAL ENABLERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10.1 Lawyer/Notary Abuse [Layering, +40]: Client funds through IOLTA, legal fees exceed services, lawyer forms shells for client, acts as nominee.
+10.2 Accountant Abuse [Integration, +35]: Falsified financials, inflated revenue, transfer pricing manipulation.
+10.3 TCSP Abuse [Layering, +40]: Many companies at same address, nominee directors, client never visits jurisdiction, TCSP handles all banking.
+
+CATEGORY 11: CORRUPTION & PEP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11.1 Bribery & Kickbacks [Placement/Integration, +50]: Payments to officials/family, consulting fees to connected persons, success fees tied to government contracts.
+11.2 Embezzlement [Placement, +45]: State funds to private accounts, procurement fraud, payroll ghosts.
+11.3 PEP Wealth Concealment [Layering/Integration, +45]: Wealth inconsistent with salary, assets through family, offshore entities, luxury real estate in foreign markets, golden visas.
+11.4 State Capture [Integration, +50]: Government contracts to connected companies, regulatory decisions favoring specific parties, insider privatization.
+
+CATEGORY 12: TAX EVASION
+━━━━━━━━━━━━━━━━━━━━━━━━
+12.1 Offshore Tax Evasion [Layering/Integration, +35]: Unreported foreign accounts (FBAR), income through offshore entities, transfer pricing abuse, treaty shopping.
+12.2 Tax Refund Fraud [Integration, +35]: Identity theft, false W-2/1099, fraudulent deductions, VAT carousel fraud.
+
+CATEGORY 13: TERRORISM FINANCING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13.1 NPO/Charity Abuse [All, +50]: Charity in conflict zone, funds diverted, donors are designated persons, cash-based operations.
+13.2 Self-Funding Lone Wolf [Placement, +40]: Personal loans before attack, credit card maximization, materials/weapons purchase, travel to conflict zones.
+13.3 Hawala for Terrorism [All, +50]: Transfers to conflict zones, transactions with designated persons.
+
+CATEGORY 14: HUMAN TRAFFICKING & SMUGGLING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14.1 Trafficking Proceeds [Placement/Layering, +50]: Cash from massage parlors/nail salons, multiple workers paid into single account, payments to visa/document services. High-risk: massage parlors, nail salons, hospitality, agriculture, escort services, staffing agencies.
+14.2 Migrant Smuggling [Placement, +45]: Cash from multiple unrelated individuals, payments to transportation/document services.
+
+CATEGORY 15: DRUG TRAFFICKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15.1 Drug Proceeds [All, +50]: Large/structured cash deposits, cash purchases of vehicles/property, wires to source countries (Colombia, Mexico, Peru, Afghanistan, Myanmar), business fronts, bulk cash smuggling.
+
+CATEGORY 16: SANCTIONS EVASION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+16.1 Front Companies [Layering, +55]: Company formed after designation, same address as sanctioned entity, former employees, trading same goods.
+16.2 Ship-to-Ship Transfers [Layering, +50]: AIS transponder off, meeting at sea, flag/name changes, false origin docs.
+16.3 False Documentation [Layering, +50]: Certificates of origin from third countries, bills of lading with false port, transshipment through non-sanctioned countries.
+16.4 Aliases and Name Changes [Layering, +45]: Name similar to sanctioned party, transliteration variations, company name change after designation.
+
+TYPOLOGY ANALYSIS OUTPUT:
+When typologies are detected, report each with: typology name, ML stage, risk score contribution, specific indicators observed, and recommended next steps. Always show aggregate typology risk score and final recommendation (approve/EDD/decline/SAR).
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -5287,6 +5274,25 @@ Always include this table. Adjust the rows to match the actual factors present. 
 After the table, add a **Bottom Line** explaining why it matters in simple terms:
 "**Bottom Line:** This person held a government position in a country with endemic corruption. Any wealth accumulated during that time should be verified independently."
 
+## INVESTIGATION NOTES
+
+Show your reasoning like a senior analyst's working notes. This section makes the analysis auditable and transparent. Write in first person as the investigator.
+
+Example format:
+"Started by establishing the subject: [Name], [nationality], [DOB if known]. The name is [unique/common] — [disambiguation notes].
+
+Checked OFAC SDN list — [MATCH/NO MATCH]. [If match: designation date, program, confidence]. Checked EU Consolidated List — [result]. Checked UN SC List — [result].
+
+[For each source checked, note what was found or explicitly note 'no hits'.]
+
+Key connection identified: [subject] → [entity/person] via [relationship]. This matters because [explanation].
+
+Sources I could NOT check: [list any databases or sources not available]. These gaps mean [implication].
+
+My assessment: [direct conclusion]. The primary risk driver is [X]. If [condition], the risk level could change to [Y]."
+
+Keep investigation notes concise but thorough — 8-15 lines covering: identity verification, sources checked (with results), key connections found, gaps identified, and reasoning for the final risk score.
+
 ## ONBOARDING RECOMMENDATION: [IMMEDIATE REJECT / ENHANCED DUE DILIGENCE / PROCEED WITH MONITORING / APPROVED]
 
 ⚠️ THIS SECTION IS MANDATORY — NEVER SKIP IT. It renders as a colored banner in the UI.
@@ -5472,7 +5478,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
      if (!response.ok) {
        const errorText = await response.text();
-       throw new Error(`Request failed (${response.status}): ${errorText}`);
+       console.error(`API request failed (${response.status}):`, errorText);
+       throw new Error(`${response.status}`);
      }
 
      // Process the stream
@@ -5505,7 +5512,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
              // Check for error responses
              if (parsed.error) {
                console.error('API error in stream:', parsed.error);
-               fullText = `Error from API: ${parsed.error.message || JSON.stringify(parsed.error)}`;
+               fullText = friendlyError(parsed.error);
                setCaseStreamingState(caseId, { streamingText: fullText });
                setStreamingText(fullText); // Legacy
                break;
@@ -5553,6 +5560,30 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      setCaseStreamingState(caseId, { streamingText: '' });
      setStreamingText(''); // Legacy
 
+     // Auto-index conversation to RAG (fire-and-forget)
+     if (userMessage.length > 100) {
+       fetch(`${API_BASE}/api/rag`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+           action: 'index', namespace: 'case_notes',
+           text: `Case: ${currentCase?.name} | User: ${userMessage}`,
+           metadata: { caseId, caseName: currentCase?.name, messageRole: 'user', workspaceId: currentCase?.workspaceId }
+         })
+       }).catch(() => {});
+     }
+     if (fullText.length > 100) {
+       fetch(`${API_BASE}/api/rag`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+           action: 'index', namespace: 'case_notes',
+           text: `Case: ${currentCase?.name} | Marlowe: ${fullText.substring(0, 2000)}`,
+           metadata: { caseId, caseName: currentCase?.name, messageRole: 'assistant', workspaceId: currentCase?.workspaceId }
+         })
+       }).catch(() => {});
+     }
+
    } catch (error) {
      if (error.name === 'AbortError') {
        // User stopped the stream — save partial text
@@ -5576,7 +5607,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        console.error('Streaming error:', error);
        const errorMessage = {
          role: 'assistant',
-         content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
+         content: friendlyError(error),
          timestamp: new Date().toISOString()
        };
        setCases(prev => prev.map(c =>
@@ -5589,6 +5620,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
    } finally {
      conversationAbortRef.current = null;
      setCaseStreamingState(caseId, { isStreaming: false, streamingText: '' });
+     setActiveAnalysisCount(prev => Math.max(0, prev - 1));
      setIsStreaming(false); // Legacy
    }
  };
@@ -5616,6 +5648,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
  console.log('Starting analysis...');
  setIsAnalyzing(true);
+ countdownTotalRef.current = 60; setScreeningCountdown(60);
  setAnalysis(null); // Clear previous analysis
 
  // Check if this is a screening request
@@ -5640,6 +5673,23 @@ Risk Scoring: OFAC SDN Match = 100 (BLOCKED). Criminal conviction = 60. PEP stat
 AML Typology Detection: Systematically evaluate against ALL known ML typologies across 16 categories: (1) Structuring/smurfing — deposits just below CTR thresholds, (2) Cash-intensive business laundering, (3) Shell company layering — secrecy jurisdictions, nominee directors, no operations, (4) Layered ownership — chains >3 layers, trust-company-trust, foundations, (5) Trade-based ML — over/under-invoicing, phantom shipments, BMPE, (6) Real estate — all-cash purchases, anonymous LLCs, rapid flipping, value manipulation, (7) Correspondent banking abuse — nested accounts, wire stripping, (8) MSB/Hawala — unlicensed transmission, informal value transfer, (9) Securities — mirror trading, pump-and-dump, wash trading, insurance product abuse, (10) Casino/gambling laundering, (11) Crypto — mixing/tumbling, chain hopping, privacy coins, peel chains, nested exchanges, ransomware/darknet proceeds, DeFi/NFT abuse, (12) Professional enablers — lawyers, accountants, TCSPs, (13) Corruption/PEP — bribery, embezzlement, wealth concealment, state capture, (14) Tax evasion — offshore structures, carousel fraud, (15) Terrorism financing — NPO abuse, hawala for TF, (16) Sanctions evasion — front companies, ship-to-ship transfers, false documentation, aliases. Three ML stages: Placement → Layering → Integration. For any entity with 2+ typologies detected, recommend SAR filing consideration.
 
 Critical rules: Never clear without checking. Disambiguate aggressively. Apply OFAC 50% rule. Consider secondary sanctions. Prioritize primary sources. Err on caution. Be actionable with clear recommendations.
+
+INVESTIGATION REASONING — Follow these 8 steps for EVERY screening:
+1. IDENTIFY: Establish subject precisely — name, aliases, DOB, nationality, identifiers. List all possible matches if ambiguous.
+2. CONTEXTUALIZE: What do you already know? What risk factors are inherent to their profile?
+3. SEARCH: Document every source checked — what searched, what found (or didn't), data recency. No hits = valid finding.
+4. DISAMBIGUATE: For every match, compare name/DOB/nationality/associates. Assign match confidence %. Explain reasoning.
+5. CONNECT: Map relationships — associates, family, co-directors, ownership chains. Follow to natural persons.
+6. WEIGH: Assess each finding on severity, reliability, recency. Distinguish confirmed facts from allegations.
+7. CONCLUDE: Clear risk assessment with score breakdown. State what would change your assessment.
+8. RECOMMEND: Specific actionable steps with regulatory basis. Prioritize by urgency.
+
+ANTI-HALLUCINATION RULES (MANDATORY):
+- NEVER fabricate sanctions designations, case numbers, dates, or enforcement actions
+- ALWAYS cite sources for every factual claim — unsourced claims are not findings
+- DATE every finding — "sanctioned" without a date is incomplete
+- DISTINGUISH "checked and clear" from "not checked" — never imply clearance from an unchecked source
+- Mark confidence: [CONFIRMED], [PROBABLE], [POSSIBLE], [UNVERIFIED] on every finding
 
 HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
 - OLEG DERIPASKA (SDN April 2018): Owns EN+ Group (48%), Rusal (48% indirect), Basic Element (100%)
@@ -5736,7 +5786,8 @@ NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
 
  if (!response.ok) {
  const errorText = await response.text();
- throw new Error(`API error: ${response.status} - ${errorText}`);
+ console.error(`API error (${response.status}):`, errorText);
+ throw new Error(`${response.status}`);
  }
 
  const data = await response.json();
@@ -5776,7 +5827,7 @@ NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
  }
  } catch (error) {
  console.error('Screening error:', error);
- setAnalysisError(`Error during screening: ${error.message}`);
+ setAnalysisError(friendlyError(error));
  } finally {
  setIsAnalyzing(false);
  }
@@ -7377,6 +7428,7 @@ const getRiskBg = (level) => {
  setChatInput('');
  setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
  setIsChatLoading(true);
+ countdownTotalRef.current = 15; setScreeningCountdown(15);
 
  // Build context from evidence and analysis
  const evidenceContext = files.map((f, idx) => 
@@ -7591,6 +7643,10 @@ ${analysisContext}`;
  
  @keyframes slideIn {
  from { opacity: 0; transform: translateX(-24px); }
+ to { opacity: 1; transform: translateX(0); }
+ }
+ @keyframes slideInRight {
+ from { opacity: 0; transform: translateX(100%); }
  to { opacity: 1; transform: translateX(0); }
  }
  
@@ -8165,20 +8221,11 @@ ${analysisContext}`;
  
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim() || isScreening}
+ disabled={!kycQuery.trim()}
  className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
- {isScreening ? (
- <>
- <Loader2 className="w-5 h-5 animate-spin" />
- Screening...
- </>
- ) : (
- <>
  <Search className="w-5 h-5" />
  Screen Individual
- </>
- )}
  </button>
  </div>
  ) : kycType === 'entity' ? (
@@ -8193,14 +8240,10 @@ ${analysisContext}`;
  />
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim() || isScreening}
+ disabled={!kycQuery.trim()}
  className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
  >
- {isScreening ? (
- <Loader2 className="w-5 h-5 animate-spin" />
- ) : (
  <Search className="w-5 h-5" />
- )}
  Screen
  </button>
  </div>
@@ -8232,20 +8275,11 @@ ${analysisContext}`;
  )}
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim() || isScreening}
+ disabled={!kycQuery.trim()}
  className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
- {isScreening ? (
- <>
- <Loader2 className="w-5 h-5 animate-spin" />
- Screening...
- </>
- ) : (
- <>
  <Shield className="w-5 h-5" />
  Screen Wallet
- </>
- )}
  </button>
  </div>
  )}
@@ -8264,7 +8298,7 @@ ${analysisContext}`;
  ].map((s) => (
    <button
      key={s.name}
-     onClick={() => { setKycQuery(s.name); setKycType(s.type); }}
+     onClick={() => { submitSearch(s.name, s.type); }}
      className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 border border-gray-200 transition-colors"
    >
      {s.label || s.name}
@@ -8930,57 +8964,109 @@ ${analysisContext}`;
  )}
 
  {/* Cipher Loading Overlay */}
- {isScreening && (
- <div className="fixed inset-0 bg-gray-50/95 backdrop-blur-sm z-50 flex items-start justify-center pt-32">
- <div className="text-center">
- <div className="relative w-24 h-24 mx-auto mb-6">
- <div className="absolute inset-0 border-4 border-emerald-500/30 rounded-full animate-ping" />
- <div className="absolute inset-2 border-4 border-emerald-500/50 rounded-full animate-pulse" />
- <div className="absolute inset-4 bg-emerald-500 rounded-full flex items-center justify-center">
- <Shield className="w-8 h-8 text-white animate-pulse" />
+ {/* Active Searches Panel */}
+ {searchJobs.length > 0 && (
+ <div className="fixed bottom-6 left-6 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 font-mono text-sm min-w-[300px] max-h-[400px] overflow-y-auto">
+ <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+   <span className="text-gray-400 text-xs font-semibold tracking-widest uppercase">
+     Searches {searchJobs.filter(j => j.status === 'running' || j.status === 'queued').length > 0 && `(${searchJobs.filter(j => j.status === 'running' || j.status === 'queued').length} active)`}
+   </span>
+   {searchJobs.filter(j => j.status === 'complete' || j.status === 'error').length > 0 && (
+     <button onClick={() => setSearchJobs(prev => prev.filter(j => j.status === 'running' || j.status === 'queued'))} className="text-gray-500 hover:text-gray-300 text-xs">Clear done</button>
+   )}
  </div>
- </div>
- <h3 className="text-xl font-bold tracking-tight mb-2 leading-tight">Screening in Progress</h3>
-
- <div className="space-y-4 w-full max-w-2xl mx-auto px-4">
- <p className="text-emerald-600 font-medium tracking-wide text-lg">{screeningStep}</p>
-
- {/* Progress bar */}
- <div className="space-y-2">
- <div className="flex justify-between text-xs text-gray-600">
- <span>Screening Progress</span>
- <span>{screeningProgress.toFixed(0)}% Complete</span>
- </div>
- <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
- <div
- className="h-full bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 transition-all duration-500"
- style={{ width: `${screeningProgress}%` }}
- />
- </div>
- </div>
-
- {/* Pipeline steps */}
- <div className="grid grid-cols-5 gap-2 text-xs mt-8">
- <div className={`p-3 rounded text-center transition-all duration-300 ${screeningProgress >= 15 ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-gray-100/50 text-gray-500'}`}>
- <div className="font-medium tracking-wide">1. Sanctions Check</div>
- </div>
- <div className={`p-3 rounded text-center transition-all duration-300 ${screeningProgress >= 35 ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-gray-100/50 text-gray-500'}`}>
- <div className="font-medium tracking-wide">2. Ownership Analysis</div>
- </div>
- <div className={`p-3 rounded text-center transition-all duration-300 ${screeningProgress >= 55 ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-gray-100/50 text-gray-500'}`}>
- <div className="font-medium tracking-wide">3. Context Building</div>
- </div>
- <div className={`p-3 rounded text-center transition-all duration-300 ${screeningProgress >= 65 ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-gray-100/50 text-gray-500'}`}>
- <div className="font-medium tracking-wide">4. AI Risk Analysis</div>
- </div>
- <div className={`p-3 rounded text-center transition-all duration-300 ${screeningProgress >= 90 ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-gray-100/50 text-gray-500'}`}>
- <div className="font-medium tracking-wide">5. Report Generation</div>
- </div>
- </div>
- </div>
+ <div className="px-2 py-1">
+   {searchJobs.map(job => (
+     <div key={job.id} className="flex items-center justify-between px-2 py-2 border-b border-gray-800 last:border-0">
+       <div className="flex items-center gap-2 min-w-0">
+         {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />}
+         {job.status === 'queued' && <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+         {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+         {job.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+         <span className={`truncate ${job.status === 'complete' ? 'text-gray-400' : job.status === 'error' ? 'text-red-400' : 'text-gray-100'}`}>{job.query}</span>
+       </div>
+       <div className="flex items-center gap-2 shrink-0 ml-3">
+         {job.status === 'running' && <ElapsedTimer startedAt={job.startedAt} />}
+         {job.status === 'queued' && <span className="text-gray-600 text-xs">queued</span>}
+         {job.status === 'complete' && (
+           <>
+             <span className={`text-xs font-bold ${
+               job.riskLevel === 'LOW' ? 'text-emerald-400' : job.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-red-400'
+             }`}>{job.riskLevel}</span>
+             <button onClick={() => viewSearchResult(job.id)} className="text-blue-400 hover:text-blue-300 text-xs">View</button>
+           </>
+         )}
+         {job.status === 'error' && (
+           <button onClick={() => {
+             setSearchJobs(prev => prev.filter(j => j.id !== job.id));
+             setKycQuery(job.query); setKycType(job.type);
+           }} className="text-red-400 hover:text-red-300 text-xs">Retry</button>
+         )}
+       </div>
+     </div>
+   ))}
  </div>
  </div>
  )}
+
+ {/* Completion Notification — shown when screening finishes and user is on a different page */}
+ {completionNotifs.length > 0 && currentPage !== 'kycScreening' && (
+ <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col-reverse gap-3 z-[60]">
+ {completionNotifs.slice(0, 2).map(notif => (
+   <div key={notif.id} className={`bg-white dark:bg-gray-800 border rounded-xl shadow-2xl min-w-[360px] p-4 animate-[slideInRight_0.3s_ease-out] ${
+     notif.riskLevel === 'LOW' ? 'border-emerald-300' : notif.riskLevel === 'MEDIUM' ? 'border-amber-300' : 'border-red-300'
+   }`}>
+     <div className="flex items-center justify-between mb-1">
+       <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+         Screening Complete
+       </span>
+       <button onClick={() => setCompletionNotifs(prev => prev.filter(n => n.id !== notif.id))} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+     </div>
+     <p className="text-gray-900 font-semibold text-sm mt-1">{notif.entityName}</p>
+     <div className="flex items-center justify-between mt-2">
+       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+         notif.riskLevel === 'LOW' ? 'bg-emerald-100 text-emerald-700' : notif.riskLevel === 'MEDIUM' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+       }`}>{notif.riskLevel} ({notif.riskScore}/100)</span>
+       <button
+         onClick={() => {
+           viewSearchResult(notif.id);
+           setCompletionNotifs(prev => prev.filter(n => n.id !== notif.id));
+         }}
+         className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+       >
+         View Results <ArrowRight className="w-3.5 h-3.5" />
+       </button>
+     </div>
+   </div>
+ ))}
+ </div>
+ )}
+
+ {/* Toast Notifications */}
+ <div className="fixed bottom-6 right-6 flex flex-col-reverse gap-3 z-50">
+ {searchToasts.slice(0, 3).map(toast => (
+   <div key={toast.id} className={`bg-gray-900 border border-gray-700 rounded-xl shadow-2xl min-w-[320px] p-4 animate-[slideInRight_0.3s_ease-out] ${toast.error ? 'border-l-4 border-l-red-500' : `border-l-4 ${
+     toast.riskLevel === 'LOW' ? 'border-l-emerald-500' : toast.riskLevel === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-red-500'
+   }`}`}>
+     <div className="flex items-center justify-between mb-1">
+       <span className="text-gray-400 text-xs font-mono tracking-wider">{toast.error ? 'SEARCH FAILED' : 'SEARCH COMPLETE'}</span>
+       <button onClick={() => setSearchToasts(prev => prev.filter(t => t.id !== toast.id))} className="text-gray-500 hover:text-gray-300 text-lg leading-none">&times;</button>
+     </div>
+     <p className="text-white font-semibold">{toast.entityName}</p>
+     {toast.error ? (
+       <p className="text-red-400 text-sm mt-1">{toast.error}</p>
+     ) : (
+       <div className="flex items-center justify-between mt-2">
+         <span className={`text-sm font-bold ${
+           toast.riskLevel === 'LOW' ? 'text-emerald-400' : toast.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-red-400'
+         }`}>{toast.riskLevel} ({toast.riskScore}/100)</span>
+         <button onClick={() => { viewSearchResult(toast.id); setSearchToasts(prev => prev.filter(t => t.id !== toast.id)); }} className="text-blue-400 hover:text-blue-300 text-sm">View &rarr;</button>
+       </div>
+     )}
+   </div>
+ ))}
+ </div>
 
  </div>
  )}
@@ -9392,6 +9478,14 @@ ${analysisContext}`;
    <span className="text-xl font-bold text-amber-500">Marlowe</span>
    <span className="text-sm text-gray-500">© {new Date().getFullYear()}</span>
  </div>
+ <div className="flex items-center gap-6">
+ <button
+   onClick={() => setCurrentPage('disclosures')}
+   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors text-sm"
+ >
+   <FileText className="w-4 h-4" />
+   <span>Disclosures</span>
+ </button>
  <a
    href="mailto:patrickjgoodridge@gmail.com"
    className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors"
@@ -9400,7 +9494,94 @@ ${analysisContext}`;
    <span>Contact Us</span>
  </a>
  </div>
+ </div>
  </footer>
+ </div>
+ )}
+
+ {/* Disclosures Page */}
+ {currentPage === 'disclosures' && (
+ <div className="fade-in min-h-screen -mt-24 pt-24 bg-gray-950">
+   <div className="max-w-4xl mx-auto px-6 py-16">
+     <button
+       onClick={() => setCurrentPage('noirLanding')}
+       className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors mb-10"
+     >
+       <ArrowLeft className="w-4 h-4" />
+       <span>Back to Home</span>
+     </button>
+
+     <h1 className="text-4xl font-bold text-white mb-2">Disclosures</h1>
+     <p className="text-sm text-gray-500 mb-12">Last updated: February 2, 2026</p>
+
+     <div className="space-y-10 text-gray-300 leading-relaxed">
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">About Marlowe</h2>
+         <p>Marlowe is an AI-powered financial crimes investigation and screening tool. Marlowe is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Not Legal or Compliance Advice</h2>
+         <p className="mb-3">The information, reports, and screening results provided by Marlowe are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Marlowe's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
+         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Marlowe's outputs.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">No Guarantee of Accuracy or Completeness</h2>
+         <p className="mb-3">Marlowe aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Marlowe strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
+         <p className="mb-2">Specifically:</p>
+         <ul className="list-disc list-inside space-y-1 text-gray-400">
+           <li>Sanctions lists may not reflect designations announced within the prior 24-48 hours.</li>
+           <li>Name matching may produce false positives (incorrectly flagging an entity) or false negatives (failing to identify a match).</li>
+           <li>Adverse media results depend on the coverage and availability of third-party news sources.</li>
+           <li>Corporate ownership and beneficial ownership data may be outdated or incomplete.</li>
+           <li>AI-generated analysis may contain errors, omissions, or inaccuracies.</li>
+         </ul>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">AI-Generated Content</h2>
+         <p className="mb-3">Marlowe uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
+         <p>Marlowe does not make compliance decisions. Marlowe provides information and analysis to support human decision-making.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Data Sources and Freshness</h2>
+         <p>Marlowe screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Marlowe indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Not a Substitute for a Compliance Program</h2>
+         <p>Marlowe is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">No Liability</h2>
+         <p className="mb-2">To the fullest extent permitted by law, Marlowe and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Marlowe's services, including but not limited to:</p>
+         <ul className="list-disc list-inside space-y-1 text-gray-400">
+           <li>Regulatory fines or penalties resulting from reliance on Marlowe's outputs</li>
+           <li>Losses from transactions approved or declined based on Marlowe's screening results</li>
+           <li>Reputational harm from false positive or false negative screening results</li>
+           <li>Any errors, omissions, or inaccuracies in AI-generated content</li>
+         </ul>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Privacy</h2>
+         <p>Marlowe processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Marlowe does not sell user data.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Changes to This Page</h2>
+         <p>We may update these disclosures from time to time. Continued use of Marlowe after changes are posted constitutes acceptance of the updated disclosures.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
+         <p>Questions about these disclosures can be directed to: <a href="mailto:patrickjgoodridge@gmail.com" className="text-amber-500 hover:text-amber-400 transition-colors">patrickjgoodridge@gmail.com</a></p>
+       </section>
+     </div>
+   </div>
  </div>
  )}
 
@@ -9869,32 +10050,12 @@ ${analysisContext}`;
  </>
  )}
 
- {/* Monitoring Center Page */}
- {currentPage === 'monitoring' && (
- <MonitoringCenter
-   cases={cases}
-   allMonitoringAlerts={allMonitoringAlerts}
-   unreadAlertCount={unreadAlertCount}
-   monitoringInProgress={monitoringInProgress}
-   onToggleMonitoring={toggleMonitoring}
-   onRescreen={runMonitoringRescreen}
-   onViewCase={(caseId) => {
-     const c = cases.find(cs => cs.id === caseId);
-     if (c) loadCase(c);
-   }}
-   onAcknowledgeAlert={acknowledgeAlert}
-   onResolveAlert={resolveAlert}
-   onDismissAlert={dismissAlert}
-   onGoHome={goToLanding}
-   darkMode={darkMode}
- />
- )}
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
  <div className={`h-screen flex ${darkMode ? 'bg-gray-900' : 'bg-[#f8f8f8]'}`}>
  {/* Left Icon Bar */}
- <div className={`w-12 border-r ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-300'} flex flex-col items-center pt-3 gap-2`}>
+ <div className={`w-12 border-r ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-300'} flex flex-col items-center pt-3 gap-2 overflow-visible`}>
  {/* Home icon - at top */}
  <div className="relative group">
  <button
@@ -9909,33 +10070,21 @@ ${analysisContext}`;
  </div>
  </div>
  {/* Case Management folder - below home */}
- <div className="relative group">
+ <div className="relative group overflow-visible">
  <button
  onClick={() => setCurrentPage('existingCases')}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
+ className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors relative overflow-visible`}
  title="Case Management"
  >
  <FolderOpen className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
- </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
- </div>
- </div>
- {/* Monitoring Center */}
- <div className="relative group">
- <button
- onClick={() => setCurrentPage('monitoring')}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors relative`}
- >
- <Radio className={`w-5 h-5 ${unreadAlertCount > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600')} transition-colors`} />
- {unreadAlertCount > 0 && (
- <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
- {unreadAlertCount}
+ {activeSearchCount > 0 && (
+ <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Monitoring Center</div>
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
  {/* Dark Mode Toggle */}
@@ -10016,8 +10165,9 @@ ${analysisContext}`;
  if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
- // Auto-create case on first message, or use existing
- const caseIdToUse = currentCaseId || createCaseFromFirstMessage(conversationInput, files);
+ // For scout screenings, always create a new case so each search gets its own card
+ const isNewScreening = investigationMode === 'scout' && currentCaseId && conversationInput.trim();
+ const caseIdToUse = isNewScreening ? createCaseFromFirstMessage(conversationInput, files) : (currentCaseId || createCaseFromFirstMessage(conversationInput, files));
  sendConversationMessage(caseIdToUse, conversationInput, files);
  }
  }}
@@ -10042,8 +10192,9 @@ ${analysisContext}`;
  onClick={() => {
  if (conversationInput.trim() || files.length > 0) {
  setConversationStarted(true);
- // Auto-create case on first message, or use existing
- const caseIdToUse = currentCaseId || createCaseFromFirstMessage(conversationInput, files);
+ // For scout screenings, always create a new case so each search gets its own card
+ const isNewScreening = investigationMode === 'scout' && currentCaseId && conversationInput.trim();
+ const caseIdToUse = isNewScreening ? createCaseFromFirstMessage(conversationInput, files) : (currentCaseId || createCaseFromFirstMessage(conversationInput, files));
  sendConversationMessage(caseIdToUse, conversationInput, files);
  }
  }}
@@ -10082,7 +10233,7 @@ ${analysisContext}`;
    "Summarize entity risks",
    "Create AML/KYC report for:",
    "Screen for sanctions",
-   "Analyze transactions",
+   "Analyze this document",
    "Identify red flags",
    "Map ownership"
    ].map((suggestion, idx) => (
@@ -10097,6 +10248,42 @@ ${analysisContext}`;
    {suggestion}
    </button>
    ))}
+   </div>
+ </div>
+ )}
+
+ {/* Sample Cases Dropdown */}
+ <div className="mt-3 flex justify-center">
+ <div className="relative group">
+ <button
+   onClick={() => setSamplesExpanded(!samplesExpanded)}
+   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-500 border-gray-300'} border`}
+ >
+   <FileText className="w-4 h-4" />
+   <ChevronDown className={`w-4 h-4 transition-transform ${samplesExpanded ? 'rotate-180' : ''}`} />
+ </button>
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+   <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>
+     Sample Cases
+   </div>
+ </div>
+ </div>
+ </div>
+ {samplesExpanded && (
+ <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
+   <div className="flex gap-2">
+   <button
+     onClick={() => loadSampleDocument('/samples/meridian-group-case-study.docx', 'The Meridian Group Case Study.docx')}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+   >
+     Complex Laundering Network
+   </button>
+   <button
+     onClick={() => loadSampleDocument('/samples/lp-onboarding-packet.docx', 'LP Onboarding Packet.docx')}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+   >
+     LP Onboarding Packet
+   </button>
    </div>
  </div>
  )}
@@ -10198,7 +10385,12 @@ ${analysisContext}`;
        <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
        <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
      </div>
-     <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>Analyzing...</span>
+     <div className="flex flex-col gap-2 w-48">
+       <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+         <div className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${countdownTotalRef.current > 0 ? Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100) : 5}%` }} />
+       </div>
+       <span className={`${darkMode ? 'text-gray-500' : 'text-gray-400'} text-xs`}>{screeningCountdown > 0 ? `~${screeningCountdown}s remaining` : 'Almost done...'}</span>
+     </div>
    </div>
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
@@ -10299,36 +10491,24 @@ ${analysisContext}`;
  </div>
 
  {/* Case Management Button with tooltip */}
- <div className="relative group">
+ <div className="relative group overflow-visible">
  <button
  onClick={() => setCurrentPage('existingCases')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative overflow-visible"
  title="Case Management"
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ {activeSearchCount > 0 && (
+ <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ {activeSearchCount > 1 ? activeSearchCount : ''}
+ </span>
+ )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
 
- {/* Monitoring Center */}
- <div className="relative group">
- <button
- onClick={() => setCurrentPage('monitoring')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
- >
- <Radio className={`w-4 h-4 ${unreadAlertCount > 0 ? 'text-amber-500' : 'text-gray-400'} group-hover:text-gray-700 transition-colors`} />
- {unreadAlertCount > 0 && (
- <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
- {unreadAlertCount}
- </span>
- )}
- </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Monitoring Center</div>
- </div>
- </div>
 
           {/* Dark Mode Toggle with tooltip */}
           <div className="relative group">
@@ -10663,13 +10843,18 @@ ${analysisContext}`;
  </div>
 
  {/* Case Management Button with tooltip */}
- <div className="relative group">
+ <div className="relative group overflow-visible">
  <button
  onClick={() => setCurrentPage('existingCases')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative overflow-visible"
  title="Case Management"
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ {activeSearchCount > 0 && (
+ <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ {activeSearchCount > 1 ? activeSearchCount : ''}
+ </span>
+ )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
@@ -11830,6 +12015,7 @@ ${analysisContext}`;
  <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
  <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
  <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+ {countdownTotalRef.current > 0 && <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden ml-1"><div className="h-full bg-amber-400 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100)}%` }} /></div>}
  </div>
  </div>
  </div>
@@ -12080,7 +12266,6 @@ ${analysisContext}`;
         </div>
         )}
 
-        {/* Monitoring Alerts — now handled by MonitoringCenter page */}
 
         {/* Footer */}
         <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
