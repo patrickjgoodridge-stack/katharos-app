@@ -5606,9 +5606,11 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
    }
  };
 
- // Scroll conversation to bottom (only if user hasn't scrolled up)
+ // Scroll conversation to bottom (only if user hasnt scrolled up and not on first message)
  useEffect(() => {
-   if (!userScrolledUpRef.current) {
+   // Dont scroll on the first message - it causes a jarring jump
+   // Only scroll when theres streaming content or more than 1 message
+   if (!userScrolledUpRef.current && (conversationMessages.length > 1 || streamingText)) {
      conversationEndRef.current?.scrollIntoView({ behavior: 'instant' });
    }
  }, [conversationMessages, streamingText]);
