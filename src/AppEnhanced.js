@@ -132,8 +132,16 @@ export default function Marlowe() {
  // Track if floating notification has been dismissed (separate from completion card)
  const [notificationDismissed, setNotificationDismissed] = useState(false);
 
- // Conversational completion notification (shows briefly when chat response completes with risk assessment)
- const [chatCompletionNotification, setChatCompletionNotification] = useState({ show: false, caseName: '', riskLevel: '' });
+ // Conversational completion notification (shows when chat response completes with risk assessment)
+ const [chatCompletionNotification, setChatCompletionNotification] = useState({
+   show: false,
+   caseId: null,
+   caseName: '',
+   entityName: '',
+   riskLevel: '',
+   riskScore: null,
+   isPaused: false // For hover pause
+ });
 
  // Email gate modal state - shows when user tries to enter without email
  const [showEmailModal, setShowEmailModal] = useState(false);
@@ -1241,6 +1249,15 @@ export default function Marlowe() {
    }, 1000);
    return () => clearTimeout(t);
  }, [completionNotifs]);
+
+ // Auto-dismiss chat completion notification after 10 seconds (unless paused by hover)
+ useEffect(() => {
+   if (!chatCompletionNotification.show || chatCompletionNotification.isPaused) return;
+   const t = setTimeout(() => {
+     setChatCompletionNotification(prev => ({ ...prev, show: false }));
+   }, 10000);
+   return () => clearTimeout(t);
+ }, [chatCompletionNotification.show, chatCompletionNotification.isPaused]);
 
  // Reset tab title when user returns
  useEffect(() => {
@@ -5569,13 +5586,31 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        }
      }
 
-     // Get case name for notification before updating state
+     // Get case name and extract risk score for notification
      const currentCaseForNotification = cases.find(c => c.id === caseId);
      const caseNameForNotification = currentCaseForNotification?.name || 'Analysis';
 
-     // Show completion notification if we found a risk assessment (stays until user dismisses)
+     // Extract risk score (e.g., "HIGH — 72/100" or "CRITICAL RISK — 85/100")
+     let extractedRiskScore = null;
+     const scoreMatch = fullText.match(/(?:OVERALL RISK|RISK)[:\s*]+\**\s*(?:CRITICAL|HIGH|MEDIUM|LOW)[^\d]*(\d+)\s*(?:\/\s*100)?/i);
+     if (scoreMatch) {
+       extractedRiskScore = parseInt(scoreMatch[1], 10);
+     }
+
+     // Extract entity name from the case name or the first line of analysis
+     const entityName = caseNameForNotification.split(' - ')[0] || caseNameForNotification;
+
+     // Show completion notification if we found a risk assessment
      if (extractedRisk) {
-       setChatCompletionNotification({ show: true, caseName: caseNameForNotification, riskLevel: extractedRisk });
+       setChatCompletionNotification({
+         show: true,
+         caseId: caseId,
+         caseName: caseNameForNotification,
+         entityName: entityName,
+         riskLevel: extractedRisk,
+         riskScore: extractedRiskScore,
+         isPaused: false
+       });
      }
 
      setCases(prev => prev.map(c => {
@@ -12233,47 +12268,84 @@ ${analysisContext}`;
    </div>
  )}
 
- {/* Chat Completion Notification - shows briefly when conversational response completes with risk assessment */}
+ {/* Chat Completion Notification - shows when conversational response completes with risk assessment */}
  {chatCompletionNotification.show && (
-   <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
-     <div className={`bg-white border rounded-xl shadow-xl p-4 max-w-sm ${
-       chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-300' :
-       chatCompletionNotification.riskLevel === 'HIGH' ? 'border-orange-300' :
-       chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-300' :
-       'border-emerald-300'
-     }`}>
-       <div className="flex items-start gap-3">
-         <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-           chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
-           chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100' :
-           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
-           'bg-emerald-100'
-         }`}>
-           <CheckCircle2 className={`w-5 h-5 ${
-             chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-             chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
-             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
-             'text-emerald-600'
-           }`} />
-         </div>
-         <div className="flex-1 min-w-0">
-           <h4 className="font-semibold text-gray-900 text-sm">Analysis Complete</h4>
-           <p className="text-xs text-gray-500 truncate">{chatCompletionNotification.caseName}</p>
-           <p className={`text-xs font-medium mt-0.5 ${
-             chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-             chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
-             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
-             'text-emerald-600'
+   <div
+     className="fixed bottom-20 right-6 z-50 animate-slideUp"
+     onMouseEnter={() => setChatCompletionNotification(prev => ({ ...prev, isPaused: true }))}
+     onMouseLeave={() => setChatCompletionNotification(prev => ({ ...prev, isPaused: false }))}
+   >
+     <div
+       onClick={() => {
+         // Navigate to the case
+         setCurrentPage('existingCases');
+         setViewingCaseId(chatCompletionNotification.caseId);
+         setChatCompletionNotification(prev => ({ ...prev, show: false }));
+       }}
+       className={`bg-white border-2 rounded-xl shadow-xl p-4 w-80 cursor-pointer hover:shadow-2xl transition-all ${
+         chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-400' :
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'border-orange-400' :
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-400' :
+         'border-emerald-400'
+       }`}
+     >
+       {/* Header with checkmark and close button */}
+       <div className="flex items-center justify-between mb-3">
+         <div className="flex items-center gap-2">
+           <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+             chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
+             chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100' :
+             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
+             'bg-emerald-100'
            }`}>
-             {chatCompletionNotification.riskLevel} RISK
-           </p>
+             <CheckCircle2 className={`w-4 h-4 ${
+               chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
+               chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+               chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+               'text-emerald-600'
+             }`} />
+           </div>
+           <span className="text-sm font-medium text-gray-600">Analysis Complete</span>
          </div>
          <button
-           onClick={() => setChatCompletionNotification({ show: false, caseName: '', riskLevel: '' })}
-           className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+           onClick={(e) => {
+             e.stopPropagation();
+             setChatCompletionNotification(prev => ({ ...prev, show: false }));
+           }}
+           className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
          >
            <X className="w-4 h-4 text-gray-400" />
          </button>
+       </div>
+
+       {/* Entity name - bold and prominent */}
+       <h3 className="font-bold text-lg text-gray-900 mb-2 truncate">
+         {chatCompletionNotification.entityName}
+       </h3>
+
+       {/* Risk level with score */}
+       <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm ${
+         chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+         'bg-emerald-100 text-emerald-700'
+       }`}>
+         {chatCompletionNotification.riskLevel} RISK
+         {chatCompletionNotification.riskScore != null && (
+           <span className="opacity-80">— {chatCompletionNotification.riskScore}/100</span>
+         )}
+       </div>
+
+       {/* View Case link */}
+       <div className="flex justify-end mt-3">
+         <span className={`text-sm font-medium flex items-center gap-1 ${
+           chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
+           chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+           'text-emerald-600'
+         }`}>
+           View Case <ChevronRight className="w-4 h-4" />
+         </span>
        </div>
      </div>
    </div>
