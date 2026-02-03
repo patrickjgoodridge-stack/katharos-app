@@ -7517,8 +7517,8 @@ ${analysisContext}`;
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
 
- {/* Contact email link - bottom left (hidden on landing page) */}
-{currentPage !== 'noirLanding' && (
+ {/* Contact email link - bottom left (hidden on landing and disclosures pages) */}
+{currentPage !== 'noirLanding' && currentPage !== 'disclosures' && (
 <a
   href="mailto:patrickjgoodridge@gmail.com"
   title="Contact"
