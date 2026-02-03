@@ -2699,7 +2699,8 @@ If this is a scanned document, please use OCR software to convert it to searchab
      const response = await fetch(url);
      if (!response.ok) throw new Error('Failed to fetch');
      const blob = await response.blob();
-     const file = new File([blob], fileName, { type: blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+     const mimeType = fileName.endsWith('.txt') ? 'text/plain' : (blob.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+     const file = new File([blob], fileName, { type: mimeType });
      await processFiles([file]);
      setSamplesExpanded(false);
      setConversationInput('Analyze this document');
@@ -10277,13 +10278,13 @@ ${analysisContext}`;
  <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="flex gap-2">
    <button
-     onClick={() => loadSampleDocument('/samples/meridian-group-case-study.docx', 'The Meridian Group Case Study.docx')}
+     onClick={() => loadSampleDocument('/samples/complex-laundering-network.txt', 'Complex Laundering Network.txt')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      Complex Laundering Network
    </button>
    <button
-     onClick={() => loadSampleDocument('/samples/lp-onboarding-packet.docx', 'LP Onboarding Packet.docx')}
+     onClick={() => loadSampleDocument('/samples/lp-onboarding-packet.txt', 'LP Onboarding Packet.txt')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      LP Onboarding Packet

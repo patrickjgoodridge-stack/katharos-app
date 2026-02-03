@@ -1,0 +1,204 @@
+LIMITED PARTNER SUBSCRIPTION AGREEMENT
+ATLAS GROWTH PARTNERS III, L.P.
+=====================================
+
+INVESTOR INFORMATION
+====================
+
+SUBSCRIBER DETAILS:
+Entity Name: Crescent Bay Holdings Ltd
+Entity Type: Private Investment Company
+Jurisdiction of Formation: Cayman Islands
+Date of Incorporation: March 14, 2019
+Registration Number: MC-328847
+
+Principal Business Address:
+PO Box 309, Ugland House
+George Town, Grand Cayman KY1-1104
+Cayman Islands
+
+COMMITMENT AMOUNT: USD $25,000,000
+
+AUTHORIZED SIGNATORIES:
+1. Name: Mohammad Al-Rashid
+   Title: Director
+   Nationality: Saudi Arabian
+   Passport: A28447291
+   DOB: June 12, 1965
+
+2. Name: Dmitri Volkov
+   Title: Director
+   Nationality: Russian Federation
+   Passport: 7284419283
+   DOB: November 3, 1972
+
+ULTIMATE BENEFICIAL OWNERS
+==========================
+
+UBO 1 (68% ownership):
+Name: Sheikh Abdullah bin Khalid Al-Rashid
+Nationality: Saudi Arabian
+Date of Birth: February 8, 1958
+Passport Number: A18829374
+Tax Residency: Kingdom of Saudi Arabia
+PEP Status: YES - Former Deputy Minister of Commerce (2008-2016)
+Source of Wealth: Family business (Al-Rashid Trading Group), real estate investments
+
+UBO 2 (32% ownership):
+Name: Oleg Vladimirovich Deripaska
+Nationality: Russian Federation
+Date of Birth: January 2, 1968
+Passport Number: 7518847291
+Tax Residency: Cyprus
+PEP Status: YES - Close associate of Russian government officials
+Source of Wealth: Industrial holdings, aluminum production
+NOTE: Subject may have similar name to sanctioned individual - requires enhanced screening
+
+CORPORATE STRUCTURE
+===================
+
+Crescent Bay Holdings Ltd (Cayman)
+    |
+    +-- 100% owned by --> Al-Rashid Family Trust (Jersey)
+    |                         |
+    |                         +-- Beneficiaries: Al-Rashid family members
+    |                         +-- Trustee: Trident Trust Company
+    |
+    +-- Managed by --> Crescent Asset Management SA (Switzerland)
+                           |
+                           +-- Regulated by FINMA
+                           +-- Directors: Jean-Pierre Blanc, Maria Santos
+
+FUND FLOW PATH
+==============
+Source Account: Credit Suisse (now UBS), Zurich
+Account Number: CH93 0027 3273 8291 8472 H
+Account Name: Crescent Bay Holdings Ltd
+
+Intermediate Bank (if applicable):
+Bank: Gazprombank (Switzerland) Ltd
+SWIFT: GAZPCHZZ
+
+SUBSCRIPTION PAYMENT DETAILS
+============================
+Wire Amount: USD $12,500,000 (50% initial capital call)
+Wire Date: Scheduled February 15, 2024
+Reference: ATLAS-III-CB-2024
+
+SOURCE OF FUNDS DECLARATION
+===========================
+The undersigned hereby declares that the funds being contributed:
+
+[X] Originate from legitimate business activities
+[X] Are not derived from any illegal activities
+[X] Are not subject to any liens or encumbrances
+
+Specific source of funds for this subscription:
+- Dividend distributions from Al-Rashid Trading Group (60%)
+- Proceeds from sale of commercial real estate in Dubai (25%)
+- Returns from previous private equity investments (15%)
+
+Supporting documentation attached:
+- Audited financial statements (Al-Rashid Trading Group, 2022)
+- Property sale agreement (Dubai Land Department)
+- Distribution letters from prior fund investments
+
+SANCTIONS REPRESENTATIONS
+=========================
+The Subscriber represents and warrants that:
+
+1. Neither the Subscriber nor any of its beneficial owners is:
+   - A Specially Designated National (SDN) under OFAC regulations
+   - Listed on the EU Consolidated Sanctions List
+   - Subject to UN Security Council sanctions
+
+2. The Subscriber is not owned or controlled by any such person
+
+3. The funds do not originate from any sanctioned country including:
+   Iran, North Korea, Syria, Cuba, Russia*, Belarus, Venezuela
+
+   *Note: Russian beneficial owner requires enhanced due diligence
+
+INVESTMENT HISTORY
+==================
+Prior fund investments by Crescent Bay Holdings Ltd:
+
+1. Blackstone Real Estate Partners IX - $15M commitment (2020)
+2. KKR Asian Fund IV - $10M commitment (2021)
+3. Apollo Natural Resources Partners III - $20M commitment (2022)
+4. Citadel Wellington Fund - $8M allocation (2019-present)
+
+BANK REFERENCE
+==============
+Primary Banking Relationship: Credit Suisse Private Banking (Zurich)
+Relationship Manager: Hans Mueller
+Contact: +41 44 333 XXXX
+Account opened: 2015
+Average balance (3-year): CHF 45,000,000
+
+Secondary Banking: Emirates NBD Private Banking (Dubai)
+Account opened: 2018
+
+TAX INFORMATION
+===============
+FATCA Status: Passive NFFE
+CRS Classification: Investment Entity (Managed by FI)
+GIIN (if applicable): N/A
+Tax ID Number: N/A (Cayman Islands entity)
+
+ADDITIONAL DISCLOSURES
+======================
+1. The Subscriber confirms no material litigation pending
+2. No bankruptcy proceedings in past 10 years
+3. No regulatory sanctions or enforcement actions
+4. Directors have not been disqualified from serving as directors
+
+POLITICALLY EXPOSED PERSONS
+===========================
+The following individuals associated with this subscription are or have been PEPs:
+
+1. Sheikh Abdullah bin Khalid Al-Rashid
+   - Position: Deputy Minister of Commerce, Saudi Arabia
+   - Tenure: 2008-2016
+   - Current status: Retired from government service
+   - Ongoing connections: Member of Royal Advisory Council (honorary)
+
+2. Oleg Vladimirovich Deripaska
+   - Position: N/A (business associate of government officials)
+   - Connections: Historical business dealings with Russian state enterprises
+   - Note: Name similarity to OFAC-designated individual requires verification
+
+ATTACHMENTS
+===========
+1. Certificate of Incorporation - Crescent Bay Holdings Ltd
+2. Register of Directors
+3. Register of Members/Shareholders
+4. Certificate of Good Standing (dated within 30 days)
+5. Passport copies - all directors and UBOs
+6. Proof of address - all directors and UBOs
+7. Trust deed - Al-Rashid Family Trust (summary)
+8. Bank reference letter
+9. Source of funds documentation
+10. W-8BEN-E form
+
+SIGNATURE PAGE
+==============
+
+For and on behalf of CRESCENT BAY HOLDINGS LTD:
+
+_______________________________
+Mohammad Al-Rashid, Director
+Date: January 28, 2024
+
+_______________________________
+Dmitri Volkov, Director
+Date: January 28, 2024
+
+ACCEPTED by ATLAS GROWTH PARTNERS III GP, LLC:
+
+_______________________________
+[Fund Administrator]
+Date: _____________
+
+---
+CONFIDENTIAL - FOR COMPLIANCE REVIEW ONLY
