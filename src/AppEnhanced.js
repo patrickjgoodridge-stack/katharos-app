@@ -10348,8 +10348,8 @@ ${analysisContext}`;
  {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
  {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
- {/* Export PDF button only for screening results */}
- {msg.content.includes('OVERALL RISK') && (
+ {/* Export PDF button for screening results and substantial analysis */}
+ {(msg.content.includes('OVERALL RISK') || msg.content.includes('## ') || (msg.content.length > 800 && (msg.content.includes('Risk') || msg.content.includes('Screening') || msg.content.includes('Analysis') || msg.content.includes('Findings')))) && (
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content))}
  disabled={isGeneratingCaseReport}
