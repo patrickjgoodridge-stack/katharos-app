@@ -967,3 +967,110 @@ FinCEN and OFAC investigation. Blockchain analysis showing ransomware and darkne
 
 ### Lesson for Screening
 Flag any crypto exchange operating in a jurisdiction different from its registration, especially if Russia-based. Garantex shows that OFAC will designate exchanges facilitating ransomware payments. Any transaction with Garantex addresses is BLOCKED.
+
+---
+
+## HIGH-RISK INDUSTRIES FOR MONEY LAUNDERING
+
+**Category**: Reference Guide
+**Source**: FinCEN, FATF, EU 6AMLD
+
+### Overview
+Certain industries are inherently higher risk for money laundering due to characteristics like cash intensity, subjective valuations, limited regulation, or cross-border complexity. When screening any entity, check their occupation, business type, and source of funds against this classification.
+
+### Industry Risk Classification
+
+#### TIER 1 — HIGHEST RISK (+20-25 points)
+
+**1. Arms and Defense (+25)**
+- Risk factors: Government corruption, export controls, sanctioned end-users
+- Occupations: Arms dealer, defense contractor, military equipment broker
+- Red flags: Exports to embargoed countries, intermediary chains, end-user certificate issues
+- Reference: ITAR, EAR, EU Dual-Use Regulation
+
+**2. Art and Antiquities (+20)**
+- Risk factors: No price transparency, subjective valuations, anonymous buyers, freeport storage, minimal regulation
+- Occupations: Art dealer, gallery owner, auction house, art advisor, antiquities dealer
+- Red flags: Large cash transactions, private sales with no public record, freeport storage, rapid resale at inflated prices
+- Reference: FinCEN 2021 Art Market Study, EU 6AMLD
+
+**3. Gambling and Casinos (+20)**
+- Risk factors: Cash in/cash out, chips as currency substitute, minimal ID requirements in some jurisdictions
+- Occupations: Casino operator, online gambling platform, sports betting operator
+- Red flags: Buy-in with cash and cash-out with check, minimal actual gambling, junket operators
+
+**4. Cryptocurrency and Virtual Assets (+20)**
+- Risk factors: Pseudonymous, cross-border, mixers/tumblers, DeFi protocols
+- Occupations: Crypto exchange operator, DeFi protocol developer, OTC crypto dealer, mining operation
+- Red flags: Unregistered exchange, no KYC, mixing service usage, privacy coins
+- Reference: FATF Virtual Assets Guidance 2021
+
+**5. Money Services Businesses (+20)**
+- Risk factors: Cash transmission, remittances, currency exchange outside banking system
+- Occupations: MSB operator, hawala broker, remittance agent, currency exchange operator, check casher
+- Red flags: Unlicensed operation, high-risk corridors, structuring
+
+#### TIER 2 — HIGH RISK (+15 points)
+
+**6. Real Estate (+15)**
+- Risk factors: High-value assets, cash purchases, shell company buyers, opaque pricing
+- Occupations: Real estate developer, property investor, real estate agent (when principal)
+- Red flags: All-cash purchases, shell company buyers, rapid flipping, pricing above market value
+- Reference: FinCEN Geographic Targeting Orders, FATF 2007 report
+
+**7. Precious Metals, Stones, and Jewelry (+15)**
+- Risk factors: Portable, high-value, easy to smuggle, subjective pricing
+- Occupations: Jeweler, gem dealer, precious metals trader, gold dealer
+- Red flags: Cash purchases, cross-border movement, trade-based laundering
+
+**8. Cash-Intensive Businesses (+15)**
+- Risk factors: Easy to commingle illicit funds with legitimate revenue
+- Occupations: Restaurant owner, nightclub owner, car wash operator, parking lot operator, casino operator, ATM operator, vending machine operator, laundromat owner, convenience store owner
+- Red flags: Revenue inconsistent with foot traffic, abnormally high profit margins, multiple cash-intensive businesses
+
+**9. High-Value Goods (+15)**
+- Risk factors: Portable value, subjective pricing, luxury goods as value store
+- Occupations: Luxury car dealer, yacht broker, private aircraft dealer, high-end watch dealer
+- Red flags: Cash purchases of luxury goods, purchases by shell companies, rapid resale
+
+**10. Trade and Commodities (+15)**
+- Risk factors: Trade misinvoicing, commodity price manipulation, complex supply chains
+- Occupations: Commodity trader, import/export business, freight forwarder, customs broker
+- Red flags: Over/under invoicing, goods transiting through free trade zones, mismatched trade documents
+
+#### TIER 3 — ELEVATED RISK (+10 points)
+
+**11. Legal and Professional Services (+10)**
+- Risk factors: Client confidentiality, trust/company formation, client account pooling
+- Occupations: Lawyer (when forming entities or managing client funds), accountant, company formation agent, trust administrator, nominee director
+- Red flags: Creating shell companies, managing client money accounts, providing nominee services
+
+**12. Private Banking and Wealth Management (+10)**
+- Risk factors: High-value clients, complex structures, secrecy culture
+- Occupations: Private banker, wealth manager, family office (when managing third-party funds)
+- Red flags: PEP clients, shell company structures, secrecy jurisdiction accounts
+
+**13. Construction and Infrastructure (+10)**
+- Risk factors: Large cash flows, subcontractor chains, invoice fraud, government contracts
+- Occupations: Construction company owner, government contractor, infrastructure developer
+- Red flags: Subcontractor layering, inflated invoices, PEP connections to government contracts
+
+**14. Nonprofit and Charity (+10)**
+- Risk factors: Donor anonymity, cross-border transfers, limited oversight in some jurisdictions
+- Occupations: Charity operator, NGO director, foundation trustee (when operating in high-risk regions)
+- Red flags: Operating in conflict zones, opaque funding sources, transfers to high-risk jurisdictions
+
+### Screening Instructions
+
+When screening any entity:
+
+1. **Identify industry match**: Check occupation, business description, and source of funds against categories above
+2. **Add risk points**: Apply the appropriate risk score based on tier
+3. **Document in report**: State "HIGH-RISK INDUSTRY: [Category]. [One sentence explaining why this industry is high-risk for money laundering]. Enhanced due diligence recommended."
+4. **Apply industry-specific EDD**: Recommend enhanced due diligence measures appropriate to the specific industry
+
+### Example Application
+
+**Subject**: Catherine Dubois, French art dealer
+**Industry Match**: Art and Antiquities (+20 points)
+**Report Language**: "HIGH-RISK INDUSTRY: Art and Antiquities. The art market is identified by FinCEN and FATF as high-risk for money laundering due to lack of price transparency, subjective valuations, anonymous buyers, and minimal regulatory oversight. Enhanced due diligence recommended on source of funds, transaction history, and buyer/seller identities."
