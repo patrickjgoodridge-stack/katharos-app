@@ -28,7 +28,7 @@ const ProductPage = ({
         style={{ borderBottom: '1px solid #3a3a3a' }}
       >
         <button
-          onClick={() => setCurrentPage('landing')}
+          onClick={() => setCurrentPage('noirLanding')}
           className="text-[28px] font-medium bg-transparent border-none cursor-pointer"
           style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-0.5px' }}
         >

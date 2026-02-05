@@ -26,7 +26,7 @@ const AboutPage = ({
         style={{ borderBottom: '1px solid #3a3a3a' }}
       >
         <button
-          onClick={() => setCurrentPage('landing')}
+          onClick={() => setCurrentPage('noirLanding')}
           className="text-[28px] font-medium bg-transparent border-none cursor-pointer"
           style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-0.5px' }}
         >
@@ -341,7 +341,7 @@ const AboutPage = ({
                 onClick={() => {
                   if (link === 'Product') setCurrentPage('product');
                   else if (link === 'About') setCurrentPage('about');
-                  else if (link === 'Features') setCurrentPage('landing');
+                  else if (link === 'Features') setCurrentPage('noirLanding');
                 }}
                 className="text-xs transition-colors bg-transparent border-none cursor-pointer"
                 style={{ color: '#6b6b6b', letterSpacing: '0.3px' }}
