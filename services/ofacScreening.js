@@ -34,7 +34,7 @@ class OFACScreeningService {
   async _fetchAndParse() {
     const entries = [];
     const fetchHeaders = {
-      'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)',
+      'User-Agent': 'Mozilla/5.0 (compatible; Katharos-AML/1.0)',
       'Accept': 'text/csv, text/plain, */*'
     };
 

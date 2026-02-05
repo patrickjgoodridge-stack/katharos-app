@@ -64,7 +64,7 @@ const AuthPage = ({ onSuccess }) => {
           <div className="text-center mb-5">
             <h2 className="text-lg font-semibold text-gray-900">Get Started</h2>
             <p className="text-gray-500 text-sm mt-1">
-              Enter your details to access Marlowe
+              Enter your details to access Katharos
             </p>
           </div>
 
@@ -86,7 +86,7 @@ const AuthPage = ({ onSuccess }) => {
                   value={formData.name}
                   onChange={handleChange('name')}
                   placeholder="Your name"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-gray-900"
+                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 transition-colors text-gray-900"
                   autoFocus
                 />
               </div>
@@ -101,7 +101,7 @@ const AuthPage = ({ onSuccess }) => {
                   value={formData.company}
                   onChange={handleChange('company')}
                   placeholder="Company (optional)"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-gray-900"
+                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 transition-colors text-gray-900"
                 />
               </div>
             </div>
@@ -115,7 +115,7 @@ const AuthPage = ({ onSuccess }) => {
                   value={formData.email}
                   onChange={handleChange('email')}
                   placeholder="Email"
-                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-gray-900"
+                  className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-gray-600 transition-colors text-gray-900"
                 />
               </div>
             </div>
@@ -123,7 +123,7 @@ const AuthPage = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg shadow-lg shadow-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-lg shadow-gray-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

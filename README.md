@@ -1,6 +1,6 @@
-# Marlowe - AI Investigator for Financial Crime
+# Katharos - AI Investigator for Financial Crime
 
-Marlowe is an AI-powered investigative analysis platform that helps compliance professionals and investigators analyze evidence, screen entities against sanctions lists, and uncover financial crime patterns.
+Katharos is an AI-powered investigative analysis platform that helps compliance professionals and investigators analyze evidence, screen entities against sanctions lists, and uncover financial crime patterns.
 
 ## Features
 

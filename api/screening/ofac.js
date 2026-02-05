@@ -19,7 +19,7 @@ class OFACScreeningService {
 
   async _fetchAndParse() {
     const entries = [];
-    const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)', 'Accept': 'text/csv, text/plain, */*' };
+    const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; Katharos-AML/1.0)', 'Accept': 'text/csv, text/plain, */*' };
     for (const url of [this.sdnListUrl, this.consolidatedUrl, 'https://www.treasury.gov/ofac/downloads/sdn.csv']) {
       if (entries.length > 0) break;
       try {

@@ -436,8 +436,8 @@ export default function ChatNetworkGraph({ entities, relationships, darkMode = f
                   selectedNode.status === 'SANCTIONED' ? 'bg-red-500/20 text-red-500' :
                   selectedNode.status === 'PEP' ? 'bg-purple-500/20 text-purple-500' :
                   selectedNode.status === 'CRITICAL' ? 'bg-red-500/20 text-red-500' :
-                  selectedNode.status === 'HIGH' ? 'bg-orange-500/20 text-orange-500' :
-                  selectedNode.status === 'MEDIUM' ? 'bg-amber-500/20 text-amber-600' :
+                  selectedNode.status === 'HIGH' ? 'bg-gray-500/20 text-gray-600' :
+                  selectedNode.status === 'MEDIUM' ? 'bg-gray-500/20 text-gray-600' :
                   selectedNode.status === 'LOW' || selectedNode.status === 'CLEAR' ? 'bg-emerald-500/20 text-emerald-500' :
                   'bg-slate-500/20 text-slate-500'
                 }`}>

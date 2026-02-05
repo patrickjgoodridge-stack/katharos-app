@@ -77,7 +77,7 @@ class WalletScreeningService {
       const url = `${baseUrl}/sanctioned_addresses_${chain}.txt`;
       try {
         const response = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Katharos-AML/1.0)' },
           signal: AbortSignal.timeout(15000),
         });
         if (!response.ok) return 0;

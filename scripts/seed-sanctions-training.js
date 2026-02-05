@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Seed Marlowe RAG with comprehensive sanctions compliance training data.
+ * Seed Katharos RAG with comprehensive sanctions compliance training data.
  * Covers: sanctions governance, frameworks, evasion techniques, compliance programs,
  * screening, investigations, asset freezing, licensing, and delisting.
  *

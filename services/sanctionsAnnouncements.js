@@ -165,7 +165,7 @@ class SanctionsAnnouncementService {
       items = [];
       try {
         const response = await fetch('https://ofac.treasury.gov/recent-actions/rss.xml', {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Katharos-AML/1.0)' },
           signal: AbortSignal.timeout(10000),
         });
         if (response.ok) {

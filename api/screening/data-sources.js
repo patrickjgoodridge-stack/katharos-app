@@ -56,7 +56,7 @@ class DataSourceManager {
 
   async searchSEC(query) {
     const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=10-K,10-Q,8-K,DEF+14A,13F-HR,SC+13D,SC+13G,4`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(15000) });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(15000) });
     let filings = [], enforcement = [];
     if (response.ok) {
       const data = await response.json();
@@ -69,7 +69,7 @@ class DataSourceManager {
     }
     try {
       const enfUrl = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=LR,AAER,AP`;
-      const enfRes = await fetch(enfUrl, { headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(10000) });
+      const enfRes = await fetch(enfUrl, { headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(10000) });
       if (enfRes.ok) { const d = await enfRes.json(); if (d.hits?.hits) { for (const h of d.hits.hits.slice(0, 10)) { const s = h._source || {}; enforcement.push({ type: s.form_type || 'Enforcement', date: s.file_date || '', description: s.display_names?.[0] || '' }); } } }
     } catch { /* non-critical */ }
     return { source: 'sec', data: { results: filings, enforcement, totalFilings: filings.length, hasEnforcement: enforcement.length > 0 } };

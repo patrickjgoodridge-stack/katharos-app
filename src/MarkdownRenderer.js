@@ -66,21 +66,21 @@ const getRiskStyles = (text) => {
   }
   if (upperText.includes('HIGH') || upperText.includes('ENHANCED DUE DILIGENCE')) {
     return {
-      bg: 'bg-orange-50',
-      border: 'border-orange-200',
-      text: 'text-orange-800',
-      icon: 'text-orange-600',
-      badgeBg: 'bg-orange-500',
+      bg: 'bg-gray-100',
+      border: 'border-gray-300',
+      text: 'text-gray-800',
+      icon: 'text-gray-600',
+      badgeBg: 'bg-gray-600',
       badgeText: 'text-white',
     };
   }
   if (upperText.includes('MEDIUM') || upperText.includes('STANDARD') || upperText.includes('PROCEED WITH MONITORING')) {
     return {
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
-      text: 'text-amber-800',
-      icon: 'text-amber-600',
-      badgeBg: 'bg-amber-500',
+      bg: 'bg-gray-100',
+      border: 'border-gray-300',
+      text: 'text-gray-800',
+      icon: 'text-gray-600',
+      badgeBg: 'bg-gray-500',
       badgeText: 'text-white',
     };
   }
@@ -240,7 +240,7 @@ const CustomHeading = ({ level, children }) => {
       return (
         <div className="mt-6 mb-3">
           <div className="flex items-center gap-2 mb-3">
-            <Search className="w-6 h-6 text-amber-500" />
+            <Search className="w-6 h-6 text-gray-600" />
             <h2 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'} uppercase tracking-wide`}>
               {children}
             </h2>
@@ -312,13 +312,13 @@ const CustomListItem = ({ children, ordered, index }) => {
         className={`flex gap-3 cursor-pointer ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-50'} rounded-lg p-2.5 -ml-2 transition-colors group`}
         onClick={handleClick}
       >
-        <span className={`flex-shrink-0 w-7 h-7 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300 group-hover:bg-amber-900 group-hover:text-amber-400' : 'bg-slate-100 text-slate-600 group-hover:bg-amber-100 group-hover:text-amber-700'} text-sm font-semibold flex items-center justify-center transition-colors`}>
+        <span className={`flex-shrink-0 w-7 h-7 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300 group-hover:bg-gray-600 group-hover:text-gray-200' : 'bg-slate-100 text-slate-600 group-hover:bg-gray-200 group-hover:text-gray-800'} text-sm font-semibold flex items-center justify-center transition-colors`}>
           {index + 1}
         </span>
         <div className={`flex-1 text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-100' : 'text-slate-700 group-hover:text-slate-900'} leading-relaxed`}>
           {children}
         </div>
-        <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-amber-500 transition-colors flex-shrink-0 mt-0.5`} />
+        <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5`} />
       </li>
     );
   }
@@ -328,7 +328,7 @@ const CustomListItem = ({ children, ordered, index }) => {
       className={`flex items-start gap-2 cursor-pointer ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-50'} rounded-lg p-2.5 -ml-2 transition-colors group`}
       onClick={handleClick}
     >
-      <ChevronRight className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0 group-hover:text-amber-400 transition-colors" />
+      <ChevronRight className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0 group-hover:text-gray-500 transition-colors" />
       <span className={`text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-100' : 'text-slate-700 group-hover:text-slate-900'} leading-relaxed flex-1`}>{children}</span>
     </li>
   );
@@ -358,11 +358,11 @@ const CustomParagraph = ({ children }) => {
       text.toLowerCase().startsWith('compliance impact:')) {
     const content = text.replace(/^(impact|translation|compliance impact):\s*/i, '');
     return (
-      <div className={`${darkMode ? 'bg-amber-900/30 border-amber-500' : 'bg-amber-50 border-amber-400'} border-l-4 rounded-r-lg p-4 my-3`}>
-        <p className={`text-sm font-semibold uppercase tracking-wide ${darkMode ? 'text-amber-400' : 'text-amber-800'} mb-1`}>
+      <div className={`${darkMode ? 'bg-gray-700/30 border-gray-500' : 'bg-gray-100 border-gray-400'} border-l-4 rounded-r-lg p-4 my-3`}>
+        <p className={`text-sm font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-800'} mb-1`}>
           Impact
         </p>
-        <p className={`text-base ${darkMode ? 'text-amber-200' : 'text-amber-900'} leading-relaxed`}>{content}</p>
+        <p className={`text-base ${darkMode ? 'text-gray-200' : 'text-gray-900'} leading-relaxed`}>{content}</p>
       </div>
     );
   }
@@ -401,7 +401,7 @@ const CustomStrong = ({ children }) => {
 
   return (
     <strong
-      className={`font-semibold ${darkMode ? 'text-gray-100 hover:text-amber-400' : 'text-slate-900 hover:text-amber-700'} cursor-pointer hover:underline transition-colors`}
+      className={`font-semibold ${darkMode ? 'text-gray-100 hover:text-gray-400' : 'text-slate-900 hover:text-gray-700'} cursor-pointer hover:underline transition-colors`}
       onClick={handleClick}
     >
       {children}
@@ -458,7 +458,7 @@ const CustomTd = ({ children }) => {
   if (scoreMatch) {
     const val = parseInt(scoreMatch[1]);
     if (val >= 50) scoreColor = darkMode ? 'text-red-400' : 'text-red-600';
-    else if (val >= 20) scoreColor = darkMode ? 'text-amber-400' : 'text-amber-600';
+    else if (val >= 20) scoreColor = darkMode ? 'text-gray-400' : 'text-gray-600';
     else scoreColor = darkMode ? 'text-emerald-400' : 'text-emerald-600';
   }
   return (
@@ -522,7 +522,7 @@ const KeepExploringCard = ({ items, onExploreClick, darkMode }) => {
     <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border rounded-xl overflow-hidden shadow-sm mt-6`}>
       <div className={`px-5 py-4 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-slate-200'} border-b`}>
         <div className="flex items-center gap-2">
-          <Search className="w-6 h-6 text-amber-500" />
+          <Search className="w-6 h-6 text-gray-600" />
           <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'}`}>Keep Exploring</h3>
         </div>
       </div>
@@ -531,15 +531,15 @@ const KeepExploringCard = ({ items, onExploreClick, darkMode }) => {
           <button
             key={index}
             onClick={() => onExploreClick && onExploreClick(item)}
-            className={`w-full px-5 py-4 flex items-center gap-4 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-amber-50'} transition-colors text-left group`}
+            className={`w-full px-5 py-4 flex items-center gap-4 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors text-left group`}
           >
-            <div className={`w-11 h-11 ${darkMode ? 'bg-gray-700 group-hover:bg-amber-900/50' : 'bg-amber-50 group-hover:bg-amber-100'} rounded-lg flex items-center justify-center flex-shrink-0 transition-colors`}>
-              <Search className="w-5 h-5 text-amber-500" />
+            <div className={`w-11 h-11 ${darkMode ? 'bg-gray-700 group-hover:bg-gray-600' : 'bg-gray-100 group-hover:bg-gray-200'} rounded-lg flex items-center justify-center flex-shrink-0 transition-colors`}>
+              <Search className="w-5 h-5 text-gray-600" />
             </div>
-            <span className={`flex-1 text-base ${darkMode ? 'text-gray-300 group-hover:text-amber-400' : 'text-slate-700 group-hover:text-amber-900'}`}>
+            <span className={`flex-1 text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-200' : 'text-slate-700 group-hover:text-gray-900'}`}>
               {item}
             </span>
-            <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-amber-500 transition-colors`} />
+            <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-gray-600 transition-colors`} />
           </button>
         ))}
       </div>
@@ -626,7 +626,7 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-amber-500 hover:text-amber-400 underline"
+        className="text-gray-600 hover:text-gray-500 underline"
       >
         {children}
       </a>

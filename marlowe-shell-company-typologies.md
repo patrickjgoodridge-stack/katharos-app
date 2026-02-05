@@ -1,6 +1,6 @@
 # Shell Company Typologies — Detection and Risk Assessment
 
-Add this document to Marlowe's RAG knowledge base. Chunk by section. Category: "typologies". Embed and upsert to vector store under namespace "shell-companies".
+Add this document to Katharos's RAG knowledge base. Chunk by section. Category: "typologies". Embed and upsert to vector store under namespace "shell-companies".
 
 ---
 
@@ -352,7 +352,7 @@ Company Seeking Government Contract
 
 ---
 
-## Shell Company Detection Checklist for Marlowe
+## Shell Company Detection Checklist for Katharos
 
 When screening any entity, check:
 
@@ -399,7 +399,7 @@ When screening any entity, check:
 
 ## Report Language for Shell Company Findings
 
-When Marlowe identifies shell company indicators, use this language:
+When Katharos identifies shell company indicators, use this language:
 
 **CONFIRMED SHELL (Critical)**:
 "[Entity Name] exhibits characteristics of a shell company used for [purpose]. The entity is registered in [jurisdiction], has no identifiable business operations, [additional indicators]. This structure is consistent with [typology] as seen in [enforcement case reference]. RECOMMENDATION: Enhanced due diligence required. Do not proceed without verified beneficial ownership."
@@ -414,7 +414,7 @@ When Marlowe identifies shell company indicators, use this language:
 
 ## Corporate Transparency Act (CTA) Impact
 
-As of January 1, 2024, most US companies must report beneficial ownership information to FinCEN. This changes Marlowe's US entity screening:
+As of January 1, 2024, most US companies must report beneficial ownership information to FinCEN. This changes Katharos's US entity screening:
 
 - New companies must file within 30 days of formation
 - Existing companies had until January 1, 2025
@@ -422,4 +422,4 @@ As of January 1, 2024, most US companies must report beneficial ownership inform
 - Reporting to FinCEN BOI database (not yet publicly accessible)
 - Exemptions: Large operating companies (20+ employees, $5M+ revenue, physical US office), banks, registered investment companies, and other already-regulated entities
 
-**Screening Implication**: US LLCs that previously offered anonymous ownership now have disclosure requirements. Failure to file is itself a red flag. However, the BOI database is not publicly searchable — Marlowe should note when US entity beneficial ownership cannot be independently verified.
+**Screening Implication**: US LLCs that previously offered anonymous ownership now have disclosure requirements. Failure to file is itself a red flag. However, the BOI database is not publicly searchable — Katharos should note when US entity beneficial ownership cannot be independently verified.

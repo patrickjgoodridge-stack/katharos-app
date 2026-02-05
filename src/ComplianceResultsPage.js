@@ -173,8 +173,8 @@ const extractSubjectInfo = (sections) => {
 const RiskBadge = ({ level, score }) => {
   const colors = {
     CRITICAL: 'bg-red-100 text-red-700 border-red-200',
-    HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
-    MEDIUM: 'bg-amber-100 text-amber-700 border-amber-200',
+    HIGH: 'bg-gray-200 text-gray-700 border-gray-300',
+    MEDIUM: 'bg-gray-200 text-gray-700 border-gray-300',
     LOW: 'bg-green-100 text-green-700 border-green-200',
   };
   if (!level) return null;
@@ -189,8 +189,8 @@ const RiskBadge = ({ level, score }) => {
 const RiskBadgeDark = ({ level, score }) => {
   const colors = {
     CRITICAL: 'bg-red-900/40 text-red-300 border-red-700',
-    HIGH: 'bg-orange-900/40 text-orange-300 border-orange-700',
-    MEDIUM: 'bg-amber-900/40 text-amber-300 border-amber-700',
+    HIGH: 'bg-gray-700/40 text-gray-300 border-gray-600',
+    MEDIUM: 'bg-gray-700/40 text-gray-300 border-gray-600',
     LOW: 'bg-green-900/40 text-green-300 border-green-700',
   };
   if (!level) return null;
@@ -205,8 +205,8 @@ const RiskBadgeDark = ({ level, score }) => {
 const LeftNav = ({ sections, activeSectionId, onSectionClick, onChatToggle, chatOpen, darkMode }) => {
   const bgClass = darkMode ? 'bg-gray-900 border-gray-700' : 'bg-slate-50 border-slate-200';
   const activeClass = darkMode
-    ? 'bg-gray-800 text-amber-400 border-l-amber-400'
-    : 'bg-white text-amber-700 border-l-amber-500 shadow-sm';
+    ? 'bg-gray-800 text-gray-300 border-l-gray-400'
+    : 'bg-white text-gray-700 border-l-gray-600 shadow-sm';
   const inactiveClass = darkMode
     ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200 border-l-transparent'
     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-l-transparent';
@@ -235,7 +235,7 @@ const LeftNav = ({ sections, activeSectionId, onSectionClick, onChatToggle, chat
                 isActive ? activeClass : inactiveClass
               }`}
             >
-              {Icon && <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? (darkMode ? 'text-amber-400' : 'text-amber-600') : ''}`} />}
+              {Icon && <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? (darkMode ? 'text-gray-400' : 'text-gray-600') : ''}`} />}
               <span className="flex-1 font-medium leading-tight">{section.navLabel}</span>
               {section.itemCount && !isRisk && !isOnboarding && (
                 <span className={`text-[10px] min-w-[20px] text-center px-1.5 py-0.5 rounded-full font-semibold ${
@@ -247,8 +247,8 @@ const LeftNav = ({ sections, activeSectionId, onSectionClick, onChatToggle, chat
               {section.riskLevel && isRisk && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                   section.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
-                  section.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-600' :
-                  section.riskLevel === 'MEDIUM' ? 'bg-amber-100 text-amber-600' :
+                  section.riskLevel === 'HIGH' ? 'bg-gray-200 text-gray-600' :
+                  section.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-600' :
                   'bg-green-100 text-green-600'
                 }`}>
                   {section.riskLevel}
@@ -264,7 +264,7 @@ const LeftNav = ({ sections, activeSectionId, onSectionClick, onChatToggle, chat
           onClick={onChatToggle}
           className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             chatOpen
-              ? (darkMode ? 'bg-amber-600 text-white' : 'bg-amber-500 text-white')
+              ? (darkMode ? 'bg-gray-600 text-white' : 'bg-gray-600 text-white')
               : (darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200')
           }`}
         >
@@ -288,14 +288,14 @@ const SectionCard = React.forwardRef(({ section, darkMode, index }, ref) => {
     const riskLevel = extractRiskLevel(section.title);
     const borderColor = {
       CRITICAL: 'border-red-400',
-      HIGH: 'border-orange-400',
-      MEDIUM: 'border-amber-400',
+      HIGH: 'border-gray-400',
+      MEDIUM: 'border-gray-400',
       LOW: 'border-green-400',
     }[riskLevel] || 'border-slate-300';
 
     const bgColor = darkMode
-      ? (riskLevel === 'CRITICAL' ? 'bg-red-950/30' : riskLevel === 'HIGH' ? 'bg-orange-950/30' : riskLevel === 'MEDIUM' ? 'bg-amber-950/30' : 'bg-green-950/30')
-      : (riskLevel === 'CRITICAL' ? 'bg-red-50' : riskLevel === 'HIGH' ? 'bg-orange-50' : riskLevel === 'MEDIUM' ? 'bg-amber-50' : 'bg-green-50');
+      ? (riskLevel === 'CRITICAL' ? 'bg-red-950/30' : riskLevel === 'HIGH' ? 'bg-gray-800/30' : riskLevel === 'MEDIUM' ? 'bg-gray-800/30' : 'bg-green-950/30')
+      : (riskLevel === 'CRITICAL' ? 'bg-red-50' : riskLevel === 'HIGH' ? 'bg-gray-100' : riskLevel === 'MEDIUM' ? 'bg-gray-100' : 'bg-green-50');
 
     return (
       <div
@@ -329,7 +329,7 @@ const SectionCard = React.forwardRef(({ section, darkMode, index }, ref) => {
       style={{ animationDelay: `${index * 40}ms` }}
     >
       <div className={`flex items-center gap-3 mb-4 pb-3 border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
-        {Icon && <Icon className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />}
+        {Icon && <Icon className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />}
         <h2 className={`text-base font-bold tracking-wide uppercase ${darkMode ? 'text-gray-100' : 'text-slate-800'}`}>
           {section.title.replace(/:\s*.+$/, '')}
         </h2>
@@ -472,7 +472,7 @@ const ComplianceResultsPage = ({
             {onNewSearch && (
               <button
                 onClick={onNewSearch}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 New Search
@@ -530,7 +530,7 @@ const ComplianceResultsPage = ({
               <div key={idx} className={`${msg.role === 'user' ? 'flex justify-end' : ''}`}>
                 <div className={`rounded-xl px-3 py-2 text-sm max-w-[85%] ${
                   msg.role === 'user'
-                    ? 'bg-amber-500 text-white'
+                    ? 'bg-gray-600 text-white'
                     : (darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-slate-700 border border-slate-200')
                 }`}>
                   {msg.role === 'assistant' ? (
@@ -543,7 +543,7 @@ const ComplianceResultsPage = ({
             ))}
             {isChatLoading && (
               <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>
-                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" />
                 Thinking...
               </div>
             )}
@@ -559,14 +559,14 @@ const ComplianceResultsPage = ({
                 placeholder="Ask a follow-up about this screening..."
                 className={`flex-1 px-3 py-2 rounded-lg text-sm border outline-none ${
                   darkMode
-                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:border-amber-500'
-                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-amber-400'
+                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:border-gray-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-gray-400'
                 }`}
               />
               <button
                 onClick={() => onChatSend && onChatSend()}
                 disabled={!chatInput?.trim() || isChatLoading}
-                className="px-3 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-2 rounded-lg bg-gray-600 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

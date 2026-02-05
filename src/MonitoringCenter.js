@@ -1,4 +1,4 @@
-// MonitoringCenter.js - Real-time monitoring dashboard for Marlowe
+// MonitoringCenter.js - Real-time monitoring dashboard for Katharos
 import React, { useState, useMemo } from 'react';
 import {
   Activity,
@@ -41,14 +41,14 @@ const riskOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 };
 // Severity styling
 const severityConfig = {
   critical: { dot: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', darkBg: 'bg-red-900/30', darkBorder: 'border-red-800', darkText: 'text-red-300' },
-  high: { dot: 'bg-orange-500', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', darkBg: 'bg-orange-900/30', darkBorder: 'border-orange-800', darkText: 'text-orange-300' },
-  medium: { dot: 'bg-amber-500', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', darkBg: 'bg-amber-900/30', darkBorder: 'border-amber-800', darkText: 'text-amber-300' },
+  high: { dot: 'bg-gray-600', bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700', darkBg: 'bg-gray-700/30', darkBorder: 'border-gray-600', darkText: 'text-gray-300' },
+  medium: { dot: 'bg-gray-500', bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700', darkBg: 'bg-gray-700/30', darkBorder: 'border-gray-600', darkText: 'text-gray-300' },
   low: { dot: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', darkBg: 'bg-blue-900/30', darkBorder: 'border-blue-800', darkText: 'text-blue-300' },
 };
 
 // Alert type labels and icons
 const alertTypeConfig = {
-  risk_change: { label: 'RISK CHANGE', icon: AlertTriangle, color: 'bg-orange-100 text-orange-700', darkColor: 'bg-orange-900/40 text-orange-300' },
+  risk_change: { label: 'RISK CHANGE', icon: AlertTriangle, color: 'bg-gray-200 text-gray-700', darkColor: 'bg-gray-700/40 text-gray-300' },
   sanctions_hit: { label: 'SANCTIONS', icon: Shield, color: 'bg-red-100 text-red-700', darkColor: 'bg-red-900/40 text-red-300' },
   adverse_media: { label: 'ADVERSE MEDIA', icon: FileText, color: 'bg-purple-100 text-purple-700', darkColor: 'bg-purple-900/40 text-purple-300' },
   corporate_change: { label: 'CORPORATE', icon: Activity, color: 'bg-blue-100 text-blue-700', darkColor: 'bg-blue-900/40 text-blue-300' },
@@ -58,8 +58,8 @@ const alertTypeConfig = {
 const getRiskColorLocal = (level) => {
   const l = (level || '').toUpperCase();
   if (l === 'CRITICAL') return 'bg-red-600/20 text-red-600';
-  if (l === 'HIGH') return 'bg-orange-100 text-orange-700';
-  if (l === 'MEDIUM') return 'bg-amber-100 text-amber-700';
+  if (l === 'HIGH') return 'bg-gray-200 text-gray-700';
+  if (l === 'MEDIUM') return 'bg-gray-200 text-gray-700';
   if (l === 'LOW') return 'bg-green-100 text-green-700';
   return 'bg-gray-100 text-gray-600';
 };
@@ -67,8 +67,8 @@ const getRiskColorLocal = (level) => {
 const getRiskColorDark = (level) => {
   const l = (level || '').toUpperCase();
   if (l === 'CRITICAL') return 'bg-red-900/40 text-red-300';
-  if (l === 'HIGH') return 'bg-orange-900/40 text-orange-300';
-  if (l === 'MEDIUM') return 'bg-amber-900/40 text-amber-300';
+  if (l === 'HIGH') return 'bg-gray-700/40 text-gray-300';
+  if (l === 'MEDIUM') return 'bg-gray-700/40 text-gray-300';
   if (l === 'LOW') return 'bg-green-900/40 text-green-300';
   return 'bg-gray-700 text-gray-400';
 };
@@ -198,7 +198,7 @@ const AlertDetailModal = ({ alert, onClose, onAcknowledge, onResolve, onDismiss,
           )}
           <button
             onClick={() => { onViewCase(alert.caseId); onClose(); }}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-amber-500 hover:bg-amber-400 text-gray-900'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
           >
             <Eye className="w-3.5 h-3.5" /> View Case
           </button>
@@ -345,7 +345,7 @@ const MonitoringCenter = ({
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <Radio className={`w-6 h-6 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+              <Radio className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               <h1 className={`text-2xl font-bold tracking-tight ${textPrimary}`}>Monitoring Center</h1>
             </div>
             <p className={`text-sm mt-1 ${textSecondary}`}>Real-time compliance monitoring across all watched entities</p>
@@ -360,7 +360,7 @@ const MonitoringCenter = ({
           <button
             onClick={() => onRescreen(monitoredCases)}
             disabled={monitoringInProgress || monitoredCases.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {monitoringInProgress ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {monitoringInProgress ? 'Screening...' : 'Re-screen All'}
@@ -384,11 +384,11 @@ const MonitoringCenter = ({
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>High risk</span>
-              <span className="text-sm font-bold text-orange-500">{stats.byRisk.HIGH}</span>
+              <span className="text-sm font-bold text-gray-600">{stats.byRisk.HIGH}</span>
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>Rescreens due</span>
-              <span className={`text-sm font-bold ${stats.rescreensDue > 0 ? 'text-amber-500' : textPrimary}`}>{stats.rescreensDue}</span>
+              <span className={`text-sm font-bold ${stats.rescreensDue > 0 ? 'text-gray-600' : textPrimary}`}>{stats.rescreensDue}</span>
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>Alerts today</span>
@@ -427,12 +427,12 @@ const MonitoringCenter = ({
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>Unresolved</span>
-              <span className={`text-sm font-bold ${stats.weeklyTotal - stats.weeklyResolved > 0 ? 'text-amber-500' : textPrimary}`}>{stats.weeklyTotal - stats.weeklyResolved}</span>
+              <span className={`text-sm font-bold ${stats.weeklyTotal - stats.weeklyResolved > 0 ? 'text-gray-600' : textPrimary}`}>{stats.weeklyTotal - stats.weeklyResolved}</span>
             </div>
             <div className={`pt-2 mt-2 border-t ${cardBorder}`}>
               <div className="flex justify-between">
                 <span className={`text-sm ${textSecondary}`}>Resolution rate</span>
-                <span className={`text-sm font-bold ${stats.resolutionRate >= 80 ? 'text-green-500' : stats.resolutionRate >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                <span className={`text-sm font-bold ${stats.resolutionRate >= 80 ? 'text-green-500' : stats.resolutionRate >= 50 ? 'text-gray-600' : 'text-red-500'}`}>
                   {stats.resolutionRate}%
                 </span>
               </div>
@@ -445,7 +445,7 @@ const MonitoringCenter = ({
       <div className={`${cardBg} border ${cardBorder} rounded-xl mb-8`}>
         <div className={`flex items-center justify-between px-6 py-4 border-b ${cardBorder}`}>
           <div className="flex items-center gap-3">
-            <Activity className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+            <Activity className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
             <h2 className={`text-lg font-bold ${textPrimary}`}>Live Feed</h2>
             <span className={`text-xs ${textMuted}`}>{filteredAlerts.length} alerts</span>
           </div>
@@ -464,7 +464,7 @@ const MonitoringCenter = ({
                   <button
                     key={opt.id}
                     onClick={() => { setFilter(opt.id); setShowFilterMenu(false); }}
-                    className={`block w-full text-left px-4 py-2 text-sm ${filter === opt.id ? (darkMode ? 'bg-gray-700 text-amber-400' : 'bg-amber-50 text-amber-700') : (darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50')}`}
+                    className={`block w-full text-left px-4 py-2 text-sm ${filter === opt.id ? (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700') : (darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50')}`}
                   >
                     {opt.label}
                   </button>
@@ -552,7 +552,7 @@ const MonitoringCenter = ({
           <div className={`px-6 py-3 border-t ${cardBorder} text-center`}>
             <button
               onClick={() => setShowCount(s => s + 20)}
-              className={`text-sm font-medium ${darkMode ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-500'}`}
+              className={`text-sm font-medium ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-500'}`}
             >
               Load more ({filteredAlerts.length - showCount} remaining)
             </button>
@@ -564,7 +564,7 @@ const MonitoringCenter = ({
       <div className={`${cardBg} border ${cardBorder} rounded-xl`}>
         <div className={`flex items-center justify-between px-6 py-4 border-b ${cardBorder}`}>
           <div className="flex items-center gap-3">
-            <Shield className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+            <Shield className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
             <h2 className={`text-lg font-bold ${textPrimary}`}>Monitored Entities</h2>
             <span className={`text-xs ${textMuted}`}>{monitoredCases.length} entities</span>
           </div>
@@ -574,7 +574,7 @@ const MonitoringCenter = ({
               <button
                 key={s.id}
                 onClick={() => setSortBy(s.id)}
-                className={`text-xs px-2 py-1 rounded ${sortBy === s.id ? (darkMode ? 'bg-amber-600/30 text-amber-400' : 'bg-amber-100 text-amber-700') : (darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700')}`}
+                className={`text-xs px-2 py-1 rounded ${sortBy === s.id ? (darkMode ? 'bg-gray-600/30 text-gray-300' : 'bg-gray-200 text-gray-700') : (darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700')}`}
               >
                 {s.label}
               </button>
@@ -647,7 +647,7 @@ const MonitoringCenter = ({
                     </button>
                     <button
                       onClick={() => onViewCase(caseItem.id)}
-                      className={`text-xs px-2.5 py-1 rounded-lg font-medium ${darkMode ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-300' : 'bg-amber-100 hover:bg-amber-200 text-amber-700'}`}
+                      className={`text-xs px-2.5 py-1 rounded-lg font-medium ${darkMode ? 'bg-gray-600/30 hover:bg-gray-600/50 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
                     >
                       View
                     </button>

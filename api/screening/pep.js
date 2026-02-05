@@ -55,7 +55,7 @@ class PEPScreeningService {
   async searchWikidata(name, options = {}) {
     const sparql = `SELECT ?person ?personLabel ?positionLabel ?countryLabel ?startDate ?endDate WHERE { ?person wdt:P31 wd:Q5 . ?person rdfs:label ?nameLabel . FILTER(CONTAINS(LCASE(?nameLabel), "${name.toLowerCase().replace(/"/g, '\\"')}")) FILTER(LANG(?nameLabel) = "en") { ?person wdt:P39 ?position . OPTIONAL { ?person p:P39 ?stmt . ?stmt ps:P39 ?position . OPTIONAL { ?stmt pq:P580 ?startDate } OPTIONAL { ?stmt pq:P582 ?endDate } } } UNION { ?person wdt:P106 ?occ . FILTER(?occ IN (wd:Q82955, wd:Q372436, wd:Q193391)) } OPTIONAL { ?person wdt:P27 ?country } SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 20`;
     try {
-      const res = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`, { headers: { 'User-Agent': 'Marlowe/1.0', 'Accept': 'application/json' }, signal: AbortSignal.timeout(20000) });
+      const res = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`, { headers: { 'User-Agent': 'Katharos/1.0', 'Accept': 'application/json' }, signal: AbortSignal.timeout(20000) });
       if (!res.ok) return { source: 'wikidata', data: { results: [], total: 0 } };
       const data = await res.json();
       const map = new Map();

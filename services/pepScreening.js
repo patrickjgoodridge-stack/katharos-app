@@ -139,7 +139,7 @@ LIMIT 30`;
     try {
       const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparqlQuery)}&format=json`;
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept': 'application/json' },
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0', 'Accept': 'application/json' },
         signal: AbortSignal.timeout(20000)
       });
       if (!response.ok) return { source: 'wikidata', data: { results: [], total: 0 } };
@@ -259,7 +259,7 @@ LIMIT 30`;
       // CIA World Leaders is available via a directory page
       const response = await fetch('https://www.cia.gov/resources/world-leaders/foreign-governments/', {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return { source: 'cia_world_leaders', data: { matches: [], total: 0 } };
       const html = await response.text();

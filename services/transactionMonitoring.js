@@ -127,14 +127,28 @@ class TransactionMonitoringService {
       BEHAVIORAL: 35, CRYPTO: 55, TBML: 50, REAL_ESTATE: 45,
       GAMBLING: 35, INTEGRATION: 40, MSB_HAWALA: 45, SECURITIES: 40,
       HUMAN_TRAFFICKING: 55, CASH_BUSINESS: 35, SANCTIONS_EVASION: 60,
-      CORRUPTION: 50, NETWORK: 50, FRAUD: 55
+      CORRUPTION: 50, NETWORK: 50, FRAUD: 55,
+      // New categories
+      ELDER_EXPLOITATION: 45, ROMANCE_SCAM: 50, BEC_FRAUD: 55,
+      TAX_EVASION: 50, DRUG_TRAFFICKING: 60, TERRORIST_FINANCING: 65,
+      PROLIFERATION: 65, ARMS_TRAFFICKING: 60, ENVIRONMENTAL_CRIME: 45,
+      ORGANIZED_CRIME: 55, PONZI_SCHEME: 55, ART_LAUNDERING: 40,
+      SPORTS_CORRUPTION: 40, CORRESPONDENT_BANKING: 50, PREPAID_ABUSE: 45,
+      MOBILE_LAUNDERING: 35, CROWDFUNDING_ABUSE: 35, SHELL_COMPANY: 50,
+      PROFESSIONAL_ENABLER: 35, COVID_FRAUD: 50, TRADE_FINANCE: 45,
+      SMURFING: 55, INVOICE_FACTORING: 40, LAYERING: 55
     };
 
     // Category weights (higher = more impactful on final score)
     const categoryWeights = {
       SANCTIONS_EVASION: 1.5, HUMAN_TRAFFICKING: 1.4, CORRUPTION: 1.3,
       CRYPTO: 1.2, STRUCTURING: 1.1, COUNTERPARTY: 1.1, TBML: 1.2,
-      NETWORK: 1.2, FRAUD: 1.3
+      NETWORK: 1.2, FRAUD: 1.3,
+      // New category weights
+      TERRORIST_FINANCING: 1.6, PROLIFERATION: 1.6, DRUG_TRAFFICKING: 1.4,
+      ARMS_TRAFFICKING: 1.4, ORGANIZED_CRIME: 1.3, PONZI_SCHEME: 1.2,
+      BEC_FRAUD: 1.2, ELDER_EXPLOITATION: 1.2, ROMANCE_SCAM: 1.1,
+      LAYERING: 1.3, SMURFING: 1.3, SHELL_COMPANY: 1.2
     };
 
     // Aggregate scores per category, applying caps
@@ -1526,6 +1540,1469 @@ class TransactionMonitoringService {
                 details: { count: periodEndCredits.length }
               });
             }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ELDER FINANCIAL EXPLOITATION (EFE) =====
+      {
+        id: 'EFE-001', name: 'Sudden Large Withdrawals by Elderly',
+        category: 'ELDER_EXPLOITATION', severity: 'HIGH',
+        detect: (txs, profile) => {
+          const alerts = [];
+          const largeWithdrawals = txs.filter(t => t.direction === 'DEBIT' && t.amount > 5000 && ['CASH','WITHDRAWAL','WIRE'].includes(t.type));
+          if (largeWithdrawals.length >= 3) {
+            const total = largeWithdrawals.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'EFE-001', category: 'ELDER_EXPLOITATION', severity: 'HIGH',
+              score: 35, message: `${largeWithdrawals.length} large withdrawals totaling $${total.toFixed(0)} — review for elder exploitation`,
+              transactions: largeWithdrawals.slice(0, 10).map(t => t.id),
+              details: { count: largeWithdrawals.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'EFE-002', name: 'New POA/Authorized Signer Activity',
+        category: 'ELDER_EXPLOITATION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const poaPattern = /\b(poa|power of attorney|authorized|caregiver|guardian|conservator)\b/i;
+          const poaTxs = txs.filter(t => poaPattern.test(t.description) && t.amount > 1000);
+          if (poaTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'EFE-002', category: 'ELDER_EXPLOITATION', severity: 'HIGH',
+              score: 30, message: `${poaTxs.length} transactions referencing POA/authorized party`,
+              transactions: poaTxs.map(t => t.id),
+              details: { count: poaTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'EFE-003', name: 'Lifestyle Inconsistent Spending',
+        category: 'ELDER_EXPLOITATION', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const unusualSpend = /\b(luxury|jewelry|electronics|vehicle|boat|vacation|cruise|casino|gaming)\b/i;
+          const unusual = txs.filter(t => t.direction === 'DEBIT' && unusualSpend.test(t.description) && t.amount > 2000);
+          if (unusual.length >= 2) {
+            alerts.push({
+              ruleId: 'EFE-003', category: 'ELDER_EXPLOITATION', severity: 'MEDIUM',
+              score: 25, message: `${unusual.length} unusual luxury/lifestyle purchases — inconsistent with typical elder spending`,
+              transactions: unusual.map(t => t.id),
+              details: { purchases: unusual.map(t => ({ amount: t.amount, desc: t.description })) }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ROMANCE SCAM / CONFIDENCE FRAUD (ROM) =====
+      {
+        id: 'ROM-001', name: 'International Wire to Individual',
+        category: 'ROMANCE_SCAM', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const intlWires = txs.filter(t =>
+            t.direction === 'DEBIT' && t.type === 'WIRE' && t.amount > 1000 &&
+            t.counterpartyCountry && !['US','CA','GB','AU'].includes(t.counterpartyCountry)
+          );
+          // Look for pattern: multiple wires to same person/country
+          const byCountry = {};
+          for (const t of intlWires) {
+            byCountry[t.counterpartyCountry] = (byCountry[t.counterpartyCountry] || 0) + t.amount;
+          }
+          for (const [country, total] of Object.entries(byCountry)) {
+            if (total > 10000) {
+              alerts.push({
+                ruleId: 'ROM-001', category: 'ROMANCE_SCAM', severity: 'HIGH',
+                score: 35, message: `$${total.toFixed(0)} in wires to ${country} — possible romance scam`,
+                transactions: intlWires.filter(t => t.counterpartyCountry === country).map(t => t.id),
+                details: { country, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ROM-002', name: 'Gift Card / Prepaid Card Purchases',
+        category: 'ROMANCE_SCAM', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const giftPattern = /\b(gift card|prepaid|itunes|google play|amazon|steam|ebay|walmart|target|best buy|vanilla|green dot|moneypak)\b/i;
+          const giftTxs = txs.filter(t => t.direction === 'DEBIT' && (giftPattern.test(t.description) || giftPattern.test(t.counterparty)));
+          if (giftTxs.length >= 3) {
+            const total = giftTxs.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'ROM-002', category: 'ROMANCE_SCAM', severity: 'HIGH',
+              score: 40, message: `${giftTxs.length} gift card/prepaid purchases totaling $${total.toFixed(0)} — classic scam payment method`,
+              transactions: giftTxs.map(t => t.id),
+              details: { count: giftTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ROM-003', name: 'Escalating Payment Pattern',
+        category: 'ROMANCE_SCAM', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const outbound = txs.filter(t => t.direction === 'DEBIT' && t.amount > 500).sort((a, b) => a.date - b.date);
+          if (outbound.length < 4) return alerts;
+          let escalating = 0;
+          for (let i = 1; i < Math.min(outbound.length, 10); i++) {
+            if (outbound[i].amount > outbound[i-1].amount * 1.2) escalating++;
+          }
+          if (escalating >= 3) {
+            alerts.push({
+              ruleId: 'ROM-003', category: 'ROMANCE_SCAM', severity: 'CRITICAL',
+              score: 45, message: `Escalating payment pattern: amounts increasing over ${outbound.length} transactions — grooming behavior`,
+              transactions: outbound.slice(0, 10).map(t => t.id),
+              details: { amounts: outbound.slice(0, 10).map(t => t.amount) }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== BUSINESS EMAIL COMPROMISE (BEC) =====
+      {
+        id: 'BEC-001', name: 'Sudden Payee Change for Recurring Payment',
+        category: 'BEC_FRAUD', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const debits = txs.filter(t => t.direction === 'DEBIT' && t.amount > 5000).sort((a, b) => a.date - b.date);
+          // Group by similar amounts (possible recurring payments)
+          const amountGroups = {};
+          for (const t of debits) {
+            const key = Math.round(t.amount / 100) * 100; // Round to nearest 100
+            if (!amountGroups[key]) amountGroups[key] = [];
+            amountGroups[key].push(t);
+          }
+          for (const [amt, group] of Object.entries(amountGroups)) {
+            if (group.length >= 3) {
+              const counterparties = [...new Set(group.map(t => t.counterparty).filter(Boolean))];
+              if (counterparties.length >= 2) {
+                alerts.push({
+                  ruleId: 'BEC-001', category: 'BEC_FRAUD', severity: 'CRITICAL',
+                  score: 45, message: `Recurring payment (~$${amt}) changed payees: ${counterparties.join(' → ')} — possible BEC attack`,
+                  transactions: group.map(t => t.id),
+                  details: { amount: parseFloat(amt), counterparties }
+                });
+              }
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'BEC-002', name: 'Urgent Wire to New Beneficiary',
+        category: 'BEC_FRAUD', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const urgentPattern = /\b(urgent|asap|immediately|time.?sensitive|rush|critical|emergency)\b/i;
+          const urgentWires = txs.filter(t =>
+            t.direction === 'DEBIT' && t.type === 'WIRE' && t.amount > 10000 &&
+            urgentPattern.test(t.description)
+          );
+          if (urgentWires.length > 0) {
+            alerts.push({
+              ruleId: 'BEC-002', category: 'BEC_FRAUD', severity: 'HIGH',
+              score: 35, message: `${urgentWires.length} urgent wire(s) totaling $${urgentWires.reduce((s,t) => s + t.amount, 0).toFixed(0)}`,
+              transactions: urgentWires.map(t => t.id),
+              details: { count: urgentWires.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'BEC-003', name: 'CEO/Executive Impersonation Pattern',
+        category: 'BEC_FRAUD', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const execPattern = /\b(ceo|cfo|president|executive|chairman|director|boss|owner|partner)\b/i;
+          const execTxs = txs.filter(t => t.direction === 'DEBIT' && t.amount > 25000 && execPattern.test(t.description));
+          if (execTxs.length > 0) {
+            alerts.push({
+              ruleId: 'BEC-003', category: 'BEC_FRAUD', severity: 'HIGH',
+              score: 30, message: `${execTxs.length} payments referencing executive titles in description`,
+              transactions: execTxs.map(t => t.id),
+              details: { count: execTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== TAX EVASION SCHEMES (TAX) =====
+      {
+        id: 'TAX-001', name: 'Offshore Account Transfers',
+        category: 'TAX_EVASION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const taxHavens = new Set(['VG','KY','BM','PA','SC','BS','JE','GG','IM','LI','MC','CH','LU','SG','HK','BZ']);
+          const offshore = txs.filter(t => t.direction === 'DEBIT' && taxHavens.has(t.counterpartyCountry) && t.amount > 10000);
+          if (offshore.length >= 2) {
+            const total = offshore.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'TAX-001', category: 'TAX_EVASION', severity: 'HIGH',
+              score: 35, message: `$${total.toFixed(0)} transferred to offshore jurisdictions: ${[...new Set(offshore.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: offshore.map(t => t.id),
+              details: { total, countries: [...new Set(offshore.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TAX-002', name: 'Cash Business Over-Reporting',
+        category: 'TAX_EVASION', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const cashIn = txs.filter(t => t.direction === 'CREDIT' && ['CASH','DEPOSIT'].includes(t.type));
+          const cardIn = txs.filter(t => t.direction === 'CREDIT' && ['CARD','POS','MERCHANT'].includes(t.type));
+          if (cashIn.length > 0 && cardIn.length > 0) {
+            const cashTotal = cashIn.reduce((s, t) => s + t.amount, 0);
+            const cardTotal = cardIn.reduce((s, t) => s + t.amount, 0);
+            // Unrealistic cash ratio for modern business
+            if (cashTotal > cardTotal * 5 && cashTotal > 50000) {
+              alerts.push({
+                ruleId: 'TAX-002', category: 'TAX_EVASION', severity: 'MEDIUM',
+                score: 25, message: `Cash revenue ($${cashTotal.toFixed(0)}) is ${(cashTotal/cardTotal).toFixed(1)}x card revenue — possible tax scheme`,
+                transactions: cashIn.slice(0, 5).map(t => t.id),
+                details: { cashTotal, cardTotal, ratio: cashTotal / cardTotal }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TAX-003', name: 'Related Party Loan Scheme',
+        category: 'TAX_EVASION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const loanPattern = /\b(loan|lending|advance|shareholder|related party|intercompany|affiliate)\b/i;
+          const loanTxs = txs.filter(t => loanPattern.test(t.description) && t.amount > 50000);
+          if (loanTxs.length >= 2) {
+            const inbound = loanTxs.filter(t => t.direction === 'CREDIT');
+            const outbound = loanTxs.filter(t => t.direction === 'DEBIT');
+            if (inbound.length > 0 && outbound.length > 0) {
+              alerts.push({
+                ruleId: 'TAX-003', category: 'TAX_EVASION', severity: 'HIGH',
+                score: 30, message: `Bidirectional related-party loans — possible dividend stripping or thin capitalization`,
+                transactions: loanTxs.slice(0, 10).map(t => t.id),
+                details: { inboundCount: inbound.length, outboundCount: outbound.length }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TAX-004', name: 'Carousel/VAT Fraud Pattern',
+        category: 'TAX_EVASION', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          // Look for rapid import/export cycles with same goods categories
+          const tradePattern = /\b(import|export|customs|duty|vat|goods|shipment|consignment)\b/i;
+          const tradeTxs = txs.filter(t => tradePattern.test(t.description));
+          if (tradeTxs.length < 4) return alerts;
+          // Check for EU countries (common carousel jurisdictions)
+          const euCountries = new Set(['DE','FR','IT','ES','NL','BE','AT','PL','CZ','HU','RO','BG','IE','PT','GR','SE','DK','FI','SK','SI','HR','LT','LV','EE','CY','MT','LU']);
+          const euTrades = tradeTxs.filter(t => euCountries.has(t.counterpartyCountry));
+          if (euTrades.length >= 3) {
+            const countries = [...new Set(euTrades.map(t => t.counterpartyCountry))];
+            if (countries.length >= 2) {
+              alerts.push({
+                ruleId: 'TAX-004', category: 'TAX_EVASION', severity: 'CRITICAL',
+                score: 45, message: `Rapid trade flows between EU jurisdictions: ${countries.join(', ')} — possible carousel/MTIC fraud`,
+                transactions: euTrades.slice(0, 10).map(t => t.id),
+                details: { countries, tradeCount: euTrades.length }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== DRUG TRAFFICKING ORGANIZATION (DTO) =====
+      {
+        id: 'DTO-001', name: 'Bulk Cash Deposit Pattern',
+        category: 'DRUG_TRAFFICKING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const cashDeposits = txs.filter(t => t.direction === 'CREDIT' && ['CASH','DEPOSIT'].includes(t.type) && t.amount >= 3000);
+          if (cashDeposits.length >= 5) {
+            const total = cashDeposits.reduce((s, t) => s + t.amount, 0);
+            const avgAmount = total / cashDeposits.length;
+            // DTO pattern: frequent mid-sized cash deposits
+            if (avgAmount >= 5000 && avgAmount <= 9500 && total > 50000) {
+              alerts.push({
+                ruleId: 'DTO-001', category: 'DRUG_TRAFFICKING', severity: 'CRITICAL',
+                score: 50, message: `${cashDeposits.length} cash deposits averaging $${avgAmount.toFixed(0)} (total $${total.toFixed(0)}) — bulk cash placement pattern`,
+                transactions: cashDeposits.slice(0, 10).map(t => t.id),
+                details: { count: cashDeposits.length, total, avgAmount }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'DTO-002', name: 'Source Country Remittances',
+        category: 'DRUG_TRAFFICKING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const sourceCountries = new Set(['MX','CO','PE','BO','VE','GT','HN','SV','EC','JM','HT','DO','AF','MM','LA','PK']);
+          const remits = txs.filter(t => sourceCountries.has(t.counterpartyCountry) && t.amount > 2000);
+          if (remits.length >= 3) {
+            const total = remits.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'DTO-002', category: 'DRUG_TRAFFICKING', severity: 'HIGH',
+              score: 35, message: `${remits.length} transactions with drug source/transit countries totaling $${total.toFixed(0)}`,
+              transactions: remits.slice(0, 10).map(t => t.id),
+              details: { countries: [...new Set(remits.map(t => t.counterpartyCountry))], total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'DTO-003', name: 'Black Market Peso Exchange Indicators',
+        category: 'DRUG_TRAFFICKING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          // BMPE: Drug cash used to buy US goods, exported to LatAm, sold for pesos
+          const tradePattern = /\b(electronics|appliances|auto parts|machinery|textiles|consumer goods|wholesale)\b/i;
+          const latam = new Set(['MX','CO','VE','BR','AR','PE','CL','EC','PA']);
+          const tradeTxs = txs.filter(t => t.direction === 'DEBIT' && tradePattern.test(t.description));
+          const latamTxs = txs.filter(t => latam.has(t.counterpartyCountry));
+          if (tradeTxs.length >= 3 && latamTxs.length >= 2) {
+            const tradeTotal = tradeTxs.reduce((s, t) => s + t.amount, 0);
+            if (tradeTotal > 50000) {
+              alerts.push({
+                ruleId: 'DTO-003', category: 'DRUG_TRAFFICKING', severity: 'CRITICAL',
+                score: 50, message: `Trade purchases ($${tradeTotal.toFixed(0)}) combined with LatAm transactions — Black Market Peso Exchange pattern`,
+                transactions: [...tradeTxs, ...latamTxs].slice(0, 10).map(t => t.id),
+                details: { tradeTotal, latamCountries: [...new Set(latamTxs.map(t => t.counterpartyCountry))] }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== TERRORIST FINANCING (TF) =====
+      {
+        id: 'TF-001', name: 'High-Risk Jurisdiction for Terrorism',
+        category: 'TERRORIST_FINANCING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const tfJurisdictions = new Set(['AF','IQ','SY','YE','SO','LY','PK','LB','PS','ML','NE','NG','SD','SS']);
+          const tfTxs = txs.filter(t => tfJurisdictions.has(t.counterpartyCountry));
+          if (tfTxs.length > 0) {
+            const total = tfTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'TF-001', category: 'TERRORIST_FINANCING', severity: 'CRITICAL',
+              score: 55, message: `${tfTxs.length} transaction(s) with terrorism-risk jurisdictions: ${[...new Set(tfTxs.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: tfTxs.map(t => t.id),
+              details: { countries: [...new Set(tfTxs.map(t => t.counterpartyCountry))], total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TF-002', name: 'Charity/NPO Suspicious Activity',
+        category: 'TERRORIST_FINANCING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const charityPattern = /\b(charity|foundation|relief|humanitarian|orphan|mosque|masjid|islamic|zakat|sadaqah|church|temple|ngo|nonprofit|501c)\b/i;
+          const charityTxs = txs.filter(t => charityPattern.test(t.counterparty) || charityPattern.test(t.description));
+          if (charityTxs.length < 3) return alerts;
+          // Check for unusual patterns: many small donations, or donations to multiple orgs
+          const orgs = new Set(charityTxs.map(t => t.counterparty).filter(Boolean));
+          const total = charityTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+          if (orgs.size >= 5 || (charityTxs.length >= 10 && total > 20000)) {
+            alerts.push({
+              ruleId: 'TF-002', category: 'TERRORIST_FINANCING', severity: 'HIGH',
+              score: 35, message: `${charityTxs.length} charity transactions to ${orgs.size} organizations totaling $${total.toFixed(0)} — review for TF diversion`,
+              transactions: charityTxs.slice(0, 10).map(t => t.id),
+              details: { orgCount: orgs.size, txCount: charityTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TF-003', name: 'Small Value Rapid Transfers',
+        category: 'TERRORIST_FINANCING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // TF often uses small amounts to avoid detection
+          const smallTxs = txs.filter(t => t.amount >= 100 && t.amount <= 3000 && t.type === 'WIRE');
+          if (smallTxs.length >= 10) {
+            const sorted = smallTxs.sort((a, b) => a.date - b.date);
+            const span = (sorted[sorted.length - 1].date - sorted[0].date) / 86400000;
+            if (span <= 30) {
+              const total = smallTxs.reduce((s, t) => s + t.amount, 0);
+              alerts.push({
+                ruleId: 'TF-003', category: 'TERRORIST_FINANCING', severity: 'HIGH',
+                score: 35, message: `${smallTxs.length} small wires ($100-$3000) within ${Math.ceil(span)} days totaling $${total.toFixed(0)} — micro-financing pattern`,
+                transactions: smallTxs.slice(0, 10).map(t => t.id),
+                details: { count: smallTxs.length, days: Math.ceil(span), total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== PROLIFERATION FINANCING (PF) =====
+      {
+        id: 'PF-001', name: 'WMD Proliferation Network Countries',
+        category: 'PROLIFERATION', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const prolifCountries = new Set(['KP','IR','SY','PK']);
+          const prolifTxs = txs.filter(t => prolifCountries.has(t.counterpartyCountry));
+          if (prolifTxs.length > 0) {
+            alerts.push({
+              ruleId: 'PF-001', category: 'PROLIFERATION', severity: 'CRITICAL',
+              score: 60, message: `Transaction(s) with WMD proliferation concern countries: ${[...new Set(prolifTxs.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: prolifTxs.map(t => t.id),
+              details: { countries: [...new Set(prolifTxs.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'PF-002', name: 'Dual-Use Goods Transactions',
+        category: 'PROLIFERATION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const dualUsePattern = /\b(centrifuge|nuclear|uranium|plutonium|missile|rocket|guidance|aerospace|satellite|laser|precision|machining|cnc|composite|carbon fiber|maraging|titanium|aluminum alloy|valve|pump|vacuum|frequency converter|oscilloscope|spectrometer)\b/i;
+          const dualUseTxs = txs.filter(t => dualUsePattern.test(t.description) && t.amount > 5000);
+          if (dualUseTxs.length > 0) {
+            alerts.push({
+              ruleId: 'PF-002', category: 'PROLIFERATION', severity: 'HIGH',
+              score: 45, message: `${dualUseTxs.length} transaction(s) referencing potential dual-use goods/technology`,
+              transactions: dualUseTxs.map(t => t.id),
+              details: { descriptions: dualUseTxs.map(t => t.description) }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'PF-003', name: 'Transshipment Hub Pattern',
+        category: 'PROLIFERATION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // Common transshipment points for proliferation
+          const transshipHubs = new Set(['CN','MY','SG','AE','TR','HK','TW']);
+          const hubTxs = txs.filter(t => transshipHubs.has(t.counterpartyCountry) && t.amount > 25000);
+          const techPattern = /\b(equipment|machinery|parts|components|materials|technical|engineering|scientific|industrial)\b/i;
+          const techHubTxs = hubTxs.filter(t => techPattern.test(t.description));
+          if (techHubTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'PF-003', category: 'PROLIFERATION', severity: 'HIGH',
+              score: 35, message: `Technical/equipment payments to transshipment hubs: ${[...new Set(techHubTxs.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: techHubTxs.map(t => t.id),
+              details: { hubs: [...new Set(techHubTxs.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ARMS TRAFFICKING (ARMS) =====
+      {
+        id: 'ARMS-001', name: 'Defense/Arms Industry Transactions',
+        category: 'ARMS_TRAFFICKING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const armsPattern = /\b(weapon|firearm|ammunition|munition|defense|military|tactical|ballistic|armament|ordnance|explosive|rifle|pistol|gun|artillery|armor)\b/i;
+          const armsTxs = txs.filter(t => armsPattern.test(t.counterparty) || armsPattern.test(t.description));
+          if (armsTxs.length > 0) {
+            const total = armsTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'ARMS-001', category: 'ARMS_TRAFFICKING', severity: 'HIGH',
+              score: 40, message: `${armsTxs.length} arms/defense-related transaction(s) totaling $${total.toFixed(0)}`,
+              transactions: armsTxs.map(t => t.id),
+              details: { count: armsTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ARMS-002', name: 'Conflict Zone Transactions',
+        category: 'ARMS_TRAFFICKING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const conflictZones = new Set(['UA','RU','YE','SY','LY','SD','SS','ET','MM','AF','ML','CF','CD','SO']);
+          const conflictTxs = txs.filter(t => conflictZones.has(t.counterpartyCountry) && t.amount > 5000);
+          if (conflictTxs.length > 0) {
+            const total = conflictTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'ARMS-002', category: 'ARMS_TRAFFICKING', severity: 'CRITICAL',
+              score: 50, message: `${conflictTxs.length} transaction(s) with active conflict zones totaling $${total.toFixed(0)}`,
+              transactions: conflictTxs.map(t => t.id),
+              details: { countries: [...new Set(conflictTxs.map(t => t.counterpartyCountry))], total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ARMS-003', name: 'End-User Certificate Jurisdictions',
+        category: 'ARMS_TRAFFICKING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const eucPattern = /\b(end.?user|euc|export license|itar|ear|commerce control|dual.?use|controlled goods|export control)\b/i;
+          const eucTxs = txs.filter(t => eucPattern.test(t.description));
+          if (eucTxs.length > 0) {
+            alerts.push({
+              ruleId: 'ARMS-003', category: 'ARMS_TRAFFICKING', severity: 'HIGH',
+              score: 30, message: `${eucTxs.length} transaction(s) referencing export controls/end-user certificates`,
+              transactions: eucTxs.map(t => t.id),
+              details: { count: eucTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ENVIRONMENTAL CRIMES (ENV) =====
+      {
+        id: 'ENV-001', name: 'Illegal Wildlife Trade',
+        category: 'ENVIRONMENTAL_CRIME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const wildlifePattern = /\b(ivory|rhino|horn|pangolin|tiger|leopard|exotic|wildlife|specimen|taxidermy|trophy|cites|endangered|protected species|bushmeat|reptile|parrot|primate)\b/i;
+          const wildlifeTxs = txs.filter(t => wildlifePattern.test(t.description) || wildlifePattern.test(t.counterparty));
+          if (wildlifeTxs.length > 0) {
+            const total = wildlifeTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'ENV-001', category: 'ENVIRONMENTAL_CRIME', severity: 'HIGH',
+              score: 40, message: `${wildlifeTxs.length} transaction(s) potentially related to wildlife trade — $${total.toFixed(0)}`,
+              transactions: wildlifeTxs.map(t => t.id),
+              details: { count: wildlifeTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ENV-002', name: 'Illegal Logging/Timber',
+        category: 'ENVIRONMENTAL_CRIME', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const timberPattern = /\b(timber|lumber|hardwood|rosewood|teak|mahogany|ebony|logging|forestry|sawmill|wood export)\b/i;
+          const highRiskTimber = new Set(['BR','ID','MY','PG','CG','CD','CM','GA','MM','LA','KH','VN']);
+          const timberTxs = txs.filter(t => timberPattern.test(t.description) && highRiskTimber.has(t.counterpartyCountry));
+          if (timberTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'ENV-002', category: 'ENVIRONMENTAL_CRIME', severity: 'MEDIUM',
+              score: 25, message: `Timber transactions with deforestation-risk countries: ${[...new Set(timberTxs.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: timberTxs.map(t => t.id),
+              details: { countries: [...new Set(timberTxs.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ENV-003', name: 'Illegal Fishing/IUU',
+        category: 'ENVIRONMENTAL_CRIME', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const fishingPattern = /\b(fishing|trawler|vessel|seafood|fish|catch|maritime|fleet|tuna|shark fin|abalone)\b/i;
+          const iuuRiskFlags = new Set(['CN','TW','KR','TH','VN','ID','ES','JP']);
+          const fishTxs = txs.filter(t => fishingPattern.test(t.description) && iuuRiskFlags.has(t.counterpartyCountry) && t.amount > 10000);
+          if (fishTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'ENV-003', category: 'ENVIRONMENTAL_CRIME', severity: 'MEDIUM',
+              score: 25, message: `${fishTxs.length} fishing-related transactions with IUU-risk jurisdictions`,
+              transactions: fishTxs.map(t => t.id),
+              details: { countries: [...new Set(fishTxs.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ENV-004', name: 'Illegal Mining/Conflict Minerals',
+        category: 'ENVIRONMENTAL_CRIME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const miningPattern = /\b(mining|mineral|ore|gold|diamond|coltan|tantalum|tungsten|tin|cobalt|lithium|rare earth|artisanal|smelter)\b/i;
+          const conflictMineralCountries = new Set(['CD','RW','UG','BI','CF','SS','ZW','VE','ML','BF','TD']);
+          const miningTxs = txs.filter(t => miningPattern.test(t.description) && conflictMineralCountries.has(t.counterpartyCountry));
+          if (miningTxs.length > 0) {
+            alerts.push({
+              ruleId: 'ENV-004', category: 'ENVIRONMENTAL_CRIME', severity: 'HIGH',
+              score: 40, message: `Mining transactions with conflict mineral regions: ${[...new Set(miningTxs.map(t => t.counterpartyCountry))].join(', ')}`,
+              transactions: miningTxs.map(t => t.id),
+              details: { countries: [...new Set(miningTxs.map(t => t.counterpartyCountry))] }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ORGANIZED CRIME (OC) =====
+      {
+        id: 'OC-001', name: 'Protection Money / Extortion Pattern',
+        category: 'ORGANIZED_CRIME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // Regular payments to same party, round amounts, cash
+          const debits = txs.filter(t => t.direction === 'DEBIT').sort((a, b) => a.date - b.date);
+          const byCounterparty = {};
+          for (const t of debits) {
+            if (!t.counterparty) continue;
+            (byCounterparty[t.counterparty] = byCounterparty[t.counterparty] || []).push(t);
+          }
+          for (const [cp, group] of Object.entries(byCounterparty)) {
+            if (group.length >= 4) {
+              const amounts = group.map(t => t.amount);
+              const allSimilar = amounts.every(a => Math.abs(a - amounts[0]) / amounts[0] < 0.1);
+              if (allSimilar && amounts[0] >= 500) {
+                alerts.push({
+                  ruleId: 'OC-001', category: 'ORGANIZED_CRIME', severity: 'HIGH',
+                  score: 35, message: `${group.length} recurring payments of ~$${amounts[0].toFixed(0)} to "${cp}" — possible protection/extortion`,
+                  transactions: group.map(t => t.id),
+                  details: { counterparty: cp, count: group.length, amount: amounts[0] }
+                });
+              }
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'OC-002', name: 'Front Business Activity',
+        category: 'ORGANIZED_CRIME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const frontBusinesses = /\b(laundromat|car wash|nail salon|pizza|restaurant|bar|nightclub|vending|parking|atm|check cashing|pawn|scrap metal|used car|tow|waste|hauling)\b/i;
+          const frontTxs = txs.filter(t => frontBusinesses.test(t.counterparty) || frontBusinesses.test(t.description));
+          if (frontTxs.length >= 5) {
+            const cashTxs = frontTxs.filter(t => ['CASH','DEPOSIT'].includes(t.type));
+            if (cashTxs.length >= 3) {
+              const total = cashTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+              alerts.push({
+                ruleId: 'OC-002', category: 'ORGANIZED_CRIME', severity: 'HIGH',
+                score: 35, message: `${cashTxs.length} cash transactions with typical front businesses totaling $${total.toFixed(0)}`,
+                transactions: cashTxs.slice(0, 10).map(t => t.id),
+                details: { cashCount: cashTxs.length, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'OC-003', name: 'Loan Sharking Indicators',
+        category: 'ORGANIZED_CRIME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // Pattern: Large outbound followed by many small inbound from same person
+          const debits = txs.filter(t => t.direction === 'DEBIT' && t.amount > 5000).sort((a, b) => a.date - b.date);
+          for (const d of debits) {
+            const followingCredits = txs.filter(t =>
+              t.direction === 'CREDIT' && t.date > d.date &&
+              (t.date - d.date) / 86400000 <= 180 &&
+              t.counterparty === d.counterparty
+            );
+            if (followingCredits.length >= 5) {
+              const totalRepaid = followingCredits.reduce((s, t) => s + t.amount, 0);
+              const effectiveRate = (totalRepaid / d.amount - 1) * 100;
+              if (effectiveRate > 50) {
+                alerts.push({
+                  ruleId: 'OC-003', category: 'ORGANIZED_CRIME', severity: 'HIGH',
+                  score: 35, message: `Loan pattern: $${d.amount.toFixed(0)} out, $${totalRepaid.toFixed(0)} repaid in ${followingCredits.length} payments (${effectiveRate.toFixed(0)}% effective rate)`,
+                  transactions: [d.id, ...followingCredits.map(t => t.id)],
+                  details: { principal: d.amount, repaid: totalRepaid, effectiveRate }
+                });
+                break;
+              }
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== PONZI / PYRAMID SCHEMES (PON) =====
+      {
+        id: 'PON-001', name: 'Investor-to-Investor Payments',
+        category: 'PONZI_SCHEME', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const investPattern = /\b(investment|return|dividend|profit|yield|roi|investor|member|participant|bonus)\b/i;
+          const investTxs = txs.filter(t => investPattern.test(t.description));
+          if (investTxs.length < 5) return alerts;
+          const credits = investTxs.filter(t => t.direction === 'CREDIT');
+          const debits = investTxs.filter(t => t.direction === 'DEBIT');
+          // Ponzi: new investor money used to pay existing investors
+          if (credits.length >= 3 && debits.length >= 3) {
+            const creditTotal = credits.reduce((s, t) => s + t.amount, 0);
+            const debitTotal = debits.reduce((s, t) => s + t.amount, 0);
+            // Inflows roughly equal outflows (no real business)
+            if (Math.abs(creditTotal - debitTotal) / creditTotal < 0.3) {
+              alerts.push({
+                ruleId: 'PON-001', category: 'PONZI_SCHEME', severity: 'CRITICAL',
+                score: 50, message: `Investment flows in ($${creditTotal.toFixed(0)}) ≈ out ($${debitTotal.toFixed(0)}) — Ponzi scheme pattern`,
+                transactions: investTxs.slice(0, 10).map(t => t.id),
+                details: { creditTotal, debitTotal }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'PON-002', name: 'Guaranteed High Returns',
+        category: 'PONZI_SCHEME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const guaranteedPattern = /\b(guaranteed|fixed return|10%|15%|20%|25%|30%|monthly return|weekly return|daily return|no risk|risk.?free|assured)\b/i;
+          const guaranteedTxs = txs.filter(t => guaranteedPattern.test(t.description));
+          if (guaranteedTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'PON-002', category: 'PONZI_SCHEME', severity: 'HIGH',
+              score: 35, message: `${guaranteedTxs.length} transactions referencing guaranteed/high returns`,
+              transactions: guaranteedTxs.map(t => t.id),
+              details: { count: guaranteedTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'PON-003', name: 'Multi-Level Referral Pattern',
+        category: 'PONZI_SCHEME', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const mlmPattern = /\b(referral|commission|downline|upline|level|tier|recruit|sponsor|network marketing|mlm|affiliate|bonus)\b/i;
+          const mlmTxs = txs.filter(t => mlmPattern.test(t.description) && t.direction === 'DEBIT');
+          if (mlmTxs.length >= 5) {
+            const recipients = new Set(mlmTxs.map(t => t.counterparty).filter(Boolean));
+            if (recipients.size >= 3) {
+              alerts.push({
+                ruleId: 'PON-003', category: 'PONZI_SCHEME', severity: 'HIGH',
+                score: 35, message: `${mlmTxs.length} referral/commission payments to ${recipients.size} recipients — pyramid structure indicators`,
+                transactions: mlmTxs.slice(0, 10).map(t => t.id),
+                details: { txCount: mlmTxs.length, recipientCount: recipients.size }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== ART & LUXURY GOODS LAUNDERING (ART) =====
+      {
+        id: 'ART-001', name: 'High-Value Art Transactions',
+        category: 'ART_LAUNDERING', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const artPattern = /\b(gallery|auction|sotheby|christie|bonham|phillips|artwork|painting|sculpture|antiquit|artifact|collectible|fine art|art dealer|art advisor)\b/i;
+          const artTxs = txs.filter(t => artPattern.test(t.counterparty) || artPattern.test(t.description));
+          if (artTxs.length > 0) {
+            const total = artTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            if (total > 50000) {
+              alerts.push({
+                ruleId: 'ART-001', category: 'ART_LAUNDERING', severity: 'MEDIUM',
+                score: 25, message: `${artTxs.length} art market transaction(s) totaling $${total.toFixed(0)} — high-risk for value manipulation`,
+                transactions: artTxs.map(t => t.id),
+                details: { count: artTxs.length, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ART-002', name: 'Freeport Storage Transactions',
+        category: 'ART_LAUNDERING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const freeportPattern = /\b(freeport|free port|geneva freeport|luxembourg freeport|delaware freeport|singapore freeport|storage vault|bonded warehouse|duty.?free storage)\b/i;
+          const freeportTxs = txs.filter(t => freeportPattern.test(t.description) || freeportPattern.test(t.counterparty));
+          if (freeportTxs.length > 0) {
+            alerts.push({
+              ruleId: 'ART-002', category: 'ART_LAUNDERING', severity: 'HIGH',
+              score: 35, message: `${freeportTxs.length} freeport/bonded storage transaction(s) — art/asset concealment risk`,
+              transactions: freeportTxs.map(t => t.id),
+              details: { count: freeportTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'ART-003', name: 'Luxury Goods Cash Purchases',
+        category: 'ART_LAUNDERING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const luxuryPattern = /\b(rolex|patek|audemars|cartier|van cleef|tiffany|bulgari|hermes|louis vuitton|chanel|gucci|ferrari|lamborghini|bentley|rolls.?royce|yacht|private jet|diamond|emerald|ruby|sapphire)\b/i;
+          const luxuryTxs = txs.filter(t => luxuryPattern.test(t.description) || luxuryPattern.test(t.counterparty));
+          const cashLuxury = luxuryTxs.filter(t => ['CASH','DEPOSIT','CHECK'].includes(t.type));
+          if (cashLuxury.length > 0) {
+            const total = cashLuxury.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'ART-003', category: 'ART_LAUNDERING', severity: 'HIGH',
+              score: 35, message: `${cashLuxury.length} cash/check luxury purchases totaling $${total.toFixed(0)}`,
+              transactions: cashLuxury.map(t => t.id),
+              details: { count: cashLuxury.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== SPORTS CORRUPTION (SPORT) =====
+      {
+        id: 'SPORT-001', name: 'Match-Fixing Betting Pattern',
+        category: 'SPORTS_CORRUPTION', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const bettingPattern = /\b(bet365|betfair|pinnacle|betway|unibet|william hill|ladbrokes|paddy power|draftkings|fanduel|sportsbook|wager|parlay|accumulator|betting|bookmaker)\b/i;
+          const bettingTxs = txs.filter(t => bettingPattern.test(t.counterparty) || bettingPattern.test(t.description));
+          if (bettingTxs.length >= 5) {
+            const credits = bettingTxs.filter(t => t.direction === 'CREDIT');
+            const debits = bettingTxs.filter(t => t.direction === 'DEBIT');
+            // Unusual win rate
+            if (credits.length > 0 && debits.length > 0) {
+              const winnings = credits.reduce((s, t) => s + t.amount, 0);
+              const stakes = debits.reduce((s, t) => s + t.amount, 0);
+              const winRate = winnings / stakes;
+              if (winRate > 1.5 && winnings > 20000) {
+                alerts.push({
+                  ruleId: 'SPORT-001', category: 'SPORTS_CORRUPTION', severity: 'HIGH',
+                  score: 40, message: `Unusual betting success: $${stakes.toFixed(0)} staked, $${winnings.toFixed(0)} won (${(winRate*100).toFixed(0)}% return) — match-fixing indicator`,
+                  transactions: bettingTxs.slice(0, 10).map(t => t.id),
+                  details: { stakes, winnings, winRate }
+                });
+              }
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'SPORT-002', name: 'Agent/Representative Payments',
+        category: 'SPORTS_CORRUPTION', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const agentPattern = /\b(sports agent|player agent|transfer fee|signing bonus|image rights|appearance fee|endorsement|sponsorship|athlete|player|coach|manager)\b/i;
+          const agentTxs = txs.filter(t => agentPattern.test(t.description) && t.amount > 10000);
+          if (agentTxs.length >= 2) {
+            const total = agentTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'SPORT-002', category: 'SPORTS_CORRUPTION', severity: 'MEDIUM',
+              score: 25, message: `${agentTxs.length} sports industry payments totaling $${total.toFixed(0)}`,
+              transactions: agentTxs.map(t => t.id),
+              details: { count: agentTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== CORRESPONDENT BANKING ABUSE (CORR) =====
+      {
+        id: 'CORR-001', name: 'Nested Account / Payable-Through',
+        category: 'CORRESPONDENT_BANKING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const corrPattern = /\b(correspondent|nostro|vostro|payable.?through|nested|third.?party bank|respondent bank|foreign bank)\b/i;
+          const corrTxs = txs.filter(t => corrPattern.test(t.description));
+          if (corrTxs.length >= 2) {
+            const total = corrTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'CORR-001', category: 'CORRESPONDENT_BANKING', severity: 'HIGH',
+              score: 35, message: `${corrTxs.length} correspondent banking transactions totaling $${total.toFixed(0)}`,
+              transactions: corrTxs.map(t => t.id),
+              details: { count: corrTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'CORR-002', name: 'Wire Stripping Indicators',
+        category: 'CORRESPONDENT_BANKING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          // Wire stripping: removing originator info from SWIFT messages
+          const wires = txs.filter(t => t.type === 'WIRE' && t.amount > 10000);
+          const missingInfo = wires.filter(t => !t.counterparty || t.counterparty.length < 5);
+          if (missingInfo.length >= 3) {
+            alerts.push({
+              ruleId: 'CORR-002', category: 'CORRESPONDENT_BANKING', severity: 'CRITICAL',
+              score: 50, message: `${missingInfo.length} wire transfers with missing/incomplete originator information — wire stripping indicator`,
+              transactions: missingInfo.map(t => t.id),
+              details: { count: missingInfo.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'CORR-003', name: 'U-Turn Transaction Pattern',
+        category: 'CORRESPONDENT_BANKING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // U-turn: funds from sanctioned country through US bank back to same region
+          const sanctionedRegions = new Set(['IR','CU','KP','SY','RU']);
+          const wires = txs.filter(t => t.type === 'WIRE').sort((a, b) => a.date - b.date);
+          for (let i = 0; i < wires.length - 1; i++) {
+            const inbound = wires[i];
+            const outbound = wires.find(w =>
+              w.direction !== inbound.direction &&
+              w.date > inbound.date &&
+              (w.date - inbound.date) / 86400000 < 5 &&
+              Math.abs(w.amount - inbound.amount) / inbound.amount < 0.1
+            );
+            if (outbound && (sanctionedRegions.has(inbound.counterpartyCountry) || sanctionedRegions.has(outbound.counterpartyCountry))) {
+              alerts.push({
+                ruleId: 'CORR-003', category: 'CORRESPONDENT_BANKING', severity: 'HIGH',
+                score: 45, message: `Potential U-turn: wire from/to sanctioned region routed through this account`,
+                transactions: [inbound.id, outbound.id],
+                details: { inboundCountry: inbound.counterpartyCountry, outboundCountry: outbound.counterpartyCountry }
+              });
+              break;
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== PREPAID CARD ABUSE (PREP) =====
+      {
+        id: 'PREP-001', name: 'Bulk Prepaid Card Loading',
+        category: 'PREPAID_ABUSE', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const prepaidPattern = /\b(prepaid|reload|green dot|money pak|vanilla|netspend|bluebird|serve|paypal prepaid|venmo card)\b/i;
+          const prepaidTxs = txs.filter(t => t.direction === 'DEBIT' && (prepaidPattern.test(t.description) || prepaidPattern.test(t.counterparty)));
+          if (prepaidTxs.length >= 5) {
+            const total = prepaidTxs.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'PREP-001', category: 'PREPAID_ABUSE', severity: 'HIGH',
+              score: 35, message: `${prepaidTxs.length} prepaid card loads totaling $${total.toFixed(0)}`,
+              transactions: prepaidTxs.slice(0, 10).map(t => t.id),
+              details: { count: prepaidTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'PREP-002', name: 'Structured Prepaid Loads',
+        category: 'PREPAID_ABUSE', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const prepaidPattern = /\b(prepaid|reload|green dot|money pak|vanilla|netspend)\b/i;
+          const prepaidTxs = txs.filter(t => t.direction === 'DEBIT' && prepaidPattern.test(t.description));
+          // Check for amounts just below reporting threshold ($2,000 for prepaid)
+          const structured = prepaidTxs.filter(t => t.amount >= 1500 && t.amount < 2000);
+          if (structured.length >= 3) {
+            alerts.push({
+              ruleId: 'PREP-002', category: 'PREPAID_ABUSE', severity: 'HIGH',
+              score: 40, message: `${structured.length} prepaid loads just below $2,000 threshold — structured loading`,
+              transactions: structured.map(t => t.id),
+              details: { count: structured.length, amounts: structured.map(t => t.amount) }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== MOBILE PAYMENT LAUNDERING (MOB) =====
+      {
+        id: 'MOB-001', name: 'P2P Payment App Abuse',
+        category: 'MOBILE_LAUNDERING', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const p2pPattern = /\b(venmo|zelle|cash app|paypal|square cash|apple pay|google pay|samsung pay|mpesa|wechat pay|alipay)\b/i;
+          const p2pTxs = txs.filter(t => p2pPattern.test(t.counterparty) || p2pPattern.test(t.description));
+          if (p2pTxs.length >= 10) {
+            const total = p2pTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            if (total > 20000) {
+              alerts.push({
+                ruleId: 'MOB-001', category: 'MOBILE_LAUNDERING', severity: 'MEDIUM',
+                score: 25, message: `${p2pTxs.length} P2P payment app transactions totaling $${total.toFixed(0)}`,
+                transactions: p2pTxs.slice(0, 10).map(t => t.id),
+                details: { count: p2pTxs.length, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'MOB-002', name: 'Rapid P2P Dispersion',
+        category: 'MOBILE_LAUNDERING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const p2pPattern = /\b(venmo|zelle|cash app|paypal)\b/i;
+          const p2pOut = txs.filter(t => t.direction === 'DEBIT' && p2pPattern.test(t.counterparty)).sort((a, b) => a.date - b.date);
+          if (p2pOut.length >= 5) {
+            const recipients = new Set(p2pOut.map(t => t.counterparty));
+            const span = (p2pOut[p2pOut.length - 1].date - p2pOut[0].date) / 86400000;
+            if (recipients.size >= 4 && span <= 7) {
+              const total = p2pOut.reduce((s, t) => s + t.amount, 0);
+              alerts.push({
+                ruleId: 'MOB-002', category: 'MOBILE_LAUNDERING', severity: 'HIGH',
+                score: 35, message: `$${total.toFixed(0)} dispersed to ${recipients.size} recipients via P2P apps within ${Math.ceil(span)} days`,
+                transactions: p2pOut.slice(0, 10).map(t => t.id),
+                details: { recipients: recipients.size, days: Math.ceil(span), total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== CROWDFUNDING / ICO ABUSE (CROWD) =====
+      {
+        id: 'CROWD-001', name: 'Crowdfunding Platform Abuse',
+        category: 'CROWDFUNDING_ABUSE', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const crowdPattern = /\b(gofundme|kickstarter|indiegogo|patreon|fundrazr|givesendgo|crowdfund|donation|campaign)\b/i;
+          const crowdTxs = txs.filter(t => crowdPattern.test(t.counterparty) || crowdPattern.test(t.description));
+          if (crowdTxs.length >= 3) {
+            const total = crowdTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            if (total > 10000) {
+              alerts.push({
+                ruleId: 'CROWD-001', category: 'CROWDFUNDING_ABUSE', severity: 'MEDIUM',
+                score: 25, message: `${crowdTxs.length} crowdfunding transactions totaling $${total.toFixed(0)}`,
+                transactions: crowdTxs.map(t => t.id),
+                details: { count: crowdTxs.length, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'CROWD-002', name: 'ICO/Token Sale Fraud Indicators',
+        category: 'CROWDFUNDING_ABUSE', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const icoPattern = /\b(ico|initial coin|token sale|token generation|presale|private sale|seed round|saft|simple agreement|utility token|security token)\b/i;
+          const icoTxs = txs.filter(t => icoPattern.test(t.description));
+          if (icoTxs.length >= 2) {
+            const total = icoTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'CROWD-002', category: 'CROWDFUNDING_ABUSE', severity: 'HIGH',
+              score: 35, message: `${icoTxs.length} ICO/token sale transactions totaling $${total.toFixed(0)}`,
+              transactions: icoTxs.map(t => t.id),
+              details: { count: icoTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== SHELL COMPANY PATTERNS (SHELL) =====
+      {
+        id: 'SHELL-001', name: 'Aged Shell Company Acquisition',
+        category: 'SHELL_COMPANY', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const shellPattern = /\b(shelf company|aged company|ready.?made|dormant company|company acquisition|share purchase|stock purchase)\b/i;
+          const shellTxs = txs.filter(t => shellPattern.test(t.description) && t.amount > 5000);
+          if (shellTxs.length > 0) {
+            alerts.push({
+              ruleId: 'SHELL-001', category: 'SHELL_COMPANY', severity: 'HIGH',
+              score: 35, message: `${shellTxs.length} transaction(s) potentially involving shell/shelf company acquisition`,
+              transactions: shellTxs.map(t => t.id),
+              details: { count: shellTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'SHELL-002', name: 'Nominee Director Services',
+        category: 'SHELL_COMPANY', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const nomineePattern = /\b(nominee|proxy|fiduciary|registered agent|company secretary|corporate service|formation agent|incorporat)\b/i;
+          const nomineeTxs = txs.filter(t => nomineePattern.test(t.counterparty) || nomineePattern.test(t.description));
+          if (nomineeTxs.length >= 2) {
+            const total = nomineeTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'SHELL-002', category: 'SHELL_COMPANY', severity: 'HIGH',
+              score: 30, message: `${nomineeTxs.length} nominee/corporate service payments totaling $${total.toFixed(0)}`,
+              transactions: nomineeTxs.map(t => t.id),
+              details: { count: nomineeTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'SHELL-003', name: 'Virtual Office / Mailbox Address',
+        category: 'SHELL_COMPANY', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const virtualPattern = /\b(virtual office|mail forwarding|mailbox|registered address|po box|suite \d+|regus|wework|spaces|hq global)\b/i;
+          const virtualTxs = txs.filter(t => virtualPattern.test(t.description) || virtualPattern.test(t.counterparty));
+          if (virtualTxs.length >= 2) {
+            alerts.push({
+              ruleId: 'SHELL-003', category: 'SHELL_COMPANY', severity: 'MEDIUM',
+              score: 20, message: `${virtualTxs.length} payments to virtual office/mail forwarding services`,
+              transactions: virtualTxs.map(t => t.id),
+              details: { count: virtualTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'SHELL-004', name: 'Multi-Jurisdiction Entity Payments',
+        category: 'SHELL_COMPANY', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const opaque = new Set(['VG','KY','BM','PA','SC','BS','BZ','WS','VU','MH','LI','GG','JE','IM','CY']);
+          const shellNames = /\b(holdings|trading|international|global|ventures|capital|assets|investment|enterprise|group|partners|associates)\b/i;
+          const shellTxs = txs.filter(t =>
+            shellNames.test(t.counterparty) && opaque.has(t.counterpartyCountry) && t.amount > 10000
+          );
+          if (shellTxs.length >= 2) {
+            const countries = [...new Set(shellTxs.map(t => t.counterpartyCountry))];
+            const total = shellTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'SHELL-004', category: 'SHELL_COMPANY', severity: 'HIGH',
+              score: 40, message: `$${total.toFixed(0)} to generic-named entities in opaque jurisdictions: ${countries.join(', ')}`,
+              transactions: shellTxs.slice(0, 10).map(t => t.id),
+              details: { countries, total, entities: [...new Set(shellTxs.map(t => t.counterparty))] }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== PROFESSIONAL ENABLERS (GATE) =====
+      {
+        id: 'GATE-001', name: 'Law Firm Trust Account Activity',
+        category: 'PROFESSIONAL_ENABLER', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const lawPattern = /\b(law firm|attorney|solicitor|barrister|legal|escrow|iolta|client trust|client account|settlement)\b/i;
+          const lawTxs = txs.filter(t => lawPattern.test(t.counterparty) || lawPattern.test(t.description));
+          if (lawTxs.length >= 3) {
+            const total = lawTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            if (total > 50000) {
+              alerts.push({
+                ruleId: 'GATE-001', category: 'PROFESSIONAL_ENABLER', severity: 'MEDIUM',
+                score: 25, message: `${lawTxs.length} law firm/trust account transactions totaling $${total.toFixed(0)}`,
+                transactions: lawTxs.slice(0, 10).map(t => t.id),
+                details: { count: lawTxs.length, total }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'GATE-002', name: 'Accountant/Tax Adviser Payments',
+        category: 'PROFESSIONAL_ENABLER', severity: 'LOW',
+        detect: (txs) => {
+          const alerts = [];
+          const cpaPattern = /\b(cpa|accountant|tax advisor|tax preparer|bookkeeper|audit|deloitte|pwc|ey|kpmg|bdo|grant thornton|rsm)\b/i;
+          const cpaTxs = txs.filter(t => cpaPattern.test(t.counterparty) && t.amount > 25000);
+          if (cpaTxs.length >= 2) {
+            const total = cpaTxs.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'GATE-002', category: 'PROFESSIONAL_ENABLER', severity: 'LOW',
+              score: 15, message: `${cpaTxs.length} large accounting/tax service payments totaling $${total.toFixed(0)}`,
+              transactions: cpaTxs.map(t => t.id),
+              details: { count: cpaTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'GATE-003', name: 'Trust and Company Service Provider',
+        category: 'PROFESSIONAL_ENABLER', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const tcspPattern = /\b(trust company|trustee|corporate trustee|family office|private trust|asset protection|wealth structur|estate planning|offshore)\b/i;
+          const tcspTxs = txs.filter(t => tcspPattern.test(t.counterparty) || tcspPattern.test(t.description));
+          if (tcspTxs.length >= 2) {
+            const total = tcspTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'GATE-003', category: 'PROFESSIONAL_ENABLER', severity: 'HIGH',
+              score: 30, message: `${tcspTxs.length} trust/corporate service provider transactions totaling $${total.toFixed(0)}`,
+              transactions: tcspTxs.map(t => t.id),
+              details: { count: tcspTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== COVID-19 FRAUD SCHEMES (COVID) =====
+      {
+        id: 'COVID-001', name: 'PPP/EIDL Loan Fraud Indicators',
+        category: 'COVID_FRAUD', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const pppPattern = /\b(ppp|paycheck protection|eidl|sba loan|cares act|covid.?19 loan|disaster loan|economic injury)\b/i;
+          const pppTxs = txs.filter(t => t.direction === 'CREDIT' && pppPattern.test(t.description));
+          if (pppTxs.length > 0) {
+            // Check if followed by personal/luxury spending
+            const luxuryPattern = /\b(luxury|jewelry|vehicle|boat|vacation|casino|personal|transfer)\b/i;
+            const afterPPP = txs.filter(t =>
+              t.direction === 'DEBIT' &&
+              (luxuryPattern.test(t.description) || luxuryPattern.test(t.counterparty)) &&
+              pppTxs.some(p => t.date > p.date && (t.date - p.date) / 86400000 < 60)
+            );
+            if (afterPPP.length > 0) {
+              alerts.push({
+                ruleId: 'COVID-001', category: 'COVID_FRAUD', severity: 'HIGH',
+                score: 40, message: `PPP/EIDL loan followed by ${afterPPP.length} non-business expenditures — potential fraud`,
+                transactions: [...pppTxs.map(t => t.id), ...afterPPP.map(t => t.id)],
+                details: { loanCount: pppTxs.length, suspiciousSpend: afterPPP.length }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'COVID-002', name: 'Unemployment Fraud Pattern',
+        category: 'COVID_FRAUD', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const uiPattern = /\b(unemployment|ui benefit|edd|pua|pandemic unemployment|jobless|workforce commission)\b/i;
+          const uiTxs = txs.filter(t => t.direction === 'CREDIT' && uiPattern.test(t.description));
+          // Multiple UI payments from different states
+          const states = new Set(uiTxs.map(t => t.description.match(/\b[A-Z]{2}\b/)?.[0]).filter(Boolean));
+          if (uiTxs.length >= 3 && states.size >= 2) {
+            alerts.push({
+              ruleId: 'COVID-002', category: 'COVID_FRAUD', severity: 'HIGH',
+              score: 45, message: `Unemployment benefits from ${states.size} states — potential multi-state fraud`,
+              transactions: uiTxs.map(t => t.id),
+              details: { states: [...states], txCount: uiTxs.length }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'COVID-003', name: 'Medical/PPE Supply Fraud',
+        category: 'COVID_FRAUD', severity: 'MEDIUM',
+        detect: (txs) => {
+          const alerts = [];
+          const ppePattern = /\b(ppe|mask|n95|ventilator|sanitizer|disinfectant|medical supply|test kit|covid test|rapid test|vaccine)\b/i;
+          const ppeTxs = txs.filter(t => ppePattern.test(t.description) && t.amount > 10000);
+          if (ppeTxs.length >= 2) {
+            const total = ppeTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'COVID-003', category: 'COVID_FRAUD', severity: 'MEDIUM',
+              score: 25, message: `${ppeTxs.length} medical/PPE supply transactions totaling $${total.toFixed(0)}`,
+              transactions: ppeTxs.map(t => t.id),
+              details: { count: ppeTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== TRADE FINANCE FRAUD (TRADE) =====
+      {
+        id: 'TRADE-001', name: 'Letter of Credit Fraud',
+        category: 'TRADE_FINANCE', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const lcPattern = /\b(letter of credit|l\/c|documentary credit|standby lc|sblc|bank guarantee|performance bond|bid bond)\b/i;
+          const lcTxs = txs.filter(t => lcPattern.test(t.description));
+          if (lcTxs.length >= 2) {
+            const total = lcTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'TRADE-001', category: 'TRADE_FINANCE', severity: 'HIGH',
+              score: 30, message: `${lcTxs.length} letter of credit/bank guarantee transactions totaling $${total.toFixed(0)}`,
+              transactions: lcTxs.map(t => t.id),
+              details: { count: lcTxs.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'TRADE-002', name: 'Misrepresented Goods/Services',
+        category: 'TRADE_FINANCE', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // Look for vague descriptions on trade payments
+          const vagueTrade = txs.filter(t =>
+            t.amount > 25000 && t.direction === 'DEBIT' &&
+            /\b(goods|merchandise|products|services|consulting|advisory|management|commission|fee)\b/i.test(t.description) &&
+            !/\b(specific|detailed|itemized|per contract|inv|invoice #)\b/i.test(t.description)
+          );
+          if (vagueTrade.length >= 3) {
+            const total = vagueTrade.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'TRADE-002', category: 'TRADE_FINANCE', severity: 'HIGH',
+              score: 30, message: `${vagueTrade.length} large payments with vague descriptions totaling $${total.toFixed(0)}`,
+              transactions: vagueTrade.slice(0, 10).map(t => t.id),
+              details: { count: vagueTrade.length, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== SMURFING NETWORKS (SMURF) =====
+      {
+        id: 'SMURF-001', name: 'Multi-Account Deposit Coordination',
+        category: 'SMURFING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const cashDeposits = txs.filter(t =>
+            t.direction === 'CREDIT' && ['CASH','DEPOSIT'].includes(t.type) &&
+            t.amount >= 5000 && t.amount < 10000
+          ).sort((a, b) => a.date - b.date);
+          if (cashDeposits.length >= 5) {
+            // Check for coordination (deposits within same day across locations)
+            const byDay = {};
+            for (const t of cashDeposits) {
+              const day = t.date.toISOString().slice(0, 10);
+              (byDay[day] = byDay[day] || []).push(t);
+            }
+            for (const [day, group] of Object.entries(byDay)) {
+              if (group.length >= 3) {
+                const total = group.reduce((s, t) => s + t.amount, 0);
+                alerts.push({
+                  ruleId: 'SMURF-001', category: 'SMURFING', severity: 'CRITICAL',
+                  score: 50, message: `${group.length} coordinated cash deposits on ${day} totaling $${total.toFixed(0)} — smurfing network`,
+                  transactions: group.map(t => t.id),
+                  details: { date: day, count: group.length, total }
+                });
+                break;
+              }
+            }
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'SMURF-002', name: 'Multiple Bank Aggregation',
+        category: 'SMURFING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          // Look for transfers from multiple external banks being consolidated
+          const bankTransfers = txs.filter(t =>
+            t.direction === 'CREDIT' && t.type === 'TRANSFER' && t.amount > 3000
+          );
+          const banks = new Set(bankTransfers.map(t => t.counterparty).filter(Boolean));
+          if (banks.size >= 4 && bankTransfers.length >= 6) {
+            const total = bankTransfers.reduce((s, t) => s + t.amount, 0);
+            alerts.push({
+              ruleId: 'SMURF-002', category: 'SMURFING', severity: 'HIGH',
+              score: 40, message: `Transfers from ${banks.size} different sources consolidated — $${total.toFixed(0)}`,
+              transactions: bankTransfers.slice(0, 10).map(t => t.id),
+              details: { sourceCount: banks.size, total }
+            });
+          }
+          return alerts;
+        }
+      },
+
+      // ===== INVOICE FACTORING FRAUD (FACT) =====
+      {
+        id: 'FACT-001', name: 'Fictitious Invoice Factoring',
+        category: 'INVOICE_FACTORING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const factorPattern = /\b(factor|factoring|invoice financing|receivable|ar financing|invoice discount)\b/i;
+          const factorTxs = txs.filter(t => factorPattern.test(t.counterparty) || factorPattern.test(t.description));
+          if (factorTxs.length >= 2) {
+            const credits = factorTxs.filter(t => t.direction === 'CREDIT');
+            const total = credits.reduce((s, t) => s + t.amount, 0);
+            if (total > 50000) {
+              alerts.push({
+                ruleId: 'FACT-001', category: 'INVOICE_FACTORING', severity: 'HIGH',
+                score: 30, message: `$${total.toFixed(0)} from invoice factoring — verify underlying receivables exist`,
+                transactions: factorTxs.map(t => t.id),
+                details: { total, txCount: factorTxs.length }
+              });
+            }
+          }
+          return alerts;
+        }
+      },
+
+      // ===== LAYERING TECHNIQUES (LAYER) =====
+      {
+        id: 'LAYER-001', name: 'Rapid Multi-Hop Transfers',
+        category: 'LAYERING', severity: 'CRITICAL',
+        detect: (txs) => {
+          const alerts = [];
+          const sorted = [...txs].sort((a, b) => a.date - b.date);
+          let hops = 0;
+          let hopAmount = 0;
+          let hopTxs = [];
+          for (let i = 1; i < sorted.length; i++) {
+            const prev = sorted[i - 1];
+            const curr = sorted[i];
+            if (prev.direction === 'CREDIT' && curr.direction === 'DEBIT') {
+              const gap = (curr.date - prev.date) / 3600000;
+              const ratio = curr.amount / prev.amount;
+              if (gap <= 24 && ratio >= 0.85 && ratio <= 1.0 && curr.amount > 5000) {
+                hops++;
+                hopAmount = Math.max(hopAmount, curr.amount);
+                hopTxs.push(prev.id, curr.id);
+              }
+            }
+          }
+          if (hops >= 3) {
+            alerts.push({
+              ruleId: 'LAYER-001', category: 'LAYERING', severity: 'CRITICAL',
+              score: 50, message: `${hops} rapid in-out transfer cycles (layering) — amounts up to $${hopAmount.toFixed(0)}`,
+              transactions: [...new Set(hopTxs)].slice(0, 10),
+              details: { hopCount: hops, maxAmount: hopAmount }
+            });
+          }
+          return alerts;
+        }
+      },
+      {
+        id: 'LAYER-002', name: 'Complex Ownership Chain Payments',
+        category: 'LAYERING', severity: 'HIGH',
+        detect: (txs) => {
+          const alerts = [];
+          const genericNames = /\b(holdings|trading|consulting|services|international|global|ventures|capital|group|investment|enterprise|partners)\b/i;
+          const chainTxs = txs.filter(t => genericNames.test(t.counterparty) && t.amount > 10000);
+          const uniqueEntities = new Set(chainTxs.map(t => t.counterparty));
+          if (uniqueEntities.size >= 4) {
+            const total = chainTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+            alerts.push({
+              ruleId: 'LAYER-002', category: 'LAYERING', severity: 'HIGH',
+              score: 35, message: `Payments to ${uniqueEntities.size} generic-named entities totaling $${total.toFixed(0)} — ownership chain layering`,
+              transactions: chainTxs.slice(0, 10).map(t => t.id),
+              details: { entityCount: uniqueEntities.size, total }
+            });
           }
           return alerts;
         }

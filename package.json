@@ -2,7 +2,7 @@
   "name": "marlowe-investigative-ai",
   "version": "1.0.0",
   "private": true,
-  "description": "Marlowe - AI-Powered Investigative Analysis Platform",
+  "description": "Katharos - AI-Powered Investigative Analysis Platform",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@pinecone-database/pinecone": "^4.1.0",

@@ -1,4 +1,4 @@
-// Marlowe v1.2 - Screening mode with knowledge-based analysis
+// Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet } from 'lucide-react';
 import * as mammoth from 'mammoth';
@@ -12,7 +12,7 @@ import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 import ChatNetworkGraph from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
-import { fetchUserCases, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
+import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
 import UsageLimitModal from './UsageLimitModal';
@@ -69,19 +69,19 @@ function friendlyError(error) {
   const msg = (error?.message || error || '').toString().toLowerCase();
   console.error('API error details:', error);
   if (msg.includes('credit') || msg.includes('billing') || msg.includes('insufficient') || msg.includes('payment') || msg.includes('402'))
-    return 'Marlowe is temporarily unavailable. Please try again shortly.';
+    return 'Katharos is temporarily unavailable. Please try again shortly.';
   if (msg.includes('rate') || msg.includes('429') || msg.includes('throttl') || msg.includes('too many'))
     return 'High demand right now. Your search will retry automatically in a moment.';
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch') || msg.includes('econnrefused') || msg.includes('timeout') || msg.includes('aborted'))
     return 'Connection issue. Please check your internet and try again.';
   if (msg.includes('overloaded') || msg.includes('529') || msg.includes('503'))
-    return 'Marlowe is experiencing high demand. Please try again in a moment.';
+    return 'Katharos is experiencing high demand. Please try again in a moment.';
   return 'Something went wrong. Please try again.';
 }
 
 // ============================================================================
-// Main Marlowe Component
-export default function Marlowe() {
+// Main Katharos Component
+export default function Katharos() {
  // Auth state - must be called before any conditional returns
  const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName } = useAuth();
 
@@ -248,11 +248,13 @@ export default function Marlowe() {
  const [hoveredCard, setHoveredCard] = useState(null); // eslint-disable-line no-unused-vars
  const [showLandingContent, setShowLandingContent] = useState(false); // eslint-disable-line no-unused-vars
  const [hasVisitedLanding, setHasVisitedLanding] = useState(false);
- const [marloweAnimationPhase, setMarloweAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
+ const [marloweAnimationPhase, setKatharosAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
  const [copiedMessageId, setCopiedMessageId] = useState(null);
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
  const [samplesExpanded, setSamplesExpanded] = useState(false);
+const suggestionsRef = useRef(null);
+const samplesRef = useRef(null);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
  const [hasScrolled, setHasScrolled] = useState(false);
  const [showAlertsPanel, setShowAlertsPanel] = useState(false); // eslint-disable-line no-unused-vars
@@ -264,7 +266,7 @@ export default function Marlowe() {
  "What can I help you investigate?",
  "Where should we begin?",
  "What are we working on?",
- "Marlowe's on the case",
+ "Katharos's on the case",
  "What do you have for me?",
  "Let's get started"
  ];
@@ -312,15 +314,34 @@ export default function Marlowe() {
  // Load cases from Supabase when user logs in or page loads
  useEffect(() => {
  const loadCases = async () => {
-   if (isSupabaseConfigured() && user) {
-     console.log('[Cases] Loading cases for user:', user.email, 'workspace:', workspaceId);
+   if (!isSupabaseConfigured()) {
+     console.log('[Cases] Supabase not configured, using local state only');
+     return;
+   }
+   if (!user) {
+     console.log('[Cases] No user logged in, skipping case load');
+     return;
+   }
+
+   console.log('[Cases] Loading cases for user:', user.email, 'workspace:', workspaceId);
+
+   try {
      const { data, error } = await fetchUserCases(workspaceId, user.email);
-     if (data && !error) {
+
+     if (error) {
+       console.error('[Cases] Database error loading cases:', error);
+       return;
+     }
+
+     if (data) {
        console.log('[Cases] Loaded', data.length, 'cases from database');
        setCases(data);
-     } else if (error) {
-       console.error('[Cases] Failed to load cases:', error);
+     } else {
+       console.log('[Cases] No cases found in database');
+       setCases([]);
      }
+   } catch (err) {
+     console.error('[Cases] Unexpected error loading cases:', err);
    }
  };
  loadCases();
@@ -414,15 +435,21 @@ export default function Marlowe() {
  if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target)) {
  setShowUploadDropdown(false);
  }
+if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+setSuggestionsExpanded(false);
+}
+if (samplesRef.current && !samplesRef.current.contains(event.target)) {
+setSamplesExpanded(false);
+}
  };
 
- if (showModeDropdown || showUploadDropdown) {
+if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpanded) {
  document.addEventListener('mousedown', handleClickOutside);
  return () => {
  document.removeEventListener('mousedown', handleClickOutside);
  };
  }
- }, [showModeDropdown, showUploadDropdown]);
+}, [showModeDropdown, showUploadDropdown, suggestionsExpanded, samplesExpanded]);
 
  // Global click handler for clickable text in responses
  useEffect(() => {
@@ -603,6 +630,7 @@ export default function Marlowe() {
      networkArtifacts: [], // Store network graph snapshots
      screenings: [], // Store KYC screening results
      riskLevel: 'UNKNOWN',
+     viewed: false, // Track if case has been viewed
      emailDomain: workspaceId || '',
      createdByEmail: user?.email || '',
    };
@@ -611,9 +639,18 @@ export default function Marlowe() {
    setCurrentCaseId(newCaseId);
    setCaseName(generatedName);
 
-   // Sync to Supabase if configured
+   // Save to database immediately
    if (isSupabaseConfigured() && user) {
-     syncCase(newCase).catch(console.error);
+     console.log('[Cases] Saving new case to database:', newCaseId, generatedName);
+     createCase(newCase).then(({ data, error }) => {
+       if (error) {
+         console.error('[Cases] Failed to save case to database:', error);
+       } else {
+         console.log('[Cases] Case saved to database successfully:', newCaseId);
+       }
+     });
+   } else {
+     console.log('[Cases] Supabase not configured or user not logged in, case saved locally only');
    }
 
    return newCaseId;
@@ -692,6 +729,29 @@ export default function Marlowe() {
      return updated;
    });
  };
+
+ // Mark a case as viewed
+ const markCaseAsViewed = (caseId) => {
+   setCases(prev => {
+     const updated = prev.map(c =>
+       c.id === caseId && !c.viewed ? { ...c, viewed: true } : c
+     );
+     if (isSupabaseConfigured() && user) {
+       const viewedCase = updated.find(c => c.id === caseId);
+       if (viewedCase) syncCase(viewedCase).catch(console.error);
+     }
+     return updated;
+   });
+   // Dismiss notification if it's for this case
+   if (chatCompletionNotification.caseId === caseId) {
+     setChatCompletionNotification(prev => ({ ...prev, show: false }));
+   }
+ };
+
+ // Count unviewed cases
+ const unviewedCaseCount = useMemo(() => {
+   return cases.filter(c => !c.viewed && c.riskLevel !== 'UNKNOWN').length;
+ }, [cases]);
 
  // Aggregated monitoring alerts across all cases
  // eslint-disable-next-line no-unused-vars
@@ -1061,7 +1121,7 @@ export default function Marlowe() {
  // Go to landing page with cards showing (not the initial state)
  setShowLandingCards(true);
  setHoveredCard(null);
- setMarloweAnimationPhase('small');
+ setKatharosAnimationPhase('small');
  setCurrentPage('noirLanding');
  };
 
@@ -1169,7 +1229,7 @@ export default function Marlowe() {
 
      // Update tab title if hidden
      if (document.hidden) {
-       document.title = `Search Complete — ${query} — Marlowe`;
+       document.title = `Search Complete — ${query} — Katharos`;
      }
 
      // Save to history
@@ -1261,7 +1321,7 @@ export default function Marlowe() {
 
  // Reset tab title when user returns
  useEffect(() => {
-   const handler = () => { if (!document.hidden) document.title = 'Marlowe'; };
+   const handler = () => { if (!document.hidden) document.title = 'Katharos'; };
    document.addEventListener('visibilitychange', handler);
    return () => document.removeEventListener('visibilitychange', handler);
  }, []);
@@ -1551,7 +1611,7 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  };
 
- // Generate actual PDF report with Marlowe visual style
+ // Generate actual PDF report with Katharos visual style
  const generateCaseReportPdf = () => {
  if (!analysis || !activeCase) return;
 
@@ -1623,7 +1683,7 @@ Format the report professionally with clear headers, bullet points where appropr
  switch (risk) {
  case 'CRITICAL': return [220, 38, 38]; // red-600
  case 'HIGH': return [244, 63, 94]; // rose-500
- case 'MEDIUM': return [245, 158, 11]; // amber-500
+ case 'MEDIUM': return [75, 85, 99]; // gray-600
  case 'LOW': return [16, 185, 129]; // emerald-500
  default: return [148, 163, 184]; // slate
  }
@@ -1842,12 +1902,12 @@ Format the report professionally with clear headers, bullet points where appropr
  pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F');
  pdf.setTextColor(...darkText);
  pdf.setFontSize(8);
- pdf.text(`Marlowe Investigation Report | ${activeCase.name}`, margin, pageHeight - 8);
+ pdf.text(`Katharos Investigation Report | ${activeCase.name}`, margin, pageHeight - 8);
  pdf.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
  }
 
  // Save the PDF
- const pdfFileName = `Marlowe_Investigation_${activeCase.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+ const pdfFileName = `Katharos_Investigation_${activeCase.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
  pdf.save(pdfFileName);
 
  // Save PDF report reference to the case
@@ -2261,7 +2321,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
            }">${caseData.riskLevel || 'UNKNOWN'} RISK</div>
          </div>
          <div style="text-align: right;">
-           <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">Marlowe</div>
+           <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">Katharos</div>
            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Compliance Intelligence</div>
          </div>
        </div>
@@ -2326,7 +2386,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
          roleLabel.style.letterSpacing = '0.5px';
          roleLabel.style.marginBottom = '8px';
          roleLabel.style.color = msg.role === 'user' ? '#d97706' : '#64748b';
-         roleLabel.textContent = msg.role === 'user' ? 'Analyst Query' : 'Marlowe Response';
+         roleLabel.textContent = msg.role === 'user' ? 'Analyst Query' : 'Katharos Response';
          msgDiv.appendChild(roleLabel);
 
          const content = document.createElement('div');
@@ -2391,7 +2451,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
      footer.style.fontSize = '10px';
      footer.style.color = '#94a3b8';
      footer.innerHTML = `
-       <div>Marlowe Compliance Platform • Confidential</div>
+       <div>Katharos Compliance Platform • Confidential</div>
        <div>Report generated ${new Date().toLocaleString()}</div>
      `;
      container.appendChild(footer);
@@ -2507,7 +2567,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
  content: msg.content
  }));
 
- const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You have just completed a screening on "${kycResults.subject?.name}" and are now answering follow-up questions from the compliance analyst. You are a senior financial crimes investigator — be direct, professional, and actionable.
+ const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You have just completed a screening on "${kycResults.subject?.name}" and are now answering follow-up questions from the compliance analyst. You are a senior financial crimes investigator — be direct, professional, and actionable.
 
 VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
 
@@ -2672,7 +2732,7 @@ If this is a scanned document, please use OCR software to convert it to searchab
  }
  }
  if (transactions && transactions.length > 0) {
- console.log(`[Marlowe] Transaction data detected in ${pf.name}: ${transactions.length} records — running detection engine`);
+ console.log(`[Katharos] Transaction data detected in ${pf.name}: ${transactions.length} records — running detection engine`);
  fetch(`${API_BASE}/api/screening/transaction-monitoring`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
@@ -2680,9 +2740,9 @@ If this is a scanned document, please use OCR software to convert it to searchab
  }).then(r => r.ok ? r.json() : null).then(result => {
  if (result) {
  setTxMonitorResults(result);
- console.log(`[Marlowe] Transaction monitoring complete: ${result.alerts?.length || 0} alerts, risk ${result.riskAssessment?.level}`);
+ console.log(`[Katharos] Transaction monitoring complete: ${result.alerts?.length || 0} alerts, risk ${result.riskAssessment?.level}`);
  }
- }).catch(e => console.error('[Marlowe] Transaction monitoring error:', e));
+ }).catch(e => console.error('[Katharos] Transaction monitoring error:', e));
  }
  } catch (e) {
  // Not transaction data, skip silently
@@ -3978,7 +4038,7 @@ ${messageContent}`,
        if (parts.length) ragContext = '\n\n[RETRIEVED CONTEXT FROM MARLOWE KNOWLEDGE BASE]\n\n' + parts.join('\n\n') + '\n\n---\n';
      }
    } catch (e) {
-     console.warn('[Marlowe] RAG retrieval skipped:', e);
+     console.warn('[Katharos] RAG retrieval skipped:', e);
    }
 
    // Full screening pipeline — runs all 7 layers (sanctions, regulatory, PEP, adverse media, litigation, corporate, crypto/trade)
@@ -4006,7 +4066,7 @@ ${messageContent}`,
      const queryToScreen = detectedWallet || (looksLikeName ? trimmed : null) || (hasScreeningIntent ? trimmed.replace(/^(screen|check|look up|search|investigate|who is)\s+/i, '').trim() : null);
 
      if (queryToScreen && queryToScreen.length > 2 && queryToScreen.length < 80) {
-       console.log('[Marlowe] Full screening pipeline for:', queryToScreen);
+       console.log('[Katharos] Full screening pipeline for:', queryToScreen);
 
        const pipelineRes = await Promise.race([
          fetch(`${API_BASE}/api/screening/full`, {
@@ -4015,10 +4075,10 @@ ${messageContent}`,
            body: JSON.stringify({ query: queryToScreen, type: 'auto' })
          }).then(r => r.ok ? r.json() : null),
          new Promise((_, reject) => setTimeout(() => reject('pipeline-timeout'), 60000))
-       ]).catch(e => { console.warn('[Marlowe] Screening pipeline timeout:', e); return null; });
+       ]).catch(e => { console.warn('[Katharos] Screening pipeline timeout:', e); return null; });
 
        if (pipelineRes) {
-         console.log('[Marlowe] Pipeline result:', pipelineRes.overallRisk?.level, pipelineRes.overallRisk?.score, '— sources:', pipelineRes.sourcesChecked?.length, '— duration:', pipelineRes.durationMs + 'ms');
+         console.log('[Katharos] Pipeline result:', pipelineRes.overallRisk?.level, pipelineRes.overallRisk?.score, '— sources:', pipelineRes.sourcesChecked?.length, '— duration:', pipelineRes.durationMs + 'ms');
 
          // Build context from pipeline result
          const lines = [];
@@ -4186,7 +4246,7 @@ ${messageContent}`,
        }
      }
    } catch (e) {
-     console.warn('[Marlowe] Screening pipeline skipped:', e);
+     console.warn('[Katharos] Screening pipeline skipped:', e);
    }
 
    // Enforcement case matching — find relevant precedents from RAG (fire-and-forget with 4s timeout)
@@ -4224,7 +4284,7 @@ ${messageContent}`,
        }
      }
    } catch (e) {
-     console.warn('[Marlowe] Case matching skipped:', e);
+     console.warn('[Katharos] Case matching skipped:', e);
    }
 
    // Build context from files - use attachedFiles passed to this function
@@ -4272,9 +4332,9 @@ ${txMonitorResults.compositeScoring ? `Category Scores: ${Object.entries(txMonit
        content: msg.content.trim()
      }));
 
-   console.log(`[Marlowe] Sending message with ${history.length} previous messages in history`);
+   console.log(`[Katharos] Sending message with ${history.length} previous messages in history`);
 
-   const systemPrompt = `You are Marlowe, an expert financial crimes investigator.
+   const systemPrompt = `You are Katharos, an expert financial crimes investigator.
 
 CONVERSATION MEMORY — CRITICAL:
 You are in a multi-turn conversation. The full conversation history is included in the messages array.
@@ -4367,7 +4427,7 @@ Citation rules:
 At end, list: Sources: [Doc 1] - filename, etc.
 
 TRANSACTION MONITORING & FRAUD DETECTION ENGINE:
-When the user uploads transaction data (CSV, JSON, bank statements), Marlowe's detection engine automatically runs 42+ rules across 18 categories with composite risk scoring:
+When the user uploads transaction data (CSV, JSON, bank statements), Katharos's detection engine automatically runs 42+ rules across 18 categories with composite risk scoring:
 - STRUCTURING (STR-001 to STR-004): just-below-threshold, round amounts, split deposits, incremental patterns
 - VELOCITY (VEL-001 to VEL-004): volume spikes, rapid-fire, excessive daily counts, pass-through/flow-through
 - GEOGRAPHIC (GEO-001 to GEO-003): high-risk jurisdictions (FATF), tax havens, unusual geographic spread
@@ -4400,7 +4460,7 @@ If transaction monitoring results appear in the context (tagged [AUTOMATED TRANS
 - For network alerts (NET rules): explain the network topology detected and its money laundering implications
 `}
 
-You are Marlowe, an expert AI compliance analyst specializing in financial crimes, anti-money laundering (AML), sanctions, and investigations. You are the equivalent of a senior financial crimes investigator with 15+ years of experience across banking, crypto, and regulatory enforcement.
+You are Katharos, an expert AI compliance analyst specializing in financial crimes, anti-money laundering (AML), sanctions, and investigations. You are the equivalent of a senior financial crimes investigator with 15+ years of experience across banking, crypto, and regulatory enforcement.
 
 ═══════════════════════════════════════════════════════════════════════
 CORE BEHAVIOR
@@ -4482,7 +4542,7 @@ Provide specific, actionable recommendations. Not "conduct EDD" but "obtain cert
 RAG-ENHANCED REASONING
 ═══════════════════════════════════════════════════════════════════════
 
-Before every screening, retrieve relevant context from the Marlowe knowledge base. Use this context to REASON about findings, not just report them.
+Before every screening, retrieve relevant context from the Katharos knowledge base. Use this context to REASON about findings, not just report them.
 
 TYPOLOGY MATCHING:
 When you find suspicious patterns, match them against known typologies from the knowledge base:
@@ -4534,7 +4594,7 @@ When findings resemble known enforcement cases from the knowledge base, referenc
 This gives compliance officers recognizable reference points and demonstrates depth of analysis.
 
 CONNECTING THE DOTS:
-The most valuable thing Marlowe can do is connect findings across sources that a human analyst might miss:
+The most valuable thing Katharos can do is connect findings across sources that a human analyst might miss:
 
 "CROSS-REFERENCE FINDING: Entity cleared on OFAC SDN list, but ICIJ Offshore Leaks shows they co-own a BVI company with [Person X], who IS on the SDN list with 55% ownership. Under the 50% rule, this BVI entity may be blocked property. Recommend immediate escalation for beneficial ownership analysis."
 
@@ -4542,7 +4602,7 @@ The most valuable thing Marlowe can do is connect findings across sources that a
 
 "TEMPORAL ANALYSIS: Entity incorporated 3 weeks after their former employer was sanctioned. Same registered agent address. Two former employees of sanctioned entity serve as directors. This matches the FRONT COMPANY sanctions evasion typology."
 
-This cross-referencing is what makes Marlowe worth paying for. Any tool can check a list. Marlowe connects the dots.
+This cross-referencing is what makes Katharos worth paying for. Any tool can check a list. Katharos connects the dots.
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -5134,7 +5194,7 @@ Tag every finding:
 AUDIT-READY
 Every report should be ready for regulatory review:
 - Timestamped (when analysis was run)
-- Analyst identified (Marlowe AI, version X)
+- Analyst identified (Katharos AI, version X)
 - Sources cited (with URLs where available)
 - Methodology disclosed
 - Limitations stated
@@ -5338,7 +5398,7 @@ If EDD is recommended, specify EXACTLY what EDD means:
 
 ⚠️ THIS SECTION IS MANDATORY — NEVER SKIP IT, even for sanctioned individuals.
 For REJECT cases, list actions like: file SAR/STR, notify compliance officer, terminate relationship, document decision rationale.
-NEVER include "conduct sanctions screening" — Marlowe already did that.
+NEVER include "conduct sanctions screening" — Katharos already did that.
 
 ## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] ([XX]%)
 
@@ -5451,12 +5511,12 @@ List ALL sources cited throughout the report. For databases, link directly. For 
 
 ## KEEP EXPLORING
 
-- Screen [specific associate name] in Marlowe
+- Screen [specific associate name] in Katharos
 - Upload ownership documents for deeper analysis
 - Review corporate network for indirect connections
 - Analyze [specific document type] for hidden exposures
 
-(3-4 actionable next steps — always phrase screening suggestions as "Screen [name] in Marlowe", NEVER "check against OFAC/EU lists")
+(3-4 actionable next steps — always phrase screening suggestions as "Screen [name] in Katharos", NEVER "check against OFAC/EU lists")
 
 FORMATTING RULES:
 1. ⚠️ #1 PRIORITY — INLINE CITATIONS: Every factual claim MUST have a clickable source link RIGHT NEXT TO IT. For databases (OFAC, OpenCorporates, etc.) link directly. For news articles, use Google search verification links. Do NOT collect sources at the bottom. Do NOT fabricate specific article URLs. Example: "Designated on the [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/) in March 2022. Named in a Reuters investigation ([verify](https://www.google.com/search?q=%22Subject%22+Reuters+sanctions))."
@@ -5467,7 +5527,7 @@ FORMATTING RULES:
 6. Always include the "Impact:" line after each red flag
 7. Be DIRECT and BLUNT - explain real risks without hedging
 8. Quote evidence directly when available
-9. NEVER tell the user to "screen," "check," or "verify" individuals against sanctions lists, conduct background checks, use third-party screening services, or go to any external platform. Marlowe IS the screening platform — it already performed sanctions screening, PEP checks, adverse media analysis, and background checks. Do not say things like "Requires screening of X against Y list," "Conduct independent background checks," "Use a third-party screening service," or "Check OFAC/EU sanctions." Instead, present the screening RESULTS you already have. If additional entities need screening, say "Screen [name] in Marlowe."
+9. NEVER tell the user to "screen," "check," or "verify" individuals against sanctions lists, conduct background checks, use third-party screening services, or go to any external platform. Katharos IS the screening platform — it already performed sanctions screening, PEP checks, adverse media analysis, and background checks. Do not say things like "Requires screening of X against Y list," "Conduct independent background checks," "Use a third-party screening service," or "Check OFAC/EU sanctions." Instead, present the screening RESULTS you already have. If additional entities need screening, say "Screen [name] in Katharos."
 
 REMEMBER: The structured report template above is ONLY for screening requests. For questions, guidance, follow-ups, and investigations — respond conversationally and adapt your format to the user's intent. Never force a rigid template onto a simple question.
 
@@ -5650,7 +5710,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
            action: 'index', namespace: 'case_notes',
-           text: `Case: ${currentCase?.name} | Marlowe: ${fullText.substring(0, 2000)}`,
+           text: `Case: ${currentCase?.name} | Katharos: ${fullText.substring(0, 2000)}`,
            metadata: { caseId, caseName: currentCase?.name, messageRole: 'assistant', workspaceId: currentCase?.workspaceId }
          })
        }).catch(() => {});
@@ -5738,7 +5798,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
  return;
  }
 
- const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You are a senior financial crimes investigator with deep expertise in OFAC sanctions, AML regulations, anti-corruption laws, and global compliance frameworks. You deliver institutional-grade due diligence — not generic summaries.
+ const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You are a senior financial crimes investigator with deep expertise in OFAC sanctions, AML regulations, anti-corruption laws, and global compliance frameworks. You deliver institutional-grade due diligence — not generic summaries.
 
 Screen systematically across all layers: sanctions & watchlists (OFAC SDN, UN, EU, UK OFSI, SEMA, DFAT, SECO, OpenSanctions, OFAC Penalties), PEP status (EveryPolitician, Wikidata, CIA World Leaders), corporate structure & beneficial ownership (UK Companies House with officers/PSCs/insolvency/disqualified officers, OpenCorporates, SEC EDGAR, ICIJ Offshore Leaks, OFAC 50% rule), litigation & regulatory actions (CourtListener dockets + Case Law API with opinion text, SEC/DOJ/FinCEN/OCC/CFPB/FTC/CFTC/Federal Reserve/FDIC enforcement, UK FCA, UK SFO, EU Competition), adverse media (GDELT, NewsAPI, Google News RSS, Bing News, MediaCloud, Common Crawl, Wayback Machine), cryptocurrency & blockchain (OFAC sanctioned wallets, Etherscan, Blockchair, Blockchain.com, Solscan, Tronscan, Polygonscan, BSCScan), shipping & trade (UN Comtrade, MarineTraffic, VesselFinder, Equasis, ImportGenius), and network analysis.
 
@@ -6498,7 +6558,7 @@ return; // Pipeline succeeded, exit
  return `[DOCUMENT ${idx + 1}: "${f.name}"]\n${truncatedContent}\n[END DOCUMENT ${idx + 1}]`;
  }).join('\n\n');
 
- const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence.
+ const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence.
 
 You are not a chatbot. You are a senior financial crimes investigator with:
 - Deep expertise in OFAC sanctions, AML regulations, anti-corruption laws, and global compliance frameworks
@@ -6820,7 +6880,7 @@ Respond with a JSON object in this exact structure:
  "nextSteps": [
  {
  "priority": "HIGH|MEDIUM|LOW",
- "action": "Short action (max 15 words) - link to Marlowe if data needed",
+ "action": "Short action (max 15 words) - link to Katharos if data needed",
  "source": "https://... (optional URL to relevant OFAC announcement, press release, or regulatory guidance)"
  }
  ]
@@ -6856,10 +6916,10 @@ You are an experienced financial crimes investigator briefing a colleague. Write
 
 NEXT STEPS - Keep them SHORT (max 15 words each):
 - "REJECT: SDN-listed entity" + source URL
-- "Request beneficial ownership docs → upload to Marlowe"
+- "Request beneficial ownership docs → upload to Katharos"
 - "ESCALATE: PEP with corruption allegations"
 
-NEVER SUGGEST what Marlowe already did (sanctions screening, ownership mapping, etc.)`
+NEVER SUGGEST what Katharos already did (sanctions screening, ownership mapping, etc.)`
  : `${investigationContext}Based on the investigation description provided, create an initial investigative framework with preliminary analysis.
 
 Since no evidence documents have been uploaded yet, focus on:
@@ -7298,11 +7358,11 @@ Respond with a JSON object in this exact structure:
  }
  }
 
- // Filter out any AI-generated steps that Marlowe has already done automatically
+ // Filter out any AI-generated steps that Katharos has already done automatically
  const filteredAISteps = (parsed.nextSteps || []).filter(step => {
  const action = step.action.toLowerCase();
  // Remove steps about screening databases, checking sanctions lists, or verifying status
- // These are all done automatically by Marlowe
+ // These are all done automatically by Katharos
  return !(
  action.includes('sanctions database') ||
  (action.includes('screen') && (action.includes('sanctions') || action.includes('database'))) ||
@@ -7419,8 +7479,8 @@ setIsAnalyzing(false);
  const getRiskColor = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-500 text-white';
- case 'HIGH': return 'bg-orange-500 text-white';
- case 'MEDIUM': return 'bg-amber-500 text-gray-900';
+ case 'HIGH': return 'bg-gray-600 text-white';
+ case 'MEDIUM': return 'bg-gray-500 text-white';
  case 'LOW': return 'bg-emerald-500 text-white';
  default: return 'bg-gray-500 text-white';
  }
@@ -7429,8 +7489,8 @@ setIsAnalyzing(false);
  const getRiskBorder = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'border-l-4 border-red-500';
- case 'HIGH': return 'border-l-4 border-orange-500';
- case 'MEDIUM': return 'border-l-4 border-amber-500';
+ case 'HIGH': return 'border-l-4 border-gray-600';
+ case 'MEDIUM': return 'border-l-4 border-gray-500';
  case 'LOW': return 'border-l-4 border-emerald-500';
  default: return 'border-l-4 border-gray-400';
  }
@@ -7440,8 +7500,8 @@ setIsAnalyzing(false);
 const getRiskBg = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-50';
- case 'HIGH': return 'bg-orange-50';
- case 'MEDIUM': return 'bg-amber-50';
+ case 'HIGH': return 'bg-gray-100';
+ case 'MEDIUM': return 'bg-gray-100';
  case 'LOW': return 'bg-emerald-50';
  default: return 'bg-gray-50';
  }
@@ -7451,8 +7511,8 @@ const getRiskBg = (level) => {
  const getRiskDot = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-500 ring-red-200';
- case 'HIGH': return 'bg-orange-500 ring-orange-200';
- case 'MEDIUM': return 'bg-amber-500 ring-amber-200';
+ case 'HIGH': return 'bg-gray-600 ring-gray-200';
+ case 'MEDIUM': return 'bg-gray-500 ring-gray-200';
  case 'LOW': return 'bg-emerald-500 ring-emerald-200';
  default: return 'bg-gray-400 ring-gray-200';
  }
@@ -7464,10 +7524,10 @@ const getRiskBg = (level) => {
  redFlags: { border: 'border-l-4 border-red-500', bg: 'bg-red-50', icon: 'text-red-500', header: 'text-red-700' },
  entities: { border: 'border-l-4 border-purple-500', bg: 'bg-purple-50', icon: 'text-purple-500', header: 'text-purple-700' },
  timeline: { border: 'border-l-4 border-cyan-500', bg: 'bg-cyan-50', icon: 'text-cyan-500', header: 'text-cyan-700' },
- hypotheses: { border: 'border-l-4 border-amber-500', bg: 'bg-amber-50', icon: 'text-amber-500', header: 'text-amber-700' },
+ hypotheses: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-700' },
  documents: { border: 'border-l-4 border-emerald-500', bg: 'bg-emerald-50', icon: 'text-emerald-500', header: 'text-emerald-700' },
  crossRefs: { border: 'border-l-4 border-pink-500', bg: 'bg-pink-50', icon: 'text-pink-500', header: 'text-pink-700' },
- contradictions: { border: 'border-l-4 border-orange-500', bg: 'bg-orange-50', icon: 'text-orange-500', header: 'text-orange-700' },
+ contradictions: { border: 'border-l-4 border-gray-600', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-700' },
  typologies: { border: 'border-l-4 border-indigo-500', bg: 'bg-indigo-50', icon: 'text-indigo-500', header: 'text-indigo-700' }
  };
 
@@ -7475,8 +7535,8 @@ const getRiskBg = (level) => {
  const getConfidenceColor = (confidence) => {
  const pct = confidence * 100;
  if (pct <= 25) return 'bg-red-500';
- if (pct <= 50) return 'bg-orange-500';
- if (pct <= 75) return 'bg-amber-500';
+ if (pct <= 50) return 'bg-gray-600';
+ if (pct <= 75) return 'bg-gray-500';
  return 'bg-emerald-500';
  };
 
@@ -7494,7 +7554,7 @@ const getRiskBg = (level) => {
    userScrolledUpRef.current = distanceFromBottom > 150;
  };
 
- // Chat with Marlowe about the case
+ // Chat with Katharos about the case
  const sendChatMessage = async () => {
  if (!chatInput.trim() || isChatLoading) return;
 
@@ -7516,7 +7576,7 @@ const getRiskBg = (level) => {
  content: msg.content
  }));
 
- const systemPrompt = `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You have analyzed a case and are now answering follow-up questions from the investigator. Be direct, professional, and actionable — cite specific evidence and provide clear recommendations.
+ const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You have analyzed a case and are now answering follow-up questions from the investigator. Be direct, professional, and actionable — cite specific evidence and provide clear recommendations.
 
 VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
 
@@ -7598,7 +7658,7 @@ ${analysisContext}`;
    return (
      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
        <div className="text-center">
-         <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-2xl mb-4 animate-pulse">
+         <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-600 rounded-2xl mb-4 animate-pulse">
            <span className="text-3xl font-bold text-white">M</span>
          </div>
          <p className="text-gray-400">Loading...</p>
@@ -7608,7 +7668,7 @@ ${analysisContext}`;
  }
 
  return (
- <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f8f8f8' }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f3f3f3' }}>
 
  {/* Contact email link - bottom left (hidden on landing and disclosures pages) */}
 {currentPage !== 'noirLanding' && currentPage !== 'disclosures' && (
@@ -7641,8 +7701,8 @@ ${analysisContext}`;
  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
  }
 
- .glow-amber {
- box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 0 0 40px rgba(245, 158, 11, 0.15);
+ .glow-gray {
+ box-shadow: 0 0 20px rgba(75, 85, 99, 0.3), 0 0 40px rgba(75, 85, 99, 0.15);
  }
 
  .glow-red {
@@ -7813,15 +7873,15 @@ ${analysisContext}`;
  {/* Case History */}
  <button
  onClick={() => setKycPage('history')}
- className="group bg-white border-2 border-gray-300 hover:border-amber-500 rounded-xl p-8 text-left transition-all relative"
+ className="group bg-white border-2 border-gray-300 hover:border-gray-600 rounded-xl p-8 text-left transition-all relative"
  >
- <div className="w-12 h-12 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center mb-4 group-hover:bg-amber-500/30">
- <History className="w-6 h-6 text-amber-500" />
+ <div className="w-12 h-12 bg-gray-100 border border-gray-300 rounded-xl flex items-center justify-center mb-4 group-hover:bg-gray-600/30">
+ <History className="w-6 h-6 text-gray-600" />
  </div>
  <h3 className="text-lg font-semibold leading-tight mb-2">Case History</h3>
  <p className="text-base text-gray-600 leading-relaxed">View previous screenings and download reports</p>
  {kycHistory.length > 0 && (
- <span className="absolute top-4 right-4 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-xs font-bold tracking-wide text-gray-900">
+ <span className="absolute top-4 right-4 w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-xs font-bold tracking-wide text-gray-900">
  {kycHistory.length}
  </span>
  )}
@@ -7910,19 +7970,19 @@ ${analysisContext}`;
  <div className="flex items-center gap-4">
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
  item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+ item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
  'bg-rose-50 border border-rose-200'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-6 h-6 ${
  item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-amber-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
  'text-rose-500'
  }`} />
  ) : (
  <Building2 className={`w-6 h-6 ${
  item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-amber-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
  'text-rose-500'
  }`} />
  )}
@@ -8128,19 +8188,19 @@ ${analysisContext}`;
  <div className="flex items-center gap-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
  item.result.overallRisk === 'LOW' ? 'bg-emerald-50 border border-emerald-200' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+ item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
  'bg-rose-50 border border-rose-200'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-5 h-5 ${
  item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-amber-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
  'text-rose-500'
  }`} />
  ) : (
  <Building2 className={`w-5 h-5 ${
  item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-amber-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
  'text-rose-500'
  }`} />
  )}
@@ -8584,7 +8644,7 @@ ${analysisContext}`;
  <span key={idx} className={`px-2 py-1 rounded text-xs font-medium ${
  rf.severity === 'CRITICAL' ? 'bg-red-600/20 text-red-600' :
  rf.severity === 'HIGH' ? 'bg-rose-50 border border-rose-200 text-rose-600' :
- rf.severity === 'MEDIUM' ? 'bg-amber-50 border border-amber-200 text-amber-600' :
+ rf.severity === 'MEDIUM' ? 'bg-gray-100 border border-gray-300 text-gray-700' :
  'bg-gray-200 text-gray-600'
  }`}>
  {rf.factor}
@@ -8606,14 +8666,14 @@ ${analysisContext}`;
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'bg-red-600/20'
  : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200'
- : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200'
+ : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'bg-gray-100 border border-gray-300'
  : 'bg-emerald-50 border border-emerald-200'
  }`}>
  <GitBranch className={`w-6 h-6 ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'text-red-600'
  : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'text-rose-500'
- : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'text-amber-500'
+ : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'text-gray-600'
  : 'text-emerald-500'
  }`} />
  </div>
@@ -8638,7 +8698,7 @@ ${analysisContext}`;
  <span className={`mono tracking-wide font-bold ${
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 50 ? 'text-red-600' :
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'text-rose-500' :
- kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'text-amber-500' :
+ kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'text-gray-600' :
  'text-emerald-500'
  }`}>
  {kycResults.ownershipAnalysis.aggregateBlockedOwnership}%
@@ -8649,7 +8709,7 @@ ${analysisContext}`;
  className={`h-full transition-all duration-500 ${
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 50 ? 'bg-red-600' :
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'bg-rose-500' :
- kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'bg-amber-500' :
+ kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'bg-gray-600' :
  'bg-emerald-500'
  }`}
  style={{ width: `${Math.min(kycResults.ownershipAnalysis.aggregateBlockedOwnership, 100)}%` }}
@@ -8743,7 +8803,7 @@ ${analysisContext}`;
  />
  <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
  <div className="flex items-center gap-1">
- <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+ <span className="w-3 h-3 rounded-full bg-gray-600"></span>
  <span>Subject</span>
  </div>
  <div className="flex items-center gap-1">
@@ -8772,7 +8832,7 @@ ${analysisContext}`;
  />
  <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
  <div className="flex items-center gap-1">
- <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+ <span className="w-3 h-3 rounded-full bg-gray-600"></span>
  <span>Subject</span>
  </div>
  <div className="flex items-center gap-1">
@@ -8796,9 +8856,9 @@ ${analysisContext}`;
  </h5>
  <div className="space-y-2">
  {kycResults.ownershipAnalysis.leaksExposure.map((leak, idx) => (
- <div key={idx} className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+ <div key={idx} className="p-3 bg-gray-600/10 border border-gray-600/30 rounded-lg">
  <div className="flex items-center gap-2 mb-1">
- <span className="font-medium tracking-wide text-amber-600">{leak.database}</span>
+ <span className="font-medium tracking-wide text-gray-700">{leak.database}</span>
  <span className="text-xs text-gray-500 mono tracking-wide">{leak.date}</span>
  </div>
  <p className="text-base text-gray-900 leading-relaxed">{leak.finding}</p>
@@ -8906,16 +8966,16 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center gap-3 mb-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-100 border border-gray-300'
  }`}>
  <Newspaper className={`w-5 h-5 ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-500' : 'text-amber-500'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-500' : 'text-gray-600'
  }`} />
  </div>
  <div className="flex-1">
  <h4 className="font-semibold">Adverse Media</h4>
  <p className={`text-sm ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-600' : 'text-amber-600'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-600' : 'text-gray-700'
  }`}>
  {kycResults.adverseMedia?.status === 'CLEAR' ? 'No adverse media found' : 
  `${kycResults.adverseMedia?.totalArticles || kycResults.adverseMedia?.articles?.length || 0} article(s) found`}
@@ -8941,12 +9001,12 @@ ${analysisContext}`;
  {kycResults.adverseMedia.articles.map((article, idx) => (
  <div key={idx} className="bg-gray-100/50 rounded-lg p-4">
  <div className="flex items-start justify-between mb-2">
- <h5 className="font-medium tracking-wide text-amber-600 flex-1">{article.headline}</h5>
+ <h5 className="font-medium tracking-wide text-gray-700 flex-1">{article.headline}</h5>
  <div className="flex items-center gap-2 shrink-0 ml-2">
  {article.relevance && (
  <span className={`text-xs px-2 py-0.5 rounded ${
  article.relevance === 'HIGH' ? 'bg-rose-50 border border-rose-200 text-rose-600' :
- article.relevance === 'MEDIUM' ? 'bg-amber-50 border border-amber-200 text-amber-600' :
+ article.relevance === 'MEDIUM' ? 'bg-gray-100 border border-gray-300 text-gray-700' :
  'bg-gray-200 text-gray-600'
  }`}>
  {article.relevance}
@@ -9008,20 +9068,20 @@ ${analysisContext}`;
  {kycResults.recommendations && kycResults.recommendations.length > 0 && (
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h4 className="font-semibold tracking-wide mb-4 flex items-center gap-2">
- <Target className="w-5 h-5 text-amber-500" />
+ <Target className="w-5 h-5 text-gray-600" />
  Recommendations
  </h4>
  <div className="space-y-3">
  {kycResults.recommendations.map((rec, idx) => (
  <div key={idx} className={`p-5 rounded-lg border-l-4 ${
  rec.priority === 'HIGH' ? 'border-rose-500 bg-rose-500/5' :
- rec.priority === 'MEDIUM' ? 'border-amber-500 bg-amber-500/5' :
+ rec.priority === 'MEDIUM' ? 'border-gray-600 bg-gray-600/5' :
  'border-gray-400 bg-gray-100/50'
  }`}>
  <div className="flex items-center gap-2 mb-1">
  <span className={`text-xs font-bold tracking-wide mono ${
  rec.priority === 'HIGH' ? 'text-rose-600' :
- rec.priority === 'MEDIUM' ? 'text-amber-600' :
+ rec.priority === 'MEDIUM' ? 'text-gray-700' :
  'text-gray-600'
  }`}>
  {rec.priority}
@@ -9055,7 +9115,7 @@ ${analysisContext}`;
    {searchJobs.map(job => (
      <div key={job.id} className="flex items-center justify-between px-2 py-2 border-b border-gray-800 last:border-0">
        <div className="flex items-center gap-2 min-w-0">
-         {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />}
+         {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin shrink-0" />}
          {job.status === 'queued' && <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
          {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
          {job.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
@@ -9067,7 +9127,7 @@ ${analysisContext}`;
          {job.status === 'complete' && (
            <>
              <span className={`text-xs font-bold ${
-               job.riskLevel === 'LOW' ? 'text-emerald-400' : job.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-red-400'
+               job.riskLevel === 'LOW' ? 'text-emerald-400' : job.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
              }`}>{job.riskLevel}</span>
              <button onClick={() => viewSearchResult(job.id)} className="text-blue-400 hover:text-blue-300 text-xs">View</button>
            </>
@@ -9090,7 +9150,7 @@ ${analysisContext}`;
  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col-reverse gap-3 z-[60]">
  {completionNotifs.slice(0, 2).map(notif => (
    <div key={notif.id} className={`bg-white dark:bg-gray-800 border rounded-xl shadow-2xl min-w-[360px] p-4 animate-[slideInRight_0.3s_ease-out] ${
-     notif.riskLevel === 'LOW' ? 'border-emerald-300' : notif.riskLevel === 'MEDIUM' ? 'border-amber-300' : 'border-red-300'
+     notif.riskLevel === 'LOW' ? 'border-emerald-300' : notif.riskLevel === 'MEDIUM' ? 'border-gray-400' : 'border-red-300'
    }`}>
      <div className="flex items-center justify-between mb-1">
        <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -9102,7 +9162,7 @@ ${analysisContext}`;
      <p className="text-gray-900 font-semibold text-sm mt-1">{notif.entityName}</p>
      <div className="flex items-center justify-between mt-2">
        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-         notif.riskLevel === 'LOW' ? 'bg-emerald-100 text-emerald-700' : notif.riskLevel === 'MEDIUM' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+         notif.riskLevel === 'LOW' ? 'bg-emerald-100 text-emerald-700' : notif.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' : 'bg-red-100 text-red-700'
        }`}>{notif.riskLevel} ({notif.riskScore}/100)</span>
        <button
          onClick={() => {
@@ -9123,7 +9183,7 @@ ${analysisContext}`;
  <div className="fixed bottom-6 right-6 flex flex-col-reverse gap-3 z-50">
  {searchToasts.slice(0, 3).map(toast => (
    <div key={toast.id} className={`bg-gray-900 border border-gray-700 rounded-xl shadow-2xl min-w-[320px] p-4 animate-[slideInRight_0.3s_ease-out] ${toast.error ? 'border-l-4 border-l-red-500' : `border-l-4 ${
-     toast.riskLevel === 'LOW' ? 'border-l-emerald-500' : toast.riskLevel === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-red-500'
+     toast.riskLevel === 'LOW' ? 'border-l-emerald-500' : toast.riskLevel === 'MEDIUM' ? 'border-l-gray-500' : 'border-l-red-500'
    }`}`}>
      <div className="flex items-center justify-between mb-1">
        <span className="text-gray-400 text-xs font-mono tracking-wider">{toast.error ? 'SEARCH FAILED' : 'SEARCH COMPLETE'}</span>
@@ -9135,7 +9195,7 @@ ${analysisContext}`;
      ) : (
        <div className="flex items-center justify-between mt-2">
          <span className={`text-sm font-bold ${
-           toast.riskLevel === 'LOW' ? 'text-emerald-400' : toast.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-red-400'
+           toast.riskLevel === 'LOW' ? 'text-emerald-400' : toast.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
          }`}>{toast.riskLevel} ({toast.riskScore}/100)</span>
          <button onClick={() => { viewSearchResult(toast.id); setSearchToasts(prev => prev.filter(t => t.id !== toast.id)); }} className="text-blue-400 hover:text-blue-300 text-sm">View &rarr;</button>
        </div>
@@ -9155,7 +9215,7 @@ ${analysisContext}`;
  {/* Contact Link */}
  <a
    href="mailto:patrickjgoodridge@gmail.com"
-   className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:border-amber-500/50 transition-all text-sm text-gray-700 hover:text-amber-600"
+   className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:border-gray-600/50 transition-all text-sm text-gray-700 hover:text-gray-700"
  >
    <Mail className="w-4 h-4" />
    <span className="hidden sm:block">Contact</span>
@@ -9164,7 +9224,7 @@ ${analysisContext}`;
  {/* Workspace Indicator */}
  {isConfigured && user && workspaceName && (
  <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full text-xs text-gray-600">
- <Building2 className="w-3.5 h-3.5 text-amber-500" />
+ <Building2 className="w-3.5 h-3.5 text-gray-600" />
  <span className="font-medium">{workspaceName}</span>
  </div>
  )}
@@ -9173,7 +9233,7 @@ ${analysisContext}`;
  {isConfigured && user && (
  <div className="relative group">
  <button className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full pl-3 pr-4 py-2 shadow-sm hover:shadow-md transition-all">
- <div className="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center">
+ <div className="w-7 h-7 bg-gray-600 rounded-full flex items-center justify-center">
  <span className="text-white text-sm font-semibold">{user.email?.charAt(0).toUpperCase()}</span>
  </div>
  <span className="text-sm text-gray-700 hidden sm:block">{user.email?.split('@')[0]}</span>
@@ -9200,22 +9260,22 @@ ${analysisContext}`;
  {/* Hero Section - Full viewport height */}
  <div className="min-h-screen flex flex-col justify-center px-6 relative">
  <div className="max-w-4xl mx-auto text-center">
- {/* Marlowe Logo */}
+ {/* Katharos Logo */}
  <div className="mb-8">
  <span
- className="text-5xl md:text-6xl font-bold tracking-tight text-amber-500"
+ className="text-5xl md:text-6xl font-bold tracking-tight text-gray-600"
  style={{
  textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
  }}
  >
- Marlowe
+ Katharos
  </span>
  </div>
 
  {/* Headline */}
  <h1 className="text-6xl md:text-7xl font-bold tracking-tight mb-6 text-gray-900 leading-tight">
  The AI investigator for<br />
- <span className="text-amber-500" style={{textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'}}>
+ <span className="text-gray-600" style={{textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'}}>
  financial crime
  </span>
  </h1>
@@ -9231,7 +9291,7 @@ ${analysisContext}`;
  <div className="flex items-center justify-center">
  <button
  onClick={startNewCase}
- className="group bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/20 flex items-center gap-2"
+ className="group bg-gray-600 hover:bg-gray-500 text-white font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-gray-500/20 flex items-center gap-2"
  >
  <span>Run a Search</span>
  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -9252,19 +9312,19 @@ ${analysisContext}`;
  <div className="py-20 px-6 bg-gray-50">
  <div className="max-w-7xl mx-auto">
  <div className="text-center mb-16">
- <h2 className="text-4xl font-bold tracking-tight mb-4">How Marlowe works</h2>
+ <h2 className="text-4xl font-bold tracking-tight mb-4">How Katharos works</h2>
  <p className="text-lg text-gray-600">Upload documents, ask questions, get answers with evidence</p>
  </div>
 
  <div className="grid md:grid-cols-2 gap-6 mb-12">
  {/* Cipher Card */}
- <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/50 transition-all duration-300 group">
- <div className="w-16 h-16 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-amber-200/50 group-hover:scale-105 transition-transform">
- <Shield className="w-8 h-8 text-amber-500" />
+ <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-500/10 hover:border-gray-600/50 transition-all duration-300 group">
+ <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-gray-200/50 group-hover:scale-105 transition-transform">
+ <Shield className="w-8 h-8 text-gray-600" />
  </div>
  <h3 className="text-2xl font-bold mb-3">Upload & Analyze</h3>
  <p className="text-gray-600 leading-relaxed">
- Drop in PDFs, emails, financials, or any documents. Marlowe reads everything and surfaces what matters.
+ Drop in PDFs, emails, financials, or any documents. Katharos reads everything and surfaces what matters.
  </p>
  </div>
 
@@ -9319,9 +9379,9 @@ ${analysisContext}`;
  </div>
 
  {/* Document Intelligence Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-orange-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <FileText className="w-6 h-6 text-orange-500" />
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-500/30 transition-all duration-300 group">
+ <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+ <FileText className="w-6 h-6 text-gray-600" />
  </div>
  <h4 className="font-bold text-gray-900 mb-2">Document Intelligence</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Process emails, financials, contracts, and corporate filings in any format</p>
@@ -9366,7 +9426,7 @@ ${analysisContext}`;
 
  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
  {/* Fintech */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-violet-50 to-violet-100 border border-violet-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Zap className="w-6 h-6 text-violet-500" />
  </div>
@@ -9375,7 +9435,7 @@ ${analysisContext}`;
  </div>
 
  {/* Risk Consulting */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Scale className="w-6 h-6 text-blue-500" />
  </div>
@@ -9384,7 +9444,7 @@ ${analysisContext}`;
  </div>
 
  {/* Banking */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Building2 className="w-6 h-6 text-emerald-500" />
  </div>
@@ -9393,7 +9453,7 @@ ${analysisContext}`;
  </div>
 
  {/* Corporates */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <Briefcase className="w-6 h-6 text-slate-500" />
  </div>
@@ -9402,16 +9462,16 @@ ${analysisContext}`;
  </div>
 
  {/* Public Sector */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Flag className="w-6 h-6 text-amber-600" />
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
+ <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+ <Flag className="w-6 h-6 text-gray-700" />
  </div>
  <h4 className="font-bold text-gray-900 mb-2">Public Sector</h4>
  <p className="text-sm text-gray-600 leading-relaxed">Government agencies and regulators enforcing financial crime laws</p>
  </div>
 
  {/* Private Investigators */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-amber-500/30 transition-all duration-300 group">
+ <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
  <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
  <UserSearch className="w-6 h-6 text-gray-600" />
  </div>
@@ -9422,12 +9482,12 @@ ${analysisContext}`;
  </div>
  </div>
 
- {/* Now There's Marlowe Section */}
+ {/* Now There's Katharos Section */}
  <div className="py-20 px-6 bg-gray-900">
  <div className="max-w-4xl mx-auto">
  <div className="text-center mb-12">
  <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Human Speed</h2>
- <p className="text-lg text-gray-400">Marlowe Makes Them Faster, Deeper, Better</p>
+ <p className="text-lg text-gray-400">Katharos Makes Them Faster, Deeper, Better</p>
  </div>
  <div className="grid md:grid-cols-2 gap-8 mb-12">
  <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
@@ -9440,10 +9500,10 @@ ${analysisContext}`;
  <span className="text-sm font-semibold">6-8 hours per case</span>
  </div>
  </div>
- <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8">
- <div className="text-amber-500 text-sm font-semibold mb-3">WITH MARLOWE</div>
+ <div className="bg-gray-600/10 border border-gray-600/30 rounded-2xl p-8">
+ <div className="text-gray-600 text-sm font-semibold mb-3">WITH MARLOWE</div>
  <p className="text-gray-300 leading-relaxed mb-4">
- Marlowe processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
+ Katharos processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
  </p>
  <div className="flex items-center gap-2 text-emerald-400">
  <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -9464,7 +9524,7 @@ ${analysisContext}`;
  {/* Pipeline Graphic */}
  <div className="relative">
  {/* Connection line */}
- <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-amber-400 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
+ <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-gray-500 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
 
  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 relative">
  {/* Already Automated - Collection */}
@@ -9491,26 +9551,26 @@ ${analysisContext}`;
  <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
  </div>
 
- {/* Marlowe - Advanced Analysis */}
+ {/* Katharos - Advanced Analysis */}
  <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
+ <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
+ <Zap className="w-8 h-8 text-gray-600" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
  </div>
 
- {/* Marlowe - Synthesis */}
+ {/* Katharos - Synthesis */}
  <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
+ <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
+ <Zap className="w-8 h-8 text-gray-600" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
  </div>
 
- {/* Marlowe - Interpretation */}
+ {/* Katharos - Interpretation */}
  <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-amber-500/20">
- <Zap className="w-8 h-8 text-amber-500" />
+ <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
+ <Zap className="w-8 h-8 text-gray-600" />
  </div>
  <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
  </div>
@@ -9524,8 +9584,8 @@ ${analysisContext}`;
  <span className="text-sm text-gray-600">Already automated by existing tools</span>
  </div>
  <div className="flex items-center gap-2">
- <div className="w-4 h-4 rounded-full bg-amber-500" />
- <span className="text-sm text-gray-600">Now automated by Marlowe</span>
+ <div className="w-4 h-4 rounded-full bg-gray-600" />
+ <span className="text-sm text-gray-600">Now automated by Katharos</span>
  </div>
  </div>
  </div>
@@ -9539,7 +9599,7 @@ ${analysisContext}`;
  </h2>
  <button
  onClick={startNewCase}
- className="group bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/20 inline-flex items-center gap-2"
+ className="group bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-gray-500/20 inline-flex items-center gap-2"
  >
  <span>Get Started</span>
  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -9551,20 +9611,20 @@ ${analysisContext}`;
  <footer className="py-8 px-6 bg-gray-950 border-t border-gray-800">
  <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
  <div className="flex items-center gap-2">
-   <span className="text-xl font-bold text-amber-500">Marlowe</span>
+   <span className="text-xl font-bold text-gray-600">Katharos</span>
    <span className="text-sm text-gray-500">© {new Date().getFullYear()}</span>
  </div>
  <div className="flex items-center gap-6">
  <button
    onClick={() => setCurrentPage('disclosures')}
-   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors text-sm"
+   className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
  >
    <FileText className="w-4 h-4" />
    <span>Disclosures</span>
  </button>
  <a
    href="mailto:patrickjgoodridge@gmail.com"
-   className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors text-sm"
+   className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
  >
    <Mail className="w-4 h-4" />
    <span>Contact Us</span>
@@ -9581,7 +9641,7 @@ ${analysisContext}`;
    <div className="max-w-4xl mx-auto px-6 py-16">
      <button
        onClick={() => setCurrentPage('noirLanding')}
-       className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition-colors mb-10"
+       className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors mb-10"
      >
        <ArrowLeft className="w-4 h-4" />
        <span>Back to Home</span>
@@ -9592,19 +9652,19 @@ ${analysisContext}`;
 
      <div className="space-y-10 text-gray-300 leading-relaxed">
        <section>
-         <h2 className="text-xl font-semibold text-white mb-3">About Marlowe</h2>
-         <p>Marlowe is an AI-powered financial crimes investigation and screening tool. Marlowe is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
+         <h2 className="text-xl font-semibold text-white mb-3">About Katharos</h2>
+         <p>Katharos is an AI-powered financial crimes investigation and screening tool. Katharos is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Not Legal or Compliance Advice</h2>
-         <p className="mb-3">The information, reports, and screening results provided by Marlowe are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Marlowe's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
-         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Marlowe's outputs.</p>
+         <p className="mb-3">The information, reports, and screening results provided by Katharos are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Katharos's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
+         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Katharos's outputs.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">No Guarantee of Accuracy or Completeness</h2>
-         <p className="mb-3">Marlowe aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Marlowe strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
+         <p className="mb-3">Katharos aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Katharos strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
          <p className="mb-2">Specifically:</p>
          <ul className="list-disc list-inside space-y-1 text-gray-400">
            <li>Sanctions lists may not reflect designations announced within the prior 24-48 hours.</li>
@@ -9617,26 +9677,26 @@ ${analysisContext}`;
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">AI-Generated Content</h2>
-         <p className="mb-3">Marlowe uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
-         <p>Marlowe does not make compliance decisions. Marlowe provides information and analysis to support human decision-making.</p>
+         <p className="mb-3">Katharos uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
+         <p>Katharos does not make compliance decisions. Katharos provides information and analysis to support human decision-making.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Data Sources and Freshness</h2>
-         <p>Marlowe screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Marlowe indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
+         <p>Katharos screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Katharos indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Not a Substitute for a Compliance Program</h2>
-         <p>Marlowe is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
+         <p>Katharos is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">No Liability</h2>
-         <p className="mb-2">To the fullest extent permitted by law, Marlowe and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Marlowe's services, including but not limited to:</p>
+         <p className="mb-2">To the fullest extent permitted by law, Katharos and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Katharos's services, including but not limited to:</p>
          <ul className="list-disc list-inside space-y-1 text-gray-400">
-           <li>Regulatory fines or penalties resulting from reliance on Marlowe's outputs</li>
-           <li>Losses from transactions approved or declined based on Marlowe's screening results</li>
+           <li>Regulatory fines or penalties resulting from reliance on Katharos's outputs</li>
+           <li>Losses from transactions approved or declined based on Katharos's screening results</li>
            <li>Reputational harm from false positive or false negative screening results</li>
            <li>Any errors, omissions, or inaccuracies in AI-generated content</li>
          </ul>
@@ -9644,17 +9704,17 @@ ${analysisContext}`;
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Privacy</h2>
-         <p>Marlowe processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Marlowe does not sell user data.</p>
+         <p>Katharos processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Katharos does not sell user data.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Changes to This Page</h2>
-         <p>We may update these disclosures from time to time. Continued use of Marlowe after changes are posted constitutes acceptance of the updated disclosures.</p>
+         <p>We may update these disclosures from time to time. Continued use of Katharos after changes are posted constitutes acceptance of the updated disclosures.</p>
        </section>
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
-         <p>Questions about these disclosures can be directed to: <a href="mailto:patrickjgoodridge@gmail.com" className="text-amber-500 hover:text-amber-400 transition-colors">patrickjgoodridge@gmail.com</a></p>
+         <p>Questions about these disclosures can be directed to: <a href="mailto:patrickjgoodridge@gmail.com" className="text-gray-600 hover:text-gray-500 transition-colors">patrickjgoodridge@gmail.com</a></p>
        </section>
      </div>
    </div>
@@ -9702,7 +9762,7 @@ ${analysisContext}`;
  </div>
  <button
  onClick={startNewCase}
- className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl transition-colors"
+ className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl transition-colors"
  >
  <Plus className="w-4 h-4" />
  New Case
@@ -9717,11 +9777,11 @@ ${analysisContext}`;
  <h3 className="text-xl font-bold tracking-tight mb-2 leading-tight">No Cases Yet</h3>
  <p className="text-base text-gray-600 leading-relaxed mb-6 max-w-md mx-auto">
  Start your first investigation by uploading evidence documents. 
- Marlowe will analyze and organize your findings.
+ Katharos will analyze and organize your findings.
  </p>
  <button
  onClick={startNewCase}
- className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors"
+ className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors"
  >
  <Plus className="w-5 h-5" />
  Start First Case
@@ -9733,20 +9793,20 @@ ${analysisContext}`;
  <div key={caseItem.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden transition-all">
  {/* Case Header - Click to view case details */}
  <div
- onClick={() => editingCaseId !== caseItem.id && setViewingCaseId(caseItem.id)}
+ onClick={() => { if (editingCaseId !== caseItem.id) { setViewingCaseId(caseItem.id); markCaseAsViewed(caseItem.id); } }}
  className="p-6 cursor-pointer hover:bg-gray-50 transition-all group"
  >
  <div className="flex items-start gap-4">
  <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
  caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
  caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
- caseItem.riskLevel === 'MEDIUM' ? 'bg-amber-50 border border-amber-200' :
+ caseItem.riskLevel === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
  'bg-emerald-50 border border-emerald-200'
  }`}>
  <Folder className={`w-7 h-7 ${
  caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
  caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
- caseItem.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+ caseItem.riskLevel === 'MEDIUM' ? 'text-gray-600' :
  'text-emerald-500'
  }`} />
  </div>
@@ -9762,11 +9822,11 @@ ${analysisContext}`;
  onChange={(e) => setEditingCaseName(e.target.value)}
  onKeyDown={handleEditKeyPress}
  onBlur={saveEditedCaseName}
- className="flex-1 bg-gray-100 border border-amber-500 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
+ className="flex-1 bg-gray-100 border border-gray-600 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
  />
  <button
  onClick={saveEditedCaseName}
- className="p-2 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+ className="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
  >
  <Check className="w-4 h-4 text-gray-900" />
  </button>
@@ -9776,7 +9836,7 @@ ${analysisContext}`;
  <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
  {/* Show streaming indicator if this case is actively streaming */}
  {getCaseStreamingState(caseItem.id).isStreaming && (
-   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs font-medium">
      <Loader2 className="w-3 h-3 animate-spin" />
      Analyzing
    </span>
@@ -9785,8 +9845,13 @@ ${analysisContext}`;
  onClick={(e) => startEditingCase(caseItem, e)}
  className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
  >
- <Pencil className="w-4 h-4 text-gray-500 hover:text-amber-500" />
+ <Pencil className="w-4 h-4 text-gray-500 hover:text-gray-600" />
  </button>
+{!caseItem.viewed && caseItem.riskLevel !== 'UNKNOWN' && (
+  <span className="px-2 py-0.5 rounded text-xs font-bold tracking-wide bg-blue-100 text-blue-700 animate-pulse">
+    NEW
+  </span>
+)}
  <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
  {caseItem.riskLevel} RISK
  </span>
@@ -9889,7 +9954,7 @@ ${analysisContext}`;
            </button>
            <button
              onClick={() => loadCase(viewingCase)}
-             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
+             className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
            >
              <MessageCircle className="w-4 h-4" />
              Continue Investigation
@@ -9912,8 +9977,8 @@ ${analysisContext}`;
          </div>
          <div className="bg-white border border-gray-200 rounded-xl p-4">
            <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
-               <MessageCircle className="w-5 h-5 text-amber-500" />
+             <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+               <MessageCircle className="w-5 h-5 text-gray-600" />
              </div>
              <div>
                <p className="text-2xl font-bold">{viewingCase.conversationTranscript?.length || 0}</p>
@@ -9953,7 +10018,7 @@ ${analysisContext}`;
            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                <h3 className="font-semibold flex items-center gap-2">
-                 <MessageCircle className="w-4 h-4 text-amber-500" />
+                 <MessageCircle className="w-4 h-4 text-gray-600" />
                  Conversation History
                </h3>
                {viewingCase.conversationTranscript?.length > 0 && (
@@ -9963,10 +10028,10 @@ ${analysisContext}`;
              <div className="max-h-[500px] overflow-y-auto">
                {viewingCase.conversationTranscript?.length > 0 ? (
                  viewingCase.conversationTranscript.map((msg, idx) => (
-                   <div key={idx} className={`p-4 border-b border-gray-50 last:border-0 ${msg.role === 'user' ? 'bg-amber-50/30' : ''}`}>
+                   <div key={idx} className={`p-4 border-b border-gray-50 last:border-0 ${msg.role === 'user' ? 'bg-gray-100/30' : ''}`}>
                      <div className="flex items-center gap-2 mb-2">
-                       <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-amber-600' : 'text-gray-600'}`}>
-                         {msg.role === 'user' ? 'You' : 'Marlowe'}
+                       <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-gray-700' : 'text-gray-600'}`}>
+                         {msg.role === 'user' ? 'You' : 'Katharos'}
                        </span>
                        {msg.timestamp && (
                          <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
@@ -10030,13 +10095,13 @@ ${analysisContext}`;
                          <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${
                            report.riskLevel === 'CRITICAL' ? 'bg-red-100' :
                            report.riskLevel === 'HIGH' ? 'bg-rose-100' :
-                           report.riskLevel === 'MEDIUM' ? 'bg-amber-100' :
+                           report.riskLevel === 'MEDIUM' ? 'bg-gray-200' :
                            'bg-emerald-100'
                          }`}>
                            <FileText className={`w-4 h-4 ${
                              report.riskLevel === 'CRITICAL' ? 'text-red-600' :
                              report.riskLevel === 'HIGH' ? 'text-rose-500' :
-                             report.riskLevel === 'MEDIUM' ? 'text-amber-500' :
+                             report.riskLevel === 'MEDIUM' ? 'text-gray-600' :
                              'text-emerald-500'
                            }`} />
                          </div>
@@ -10048,7 +10113,7 @@ ${analysisContext}`;
                        <a
                          href={report.dataUri}
                          download={report.name}
-                         className="flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium shrink-0"
+                         className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-700 font-medium shrink-0"
                        >
                          <Download className="w-4 h-4" />
                        </a>
@@ -10098,7 +10163,7 @@ ${analysisContext}`;
              <div className="space-y-2">
                <button
                  onClick={() => loadCase(viewingCase)}
-                 className="w-full flex items-center gap-2 justify-center bg-amber-500 hover:bg-amber-400 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                 className="w-full flex items-center gap-2 justify-center bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
                >
                  <MessageCircle className="w-4 h-4" />
                  Continue Investigation
@@ -10170,7 +10235,7 @@ ${analysisContext}`;
  className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
  >
  {darkMode ? (
- <Sun className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-colors" />
+ <Sun className="w-5 h-5 text-gray-500 group-hover:text-gray-400 transition-colors" />
  ) : (
  <Moon className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
  )}
@@ -10211,7 +10276,7 @@ ${analysisContext}`;
  <div className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
  <div className="w-full max-w-2xl -mt-32 relative">
  <h1
-  className="text-3xl font-semibold text-center mb-8 tracking-tight text-amber-600 drop-shadow-sm"
+  className="text-3xl font-semibold text-center mb-8 tracking-tight text-gray-700 drop-shadow-sm"
   style={{
     textShadow: '0 2px 8px rgba(217, 119, 6, 0.1)',
     letterSpacing: '-0.02em'
@@ -10275,7 +10340,7 @@ ${analysisContext}`;
  }
  }}
  disabled={!conversationInput.trim() && files.length === 0}
- className={`px-4 py-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-xl transition-colors flex items-center gap-2`}
+ className={`px-4 py-2 bg-gray-600 hover:bg-gray-700 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-xl transition-colors flex items-center gap-2`}
  >
  <Send className="w-4 h-4" />
  </button>
@@ -10283,7 +10348,7 @@ ${analysisContext}`;
  </div>
 
  {/* Suggestions Dropdown */}
- <div className="mt-6 flex justify-center">
+ <div className="mt-6 flex justify-center" ref={suggestionsRef}>
  <div className="relative group">
  <button
    onClick={() => { setSuggestionsExpanded(!suggestionsExpanded); setSamplesExpanded(false); }}
@@ -10319,7 +10384,7 @@ ${analysisContext}`;
      setConversationInput(suggestion);
      setSuggestionsExpanded(false);
    }}
-   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
+   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
    >
    {suggestion}
    </button>
@@ -10329,7 +10394,7 @@ ${analysisContext}`;
  )}
 
  {/* Sample Cases Dropdown */}
- <div className="mt-3 flex justify-center">
+ <div className="mt-3 flex justify-center" ref={samplesRef}>
  <div className="relative group">
  <button
    onClick={() => { setSamplesExpanded(!samplesExpanded); setSuggestionsExpanded(false); }}
@@ -10350,19 +10415,19 @@ ${analysisContext}`;
    <div className="flex gap-2">
    <button
      onClick={() => loadSampleDocument('/samples/Bulk-KYC-Customer-Screening.csv', 'Bulk-KYC-Customer-Screening.csv')}
-     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      Bulk KYC Screening
    </button>
    <button
      onClick={() => loadSampleDocument('/samples/The Meridian Group Laundering Case.docx', 'The Meridian Group Laundering Case.docx')}
-     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      Complex Laundering Network
    </button>
    <button
      onClick={() => loadSampleDocument('/samples/lp_onboarding_packet.docx', 'LP Onboarding Packet.docx')}
-     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-amber-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-amber-400 hover:bg-amber-50 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
+     className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      LP Onboarding Packet
    </button>
@@ -10379,7 +10444,7 @@ ${analysisContext}`;
  {(() => {
  return conversationMessages.map((msg, idx) => (
  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
- <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-amber-500 text-white rounded-2xl px-5 py-3' : ''}`}>
+ <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-gray-600 text-white rounded-2xl px-5 py-3' : ''}`}>
  {msg.role === 'user' && msg.files && msg.files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-2">
  {msg.files.map((fileName, fIdx) => (
@@ -10427,7 +10492,7 @@ ${analysisContext}`;
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content))}
  disabled={isGeneratingCaseReport}
- className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+ className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  Export PDF
@@ -10453,13 +10518,13 @@ ${analysisContext}`;
  {!getCaseStreamingState(currentCaseId).streamingText?.trim() ? (
    <div className="flex items-center gap-3 py-4">
      <div className="flex gap-1">
-       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-       <span className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
      </div>
      <div className="flex flex-col gap-2 w-48">
        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-         <div className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${countdownTotalRef.current > 0 ? Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100) : 5}%` }} />
+         <div className="h-full bg-gradient-to-r from-gray-500 to-gray-700 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${countdownTotalRef.current > 0 ? Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100) : 5}%` }} />
        </div>
        <span className={`${darkMode ? 'text-gray-500' : 'text-gray-400'} text-xs`}>{screeningCountdown > 0 ? `~${screeningCountdown}s remaining` : 'Almost done...'}</span>
      </div>
@@ -10530,7 +10595,7 @@ ${analysisContext}`;
  <button
  onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
  disabled={!currentCaseId || (!conversationInput.trim() && files.length === 0)}
- className={`p-2 bg-amber-500 hover:bg-amber-600 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
+ className={`p-2 bg-gray-600 hover:bg-gray-700 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
  >
  <Send className="w-4 h-4" />
  </button>
@@ -10577,7 +10642,7 @@ ${analysisContext}`;
  )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management{unviewedCaseCount > 0 ? ` (${unviewedCaseCount} new)` : ""}</div>
  </div>
  </div>
 
@@ -10589,7 +10654,7 @@ ${analysisContext}`;
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               {darkMode ? (
-                <Sun className="w-4 h-4 text-gray-400 group-hover:text-amber-500 transition-colors" />
+                <Sun className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
               ) : (
                 <Moon className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
               )}
@@ -10657,7 +10722,7 @@ ${analysisContext}`;
  className="group p-2 hover:bg-gray-100 rounded-lg transition-all relative"
  title="Upload Materials"
  >
- <Plus className="w-5 h-5 text-gray-600 group-hover:text-amber-500 transition-colors" />
+ <Plus className="w-5 h-5 text-gray-600 group-hover:text-gray-600 transition-colors" />
  </button>
  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
  <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">Upload Materials</div>
@@ -10705,7 +10770,7 @@ ${analysisContext}`;
  <div className="relative group" ref={modeDropdownRef}>
  <button
  onClick={() => setShowModeDropdown(!showModeDropdown)}
- className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-2 py-2 rounded-l-lg transition-all flex items-center border-r border-amber-700"
+ className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-2 py-2 rounded-l-lg transition-all flex items-center border-r border-gray-700"
  disabled={isAnalyzing}
  >
  <ChevronDown className="w-4 h-4" />
@@ -10722,7 +10787,7 @@ ${analysisContext}`;
  setShowModeDropdown(false);
  }}
  className={`w-full text-left px-3 py-2 hover:bg-gray-100/50 transition-colors border-b border-gray-200/50 rounded-t-lg ${
- investigationMode === 'cipher' ? 'bg-amber-50/50' : ''
+ investigationMode === 'cipher' ? 'bg-gray-100/50' : ''
  }`}
  >
  <div className="text-sm font-medium text-gray-900">Cipher</div>
@@ -10749,7 +10814,7 @@ ${analysisContext}`;
  <button
  onClick={analyzeEvidence}
  disabled={isAnalyzing || backgroundAnalysis.isRunning || (!caseDescription.trim() && files.length === 0)}
- className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
+ className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
  >
  {(isAnalyzing || backgroundAnalysis.isRunning) ? (
  <Loader2 className="w-4 h-4 animate-spin" />
@@ -10778,7 +10843,7 @@ ${analysisContext}`;
    <button
      key={s.name}
      onClick={() => { setConversationInput(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
-     className="px-3 py-1.5 text-xs rounded-full bg-gray-100 hover:bg-amber-50 text-gray-600 hover:text-amber-700 border border-gray-200 hover:border-amber-300 transition-colors"
+     className="px-3 py-1.5 text-xs rounded-full bg-gray-100 hover:bg-gray-100 text-gray-600 hover:text-gray-700 border border-gray-200 hover:border-gray-400 transition-colors"
    >
      {s.name}
    </button>
@@ -10801,7 +10866,7 @@ ${analysisContext}`;
  className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3 group hover:border-gray-300 transition-colors"
  >
  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
- <span className="mono text-xs tracking-wide text-amber-500">{idx + 1}</span>
+ <span className="mono text-xs tracking-wide text-gray-600">{idx + 1}</span>
  </div>
  <div className="flex-1 min-w-0">
  <p className="font-medium text-sm leading-tight truncate">{file.name}</p>
@@ -10828,11 +10893,11 @@ ${analysisContext}`;
      <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'}`}>
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
-         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-gray-200'}`}>
            {backgroundAnalysis.isComplete ? (
              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
            ) : (
-             <Briefcase className="w-5 h-5 text-amber-600" />
+             <Briefcase className="w-5 h-5 text-gray-700" />
            )}
          </div>
          <div>
@@ -10847,11 +10912,11 @@ ${analysisContext}`;
        <div className="mb-4">
          <div className="flex justify-between items-center mb-2">
            <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
-           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{backgroundAnalysis.progress}%</span>
+           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-700'}`}>{backgroundAnalysis.progress}%</span>
          </div>
          <div className="w-full bg-gray-100 rounded-full h-2">
            <div
-             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-amber-500'}`}
+             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-gray-600'}`}
              style={{ width: `${backgroundAnalysis.progress}%` }}
            />
          </div>
@@ -10876,7 +10941,7 @@ ${analysisContext}`;
                <span>~{Math.max(5, Math.round((100 - backgroundAnalysis.progress) * 0.3))} seconds remaining</span>
              </div>
              <div className="flex items-center gap-1.5">
-               <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+               <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse" />
                <span className="text-gray-600 mono text-xs">ANALYZING</span>
              </div>
            </div>
@@ -10940,7 +11005,7 @@ ${analysisContext}`;
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
  >
  {darkMode ? (
- <Sun className="w-4 h-4 text-gray-400 group-hover:text-amber-500 transition-colors" />
+ <Sun className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
  ) : (
  <Moon className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  )}
@@ -11007,7 +11072,7 @@ ${analysisContext}`;
  onClick={() => setActiveTab(tab.id)}
  className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-lg font-semibold transition-all ${
  activeTab === tab.id
- ? 'bg-amber-500 text-white shadow-lg'
+ ? 'bg-gray-600 text-white shadow-lg'
  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
  }`}
  >
@@ -11048,7 +11113,7 @@ ${analysisContext}`;
  setIsEditingCaseName(false);
  }
  }}
- className="w-full text-2xl font-semibold text-gray-900 border-b-2 border-amber-500 focus:outline-none px-2 py-1"
+ className="w-full text-2xl font-semibold text-gray-900 border-b-2 border-gray-600 focus:outline-none px-2 py-1"
  autoFocus
  />
  ) : (
@@ -11059,7 +11124,7 @@ ${analysisContext}`;
  }}
  className="flex items-center gap-3 cursor-pointer group"
  >
- <h2 className="text-2xl font-semibold text-gray-900 group-hover:text-amber-600 transition-colors">
+ <h2 className="text-2xl font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">
  {caseName || 'Untitled Case'}
  </h2>
  <Pencil className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -11117,7 +11182,7 @@ ${analysisContext}`;
  )}
  {flag.translation && (
    <p className="ml-8 mt-2 text-sm text-slate-700 leading-relaxed">
-     <span className="font-semibold text-amber-600">Bottom Line:</span> {flag.translation}
+     <span className="font-semibold text-gray-700">Bottom Line:</span> {flag.translation}
    </p>
  )}
  </div>
@@ -11167,7 +11232,7 @@ ${analysisContext}`;
  { label: 'Red Flags', value: analysis.redFlags?.length || 0, icon: AlertTriangle, color: 'text-red-600' },
  { label: 'Timeline Events', value: analysis.timeline?.length || 0, icon: Clock, color: 'text-emerald-600' },
  { label: 'Cross-Refs', value: (analysis.documentCrossReferences?.length || 0) + (analysis.contradictions?.length || 0), icon: Link2, color: 'text-purple-600' },
- { label: 'Hypotheses', value: analysis.hypotheses?.length || 0, icon: Lightbulb, color: 'text-amber-600' },
+ { label: 'Hypotheses', value: analysis.hypotheses?.length || 0, icon: Lightbulb, color: 'text-gray-700' },
  ].map(stat => (
  <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-4">
  <stat.icon className={`w-5 h-5 ${stat.color} mb-2`} />
@@ -11181,7 +11246,7 @@ ${analysisContext}`;
  {analysis.nextSteps && analysis.nextSteps.length > 0 && (
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
- <ArrowRight className="w-5 h-5 text-amber-500" />
+ <ArrowRight className="w-5 h-5 text-gray-600" />
  Next Steps
  </h3>
  <div className="space-y-2">
@@ -11226,7 +11291,7 @@ ${analysisContext}`;
  {/* Timeline dot */}
  <div className={`absolute left-1 top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
    event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-500' :
-   event.riskLevel === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'
+   event.riskLevel === 'MEDIUM' ? 'bg-gray-600' : 'bg-emerald-500'
  }`} />
 
  <div className={`pb-2 border-b border-slate-100 last:border-0 last:pb-0 ${
@@ -11237,7 +11302,7 @@ ${analysisContext}`;
  {event.riskLevel && (
  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
    event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-50 text-red-700' :
-   event.riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+   event.riskLevel === 'MEDIUM' ? 'bg-gray-100 text-gray-700' : 'bg-emerald-50 text-emerald-700'
  }`}>
  {event.riskLevel}
  </span>
@@ -11284,7 +11349,7 @@ ${analysisContext}`;
  {analysis.documentCrossReferences && analysis.documentCrossReferences.length > 0 && (
  <div className="bg-white border border-gray-200 rounded-xl p-6">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
- <Link2 className="w-5 h-5 text-amber-500" />
+ <Link2 className="w-5 h-5 text-gray-600" />
  Cross-Document Findings
  </h3>
  <p className="text-sm text-gray-600 mb-6">Information that connects or conflicts across multiple documents</p>
@@ -11294,7 +11359,7 @@ ${analysisContext}`;
  <div key={ref.id || idx} className={`border-l-4 ${
    ref.riskLevel === 'CRITICAL' ? 'border-red-500 bg-red-50' :
    ref.riskLevel === 'HIGH' ? 'border-rose-400 bg-rose-50' :
-   ref.riskLevel === 'MEDIUM' ? 'border-amber-400 bg-amber-50' :
+   ref.riskLevel === 'MEDIUM' ? 'border-gray-500 bg-gray-100' :
    'border-blue-400 bg-blue-50'
  } rounded-r-lg p-4`}>
  <div className="flex items-start justify-between mb-3">
@@ -11458,7 +11523,7 @@ ${analysisContext}`;
  onClick={() => setSelectedEntity(entity)}
  className={`w-full text-left p-5 rounded-lg transition-all ${
  selectedEntity?.id === entity.id
- ? 'bg-amber-50 border border-amber-200 border border-amber-500'
+ ? 'bg-gray-100 border border-gray-300 border border-gray-600'
  : 'bg-gray-100/50 border border-gray-300 hover:border-gray-400'
  }`}
  >
@@ -11659,13 +11724,13 @@ ${analysisContext}`;
  {selectedEntity.riskIndicators && selectedEntity.riskIndicators.length > 0 && (
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <AlertTriangle className="w-4 h-4 text-amber-500" />
+ <AlertTriangle className="w-4 h-4 text-gray-600" />
  Risk Indicators
  </h4>
  <div className="space-y-2">
  {selectedEntity.riskIndicators.map((indicator, idx) => (
- <div key={idx} className="flex items-start gap-2 bg-amber-500/10 p-5 rounded-lg">
- <FileWarning className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+ <div key={idx} className="flex items-start gap-2 bg-gray-600/10 p-5 rounded-lg">
+ <FileWarning className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" />
  <span className="text-sm">{indicator}</span>
  </div>
  ))}
@@ -11676,13 +11741,13 @@ ${analysisContext}`;
  {selectedEntity.citations && selectedEntity.citations.length > 0 && (
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2 flex items-center gap-2">
- <BookOpen className="w-4 h-4 text-amber-500" />
+ <BookOpen className="w-4 h-4 text-gray-600" />
  Evidence Citations
  </h4>
  <div className="space-y-2">
  {selectedEntity.citations.map((citation, idx) => (
  <div key={idx} className="flex items-start gap-2 bg-gray-100 p-5 rounded-lg">
- <Link2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+ <Link2 className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" />
  <span className="text-sm text-gray-600 leading-relaxed">{citation}</span>
  </div>
  ))}
@@ -11706,7 +11771,7 @@ ${analysisContext}`;
  {activeTab === 'typologies' && (
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
- <Target className="w-5 h-5 text-amber-500" />
+ <Target className="w-5 h-5 text-gray-600" />
  Financial Crime Typologies
  </h3>
  {analysis.typologies && analysis.typologies.length > 0 ? (
@@ -11748,28 +11813,28 @@ ${analysisContext}`;
 
  {/* Hypotheses Tab */}
  {activeTab === 'hypotheses' && (
- <div className={`bg-amber-50/30 ${sectionColors.hypotheses.border} rounded-xl p-6`}>
- <h3 className="text-lg font-bold text-amber-700 mb-4 flex items-center gap-2">
- <Lightbulb className="w-5 h-5 text-amber-500" />
+ <div className={`bg-gray-100/30 ${sectionColors.hypotheses.border} rounded-xl p-6`}>
+ <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+ <Lightbulb className="w-5 h-5 text-gray-600" />
  Investigative Hypotheses
- <span className="ml-auto text-sm font-normal bg-amber-500 text-white px-2 py-0.5 rounded-full">{analysis.hypotheses?.length || 0}</span>
+ <span className="ml-auto text-sm font-normal bg-gray-600 text-white px-2 py-0.5 rounded-full">{analysis.hypotheses?.length || 0}</span>
  </h3>
  <div className="space-y-4">
  {analysis.hypotheses?.map((hypothesis, idx) => (
  <div
  key={hypothesis.id || idx}
- className="bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+ className="bg-white border border-gray-300 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
  >
  <button
  onClick={() => setExpandedHypotheses(prev => ({
  ...prev,
  [hypothesis.id || idx]: !prev[hypothesis.id || idx]
  }))}
- className="w-full p-5 text-left flex items-center gap-4 hover:bg-amber-50/50 transition-colors"
+ className="w-full p-5 text-left flex items-center gap-4 hover:bg-gray-100/50 transition-colors"
  >
  <div className="flex-1">
  <div className="flex items-center gap-3 mb-2">
- <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold">{idx + 1}</span>
+ <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-white text-xs flex items-center justify-center font-bold">{idx + 1}</span>
  <h3 className="text-base font-semibold leading-tight text-gray-900">{hypothesis.title}</h3>
  </div>
  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 ml-9">{hypothesis.description}</p>
@@ -11788,8 +11853,8 @@ ${analysisContext}`;
  </div>
  <span className={`text-sm font-bold ${
    (hypothesis.confidence || 0) >= 0.75 ? 'text-emerald-600' :
-   (hypothesis.confidence || 0) >= 0.5 ? 'text-amber-600' :
-   (hypothesis.confidence || 0) >= 0.25 ? 'text-orange-600' : 'text-red-600'
+   (hypothesis.confidence || 0) >= 0.5 ? 'text-gray-700' :
+   (hypothesis.confidence || 0) >= 0.25 ? 'text-gray-700' : 'text-red-600'
  }`}>
  {Math.round((hypothesis.confidence || 0) * 100)}%
  </span>
@@ -11797,14 +11862,14 @@ ${analysisContext}`;
  </div>
 
  {expandedHypotheses[hypothesis.id || idx]
- ? <ChevronDown className="w-5 h-5 text-amber-500" />
+ ? <ChevronDown className="w-5 h-5 text-gray-600" />
  : <ChevronRight className="w-5 h-5 text-gray-400" />
  }
  </div>
  </button>
 
  {expandedHypotheses[hypothesis.id || idx] && (
- <div className="px-5 pb-5 border-t border-amber-100 pt-4 fade-in bg-gray-50/50">
+ <div className="px-5 pb-5 border-t border-gray-200 pt-4 fade-in bg-gray-50/50">
  <div className="grid md:grid-cols-3 gap-4">
  {/* Supporting Evidence */}
  <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
@@ -11838,13 +11903,13 @@ ${analysisContext}`;
 
  {/* Investigative Gaps */}
  <div>
- <h4 className="text-sm font-medium tracking-wide text-amber-600 mb-3 flex items-center gap-2">
+ <h4 className="text-sm font-medium tracking-wide text-gray-700 mb-3 flex items-center gap-2">
  <HelpCircle className="w-4 h-4" />
  Investigative Gaps
  </h4>
  <div className="space-y-2">
  {hypothesis.investigativeGaps?.map((gap, gidx) => (
- <div key={gidx} className="text-sm bg-amber-500/10 p-5 rounded-lg">
+ <div key={gidx} className="text-sm bg-gray-600/10 p-5 rounded-lg">
  {gap}
  </div>
  )) || <p className="text-sm text-gray-500 leading-relaxed">None identified</p>}
@@ -11864,7 +11929,7 @@ ${analysisContext}`;
  <div className="space-y-6">
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
- <Network className="w-6 h-6 text-amber-500" />
+ <Network className="w-6 h-6 text-gray-600" />
  Entity Relationship Network
  </h2>
  <p className="text-sm text-gray-600 mb-6">
@@ -11890,14 +11955,14 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center justify-between mb-4">
  <h3 className="text-lg font-semibold leading-tight flex items-center gap-2">
- <Upload className="w-5 h-5 text-amber-500" />
+ <Upload className="w-5 h-5 text-gray-600" />
  Add More Evidence
  </h3>
  {files.length > (activeCase?.files?.length || 0) && (
  <button
  onClick={analyzeEvidence}
  disabled={isAnalyzing}
- className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-900 rounded-lg font-medium tracking-wide transition-colors disabled:opacity-50"
+ className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-900 rounded-lg font-medium tracking-wide transition-colors disabled:opacity-50"
  >
  {isAnalyzing ? (
  <Loader2 className="w-4 h-4 animate-spin" />
@@ -11917,7 +11982,7 @@ ${analysisContext}`;
  onClick={() => fileInputRef.current?.click()}
  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
  dragActive 
- ? 'border-amber-500 bg-amber-500/10' 
+ ? 'border-gray-600 bg-gray-600/10' 
  : 'border-gray-300 hover:border-gray-400 hover:bg-gray-100/50'
  }`}
  >
@@ -11929,7 +11994,7 @@ ${analysisContext}`;
  className="hidden"
  accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml"
  />
- <Upload className={`w-10 h-10 mx-auto mb-3 ${dragActive ? 'text-amber-500' : 'text-gray-400'}`} />
+ <Upload className={`w-10 h-10 mx-auto mb-3 ${dragActive ? 'text-gray-600' : 'text-gray-400'}`} />
  <p className="text-base text-gray-600 leading-relaxed mb-1">
  Drop additional files here or click to browse
  </p>
@@ -11939,8 +12004,8 @@ ${analysisContext}`;
  </div>
  
  {files.length > (activeCase?.files?.length || 0) && (
- <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
- <p className="text-sm text-amber-600 flex items-center gap-2">
+ <div className="mt-4 p-3 bg-gray-600/10 border border-gray-600/30 rounded-lg">
+ <p className="text-sm text-gray-700 flex items-center gap-2">
  <AlertTriangle className="w-4 h-4" />
  {files.length - (activeCase?.files?.length || 0)} new file(s) added. Click "Re-analyze with New Evidence" to update the analysis.
  </p>
@@ -11951,7 +12016,7 @@ ${analysisContext}`;
  {/* Source Documents */}
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
- <FileText className="w-5 h-5 text-amber-500" />
+ <FileText className="w-5 h-5 text-gray-600" />
  Source Documents ({files.length})
  </h3>
  <div className="space-y-4">
@@ -11959,7 +12024,7 @@ ${analysisContext}`;
  <div key={file.id} className="border border-gray-300 rounded-lg overflow-hidden">
  <div className="bg-gray-100 px-4 py-3 flex items-center justify-between">
  <div className="flex items-center gap-3">
- <span className="w-8 h-8 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-center mono tracking-wide text-amber-500 text-sm font-bold">
+ <span className="w-8 h-8 bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-center mono tracking-wide text-gray-600 text-sm font-bold">
  {idx + 1}
  </span>
  <div>
@@ -12001,11 +12066,11 @@ ${analysisContext}`;
  {!chatOpen && (
  <button
  onClick={() => setChatOpen(true)}
- className="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 hover:bg-amber-400 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 glow-amber z-50 group"
+ className="fixed bottom-6 right-6 w-14 h-14 bg-gray-600 hover:bg-gray-500 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 glow-gray z-50 group"
  >
  <MessageCircle className="w-6 h-6 text-gray-900" />
  <span className="absolute right-full mr-3 bg-gray-100 text-gray-900 text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
- Ask Marlowe
+ Ask Katharos
  </span>
  </button>
  )}
@@ -12016,11 +12081,11 @@ ${analysisContext}`;
  {/* Chat Header */}
  <div className="bg-gray-100 px-4 py-3 flex items-center justify-between border-b border-gray-300">
  <div className="flex items-center gap-3">
- <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+ <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
  <MessageCircle className="w-4 h-4 text-gray-900" />
  </div>
  <div>
- <p className="font-semibold tracking-wide text-sm">Ask Marlowe</p>
+ <p className="font-semibold tracking-wide text-sm">Ask Katharos</p>
  <p className="text-xs text-gray-500">Investigative Assistant</p>
  </div>
  </div>
@@ -12037,7 +12102,7 @@ ${analysisContext}`;
  {chatMessages.length === 0 && (
  <div className="text-center py-8">
  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
- <Shield className="w-6 h-6 text-amber-500" />
+ <Shield className="w-6 h-6 text-gray-600" />
  </div>
  <p className="text-gray-600 text-sm mb-4">
  Ask me anything about this case
@@ -12071,7 +12136,7 @@ ${analysisContext}`;
  <div
  className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
  msg.role === 'user'
- ? 'bg-amber-500 text-gray-900'
+ ? 'bg-gray-600 text-gray-900'
  : 'bg-gray-100 text-gray-800'
  }`}
  >
@@ -12084,10 +12149,10 @@ ${analysisContext}`;
  <div className="flex justify-start">
  <div className="bg-gray-100 rounded-2xl px-4 py-3">
  <div className="flex items-center gap-2">
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
- <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
- {countdownTotalRef.current > 0 && <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden ml-1"><div className="h-full bg-amber-400 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100)}%` }} /></div>}
+ <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+ <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+ <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+ {countdownTotalRef.current > 0 && <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden ml-1"><div className="h-full bg-gray-500 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100)}%` }} /></div>}
  </div>
  </div>
  </div>
@@ -12105,12 +12170,12 @@ ${analysisContext}`;
  onChange={(e) => setChatInput(e.target.value)}
  onKeyPress={handleChatKeyPress}
  placeholder="Ask about the case..."
- className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-colors placeholder-gray-400"
+ className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-600 transition-colors placeholder-gray-400"
  />
  <button
  onClick={sendChatMessage}
  disabled={!chatInput.trim() || isChatLoading}
- className="w-10 h-10 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-300 rounded-xl flex items-center justify-center transition-colors"
+ className="w-10 h-10 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-300 rounded-xl flex items-center justify-center transition-colors"
  >
  <Send className="w-4 h-4 text-gray-900" />
  </button>
@@ -12288,7 +12353,7 @@ ${analysisContext}`;
        }}
        className={`bg-white border-2 rounded-xl shadow-xl p-4 w-80 cursor-pointer hover:shadow-2xl transition-all ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-400' :
-         chatCompletionNotification.riskLevel === 'HIGH' ? 'border-orange-400' :
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'border-gray-500' :
          chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-400' :
          'border-emerald-400'
        }`}
@@ -12298,13 +12363,13 @@ ${analysisContext}`;
          <div className="flex items-center gap-2">
            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
              chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
-             chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100' :
+             chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200' :
              chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
              'bg-emerald-100'
            }`}>
              <CheckCircle2 className={`w-4 h-4 ${
                chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-               chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+               chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
                chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
                'text-emerald-600'
              }`} />
@@ -12330,7 +12395,7 @@ ${analysisContext}`;
        {/* Risk level with score */}
        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-         chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200 text-gray-700' :
          chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
          'bg-emerald-100 text-emerald-700'
        }`}>
@@ -12344,7 +12409,7 @@ ${analysisContext}`;
        <div className="flex justify-end mt-3">
          <span className={`text-sm font-medium flex items-center gap-1 ${
            chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-           chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+           chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
            chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
            'text-emerald-600'
          }`}>
@@ -12387,7 +12452,7 @@ ${analysisContext}`;
 
         {/* Footer */}
         <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
- <p>Marlowe Investigative Intelligence</p>
+ <p>Katharos Investigative Intelligence</p>
  </footer>
  </div>
  );

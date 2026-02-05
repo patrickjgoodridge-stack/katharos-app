@@ -31,7 +31,7 @@ class RegulatoryEnforcementService {
 
   async searchDOJ(name) {
     try {
-      const res = await fetch(`https://www.justice.gov/api/v1/press-releases.json?keyword=${encodeURIComponent(`"${name}"`)}&sort=date&direction=DESC&pagesize=10`, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Marlowe/1.0' } });
+      const res = await fetch(`https://www.justice.gov/api/v1/press-releases.json?keyword=${encodeURIComponent(`"${name}"`)}&sort=date&direction=DESC&pagesize=10`, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Katharos/1.0' } });
       if (!res.ok) return this._gdeltDomain(name, 'justice.gov', 'doj');
       const data = await res.json();
       const actions = (data.results || []).map(r => ({ agency: 'DOJ', title: r.title || '', date: r.date || '', type: this._classifyDOJ(r.title || ''), url: r.url ? `https://www.justice.gov${r.url}` : '', source: 'doj' }));
@@ -53,7 +53,7 @@ class RegulatoryEnforcementService {
 
   async searchFTC(name) {
     try {
-      const res = await fetch(`https://www.ftc.gov/api/v1/enforcement.json?keyword=${encodeURIComponent(`"${name}"`)}&sort=date&direction=DESC&pagesize=10`, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Marlowe/1.0' } });
+      const res = await fetch(`https://www.ftc.gov/api/v1/enforcement.json?keyword=${encodeURIComponent(`"${name}"`)}&sort=date&direction=DESC&pagesize=10`, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'Katharos/1.0' } });
       if (!res.ok) return this._gdeltDomain(name, 'ftc.gov', 'ftc');
       const data = await res.json();
       const actions = (data.results || []).map(r => ({ agency: 'FTC', title: r.title || '', date: r.date || '', type: 'FTC_ACTION', url: r.url ? `https://www.ftc.gov${r.url}` : '', source: 'ftc' }));

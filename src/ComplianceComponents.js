@@ -35,8 +35,8 @@ export const RiskBadge = ({ level }) => {
   const normalizedLevel = (level || 'unknown').toLowerCase();
   const config = {
     critical: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', icon: 'text-red-600' },
-    high: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', icon: 'text-orange-600' },
-    medium: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300', icon: 'text-amber-600' },
+    high: { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400', icon: 'text-gray-600' },
+    medium: { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400', icon: 'text-gray-600' },
     low: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', icon: 'text-green-600' },
     unknown: { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-300', icon: 'text-slate-600' },
   };
@@ -59,8 +59,8 @@ export const AlertBanner = ({ level, title, subtitle }) => {
   const normalizedLevel = (level || 'medium').toLowerCase();
   const config = {
     critical: { bg: 'bg-red-50', border: 'border-red-200', icon: 'text-red-600', title: 'text-red-900', text: 'text-red-800' },
-    high: { bg: 'bg-orange-50', border: 'border-orange-200', icon: 'text-orange-600', title: 'text-orange-900', text: 'text-orange-800' },
-    medium: { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-600', title: 'text-amber-900', text: 'text-amber-800' },
+    high: { bg: 'bg-gray-100', border: 'border-gray-300', icon: 'text-gray-600', title: 'text-gray-900', text: 'text-gray-800' },
+    medium: { bg: 'bg-gray-100', border: 'border-gray-300', icon: 'text-gray-600', title: 'text-gray-900', text: 'text-gray-800' },
     low: { bg: 'bg-green-50', border: 'border-green-200', icon: 'text-green-600', title: 'text-green-900', text: 'text-green-800' },
   };
   const styles = config[normalizedLevel] || config.medium;
@@ -215,11 +215,11 @@ export const RedFlagCard = ({ flag }) => {
           </div>
 
           {complianceImpact && (
-            <div className="ml-[52px] bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 mb-1">
+            <div className="ml-[52px] bg-gray-100 border-l-4 border-gray-500 rounded-r-lg p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-800 mb-1">
                 Impact
               </p>
-              <p className="text-sm text-amber-900 leading-relaxed">{complianceImpact}</p>
+              <p className="text-sm text-gray-900 leading-relaxed">{complianceImpact}</p>
             </div>
           )}
         </div>
@@ -278,7 +278,7 @@ export const DecisionBanner = ({ decision }) => {
     Icon = ShieldX;
     displayStatus = 'IMMEDIATE REJECT';
   } else if (isEDD) {
-    bgColor = 'bg-amber-500';
+    bgColor = 'bg-gray-600';
     Icon = AlertTriangle;
     displayStatus = 'ENHANCED DUE DILIGENCE REQUIRED';
   }
@@ -363,8 +363,8 @@ export const MemoCard = ({ memo }) => {
     <div className="bg-slate-900 text-white rounded-xl overflow-hidden shadow-lg">
       <div className="px-5 py-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-amber-400" />
-          <h3 className="font-semibold text-amber-400 text-sm uppercase tracking-wider">The Memo</h3>
+          <FileText className="w-5 h-5 text-gray-400" />
+          <h3 className="font-semibold text-gray-400 text-sm uppercase tracking-wider">The Memo</h3>
         </div>
         <button
           onClick={handleCopy}
@@ -411,7 +411,7 @@ export const KeepExploringCard = ({ actions, onActionClick }) => {
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
       <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Search className="w-5 h-5 text-amber-600" />
+          <Search className="w-5 h-5 text-gray-600" />
           <h3 className="font-semibold text-slate-900">Keep Exploring</h3>
         </div>
       </div>
@@ -424,15 +424,15 @@ export const KeepExploringCard = ({ actions, onActionClick }) => {
             <button
               key={index}
               onClick={() => onActionClick && onActionClick(actionLabel)}
-              className="w-full px-5 py-4 flex items-center gap-4 hover:bg-amber-50 transition-colors text-left group"
+              className="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-100 transition-colors text-left group"
             >
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                <IconComponent className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200 transition-colors">
+                <IconComponent className="w-5 h-5 text-gray-600" />
               </div>
-              <span className="flex-1 text-sm text-slate-700 group-hover:text-amber-900">
+              <span className="flex-1 text-sm text-slate-700 group-hover:text-gray-900">
                 {actionLabel}
               </span>
-              <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition-colors" />
+              <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-gray-600 transition-colors" />
             </button>
           );
         })}

@@ -1,6 +1,6 @@
 # Enforcement Case Studies — Phase 2 (Gap Coverage)
 
-Add all of these enforcement case studies to the Marlowe RAG knowledge base. Chunk each case as a single document. Category: "enforcement". Embed and upsert to vector store under namespace "enforcement-cases".
+Add all of these enforcement case studies to the Katharos RAG knowledge base. Chunk each case as a single document. Category: "enforcement". Embed and upsert to vector store under namespace "enforcement-cases".
 
 ---
 
@@ -276,7 +276,7 @@ Post-9/11 intelligence review. Executive Order 13224 designation. UN Security Co
 - OFAC/UN designation
 
 ### Lesson for Screening
-Flag any entity operating informal value transfer or hawala networks, especially with operations in conflict zones. Al Barakaat demonstrates the challenge of hawala: legitimate remittance services can be exploited for terrorism financing. However, this case also shows the risk of false positives — some designations were later overturned. Marlowe should flag hawala networks for enhanced due diligence rather than automatic blocking, unless the specific entity is designated.
+Flag any entity operating informal value transfer or hawala networks, especially with operations in conflict zones. Al Barakaat demonstrates the challenge of hawala: legitimate remittance services can be exploited for terrorism financing. However, this case also shows the risk of false positives — some designations were later overturned. Katharos should flag hawala networks for enhanced due diligence rather than automatic blocking, unless the specific entity is designated.
 
 ---
 
@@ -906,7 +906,7 @@ Danske Bank investigation revealed shared customers with Swedbank. ABLV Bank des
 - CIS-origin beneficial owners
 
 ### Lesson for Screening
-Flag any entity that appears in connection with multiple banks under AML investigation. Cross-institutional laundering networks are the norm, not the exception. Marlowe should cross-reference entities against all known enforcement cases, not just check individual sanctions lists. If an entity shares beneficial owners, addresses, or corporate structures with entities connected to Danske, Swedbank, or ABLV, that is a significant risk indicator.
+Flag any entity that appears in connection with multiple banks under AML investigation. Cross-institutional laundering networks are the norm, not the exception. Katharos should cross-reference entities against all known enforcement cases, not just check individual sanctions lists. If an entity shares beneficial owners, addresses, or corporate structures with entities connected to Danske, Swedbank, or ABLV, that is a significant risk indicator.
 
 ---
 
@@ -975,7 +975,7 @@ Leaked SARs provided to BuzzFeed News by a FinCEN employee (who was later charge
 - Compliance department filing reports without operational impact
 
 ### Lesson for Screening
-This case changes how Marlowe should think about banking relationships. An entity that has had SARs filed about it may still maintain banking access. Marlowe should not assume that regulatory filing equals remediation. When screening financial institutions, the question is not "do they file SARs" but "what do they do after filing SARs."
+This case changes how Katharos should think about banking relationships. An entity that has had SARs filed about it may still maintain banking access. Katharos should not assume that regulatory filing equals remediation. When screening financial institutions, the question is not "do they file SARs" but "what do they do after filing SARs."
 
 ---
 
@@ -1014,4 +1014,4 @@ This is a reference document mapping the complete known network structure of the
 - Nominee directors from professional services
 
 ### Lesson for Cross-Referencing
-When Marlowe identifies a UK LLP, Scottish LP, or BVI IBC with nominee structures and connections to Baltic banking, it should immediately cross-reference against the Danske/Swedbank network patterns. The same network infrastructure was used across multiple banks and the shell companies were recycled.
+When Katharos identifies a UK LLP, Scottish LP, or BVI IBC with nominee structures and connections to Baltic banking, it should immediately cross-reference against the Danske/Swedbank network patterns. The same network infrastructure was used across multiple banks and the shell companies were recycled.

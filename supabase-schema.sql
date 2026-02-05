@@ -1,4 +1,4 @@
--- Supabase Database Schema for Marlowe (Lead Collection)
+-- Supabase Database Schema for Katharos (Lead Collection)
 -- Run this SQL in your Supabase SQL Editor (Dashboard > SQL Editor)
 -- =====================================================================
 
@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS cases (
   description TEXT DEFAULT '',
   risk_level TEXT DEFAULT 'UNKNOWN',
   status TEXT DEFAULT 'active',
+  viewed BOOLEAN DEFAULT false,
 
   -- Conversation and chat data (stored as JSONB for flexibility)
   chat_history JSONB DEFAULT '[]'::jsonb,

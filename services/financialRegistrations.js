@@ -135,7 +135,7 @@ class FinancialRegistrationsService {
       const url = `https://www.nfa.futures.org/basicnet/Details.aspx?entityType=firm&entityName=${encodeURIComponent(name)}`;
       const response = await fetch(url, {
         signal: AbortSignal.timeout(10000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept': 'text/html' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0', 'Accept': 'text/html' }
       });
       if (!response.ok) return this._setCache(cacheKey, { found: false, actions: [], error: null });
 
@@ -272,7 +272,7 @@ class FinancialRegistrationsService {
       const response = await fetch(litUrl, {
         signal: AbortSignal.timeout(10000),
         headers: {
-          'User-Agent': 'Marlowe/1.0 (compliance-screening)',
+          'User-Agent': 'Katharos/1.0 (compliance-screening)',
           'Accept': 'application/json'
         }
       });

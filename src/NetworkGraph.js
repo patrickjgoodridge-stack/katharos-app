@@ -457,7 +457,7 @@ export const NetworkGraphLegend = ({ darkMode = false }) => (
     {[
       { color: 'bg-red-600', label: 'Critical Risk' },
       { color: 'bg-rose-500', label: 'High Risk' },
-      { color: 'bg-amber-500', label: 'Medium Risk' },
+      { color: 'bg-gray-500', label: 'Medium Risk' },
       { color: 'bg-emerald-500', label: 'Low Risk' },
     ].map(({ color, label }) => (
       <div key={label} className="flex items-center gap-2">

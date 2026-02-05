@@ -1170,8 +1170,8 @@ End of Report
                     <div className="text-blue-300 text-sm mb-1">Risk Level</div>
                     <div className={`text-lg font-bold ${
                       scoutResults.riskLevel === 'critical' ? 'text-red-400' :
-                      scoutResults.riskLevel === 'high' ? 'text-orange-400' :
-                      scoutResults.riskLevel === 'medium' ? 'text-yellow-400' :
+                      scoutResults.riskLevel === 'high' ? 'text-gray-400' :
+                      scoutResults.riskLevel === 'medium' ? 'text-gray-400' :
                       'text-green-400'
                     }`}>
                       {scoutResults.riskLevel.toUpperCase()}
@@ -1188,7 +1188,7 @@ End of Report
                   <div className="bg-black/30 p-4 rounded-lg">
                     <div className="text-blue-300 text-sm mb-1">PEP Status</div>
                     <div className={`text-lg font-bold ${
-                      scoutResults.isPEP ? 'text-orange-400' : 'text-green-400'
+                      scoutResults.isPEP ? 'text-gray-400' : 'text-green-400'
                     }`}>
                       {scoutResults.isPEP ? 'YES' : 'NO'}
                     </div>
@@ -1254,8 +1254,8 @@ End of Report
                           <div className="text-white font-semibold">{item.query}</div>
                           <span className={`px-2 py-1 rounded text-xs font-bold ${
                             item.riskLevel === 'critical' ? 'bg-red-500 text-white' :
-                            item.riskLevel === 'high' ? 'bg-orange-500 text-white' :
-                            item.riskLevel === 'medium' ? 'bg-yellow-500 text-black' :
+                            item.riskLevel === 'high' ? 'bg-gray-600 text-white' :
+                            item.riskLevel === 'medium' ? 'bg-gray-500 text-white' :
                             'bg-green-500 text-white'
                           }`}>
                             {item.riskLevel.toUpperCase()}
@@ -1267,7 +1267,7 @@ End of Report
                             </span>
                           )}
                           {item.isPEP && (
-                            <span className="px-2 py-1 rounded text-xs font-bold bg-orange-600 text-white flex items-center gap-1">
+                            <span className="px-2 py-1 rounded text-xs font-bold bg-gray-600 text-white flex items-center gap-1">
                               <UserCheck className="w-3 h-3" />
                               PEP
                             </span>

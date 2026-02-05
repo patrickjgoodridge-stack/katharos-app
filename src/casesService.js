@@ -8,7 +8,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
  */
 export const fetchUserCases = async (workspaceId, userEmail) => {
   if (!isSupabaseConfigured()) {
-    console.log('Supabase not configured, using local storage');
+    console.log('[Cases] Supabase not configured, using local storage');
     return { data: null, error: null };
   }
 
@@ -20,22 +20,29 @@ export const fetchUserCases = async (workspaceId, userEmail) => {
 
     // Filter by workspace (email domain) if provided
     if (workspaceId) {
+      console.log('[Cases] Filtering by email_domain:', workspaceId);
       query = query.eq('email_domain', workspaceId);
     } else if (userEmail) {
       // Otherwise filter by user's email
+      console.log('[Cases] Filtering by created_by_email:', userEmail);
       query = query.eq('created_by_email', userEmail);
+    } else {
+      console.log('[Cases] No filter provided, fetching all cases');
     }
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Cases] Database query error:', error);
+      throw error;
+    }
 
     // Transform Supabase data to match app format
     const cases = data?.map(transformFromSupabase) || [];
-    console.log(`[Cases] Loaded ${cases.length} cases from database`);
+    console.log(`[Cases] Fetched ${cases.length} cases from database`);
     return { data: cases, error: null };
   } catch (error) {
-    console.error('Error fetching cases:', error);
+    console.error('[Cases] Error fetching cases:', error);
     return { data: null, error };
   }
 };
@@ -45,11 +52,17 @@ export const fetchUserCases = async (workspaceId, userEmail) => {
  */
 export const createCase = async (caseData) => {
   if (!isSupabaseConfigured()) {
+    console.log('[Cases] Supabase not configured, skipping database save');
     return { data: null, error: null };
   }
 
   try {
-    const supabaseData = transformToSupabase(caseData);
+    const supabaseData = {
+      ...transformToSupabase(caseData),
+      id: caseData.id, // Include the case ID
+    };
+
+    console.log('[Cases] Creating case in database:', caseData.id, caseData.name);
 
     const { data, error } = await supabase
       .from('cases')
@@ -59,9 +72,10 @@ export const createCase = async (caseData) => {
 
     if (error) throw error;
 
+    console.log('[Cases] Case created successfully:', data.id);
     return { data: transformFromSupabase(data), error: null };
   } catch (error) {
-    console.error('Error creating case:', error);
+    console.error('[Cases] Error creating case:', error);
     return { data: null, error };
   }
 };
@@ -80,6 +94,7 @@ export const updateCase = async (caseId, updates) => {
       description: updates.description,
       risk_level: updates.riskLevel,
       status: updates.status,
+      viewed: updates.viewed || false, // Track if case has been viewed
       chat_history: updates.chatHistory || [],
       conversation_transcript: updates.conversationTranscript || [], // Full conversation
       documents: updates.documents || [],
@@ -182,6 +197,7 @@ const transformToSupabase = (caseData) => ({
   description: caseData.description || '',
   risk_level: caseData.riskLevel || 'UNKNOWN',
   status: caseData.status || 'active',
+  viewed: caseData.viewed || false, // Track if case has been viewed
   chat_history: caseData.chatHistory || [],
   conversation_transcript: caseData.conversationTranscript || [], // Full conversation history
   documents: caseData.documents || [],
@@ -206,6 +222,7 @@ const transformFromSupabase = (data) => ({
   description: data.description,
   riskLevel: data.risk_level || 'UNKNOWN',
   status: data.status,
+  viewed: data.viewed || false, // Track if case has been viewed
   createdAt: data.created_at,
   updatedAt: data.updated_at,
   chatHistory: data.chat_history || [],

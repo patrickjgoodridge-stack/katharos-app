@@ -1,6 +1,6 @@
-# Enforcement Case Studies for Marlowe RAG
+# Enforcement Case Studies for Katharos RAG
 
-Add all of these enforcement case studies to the Marlowe RAG knowledge base. Chunk each case as a single document. Category: "enforcement". Embed and upsert to Pinecone.
+Add all of these enforcement case studies to the Katharos RAG knowledge base. Chunk each case as a single document. Category: "enforcement". Embed and upsert to Pinecone.
 
 ---
 
@@ -467,7 +467,7 @@ Internal investigation discovered mirror trading pattern. New York DFS and UK FC
 - Compliance override by relationship managers
 
 ### Lesson for Screening
-Flag any pattern of simultaneous equal-and-opposite transactions across markets or currencies, especially involving Russian entities. Mirror trading is a specific money laundering typology that Marlowe should detect. Also flag any entity that maintains financial relationships with persons who have prior criminal convictions — the Epstein relationship shows how reputational risk compounds.
+Flag any pattern of simultaneous equal-and-opposite transactions across markets or currencies, especially involving Russian entities. Mirror trading is a specific money laundering typology that Katharos should detect. Also flag any entity that maintains financial relationships with persons who have prior criminal convictions — the Epstein relationship shows how reputational risk compounds.
 
 ---
 
@@ -933,7 +933,7 @@ Chainalysis and Elliptic blockchain analysis traced Lazarus Group stolen funds t
 - 0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF (100 ETH)
 
 ### Lesson for Screening
-Any transaction touching Tornado Cash addresses is BLOCKED. Marlowe should maintain a complete list of all designated Tornado Cash contract addresses and flag any wallet that has interacted with them. This case established that decentralized protocols can be sanctioned and that interacting with them carries the same legal risk as transacting with any other SDN.
+Any transaction touching Tornado Cash addresses is BLOCKED. Katharos should maintain a complete list of all designated Tornado Cash contract addresses and flag any wallet that has interacted with them. This case established that decentralized protocols can be sanctioned and that interacting with them carries the same legal risk as transacting with any other SDN.
 
 ---
 

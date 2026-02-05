@@ -160,7 +160,7 @@ class ShippingTradeService {
 
       const response = await fetch(`https://www.equasis.org/EquasisWeb/restricted/Search?${params}`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept': 'text/html' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0', 'Accept': 'text/html' }
       });
 
       if (!response.ok) return { source: 'equasis', data: { results: [], total: 0 } };
@@ -249,7 +249,7 @@ class ShippingTradeService {
       const query = options.imo || options.mmsi || name;
       const response = await fetch(`https://www.vesselfinder.com/api/pub/search/v2?q=${encodeURIComponent(query)}`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept': 'application/json' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0', 'Accept': 'application/json' }
       });
       if (!response.ok) return { source: 'vesselfinder', data: { results: [], total: 0 } };
       const data = await response.json();

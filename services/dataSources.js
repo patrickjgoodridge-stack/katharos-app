@@ -103,7 +103,7 @@ class DataSourceManager {
     // Full-text search
     const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=10-K,10-Q,8-K,DEF+14A,13F-HR,SC+13D,SC+13G,4`;
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' },
+      headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' },
       signal: AbortSignal.timeout(15000),
     });
 
@@ -130,7 +130,7 @@ class DataSourceManager {
     try {
       const enfUrl = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=LR,AAER,AP`;
       const enfResponse = await fetch(enfUrl, {
-        headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' },
+        headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' },
         signal: AbortSignal.timeout(10000),
       });
       if (enfResponse.ok) {

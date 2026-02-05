@@ -55,12 +55,12 @@ class DataSourceManager {
   }
   async searchSEC(query) {
     const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=10-K,10-Q,8-K,DEF+14A,13F-HR,SC+13D,SC+13G,4`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(15000) });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(15000) });
     let filings = [], enforcement = [];
     if (response.ok) { const data = await response.json(); if (data.hits?.hits) { for (const hit of data.hits.hits.slice(0, 15)) { const s = hit._source || {}; filings.push({ form: s.form_type || '', filingDate: s.file_date || '', companyName: s.display_names?.[0] || '', cik: s.entity_id || '' }); } } }
     try {
       const enfUrl = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&dateRange=custom&startdt=2019-01-01&enddt=2026-01-31&forms=LR,AAER,AP`;
-      const enfRes = await fetch(enfUrl, { headers: { 'User-Agent': 'Marlowe Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(10000) });
+      const enfRes = await fetch(enfUrl, { headers: { 'User-Agent': 'Katharos Compliance App support@marlowe.app' }, signal: AbortSignal.timeout(10000) });
       if (enfRes.ok) { const d = await enfRes.json(); if (d.hits?.hits) { for (const h of d.hits.hits.slice(0, 10)) { const s = h._source || {}; enforcement.push({ type: s.form_type || 'Enforcement', date: s.file_date || '', description: s.display_names?.[0] || '' }); } } }
     } catch { /* non-critical */ }
     return { source: 'sec', data: { results: filings, enforcement, totalFilings: filings.length, hasEnforcement: enforcement.length > 0 } };
@@ -466,7 +466,7 @@ function buildDataContext(d) {
 
 // ── System prompt (kept server-side to reduce payload) ──
 function getSystemPrompt() {
-  return `You are Marlowe, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence that surpasses traditional screening tools.
+  return `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You combine deep regulatory expertise with comprehensive data access to deliver institutional-grade due diligence that surpasses traditional screening tools.
 
 You are not a chatbot. You are a senior financial crimes investigator with:
 - Deep expertise in OFAC sanctions, AML regulations, anti-corruption laws, and global compliance frameworks
@@ -651,13 +651,13 @@ Return a JSON object with this EXACT structure (all fields required):
 }
 
 CRITICAL - RECOMMENDATIONS MUST BE ACTIONABLE:
-Your recommendations should tell the compliance officer EXACTLY what to do next. Focus on gathering MORE DATA that can then be uploaded to Marlowe for deeper analysis.
+Your recommendations should tell the compliance officer EXACTLY what to do next. Focus on gathering MORE DATA that can then be uploaded to Katharos for deeper analysis.
 
 1. FIRST recommendation: Clear onboarding decision
 2. REMAINING recommendations: Documents to REQUEST FROM THE CLIENT then UPLOAD TO MARLOWE
-   GOOD: "Request certified beneficial ownership declaration - upload to Marlowe Cipher for deep ownership analysis"
-   GOOD: "Obtain audited financial statements for past 3 years - upload to Marlowe to analyze for suspicious transactions"
-   BAD: "Conduct sanctions screening" - Marlowe already did this
+   GOOD: "Request certified beneficial ownership declaration - upload to Katharos Cipher for deep ownership analysis"
+   GOOD: "Obtain audited financial statements for past 3 years - upload to Katharos to analyze for suspicious transactions"
+   BAD: "Conduct sanctions screening" - Katharos already did this
 
 VALIDATION: If Sberbank/VTB/Gazprombank → MATCH/CRITICAL. If sanctions.status=MATCH → overallRisk=HIGH/CRITICAL. If fiftyPercentRuleTriggered=true → overallRisk=CRITICAL
 

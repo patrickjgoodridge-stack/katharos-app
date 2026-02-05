@@ -71,7 +71,7 @@ class RAGService {
 
   formatMessageForEmbedding(message, caseContext = {}) {
     const prefix = caseContext.caseName ? `Case: ${caseContext.caseName}` : '';
-    const role = message.role === 'assistant' ? 'Marlowe' : 'User';
+    const role = message.role === 'assistant' ? 'Katharos' : 'User';
     return `${prefix} | ${role}: ${message.content}`.trim();
   }
 

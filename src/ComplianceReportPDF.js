@@ -443,7 +443,7 @@ const ComplianceReportPDF = ({ data }) => {
         {/* Header */}
         <View style={styles.headerRow} fixed>
           <View>
-            <Text style={styles.headerBrand}>Marlowe Compliance Platform</Text>
+            <Text style={styles.headerBrand}>Katharos Compliance Platform</Text>
             <Text style={styles.headerSubject}>{displayName} — {formattedDate}</Text>
           </View>
           <View>
@@ -488,10 +488,10 @@ const ComplianceReportPDF = ({ data }) => {
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Marlowe Compliance Platform  •  Confidential</Text>
+          <Text style={styles.footerText}>Katharos Compliance Platform  •  Confidential</Text>
           {caseUrl ? (
             <Link src={caseUrl} style={styles.footerLink}>
-              <Text style={styles.footerLink}>View in Marlowe</Text>
+              <Text style={styles.footerLink}>View in Katharos</Text>
             </Link>
           ) : (
             <Text style={styles.footerLink}>marlowe-app.vercel.app</Text>

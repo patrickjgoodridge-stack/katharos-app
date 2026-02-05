@@ -52,7 +52,7 @@ class WalletScreeningService {
     const base = 'https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists';
     const fetches = chains.map(async (chain) => {
       try {
-        const res = await fetch(`${base}/sanctioned_addresses_${chain}.txt`, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Marlowe-AML/1.0)' }, signal: AbortSignal.timeout(15000) });
+        const res = await fetch(`${base}/sanctioned_addresses_${chain}.txt`, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Katharos-AML/1.0)' }, signal: AbortSignal.timeout(15000) });
         if (!res.ok) return 0;
         const text = await res.text();
         let count = 0;

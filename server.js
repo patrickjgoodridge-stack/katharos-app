@@ -561,7 +561,7 @@ app.post('/api/messages/stream', streamHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Marlowe backend server running on http://localhost:${PORT}`);
+  console.log(`✅ Katharos backend server running on http://localhost:${PORT}`);
   console.log(`✅ API key configured: ${ANTHROPIC_API_KEY ? 'Yes' : 'No'}`);
   console.log(`✅ Ready to proxy requests to Anthropic API`);
   if (process.env.COMPANIES_HOUSE_STREAM_KEY) {

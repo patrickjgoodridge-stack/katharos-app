@@ -74,7 +74,7 @@ class RegulatoryEnforcementService {
       // DOJ press releases search
       const response = await fetch(`https://www.justice.gov/api/v1/press-releases.json?keyword=${query}&sort=date&direction=DESC&pagesize=10`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) {
         // Fallback: GDELT search scoped to justice.gov
@@ -148,7 +148,7 @@ class RegulatoryEnforcementService {
     try {
       const response = await fetch(`https://www.ftc.gov/api/v1/enforcement.json?keyword=${query}&sort=date&direction=DESC&pagesize=10`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'ftc.gov', 'ftc');
       const data = await response.json();
@@ -184,7 +184,7 @@ class RegulatoryEnforcementService {
     try {
       const response = await fetch(`https://www.federalreserve.gov/supervisionreg/enforcement-actions-search.htm?searchText=${query}`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'federalreserve.gov', 'federal_reserve');
 
@@ -205,7 +205,7 @@ class RegulatoryEnforcementService {
     try {
       const response = await fetch(`https://efr.fdic.gov/fcxweb/efr/index.html?searchAction=searchByName&name=${query}`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'fdic.gov', 'fdic');
 
@@ -235,7 +235,7 @@ class RegulatoryEnforcementService {
       // FCA Register API
       const response = await fetch(`https://register.fca.org.uk/services/V0.1/Search?q=${query}&type=all`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'Accept': 'application/json', 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) {
         // Fallback: FCA Warning List
@@ -294,7 +294,7 @@ class RegulatoryEnforcementService {
     try {
       const response = await fetch(`https://ec.europa.eu/competition/elojade/isef/index.cfm?fuseaction=dsp_result&policy_area_id=1,2,3&case_title=${query}`, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'ec.europa.eu', 'eu_competition');
 
@@ -316,7 +316,7 @@ class RegulatoryEnforcementService {
       // FinCEN enforcement actions page (HTML scrape)
       const response = await fetch(`https://www.fincen.gov/news-room/enforcement-actions?field_news_title_value=${query}`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'fincen.gov', 'fincen');
       const html = await response.text();
@@ -342,7 +342,7 @@ class RegulatoryEnforcementService {
       // SFO case search (HTML scrape)
       const response = await fetch(`https://www.sfo.gov.uk/?s=${query}`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'sfo.gov.uk', 'sfo');
       const html = await response.text();
@@ -388,7 +388,7 @@ class RegulatoryEnforcementService {
       // BaFin search page
       const response = await fetch(`https://www.bafin.de/SiteGlobals/Forms/Suche/Servicesuche_Formular.html?queryString=${query}&cl2Categories_Typ=Sanktionen`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0', 'Accept-Language': 'en-US,en;q=0.9' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0', 'Accept-Language': 'en-US,en;q=0.9' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'bafin.de', 'bafin');
       const html = await response.text();
@@ -411,7 +411,7 @@ class RegulatoryEnforcementService {
       // MAS enforcement actions search
       const response = await fetch(`https://www.mas.gov.sg/search?q=${query}&Content=enforcement`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'mas.gov.sg', 'mas');
       const html = await response.text();
@@ -420,7 +420,7 @@ class RegulatoryEnforcementService {
       // Also check MAS investor alert list
       const alertRes = await fetch(`https://www.mas.gov.sg/investor-alert-list?q=${query}`, {
         signal: AbortSignal.timeout(8000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       }).catch(() => null);
       if (alertRes?.ok) {
         const alertHtml = await alertRes.text();
@@ -453,7 +453,7 @@ class RegulatoryEnforcementService {
       // HKMA press releases and enforcement
       const response = await fetch(`https://www.hkma.gov.hk/eng/search-result/?q=${query}`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'hkma.gov.hk', 'hkma');
       const html = await response.text();
@@ -476,7 +476,7 @@ class RegulatoryEnforcementService {
       // ASIC enforcement search
       const response = await fetch(`https://asic.gov.au/search/?q=${query}&collection=asic-meta&profile=_default`, {
         signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Marlowe Compliance App/1.0' }
+        headers: { 'User-Agent': 'Katharos Compliance App/1.0' }
       });
       if (!response.ok) return this._gdeltDomainSearch(name, 'asic.gov.au', 'asic');
       const html = await response.text();

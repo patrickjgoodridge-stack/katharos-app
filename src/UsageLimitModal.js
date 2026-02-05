@@ -59,12 +59,12 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) 
           <div className="text-center mb-6">
             <div
               className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                darkMode ? 'bg-amber-900/30' : 'bg-amber-100'
+                darkMode ? 'bg-gray-700/30' : 'bg-gray-200'
               }`}
             >
               <Zap
                 size={32}
-                className={darkMode ? 'text-amber-400' : 'text-amber-600'}
+                className={darkMode ? 'text-gray-400' : 'text-gray-600'}
               />
             </div>
 
@@ -88,9 +88,9 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) 
           {/* Features list */}
           <div className={`rounded-xl p-4 mb-6 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-2 mb-3">
-              <Shield className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+              <Shield className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Marlowe Pro
+                Katharos Pro
               </span>
             </div>
             <ul className="space-y-2">
@@ -110,7 +110,7 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) 
             href={buildCheckoutUrl()}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-amber-500/25"
+            className="flex items-center justify-center gap-2 w-full py-3.5 px-6 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-gray-600/25"
           >
             <Zap size={20} />
             Upgrade Now
