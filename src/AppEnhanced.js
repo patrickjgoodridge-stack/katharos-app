@@ -9346,7 +9346,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
        <section>
          <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
-         <p>Questions about these disclosures can be directed to: <a href="mailto:patrickjgoodridge@gmail.com" className="text-gray-600 hover:text-gray-500 transition-colors">patrickjgoodridge@gmail.com</a></p>
+         <p>Questions about these disclosures can be directed to: <a href="mailto:patrick@katharos.co" className="text-gray-600 hover:text-gray-500 transition-colors">patrick@katharos.co</a></p>
        </section>
      </div>
    </div>
