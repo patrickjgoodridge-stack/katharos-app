@@ -111,16 +111,6 @@ const LandingPage = ({
               Request Access
             </button>
           )}
-
-          <button
-            onClick={() => setCurrentPage('disclosures')}
-            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
-          >
-            Disclosures
-          </button>
         </div>
       </nav>
 
@@ -474,11 +464,20 @@ const LandingPage = ({
       {/* Footer */}
       <footer className="text-center py-10" style={{ borderTop: '1px solid #3a3a3a' }}>
         <div
-          className="text-2xl font-medium"
+          className="text-2xl font-medium mb-4"
           style={{ fontFamily: "Georgia, serif", color: '#6b6b6b', letterSpacing: '-0.5px' }}
         >
           Katharos
         </div>
+        <button
+          onClick={() => setCurrentPage('disclosures')}
+          className="text-[12px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
+          style={{ color: '#4a4a4a', letterSpacing: '0.5px' }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#4a4a4a'}
+        >
+          Disclosures
+        </button>
       </footer>
     </div>
   );
