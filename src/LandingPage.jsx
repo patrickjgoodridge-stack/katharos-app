@@ -64,16 +64,6 @@ const LandingPage = ({
           >
             About
           </button>
-          <button
-            onClick={() => setCurrentPage('disclosures')}
-            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
-          >
-            Disclosures
-          </button>
-
           {isConfigured && user ? (
             <div className="relative group">
               <button
@@ -121,6 +111,16 @@ const LandingPage = ({
               Request Access
             </button>
           )}
+
+          <button
+            onClick={() => setCurrentPage('disclosures')}
+            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
+            style={{ color: '#858585', letterSpacing: '0.5px' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
+          >
+            Disclosures
+          </button>
         </div>
       </nav>
 
