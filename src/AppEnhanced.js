@@ -9784,6 +9784,7 @@ K
  <h1
   className="text-center mb-8"
   style={{
+    fontFamily: "Georgia, serif",
     fontSize: '28px',
     fontWeight: 500,
     color: '#ffffff',
