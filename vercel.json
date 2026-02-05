@@ -1,4 +1,14 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        { "type": "host", "value": "marlowe-app.vercel.app" }
+      ],
+      "destination": "https://katharos.co/:path*",
+      "permanent": true
+    }
+  ],
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "framework": "create-react-app",
