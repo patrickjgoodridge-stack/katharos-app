@@ -6,10 +6,10 @@ import ForceGraph2D from 'react-force-graph-2d';
 const RISK_COLORS = {
   CRITICAL: '#dc2626',
   HIGH: '#f43f5e',
-  MEDIUM: '#f59e0b',
+  MEDIUM: '#374151',
   LOW: '#10b981',
   UNKNOWN: '#6b7280',
-  SUBJECT: '#f59e0b',
+  SUBJECT: '#374151',
 };
 
 const getNodeColor = (node) => {
@@ -19,10 +19,10 @@ const getNodeColor = (node) => {
 
 const getLinkColor = (link) => {
   if (link.sanctioned) return '#dc2626';
-  if (link.isOwnership && link.strength >= 4) return '#f59e0b';
+  if (link.isOwnership && link.strength >= 4) return '#374151';
   if (link.isOwnership) return '#06b6d4';
   if (link.ownershipPercent >= 50) return '#dc2626';
-  if (link.ownershipPercent >= 25) return '#f59e0b';
+  if (link.ownershipPercent >= 25) return '#374151';
   return '#94a3b8';
 };
 
@@ -353,7 +353,7 @@ const NetworkGraph = ({
           if (isSelected || isHovered) {
             ctx.beginPath();
             ctx.arc(node.x, node.y, nodeRadius + 4, 0, 2 * Math.PI);
-            ctx.fillStyle = isSelected ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.15)';
+            ctx.fillStyle = isSelected ? 'rgba(55, 65, 81, 0.25)' : 'rgba(55, 65, 81, 0.15)';
             ctx.fill();
           }
 
@@ -369,7 +369,7 @@ const NetworkGraph = ({
             ctx.lineWidth = 2 / globalScale;
             ctx.stroke();
           } else if (isSelected) {
-            ctx.strokeStyle = '#f59e0b';
+            ctx.strokeStyle = '#374151';
             ctx.lineWidth = 2 / globalScale;
             ctx.stroke();
           }
@@ -456,9 +456,9 @@ export const NetworkGraphLegend = ({ darkMode = false }) => (
   <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
     {[
       { color: 'bg-red-600', label: 'Critical Risk' },
-      { color: 'bg-rose-500', label: 'High Risk' },
+      { color: 'bg-gray-600', label: 'High Risk' },
       { color: 'bg-gray-500', label: 'Medium Risk' },
-      { color: 'bg-emerald-500', label: 'Low Risk' },
+      { color: 'bg-gray-400', label: 'Low Risk' },
     ].map(({ color, label }) => (
       <div key={label} className="flex items-center gap-2">
         <div className={`w-3 h-3 rounded-full ${color}`}></div>

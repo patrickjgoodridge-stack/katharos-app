@@ -175,7 +175,7 @@ const RiskBadge = ({ level, score }) => {
     CRITICAL: 'bg-red-100 text-red-700 border-red-200',
     HIGH: 'bg-gray-200 text-gray-700 border-gray-300',
     MEDIUM: 'bg-gray-200 text-gray-700 border-gray-300',
-    LOW: 'bg-green-100 text-green-700 border-green-200',
+    LOW: 'bg-gray-200 text-gray-700 border-gray-300',
   };
   if (!level) return null;
   return (
@@ -191,7 +191,7 @@ const RiskBadgeDark = ({ level, score }) => {
     CRITICAL: 'bg-red-900/40 text-red-300 border-red-700',
     HIGH: 'bg-gray-700/40 text-gray-300 border-gray-600',
     MEDIUM: 'bg-gray-700/40 text-gray-300 border-gray-600',
-    LOW: 'bg-green-900/40 text-green-300 border-green-700',
+    LOW: 'bg-gray-700/40 text-gray-300 border-gray-600',
   };
   if (!level) return null;
   return (
@@ -249,7 +249,7 @@ const LeftNav = ({ sections, activeSectionId, onSectionClick, onChatToggle, chat
                   section.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-600' :
                   section.riskLevel === 'HIGH' ? 'bg-gray-200 text-gray-600' :
                   section.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-600' :
-                  'bg-green-100 text-green-600'
+                  'bg-gray-200 text-gray-600'
                 }`}>
                   {section.riskLevel}
                 </span>
@@ -290,12 +290,12 @@ const SectionCard = React.forwardRef(({ section, darkMode, index }, ref) => {
       CRITICAL: 'border-red-400',
       HIGH: 'border-gray-400',
       MEDIUM: 'border-gray-400',
-      LOW: 'border-green-400',
+      LOW: 'border-gray-400',
     }[riskLevel] || 'border-slate-300';
 
     const bgColor = darkMode
-      ? (riskLevel === 'CRITICAL' ? 'bg-red-950/30' : riskLevel === 'HIGH' ? 'bg-gray-800/30' : riskLevel === 'MEDIUM' ? 'bg-gray-800/30' : 'bg-green-950/30')
-      : (riskLevel === 'CRITICAL' ? 'bg-red-50' : riskLevel === 'HIGH' ? 'bg-gray-100' : riskLevel === 'MEDIUM' ? 'bg-gray-100' : 'bg-green-50');
+      ? (riskLevel === 'CRITICAL' ? 'bg-red-950/30' : riskLevel === 'HIGH' ? 'bg-gray-800/30' : riskLevel === 'MEDIUM' ? 'bg-gray-800/30' : 'bg-gray-800/30')
+      : (riskLevel === 'CRITICAL' ? 'bg-red-50' : riskLevel === 'HIGH' ? 'bg-gray-100' : riskLevel === 'MEDIUM' ? 'bg-gray-100' : 'bg-gray-100');
 
     return (
       <div

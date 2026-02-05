@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -16,6 +16,9 @@ import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } 
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
 import UsageLimitModal from './UsageLimitModal';
+import LandingPage from './LandingPage';
+import ProductPage from './ProductPage';
+import AboutPage from './AboutPage';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -144,7 +147,7 @@ export default function Katharos() {
  });
 
  // Email gate modal state - shows when user tries to enter without email
- const [showEmailModal, setShowEmailModal] = useState(false);
+ const [showEmailModal, setShowEmailModal] = useState(false); // eslint-disable-line no-unused-vars
 
  // Investigation mode state
  const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
@@ -254,9 +257,11 @@ export default function Katharos() {
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
  const [samplesExpanded, setSamplesExpanded] = useState(false);
 const suggestionsRef = useRef(null);
+const suggestionsDropdownRef = useRef(null);
 const samplesRef = useRef(null);
+const samplesDropdownRef = useRef(null);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
- const [hasScrolled, setHasScrolled] = useState(false);
+ const [hasScrolled, setHasScrolled] = useState(false); // eslint-disable-line no-unused-vars
  const [showAlertsPanel, setShowAlertsPanel] = useState(false); // eslint-disable-line no-unused-vars
  const [monitoringInProgress, setMonitoringInProgress] = useState(false);
  const monitoringRanRef = useRef(false);
@@ -266,7 +271,6 @@ const samplesRef = useRef(null);
  "What can I help you investigate?",
  "Where should we begin?",
  "What are we working on?",
- "Katharos's on the case",
  "What do you have for me?",
  "Let's get started"
  ];
@@ -384,12 +388,6 @@ const samplesRef = useRef(null);
    }
  }, [cases]); // eslint-disable-line react-hooks/exhaustive-deps
 
- // Show email modal on mount if not authenticated
- useEffect(() => {
- if (!authLoading && !isAuthenticated) {
-   setShowEmailModal(true);
- }
- }, [authLoading, isAuthenticated]);
 
  // Landing page fade-in animation
  useEffect(() => {
@@ -435,10 +433,12 @@ const samplesRef = useRef(null);
  if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target)) {
  setShowUploadDropdown(false);
  }
-if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) &&
+    (!suggestionsDropdownRef.current || !suggestionsDropdownRef.current.contains(event.target))) {
 setSuggestionsExpanded(false);
 }
-if (samplesRef.current && !samplesRef.current.contains(event.target)) {
+if (samplesRef.current && !samplesRef.current.contains(event.target) &&
+    (!samplesDropdownRef.current || !samplesDropdownRef.current.contains(event.target))) {
 setSamplesExpanded(false);
 }
  };
@@ -717,7 +717,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  };
 
  // Toggle monitoring for a case
- const toggleMonitoring = (caseId) => {
+ const toggleMonitoring = (caseId) => { // eslint-disable-line no-unused-vars
    setCases(prev => {
      const updated = prev.map(c =>
        c.id === caseId ? { ...c, monitoringEnabled: !c.monitoringEnabled } : c
@@ -1148,7 +1148,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  };
 
  // Start editing a case name
- const startEditingCase = (caseItem, e) => {
+ const startEditingCase = (caseItem, e) => { // eslint-disable-line no-unused-vars
  e.stopPropagation();
  setEditingCaseId(caseItem.id);
  setEditingCaseName(caseItem.name);
@@ -1175,7 +1175,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  };
 
  // Handle edit input key press
- const handleEditKeyPress = (e) => {
+ const handleEditKeyPress = (e) => { // eslint-disable-line no-unused-vars
  if (e.key === 'Enter') {
  saveEditedCaseName(e);
  } else if (e.key === 'Escape') {
@@ -2307,7 +2307,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
      const header = document.createElement('div');
      header.style.marginBottom = '30px';
      header.style.paddingBottom = '20px';
-     header.style.borderBottom = '3px solid #f59e0b';
+     header.style.borderBottom = '3px solid #374151';
      header.innerHTML = `
        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
          <div>
@@ -2321,7 +2321,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
            }">${caseData.riskLevel || 'UNKNOWN'} RISK</div>
          </div>
          <div style="text-align: right;">
-           <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">Katharos</div>
+           <div style="font-size: 24px; font-weight: 700; color: #374151;">Katharos</div>
            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Compliance Intelligence</div>
          </div>
        </div>
@@ -2344,7 +2344,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
        summary.style.border = '1px solid #e2e8f0';
        summary.innerHTML = `
          <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-           <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+           <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
            Executive Summary
          </div>
          <div style="font-size: 13px; color: #334155;">${caseData.analysis.executiveSummary.overview || 'No summary available'}</div>
@@ -2366,7 +2366,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
        transcriptHeader.style.alignItems = 'center';
        transcriptHeader.style.gap = '8px';
        transcriptHeader.innerHTML = `
-         <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+         <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
          Investigation Transcript
        `;
        transcriptSection.appendChild(transcriptHeader);
@@ -2426,7 +2426,7 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
        docsSection.style.marginBottom = '30px';
        docsSection.innerHTML = `
          <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-           <span style="display: inline-block; width: 4px; height: 16px; background: #f59e0b; border-radius: 2px;"></span>
+           <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
            Attached Documents
          </div>
          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
@@ -7481,7 +7481,7 @@ setIsAnalyzing(false);
  case 'CRITICAL': return 'bg-red-500 text-white';
  case 'HIGH': return 'bg-gray-600 text-white';
  case 'MEDIUM': return 'bg-gray-500 text-white';
- case 'LOW': return 'bg-emerald-500 text-white';
+ case 'LOW': return 'bg-gray-1000 text-white';
  default: return 'bg-gray-500 text-white';
  }
  };
@@ -7491,7 +7491,7 @@ setIsAnalyzing(false);
  case 'CRITICAL': return 'border-l-4 border-red-500';
  case 'HIGH': return 'border-l-4 border-gray-600';
  case 'MEDIUM': return 'border-l-4 border-gray-500';
- case 'LOW': return 'border-l-4 border-emerald-500';
+ case 'LOW': return 'border-l-4 border-gray-400';
  default: return 'border-l-4 border-gray-400';
  }
  };
@@ -7502,7 +7502,7 @@ const getRiskBg = (level) => {
  case 'CRITICAL': return 'bg-red-50';
  case 'HIGH': return 'bg-gray-100';
  case 'MEDIUM': return 'bg-gray-100';
- case 'LOW': return 'bg-emerald-50';
+ case 'LOW': return 'bg-gray-100';
  default: return 'bg-gray-50';
  }
  };
@@ -7513,31 +7513,31 @@ const getRiskBg = (level) => {
  case 'CRITICAL': return 'bg-red-500 ring-red-200';
  case 'HIGH': return 'bg-gray-600 ring-gray-200';
  case 'MEDIUM': return 'bg-gray-500 ring-gray-200';
- case 'LOW': return 'bg-emerald-500 ring-emerald-200';
+ case 'LOW': return 'bg-gray-1000 ring-emerald-200';
  default: return 'bg-gray-400 ring-gray-200';
  }
  };
 
- // Section accent colors
+ // Section accent colors - monochrome
  const sectionColors = {
- summary: { border: 'border-l-4 border-blue-500', bg: 'bg-blue-50', icon: 'text-blue-500', header: 'text-blue-700' },
- redFlags: { border: 'border-l-4 border-red-500', bg: 'bg-red-50', icon: 'text-red-500', header: 'text-red-700' },
- entities: { border: 'border-l-4 border-purple-500', bg: 'bg-purple-50', icon: 'text-purple-500', header: 'text-purple-700' },
- timeline: { border: 'border-l-4 border-cyan-500', bg: 'bg-cyan-50', icon: 'text-cyan-500', header: 'text-cyan-700' },
- hypotheses: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-700' },
- documents: { border: 'border-l-4 border-emerald-500', bg: 'bg-emerald-50', icon: 'text-emerald-500', header: 'text-emerald-700' },
- crossRefs: { border: 'border-l-4 border-pink-500', bg: 'bg-pink-50', icon: 'text-pink-500', header: 'text-pink-700' },
- contradictions: { border: 'border-l-4 border-gray-600', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-700' },
- typologies: { border: 'border-l-4 border-indigo-500', bg: 'bg-indigo-50', icon: 'text-indigo-500', header: 'text-indigo-700' }
+ summary: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ redFlags: { border: 'border-l-4 border-gray-600', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ entities: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ timeline: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ hypotheses: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ documents: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ crossRefs: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ contradictions: { border: 'border-l-4 border-gray-600', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' },
+ typologies: { border: 'border-l-4 border-gray-500', bg: 'bg-gray-100', icon: 'text-gray-600', header: 'text-gray-800' }
  };
 
- // Confidence bar color
+ // Confidence bar color - monochrome
  const getConfidenceColor = (confidence) => {
  const pct = confidence * 100;
- if (pct <= 25) return 'bg-red-500';
+ if (pct <= 25) return 'bg-gray-700';
  if (pct <= 50) return 'bg-gray-600';
  if (pct <= 75) return 'bg-gray-500';
- return 'bg-emerald-500';
+ return 'bg-gray-400';
  };
 
  // Scroll chat to bottom when new messages arrive (only if user hasn't scrolled up)
@@ -7667,24 +7667,15 @@ ${analysisContext}`;
    );
  }
 
+// Show AuthPage as a separate page for unauthenticated users
+if (!isAuthenticated) {
+  return <AuthPage onSuccess={handleEmailSubmitted} />;
+}
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f3f3f3' }}>
 
- {/* Contact email link - bottom left (hidden on landing and disclosures pages) */}
-{currentPage !== 'noirLanding' && currentPage !== 'disclosures' && (
-<a
-  href="mailto:patrickjgoodridge@gmail.com"
-  title="Contact"
-  className={`fixed bottom-4 left-4 z-50 p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
->
-  <Mail className="w-5 h-5" />
-</a>
-)}
+ {/* Contact email link removed from new pages */}
 
-{/* Email Gate Modal - Shows when user clicks Enter without email */}
- {showEmailModal && (
-   <AuthPage onSuccess={handleEmailSubmitted} />
- )}
  {/* Import fonts */}
  <style>{`
  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -7790,7 +7781,7 @@ ${analysisContext}`;
  background: linear-gradient(90deg, 
  #10b981 0%, 
  #3b82f6 33%,
- #f59e0b 66%, 
+ #374151 66%, 
  #ef4444 100%
  );
  }
@@ -7836,8 +7827,8 @@ ${analysisContext}`;
 
  {/* Modern background effects */}
  <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
- <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
- <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+ <div className="absolute top-0 left-1/4 w-96 h-96 bg-gray-500/5 rounded-full blur-3xl" />
+ <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gray-500/5 rounded-full blur-3xl" />
  <div className="grid-bg absolute inset-0 opacity-60" />
  </div>
 
@@ -7861,10 +7852,10 @@ ${analysisContext}`;
  {/* New Search */}
  <button
  onClick={() => setKycPage('newSearch')}
- className="group bg-white border-2 border-gray-300 hover:border-emerald-500 rounded-xl p-8 text-left transition-all"
+ className="group bg-white border-2 border-gray-300 hover:border-gray-400 rounded-xl p-8 text-left transition-all"
  >
- <div className="w-12 h-12 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center mb-4 group-hover:bg-emerald-500/30">
- <Search className="w-6 h-6 text-emerald-500" />
+ <div className="w-12 h-12 bg-gray-100 border border-gray-300 rounded-xl flex items-center justify-center mb-4 group-hover:bg-gray-1000/30">
+ <Search className="w-6 h-6 text-gray-500" />
  </div>
  <h3 className="text-lg font-semibold leading-tight mb-2">New Search</h3>
  <p className="text-base text-gray-600 leading-relaxed">Screen an individual or entity against global watchlists</p>
@@ -7890,15 +7881,15 @@ ${analysisContext}`;
  {/* Projects */}
  <button
  onClick={() => setKycPage('projects')}
- className="group bg-white border-2 border-gray-300 hover:border-purple-500 rounded-xl p-8 text-left transition-all relative"
+ className="group bg-white border-2 border-gray-300 hover:border-gray-500 rounded-xl p-8 text-left transition-all relative"
  >
- <div className="w-12 h-12 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-500/30">
- <FolderPlus className="w-6 h-6 text-purple-500" />
+ <div className="w-12 h-12 bg-gray-100 border border-gray-300 rounded-xl flex items-center justify-center mb-4 group-hover:bg-gray-1000/30">
+ <FolderPlus className="w-6 h-6 text-gray-500" />
  </div>
  <h3 className="text-lg font-semibold leading-tight mb-2">Projects</h3>
  <p className="text-base text-gray-600 leading-relaxed">Organize screenings by client, deal, or review</p>
  {kycProjects.length > 0 && (
- <span className="absolute top-4 right-4 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-xs font-bold tracking-wide text-gray-900">
+ <span className="absolute top-4 right-4 w-6 h-6 bg-gray-1000 rounded-full flex items-center justify-center text-xs font-bold tracking-wide text-gray-900">
  {kycProjects.length}
  </span>
  )}
@@ -7912,7 +7903,7 @@ ${analysisContext}`;
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider">Total Screenings</p>
  </div>
  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
- <p className="text-2xl font-bold tracking-tight text-rose-4 leading-tight00">
+ <p className="text-2xl font-bold tracking-tight text-gray-600 leading-tight">
  {kycHistory.filter(h => h.result.overallRisk === 'HIGH' || h.result.overallRisk === 'CRITICAL').length}
  </p>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider">High Risk Hits</p>
@@ -7940,7 +7931,7 @@ ${analysisContext}`;
  </div>
  <button
  onClick={() => setKycPage('newSearch')}
- className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
+ className="flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
  >
  <Plus className="w-4 h-4" />
  New Search
@@ -7954,7 +7945,7 @@ ${analysisContext}`;
  <p className="text-base text-gray-600 leading-relaxed mb-4">Run your first KYC screening to see results here</p>
  <button
  onClick={() => setKycPage('newSearch')}
- className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
+ className="inline-flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
  >
  <Search className="w-4 h-4" />
  Start Screening
@@ -7969,21 +7960,21 @@ ${analysisContext}`;
  >
  <div className="flex items-center gap-4">
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' :
+ item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-gray-100 border border-gray-300' :
  item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
- 'bg-rose-50 border border-rose-200'
+ 'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-6 h-6 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+ item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-gray-500' :
  item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-rose-500'
+ 'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-6 h-6 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+ item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-gray-500' :
  item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-rose-500'
+ 'text-gray-600'
  }`} />
  )}
  </div>
@@ -8001,7 +7992,7 @@ ${analysisContext}`;
  {item.country && <span>{item.country}</span>}
  {/* Show which projects this is in */}
  {kycProjects.filter(p => p.screenings.includes(item.id)).map(p => (
- <span key={p.id} className="px-1.5 py-0.5 bg-purple-50 border border-purple-200 text-purple-600 rounded">
+ <span key={p.id} className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 rounded">
  {p.name}
  </span>
  ))}
@@ -8029,7 +8020,7 @@ ${analysisContext}`;
  key={p.id}
  onClick={() => addToProject(item.id, p.id)}
  className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-200 ${
- p.screenings.includes(item.id) ? 'text-purple-600' : 'text-gray-700'
+ p.screenings.includes(item.id) ? 'text-gray-600' : 'text-gray-700'
  }`}
  >
  {p.name} {p.screenings.includes(item.id) && '✓'}
@@ -8053,10 +8044,10 @@ ${analysisContext}`;
  {/* View Details */}
  <button
  onClick={() => viewHistoryItem(item)}
- className="p-2 hover:bg-emerald-50 border border-emerald-200 rounded-lg transition-colors"
+ className="p-2 hover:bg-gray-100 border border-gray-300 rounded-lg transition-colors"
  title="View Details"
  >
- <Eye className="w-4 h-4 text-emerald-500" />
+ <Eye className="w-4 h-4 text-gray-500" />
  </button>
  </div>
  </div>
@@ -8091,12 +8082,12 @@ ${analysisContext}`;
  onChange={(e) => setNewProjectName(e.target.value)}
  onKeyPress={(e) => e.key === 'Enter' && createProject()}
  placeholder="New project name (e.g., 'Acme Corp Due Diligence', 'Q1 2024 Client Onboarding')"
- className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-purple-500 transition-colors placeholder-gray-400"
+ className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-500 transition-colors placeholder-gray-400"
  />
  <button
  onClick={createProject}
  disabled={!newProjectName.trim()}
- className="bg-purple-500 hover:bg-purple-400 disabled:bg-gray-300 text-white disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
+ className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-white disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
  >
  <Plus className="w-4 h-4" />
  Create
@@ -8120,8 +8111,8 @@ ${analysisContext}`;
  onClick={() => setSelectedProject(project)}
  >
  <div className="flex items-center gap-4">
- <div className="w-12 h-12 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-center">
- <Folder className="w-6 h-6 text-purple-500" />
+ <div className="w-12 h-12 bg-gray-100 border border-gray-300 rounded-xl flex items-center justify-center">
+ <Folder className="w-6 h-6 text-gray-500" />
  </div>
  <div className="flex-1">
  <p className="font-semibold">{project.name}</p>
@@ -8132,9 +8123,9 @@ ${analysisContext}`;
  </div>
  <button
  onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}
- className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+ className="p-2 hover:bg-gray-100 border border-gray-300 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
  >
- <Trash2 className="w-4 h-4 text-rose-500" />
+ <Trash2 className="w-4 h-4 text-gray-600" />
  </button>
  <ChevronRight className="w-5 h-5 text-gray-400" />
  </div>
@@ -8162,7 +8153,7 @@ ${analysisContext}`;
  </div>
  <button
  onClick={() => setKycPage('newSearch')}
- className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
+ className="flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl"
  >
  <Plus className="w-4 h-4" />
  Add Screening
@@ -8187,21 +8178,21 @@ ${analysisContext}`;
  >
  <div className="flex items-center gap-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- item.result.overallRisk === 'LOW' ? 'bg-emerald-50 border border-emerald-200' :
+ item.result.overallRisk === 'LOW' ? 'bg-gray-100 border border-gray-300' :
  item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
- 'bg-rose-50 border border-rose-200'
+ 'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-5 h-5 ${
- item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+ item.result.overallRisk === 'LOW' ? 'text-gray-500' :
  item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-rose-500'
+ 'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-5 h-5 ${
- item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+ item.result.overallRisk === 'LOW' ? 'text-gray-500' :
  item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-rose-500'
+ 'text-gray-600'
  }`} />
  )}
  </div>
@@ -8214,10 +8205,10 @@ ${analysisContext}`;
  </span>
  <button
  onClick={() => removeFromProject(item.id, selectedProject.id)}
- className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg"
+ className="p-2 hover:bg-gray-100 border border-gray-300 rounded-lg"
  title="Remove from project"
  >
- <X className="w-4 h-4 text-rose-500" />
+ <X className="w-4 h-4 text-gray-600" />
  </button>
  <button
  onClick={() => generatePdfReport(item)}
@@ -8228,9 +8219,9 @@ ${analysisContext}`;
  </button>
  <button
  onClick={() => viewHistoryItem(item)}
- className="p-2 hover:bg-emerald-50 border border-emerald-200 rounded-lg"
+ className="p-2 hover:bg-gray-100 border border-gray-300 rounded-lg"
  >
- <Eye className="w-4 h-4 text-emerald-500" />
+ <Eye className="w-4 h-4 text-gray-500" />
  </button>
  </div>
  </div>
@@ -8261,7 +8252,7 @@ ${analysisContext}`;
  onClick={() => setKycType('individual')}
  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium tracking-wide transition-all ${
  kycType === 'individual' 
- ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500' 
+ ? 'bg-gray-100 border border-gray-300 text-gray-600 border border-gray-400' 
  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-gray-400'
  }`}
  >
@@ -8272,7 +8263,7 @@ ${analysisContext}`;
  onClick={() => setKycType('entity')}
  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium tracking-wide transition-all ${
  kycType === 'entity'
- ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500'
+ ? 'bg-gray-100 border border-gray-300 text-gray-600 border border-gray-400'
  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-gray-400'
  }`}
  >
@@ -8283,7 +8274,7 @@ ${analysisContext}`;
  onClick={() => setKycType('wallet')}
  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium tracking-wide transition-all ${
  kycType === 'wallet'
- ? 'bg-emerald-50 border border-emerald-200 text-emerald-600 border border-emerald-500'
+ ? 'bg-gray-100 border border-gray-300 text-gray-600 border border-gray-400'
  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-gray-400'
  }`}
  >
@@ -8298,7 +8289,7 @@ ${analysisContext}`;
  <div className="grid md:grid-cols-2 gap-4">
  <div className="md:col-span-2">
  <label className="block text-sm font-medium tracking-wide text-gray-600 tracking-wide mb-2">
- Full Name <span className="text-rose-600">*</span>
+ Full Name <span className="text-gray-600">*</span>
  </label>
  <input
  type="text"
@@ -8306,7 +8297,7 @@ ${analysisContext}`;
  onChange={(e) => setKycQuery(e.target.value)}
  onKeyPress={(e) => e.key === 'Enter' && runKycScreening()}
  placeholder="e.g., Viktor Vekselberg, Alisher Usmanov"
- className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400"
  />
  </div>
  
@@ -8320,7 +8311,7 @@ ${analysisContext}`;
  onChange={(e) => setKycYearOfBirth(e.target.value.replace(/\D/g, '').slice(0, 4))}
  placeholder="e.g., 1965"
  maxLength={4}
- className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400 mono"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400 mono"
  />
  </div>
  
@@ -8333,7 +8324,7 @@ ${analysisContext}`;
  value={kycCountry}
  onChange={(e) => setKycCountry(e.target.value)}
  placeholder="e.g., Russia, United States"
- className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400"
  />
  </div>
  
@@ -8346,7 +8337,7 @@ ${analysisContext}`;
  value={kycClientRef}
  onChange={(e) => setKycClientRef(e.target.value)}
  placeholder="Internal ID or reference number"
- className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400"
  />
  </div>
  </div>
@@ -8358,7 +8349,7 @@ ${analysisContext}`;
  <button
  onClick={runKycScreening}
  disabled={!kycQuery.trim()}
- className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+ className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
  <Search className="w-5 h-5" />
  Screen Individual
@@ -8372,12 +8363,12 @@ ${analysisContext}`;
  onChange={(e) => setKycQuery(e.target.value)}
  onKeyPress={(e) => e.key === 'Enter' && runKycScreening()}
  placeholder="Enter company name (e.g., Rusal, EN+ Group, PDVSA)"
- className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400"
+ className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400"
  />
  <button
  onClick={runKycScreening}
  disabled={!kycQuery.trim()}
- className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
+ className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
  >
  <Search className="w-5 h-5" />
  Screen
@@ -8387,7 +8378,7 @@ ${analysisContext}`;
  <div className="space-y-4">
  <div>
  <label className="block text-sm font-medium tracking-wide text-gray-600 mb-2">
- Wallet Address <span className="text-rose-600">*</span>
+ Wallet Address <span className="text-gray-600">*</span>
  </label>
  <input
  type="text"
@@ -8395,7 +8386,7 @@ ${analysisContext}`;
  onChange={(e) => setKycQuery(e.target.value)}
  onKeyPress={(e) => e.key === 'Enter' && runKycScreening()}
  placeholder="e.g., 0x8589427373D6D84E98730D7795D8f6f8731FDA16"
- className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400 font-mono text-sm"
+ className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400 font-mono text-sm"
  />
  </div>
  {kycQuery.trim() && (
@@ -8412,7 +8403,7 @@ ${analysisContext}`;
  <button
  onClick={runKycScreening}
  disabled={!kycQuery.trim()}
- className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+ className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
  <Shield className="w-5 h-5" />
  Screen Wallet
@@ -8474,7 +8465,7 @@ ${analysisContext}`;
  <p className="text-sm text-gray-600 leading-relaxed mb-2">No projects yet</p>
  <button
  onClick={() => { setAssigningToProject(null); setKycPage('projects'); }}
- className="text-xs text-purple-600 hover:text-purple-300"
+ className="text-xs text-gray-600 hover:text-gray-400"
  >
  Create a project →
  </button>
@@ -8495,7 +8486,7 @@ ${analysisContext}`;
  }}
  className={`w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between ${
  isInProject 
- ? 'bg-purple-50 border border-purple-200 text-purple-600' 
+ ? 'bg-gray-100 border border-gray-300 text-gray-600' 
  : 'hover:bg-gray-200 text-gray-700'
  }`}
  >
@@ -8535,7 +8526,7 @@ ${analysisContext}`;
  </button>
  <button
  onClick={() => { clearKycResults(); setKycPage('newSearch'); }}
- className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 px-4 py-2 rounded-xl text-sm font-medium tracking-wide transition-colors"
+ className="flex items-center gap-2 bg-white hover:bg-gray-100 text-gray-900 px-4 py-2 rounded-xl text-sm font-medium tracking-wide transition-colors"
  >
  <Plus className="w-4 h-4" />
  New Search
@@ -8545,40 +8536,40 @@ ${analysisContext}`;
 
  {/* No Risks Identified - Simplified View */}
  {kycResults.noRisksIdentified ? (
- <div className="bg-white border-2 border-emerald-500 rounded-2xl p-8 text-center">
- <div className="w-20 h-20 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto mb-6">
- <ShieldCheck className="w-10 h-10 text-emerald-500" />
+ <div className="bg-white border-2 border-gray-400 rounded-2xl p-8 text-center">
+ <div className="w-20 h-20 bg-gray-100 border border-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+ <ShieldCheck className="w-10 h-10 text-gray-500" />
  </div>
- <h3 className="text-2xl font-bold tracking-tight leading-tight text-emerald-600 mb-2 leading-tight">No Risks Identified</h3>
+ <h3 className="text-2xl font-bold tracking-tight leading-tight text-gray-600 mb-2 leading-tight">No Risks Identified</h3>
  <p className="text-base text-gray-600 leading-relaxed mb-6 max-w-md mx-auto">
  Screening of <span className="font-semibold tracking-wide text-gray-900">{kycResults.subject?.name}</span> returned no matches against sanctions lists, PEP databases, or adverse media sources.
  </p>
  
  <div className="inline-flex items-center gap-6 bg-gray-100/50 rounded-xl px-6 py-4 mb-6">
  <div className="text-center">
- <ShieldCheck className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+ <ShieldCheck className="w-5 h-5 text-gray-500 mx-auto mb-1" />
  <p className="text-xs text-gray-500">Sanctions</p>
- <p className="text-sm font-medium tracking-wide text-emerald-600">Clear</p>
+ <p className="text-sm font-medium tracking-wide text-gray-600">Clear</p>
  </div>
  <div className="w-px h-10 bg-gray-200" />
  <div className="text-center">
- <Users className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+ <Users className="w-5 h-5 text-gray-500 mx-auto mb-1" />
  <p className="text-xs text-gray-500">PEP</p>
- <p className="text-sm font-medium tracking-wide text-emerald-600">Clear</p>
+ <p className="text-sm font-medium tracking-wide text-gray-600">Clear</p>
  </div>
  <div className="w-px h-10 bg-gray-200" />
  <div className="text-center">
- <Newspaper className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+ <Newspaper className="w-5 h-5 text-gray-500 mx-auto mb-1" />
  <p className="text-xs text-gray-500">Adverse Media</p>
- <p className="text-sm font-medium tracking-wide text-emerald-600">Clear</p>
+ <p className="text-sm font-medium tracking-wide text-gray-600">Clear</p>
  </div>
  {kycType === 'entity' && (
  <>
  <div className="w-px h-10 bg-gray-200" />
  <div className="text-center">
- <GitBranch className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+ <GitBranch className="w-5 h-5 text-gray-500 mx-auto mb-1" />
  <p className="text-xs text-gray-500">50% Rule</p>
- <p className="text-sm font-medium tracking-wide text-emerald-600">Clear</p>
+ <p className="text-sm font-medium tracking-wide text-gray-600">Clear</p>
  </div>
  </>
  )}
@@ -8643,7 +8634,7 @@ ${analysisContext}`;
  {kycResults.riskFactors.map((rf, idx) => (
  <span key={idx} className={`px-2 py-1 rounded text-xs font-medium ${
  rf.severity === 'CRITICAL' ? 'bg-red-600/20 text-red-600' :
- rf.severity === 'HIGH' ? 'bg-rose-50 border border-rose-200 text-rose-600' :
+ rf.severity === 'HIGH' ? 'bg-gray-100 border border-gray-300 text-gray-600' :
  rf.severity === 'MEDIUM' ? 'bg-gray-100 border border-gray-300 text-gray-700' :
  'bg-gray-200 text-gray-600'
  }`}>
@@ -8658,30 +8649,30 @@ ${analysisContext}`;
  {kycResults.ownershipAnalysis && (
  <div className={`bg-white border-2 ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered 
- ? 'border-rose-500 bg-rose-500/5' 
+ ? 'border-gray-500 bg-gray-1000/5' 
  : 'border-gray-200'
  } rounded-xl p-6`}>
  <div className="flex items-center gap-3 mb-4">
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'bg-red-600/20'
- : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200'
+ : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'bg-gray-100 border border-gray-300'
  : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'bg-gray-100 border border-gray-300'
- : 'bg-emerald-50 border border-emerald-200'
+ : 'bg-gray-100 border border-gray-300'
  }`}>
  <GitBranch className={`w-6 h-6 ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'text-red-600'
- : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'text-rose-500'
+ : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'text-gray-600'
  : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'text-gray-600'
- : 'text-emerald-500'
+ : 'text-gray-500'
  }`} />
  </div>
  <div className="flex-1">
  <div className="flex items-center gap-3">
  <h4 className="font-semibold tracking-wide text-lg">OFAC 50% Rule Analysis</h4>
  {kycResults.ownershipAnalysis.fiftyPercentRuleTriggered && (
- <span className="px-3 py-1 bg-rose-500 text-white text-xs font-bold tracking-wide rounded-full animate-pulse">
+ <span className="px-3 py-1 bg-gray-1000 text-white text-xs font-bold tracking-wide rounded-full animate-pulse">
  BLOCKED BY OWNERSHIP
  </span>
  )}
@@ -8697,9 +8688,9 @@ ${analysisContext}`;
  <span className="text-sm font-medium tracking-wide">Aggregate Blocked Ownership</span>
  <span className={`mono tracking-wide font-bold ${
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 50 ? 'text-red-600' :
- kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'text-rose-500' :
+ kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'text-gray-600' :
  kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'text-gray-600' :
- 'text-emerald-500'
+ 'text-gray-500'
  }`}>
  {kycResults.ownershipAnalysis.aggregateBlockedOwnership}%
  </span>
@@ -8708,16 +8699,16 @@ ${analysisContext}`;
  <div
  className={`h-full transition-all duration-500 ${
  kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 50 ? 'bg-red-600' :
- kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'bg-rose-500' :
+ kycResults.ownershipAnalysis.aggregateBlockedOwnership >= 25 ? 'bg-gray-1000' :
  kycResults.ownershipAnalysis.aggregateBlockedOwnership > 0 ? 'bg-gray-600' :
- 'bg-emerald-500'
+ 'bg-gray-1000'
  }`}
  style={{ width: `${Math.min(kycResults.ownershipAnalysis.aggregateBlockedOwnership, 100)}%` }}
  />
  </div>
  <div className="flex justify-between mt-1 text-xs text-gray-500">
  <span>0%</span>
- <span className="text-rose-500 font-medium tracking-wide">50% Threshold</span>
+ <span className="text-gray-600 font-medium tracking-wide">50% Threshold</span>
  <span>100%</span>
  </div>
  </div>
@@ -8734,21 +8725,21 @@ ${analysisContext}`;
  {kycResults.ownershipAnalysis.beneficialOwners.map((owner, idx) => (
  <div key={idx} className={`p-5 rounded-lg border ${
  owner.sanctionStatus === 'SANCTIONED' ? 'bg-red-600/10 border-red-600/50' :
- owner.sanctionStatus === 'POTENTIAL_MATCH' ? 'bg-rose-500/10 border-rose-500/50' :
+ owner.sanctionStatus === 'POTENTIAL_MATCH' ? 'bg-gray-1000/10 border-gray-500/50' :
  'bg-gray-100/50 border-gray-300'
  }`}>
  <div className="flex items-center justify-between mb-2">
  <div className="flex items-center gap-3">
  <span className="font-medium tracking-wide">{owner.name}</span>
  {owner.pepStatus && (
- <span className="px-2 py-0.5 bg-purple-50 border border-purple-200 text-purple-600 text-xs rounded">PEP</span>
+ <span className="px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 text-xs rounded">PEP</span>
  )}
  {owner.sanctionStatus === 'SANCTIONED' && (
- <span className="px-2 py-0.5 bg-rose-500 text-white text-xs rounded font-bold">SANCTIONED</span>
+ <span className="px-2 py-0.5 bg-gray-1000 text-white text-xs rounded font-bold">SANCTIONED</span>
  )}
  </div>
  <span className={`mono tracking-wide font-bold text-lg ${
- owner.sanctionStatus === 'SANCTIONED' ? 'text-rose-500' : 'text-gray-700'
+ owner.sanctionStatus === 'SANCTIONED' ? 'text-gray-600' : 'text-gray-700'
  }`}>
  {owner.ownershipPercent}%
  </span>
@@ -8759,7 +8750,7 @@ ${analysisContext}`;
  {owner.ownershipType}
  </span>
  {owner.sanctionDetails && (
- <span className="text-rose-600">{owner.sanctionDetails}</span>
+ <span className="text-gray-600">{owner.sanctionDetails}</span>
  )}
  <span className="text-gray-400">Source: {owner.source}</span>
  </div>
@@ -8783,7 +8774,7 @@ ${analysisContext}`;
  <span className="text-xs text-gray-500">Total Entities</span>
  </div>
  <div className="text-center">
- <span className="block text-2xl font-bold text-rose-600">
+ <span className="block text-2xl font-bold text-gray-600">
  {kycResults.ownedCompanies.filter(c => c.ownershipPercent >= 50).length}
  </span>
  <span className="text-xs text-gray-500">Controlling (≥50%)</span>
@@ -8811,7 +8802,7 @@ ${analysisContext}`;
  <span>Controlling (≥50%)</span>
  </div>
  <div className="flex items-center gap-1">
- <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+ <span className="w-3 h-3 rounded-full bg-gray-1000"></span>
  <span>Minority</span>
  </div>
  </div>
@@ -8840,7 +8831,7 @@ ${analysisContext}`;
  <span>Direct Exposure</span>
  </div>
  <div className="flex items-center gap-1">
- <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+ <span className="w-3 h-3 rounded-full bg-gray-1000"></span>
  <span>No Exposure</span>
  </div>
  </div>
@@ -8874,18 +8865,18 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center gap-3 mb-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- kycResults.sanctions?.status === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'
+ kycResults.sanctions?.status === 'CLEAR' ? 'bg-gray-100 border border-gray-300' : 'bg-gray-100 border border-gray-300'
  }`}>
  {kycResults.sanctions?.status === 'CLEAR' ? (
- <ShieldCheck className="w-5 h-5 text-emerald-500" />
+ <ShieldCheck className="w-5 h-5 text-gray-500" />
  ) : (
- <ShieldAlert className="w-5 h-5 text-rose-500" />
+ <ShieldAlert className="w-5 h-5 text-gray-600" />
  )}
  </div>
  <div>
  <h4 className="font-semibold">Direct Screening sanctions</h4>
  <p className={`text-sm ${
- kycResults.sanctions?.status === 'CLEAR' ? 'text-emerald-600' : 'text-rose-600'
+ kycResults.sanctions?.status === 'CLEAR' ? 'text-gray-600' : 'text-gray-600'
  }`}>
  {kycResults.sanctions?.status === 'CLEAR' ? 'No direct matches found' : 
  kycResults.sanctions?.status === 'POTENTIAL_MATCH' ? 'Potential matches found' : 'Direct match found'}
@@ -8899,10 +8890,10 @@ ${analysisContext}`;
  <div key={idx} className="bg-gray-100/50 rounded-lg p-4">
  <div className="flex items-center justify-between mb-2">
  <div className="flex items-center gap-2">
- <Flag className="w-4 h-4 text-rose-500" />
- <span className="font-medium tracking-wide text-rose-600">{match.list}</span>
+ <Flag className="w-4 h-4 text-gray-600" />
+ <span className="font-medium tracking-wide text-gray-600">{match.list}</span>
  </div>
- <span className="mono text-xs tracking-wide bg-rose-50 border border-rose-200 text-rose-600 px-2 py-1 rounded">
+ <span className="mono text-xs tracking-wide bg-gray-100 border border-gray-300 text-gray-600 px-2 py-1 rounded">
  {match.matchScore}% match
  </span>
  </div>
@@ -8923,16 +8914,16 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center gap-3 mb-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- kycResults.pep?.status === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' : 'bg-purple-50 border border-purple-200'
+ kycResults.pep?.status === 'CLEAR' ? 'bg-gray-100 border border-gray-300' : 'bg-gray-100 border border-gray-300'
  }`}>
  <Users className={`w-5 h-5 ${
- kycResults.pep?.status === 'CLEAR' ? 'text-emerald-500' : 'text-purple-500'
+ kycResults.pep?.status === 'CLEAR' ? 'text-gray-500' : 'text-gray-500'
  }`} />
  </div>
  <div>
  <h4 className="font-semibold">PEP Status</h4>
  <p className={`text-sm ${
- kycResults.pep?.status === 'CLEAR' ? 'text-emerald-600' : 'text-purple-600'
+ kycResults.pep?.status === 'CLEAR' ? 'text-gray-600' : 'text-gray-600'
  }`}>
  {kycResults.pep?.status === 'CLEAR' ? 'Not a PEP' : 'PEP indicators found'}
  </p>
@@ -8953,7 +8944,7 @@ ${analysisContext}`;
  <p className="text-sm text-gray-600 leading-relaxed">
  {match.country} • {match.status}
  {match.relationshipToSubject && match.relationshipToSubject !== 'Self' && (
- <span className="text-purple-600"> • {match.relationshipToSubject}</span>
+ <span className="text-gray-600"> • {match.relationshipToSubject}</span>
  )}
  </p>
  </div>
@@ -8966,16 +8957,16 @@ ${analysisContext}`;
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center gap-3 mb-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-100 border border-gray-300'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'bg-gray-100 border border-gray-300' : 'bg-gray-100 border border-gray-300'
  }`}>
  <Newspaper className={`w-5 h-5 ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-500' : 'text-gray-600'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'text-gray-500' : 'text-gray-600'
  }`} />
  </div>
  <div className="flex-1">
  <h4 className="font-semibold">Adverse Media</h4>
  <p className={`text-sm ${
- kycResults.adverseMedia?.status === 'CLEAR' ? 'text-emerald-600' : 'text-gray-700'
+ kycResults.adverseMedia?.status === 'CLEAR' ? 'text-gray-600' : 'text-gray-700'
  }`}>
  {kycResults.adverseMedia?.status === 'CLEAR' ? 'No adverse media found' : 
  `${kycResults.adverseMedia?.totalArticles || kycResults.adverseMedia?.articles?.length || 0} article(s) found`}
@@ -9005,7 +8996,7 @@ ${analysisContext}`;
  <div className="flex items-center gap-2 shrink-0 ml-2">
  {article.relevance && (
  <span className={`text-xs px-2 py-0.5 rounded ${
- article.relevance === 'HIGH' ? 'bg-rose-50 border border-rose-200 text-rose-600' :
+ article.relevance === 'HIGH' ? 'bg-gray-100 border border-gray-300 text-gray-600' :
  article.relevance === 'MEDIUM' ? 'bg-gray-100 border border-gray-300 text-gray-700' :
  'bg-gray-200 text-gray-600'
  }`}>
@@ -9030,7 +9021,7 @@ ${analysisContext}`;
  {kycResults.regulatoryGuidance && (
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h4 className="font-semibold tracking-wide mb-4 flex items-center gap-2">
- <Scale className="w-5 h-5 text-blue-500" />
+ <Scale className="w-5 h-5 text-gray-500" />
  Regulatory Guidance
  </h4>
  <div className="grid md:grid-cols-3 gap-4">
@@ -9041,8 +9032,8 @@ ${analysisContext}`;
  <div className="bg-gray-100/50 rounded-lg p-4">
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">DUE DILIGENCE LEVEL</p>
  <p className={`text-sm font-medium ${
- kycResults.regulatoryGuidance.dueDiligenceRequired === 'EDD' ? 'text-rose-600' :
- kycResults.regulatoryGuidance.dueDiligenceRequired === 'SDD' ? 'text-emerald-600' :
+ kycResults.regulatoryGuidance.dueDiligenceRequired === 'EDD' ? 'text-gray-600' :
+ kycResults.regulatoryGuidance.dueDiligenceRequired === 'SDD' ? 'text-gray-600' :
  'text-gray-700'
  }`}>
  {kycResults.regulatoryGuidance.dueDiligenceRequired === 'EDD' ? 'Enhanced Due Diligence' :
@@ -9054,7 +9045,7 @@ ${analysisContext}`;
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">FILING REQUIREMENTS</p>
  <div className="flex flex-wrap gap-1">
  {kycResults.regulatoryGuidance.filingRequirements?.map((req, idx) => (
- <span key={idx} className="text-xs px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-600 rounded">
+ <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 rounded">
  {req}
  </span>
  )) || <span className="text-sm text-gray-600 leading-relaxed">None required</span>}
@@ -9074,13 +9065,13 @@ ${analysisContext}`;
  <div className="space-y-3">
  {kycResults.recommendations.map((rec, idx) => (
  <div key={idx} className={`p-5 rounded-lg border-l-4 ${
- rec.priority === 'HIGH' ? 'border-rose-500 bg-rose-500/5' :
+ rec.priority === 'HIGH' ? 'border-gray-500 bg-gray-1000/5' :
  rec.priority === 'MEDIUM' ? 'border-gray-600 bg-gray-600/5' :
  'border-gray-400 bg-gray-100/50'
  }`}>
  <div className="flex items-center gap-2 mb-1">
  <span className={`text-xs font-bold tracking-wide mono ${
- rec.priority === 'HIGH' ? 'text-rose-600' :
+ rec.priority === 'HIGH' ? 'text-gray-600' :
  rec.priority === 'MEDIUM' ? 'text-gray-700' :
  'text-gray-600'
  }`}>
@@ -9117,7 +9108,7 @@ ${analysisContext}`;
        <div className="flex items-center gap-2 min-w-0">
          {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin shrink-0" />}
          {job.status === 'queued' && <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-         {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+         {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
          {job.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
          <span className={`truncate ${job.status === 'complete' ? 'text-gray-400' : job.status === 'error' ? 'text-red-400' : 'text-gray-100'}`}>{job.query}</span>
        </div>
@@ -9127,9 +9118,9 @@ ${analysisContext}`;
          {job.status === 'complete' && (
            <>
              <span className={`text-xs font-bold ${
-               job.riskLevel === 'LOW' ? 'text-emerald-400' : job.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
+               job.riskLevel === 'LOW' ? 'text-gray-400' : job.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
              }`}>{job.riskLevel}</span>
-             <button onClick={() => viewSearchResult(job.id)} className="text-blue-400 hover:text-blue-300 text-xs">View</button>
+             <button onClick={() => viewSearchResult(job.id)} className="text-gray-400 hover:text-gray-300 text-xs">View</button>
            </>
          )}
          {job.status === 'error' && (
@@ -9150,11 +9141,11 @@ ${analysisContext}`;
  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col-reverse gap-3 z-[60]">
  {completionNotifs.slice(0, 2).map(notif => (
    <div key={notif.id} className={`bg-white dark:bg-gray-800 border rounded-xl shadow-2xl min-w-[360px] p-4 animate-[slideInRight_0.3s_ease-out] ${
-     notif.riskLevel === 'LOW' ? 'border-emerald-300' : notif.riskLevel === 'MEDIUM' ? 'border-gray-400' : 'border-red-300'
+     notif.riskLevel === 'LOW' ? 'border-gray-400' : notif.riskLevel === 'MEDIUM' ? 'border-gray-400' : 'border-red-300'
    }`}>
      <div className="flex items-center justify-between mb-1">
        <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+         <CheckCircle2 className="w-3.5 h-3.5 text-gray-500" />
          Screening Complete
        </span>
        <button onClick={() => setCompletionNotifs(prev => prev.filter(n => n.id !== notif.id))} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
@@ -9162,14 +9153,14 @@ ${analysisContext}`;
      <p className="text-gray-900 font-semibold text-sm mt-1">{notif.entityName}</p>
      <div className="flex items-center justify-between mt-2">
        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-         notif.riskLevel === 'LOW' ? 'bg-emerald-100 text-emerald-700' : notif.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' : 'bg-red-100 text-red-700'
+         notif.riskLevel === 'LOW' ? 'bg-gray-200 text-gray-700' : notif.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' : 'bg-red-100 text-red-700'
        }`}>{notif.riskLevel} ({notif.riskScore}/100)</span>
        <button
          onClick={() => {
            viewSearchResult(notif.id);
            setCompletionNotifs(prev => prev.filter(n => n.id !== notif.id));
          }}
-         className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+         className="text-gray-600 hover:text-gray-800 text-sm font-medium flex items-center gap-1"
        >
          View Results <ArrowRight className="w-3.5 h-3.5" />
        </button>
@@ -9195,9 +9186,9 @@ ${analysisContext}`;
      ) : (
        <div className="flex items-center justify-between mt-2">
          <span className={`text-sm font-bold ${
-           toast.riskLevel === 'LOW' ? 'text-emerald-400' : toast.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
+           toast.riskLevel === 'LOW' ? 'text-gray-400' : toast.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
          }`}>{toast.riskLevel} ({toast.riskScore}/100)</span>
-         <button onClick={() => { viewSearchResult(toast.id); setSearchToasts(prev => prev.filter(t => t.id !== toast.id)); }} className="text-blue-400 hover:text-blue-300 text-sm">View &rarr;</button>
+         <button onClick={() => { viewSearchResult(toast.id); setSearchToasts(prev => prev.filter(t => t.id !== toast.id)); }} className="text-gray-400 hover:text-gray-300 text-sm">View &rarr;</button>
        </div>
      )}
    </div>
@@ -9209,431 +9200,53 @@ ${analysisContext}`;
 
  {/* Noir Landing Page */}
  {currentPage === 'noirLanding' && (
- <div className="fade-in min-h-screen -mt-24">
- {/* Top Right Navigation */}
- <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
- {/* Contact Link */}
- <a
-   href="mailto:patrickjgoodridge@gmail.com"
-   className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-sm hover:shadow-md hover:border-gray-600/50 transition-all text-sm text-gray-700 hover:text-gray-700"
- >
-   <Mail className="w-4 h-4" />
-   <span className="hidden sm:block">Contact</span>
- </a>
-
- {/* Workspace Indicator */}
- {isConfigured && user && workspaceName && (
- <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full text-xs text-gray-600">
- <Building2 className="w-3.5 h-3.5 text-gray-600" />
- <span className="font-medium">{workspaceName}</span>
- </div>
+   <LandingPage
+     isConfigured={isConfigured}
+     user={user}
+     workspaceName={workspaceName}
+     signOut={signOut}
+     startNewCase={(searchTerm) => {
+       if (searchTerm) {
+         setConversationInput(searchTerm);
+       }
+       startNewCase();
+     }}
+     setCurrentPage={setCurrentPage}
+   />
  )}
 
- {/* User Menu */}
- {isConfigured && user && (
- <div className="relative group">
- <button className="flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full pl-3 pr-4 py-2 shadow-sm hover:shadow-md transition-all">
- <div className="w-7 h-7 bg-gray-600 rounded-full flex items-center justify-center">
- <span className="text-white text-sm font-semibold">{user.email?.charAt(0).toUpperCase()}</span>
- </div>
- <span className="text-sm text-gray-700 hidden sm:block">{user.email?.split('@')[0]}</span>
- <ChevronDown className="w-4 h-4 text-gray-400" />
- </button>
- <div className="absolute right-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
- <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-48">
- <div className="px-3 py-2 border-b border-gray-100">
- <p className="text-xs text-gray-500">Signed in as</p>
- <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
- </div>
- <button
- onClick={signOut}
- className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
- >
- <LogOut className="w-4 h-4" />
- Sign Out
- </button>
- </div>
- </div>
- </div>
- )}
- </div>
- {/* Hero Section - Full viewport height */}
- <div className="min-h-screen flex flex-col justify-center px-6 relative">
- <div className="max-w-4xl mx-auto text-center">
- {/* Katharos Logo */}
- <div className="mb-8">
- <span
- className="text-5xl md:text-6xl font-bold tracking-tight text-gray-600"
- style={{
- textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
- }}
- >
- Katharos
- </span>
- </div>
 
- {/* Headline */}
- <h1 className="text-6xl md:text-7xl font-bold tracking-tight mb-6 text-gray-900 leading-tight">
- The AI investigator for<br />
- <span className="text-gray-600" style={{textShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'}}>
- financial crime
- </span>
- </h1>
+{/* Product Page */}
+{currentPage === 'product' && (
+   <ProductPage
+     isConfigured={isConfigured}
+     user={user}
+     signOut={signOut}
+     startNewCase={(searchTerm) => {
+       if (searchTerm) {
+         setConversationInput(searchTerm);
+       }
+       startNewCase();
+     }}
+     setCurrentPage={setCurrentPage}
+   />
+)}
 
- <p className="text-xl text-gray-600 mb-4 max-w-2xl mx-auto leading-relaxed">
- Reduce investigation time from hours to minutes
- </p>
- <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
- Close up to 10x more cases per week
- </p>
-
- {/* CTAs */}
- <div className="flex items-center justify-center">
- <button
- onClick={startNewCase}
- className="group bg-gray-600 hover:bg-gray-500 text-white font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-gray-500/20 flex items-center gap-2"
- >
- <span>Run a Search</span>
- <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
- </button>
- </div>
- </div>
-
- {/* Scroll indicator - hides after scrolling */}
- {!hasScrolled && (
- <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-2 text-gray-400 animate-bounce transition-opacity duration-500">
- <span className="text-sm font-medium">Learn more</span>
- <ChevronDown className="w-5 h-5" />
- </div>
- )}
- </div>
-
- {/* Features Section */}
- <div className="py-20 px-6 bg-gray-50">
- <div className="max-w-7xl mx-auto">
- <div className="text-center mb-16">
- <h2 className="text-4xl font-bold tracking-tight mb-4">How Katharos works</h2>
- <p className="text-lg text-gray-600">Upload documents, ask questions, get answers with evidence</p>
- </div>
-
- <div className="grid md:grid-cols-2 gap-6 mb-12">
- {/* Cipher Card */}
- <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-gray-500/10 hover:border-gray-600/50 transition-all duration-300 group">
- <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-gray-200/50 group-hover:scale-105 transition-transform">
- <Shield className="w-8 h-8 text-gray-600" />
- </div>
- <h3 className="text-2xl font-bold mb-3">Upload & Analyze</h3>
- <p className="text-gray-600 leading-relaxed">
- Drop in PDFs, emails, financials, or any documents. Katharos reads everything and surfaces what matters.
- </p>
- </div>
-
- {/* Scout Card */}
- <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg shadow-gray-200/50 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-500/50 transition-all duration-300 group">
- <div className="w-16 h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-emerald-200/50 group-hover:scale-105 transition-transform">
- <Search className="w-8 h-8 text-emerald-500" />
- </div>
- <h3 className="text-2xl font-bold mb-3">Ask & Investigate</h3>
- <p className="text-gray-600 leading-relaxed">
- Chat naturally about your case. Follow up on findings, request deeper analysis, explore leads.
- </p>
- </div>
- </div>
-
- {/* Additional Feature Cards */}
- <div className="grid md:grid-cols-4 gap-6">
- {/* Analyzing documents Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-blue-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Users className="w-6 h-6 text-blue-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Analyzing documents</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Automatically identify people, companies, and relationships from unstructured documents</p>
- </div>
-
- {/* Typology Detection Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-purple-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Target className="w-6 h-6 text-purple-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Typology Detection</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Identify financial crime patterns hidden in any data format</p>
- </div>
-
- {/* Network Mapping Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-cyan-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Network className="w-6 h-6 text-cyan-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Network Mapping</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Visualize corporate structures and ownership chains to uncover hidden connections</p>
- </div>
-
- {/* Risk Scoring Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-rose-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <AlertTriangle className="w-6 h-6 text-rose-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Risk Scoring</h4>
- <p className="text-sm text-gray-600 leading-relaxed">AI-powered risk assessment with confidence scores and supporting evidence</p>
- </div>
-
- {/* Document Intelligence Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <FileText className="w-6 h-6 text-gray-600" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Document Intelligence</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Process emails, financials, contracts, and corporate filings in any format</p>
- </div>
-
- {/* Generating hypotheses Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-yellow-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Lightbulb className="w-6 h-6 text-yellow-600" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Generating hypotheses</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Generate investigative leads and theories based on pattern analysis</p>
- </div>
-
- {/* Screening sanctions Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-red-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Globe className="w-6 h-6 text-red-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Global Sanctions</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Screen against OFAC, EU, UK, UN sanctions lists with alias matching</p>
- </div>
-
- {/* Report Generation Card */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-indigo-500/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Download className="w-6 h-6 text-indigo-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Export Reports</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Generate comprehensive PDF reports ready for regulatory submission</p>
- </div>
- </div>
- </div>
- </div>
-
- {/* Customer Types Section */}
- <div className="pt-4 pb-20 px-6">
- <div className="max-w-6xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">Designed by Investigators, for Investigators</h2>
- </div>
-
- <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
- {/* Fintech */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-violet-50 to-violet-100 border border-violet-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Zap className="w-6 h-6 text-violet-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Fintech</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Payment processors, neobanks, and crypto platforms scaling compliance operations</p>
- </div>
-
- {/* Risk Consulting */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Scale className="w-6 h-6 text-blue-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Risk Consulting</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Advisory firms conducting due diligence and forensic investigations for clients</p>
- </div>
-
- {/* Banking */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Building2 className="w-6 h-6 text-emerald-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Banking & Asset Management</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Financial institutions managing AML compliance and fraud investigation teams</p>
- </div>
-
- {/* Corporates */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Briefcase className="w-6 h-6 text-slate-500" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Corporates</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Internal audit and corporate security teams investigating misconduct and fraud</p>
- </div>
-
- {/* Public Sector */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <Flag className="w-6 h-6 text-gray-700" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Public Sector</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Government agencies and regulators enforcing financial crime laws</p>
- </div>
-
- {/* Private Investigators */}
- <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-md shadow-gray-200/50 hover:shadow-lg hover:border-gray-600/30 transition-all duration-300 group">
- <div className="w-12 h-12 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
- <UserSearch className="w-6 h-6 text-gray-600" />
- </div>
- <h4 className="font-bold text-gray-900 mb-2">Private Investigators</h4>
- <p className="text-sm text-gray-600 leading-relaxed">Licensed investigators conducting asset traces and background research</p>
- </div>
- </div>
- </div>
- </div>
-
- {/* Now There's Katharos Section */}
- <div className="py-20 px-6 bg-gray-900">
- <div className="max-w-4xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-2 text-white">Investigations Are Stuck at Human Speed</h2>
- <p className="text-lg text-gray-400">Katharos Makes Them Faster, Deeper, Better</p>
- </div>
- <div className="grid md:grid-cols-2 gap-8 mb-12">
- <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8">
- <div className="text-gray-400 text-sm font-semibold mb-3">BEFORE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- An analyst spends <span className="text-white font-semibold">6-8 hours</span> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
- </p>
- <div className="flex items-center gap-2 text-rose-400">
- <div className="w-2 h-2 rounded-full bg-rose-400" />
- <span className="text-sm font-semibold">6-8 hours per case</span>
- </div>
- </div>
- <div className="bg-gray-600/10 border border-gray-600/30 rounded-2xl p-8">
- <div className="text-gray-600 text-sm font-semibold mb-3">WITH MARLOWE</div>
- <p className="text-gray-300 leading-relaxed mb-4">
- Katharos processes the same documents <span className="text-white font-semibold">in seconds</span> and outputs <span className="text-white font-semibold">3x the conclusions</span> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
- </p>
- <div className="flex items-center gap-2 text-emerald-400">
- <div className="w-2 h-2 rounded-full bg-emerald-400" />
- <span className="text-sm font-semibold">30 minutes per case</span>
- </div>
- </div>
- </div>
- </div>
- </div>
-
- {/* Investigation Pipeline Graphic */}
- <div className="py-20 px-6 bg-gray-100">
- <div className="max-w-5xl mx-auto">
- <div className="text-center mb-12">
- <h2 className="text-4xl font-bold tracking-tight mb-4">The Investigation Pipeline</h2>
- </div>
-
- {/* Pipeline Graphic */}
- <div className="relative">
- {/* Connection line */}
- <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 via-emerald-300 to-gray-500 -translate-y-1/2 hidden md:block" style={{left: '8%', right: '8%'}} />
-
- <div className="grid grid-cols-2 md:grid-cols-6 gap-4 relative">
- {/* Already Automated - Collection */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Collection</span>
- </div>
-
- {/* Already Automated - Processing */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Processing</span>
- </div>
-
- {/* Already Automated - Basic Analysis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center mb-3 relative z-10">
- <CheckCircle2 className="w-8 h-8 text-emerald-500" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Basic Analysis</span>
- </div>
-
- {/* Katharos - Advanced Analysis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
- <Zap className="w-8 h-8 text-gray-600" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Advanced Analysis</span>
- </div>
-
- {/* Katharos - Synthesis */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
- <Zap className="w-8 h-8 text-gray-600" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Synthesis</span>
- </div>
-
- {/* Katharos - Interpretation */}
- <div className="flex flex-col items-center">
- <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-600 flex items-center justify-center mb-3 relative z-10 shadow-lg shadow-gray-500/20">
- <Zap className="w-8 h-8 text-gray-600" />
- </div>
- <span className="text-sm font-semibold text-gray-900 text-center">Interpretation</span>
- </div>
- </div>
- </div>
-
- {/* Legend */}
- <div className="flex justify-center gap-8 mt-10">
- <div className="flex items-center gap-2">
- <div className="w-4 h-4 rounded-full bg-emerald-400" />
- <span className="text-sm text-gray-600">Already automated by existing tools</span>
- </div>
- <div className="flex items-center gap-2">
- <div className="w-4 h-4 rounded-full bg-gray-600" />
- <span className="text-sm text-gray-600">Now automated by Katharos</span>
- </div>
- </div>
- </div>
- </div>
-
- {/* CTA Section */}
- <div className="py-24 px-6 bg-gray-900">
- <div className="max-w-4xl mx-auto text-center">
- <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-10 text-white leading-tight">
- Ready to accelerate your investigations?
- </h2>
- <button
- onClick={startNewCase}
- className="group bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-8 py-4 rounded-xl transition-all hover:shadow-lg hover:shadow-gray-500/20 inline-flex items-center gap-2"
- >
- <span>Get Started</span>
- <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
- </button>
- </div>
- </div>
-
- {/* Footer */}
- <footer className="py-8 px-6 bg-gray-950 border-t border-gray-800">
- <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
- <div className="flex items-center gap-2">
-   <span className="text-xl font-bold text-gray-600">Katharos</span>
-   <span className="text-sm text-gray-500">© {new Date().getFullYear()}</span>
- </div>
- <div className="flex items-center gap-6">
- <button
-   onClick={() => setCurrentPage('disclosures')}
-   className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
- >
-   <FileText className="w-4 h-4" />
-   <span>Disclosures</span>
- </button>
- <a
-   href="mailto:patrickjgoodridge@gmail.com"
-   className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
- >
-   <Mail className="w-4 h-4" />
-   <span>Contact Us</span>
- </a>
- </div>
- </div>
- </footer>
- </div>
- )}
+{/* About Page */}
+{currentPage === 'about' && (
+   <AboutPage
+     isConfigured={isConfigured}
+     user={user}
+     signOut={signOut}
+     startNewCase={(searchTerm) => {
+       if (searchTerm) {
+         setConversationInput(searchTerm);
+       }
+       startNewCase();
+     }}
+     setCurrentPage={setCurrentPage}
+   />
+)}
 
  {/* Disclosures Page */}
  {currentPage === 'disclosures' && (
@@ -9723,464 +9336,322 @@ ${analysisContext}`;
 
  {/* Case Management Page */}
  {currentPage === 'existingCases' && (
- <>
- {/* Navigation Buttons - Upper Left Corner */}
- <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
- {/* Home Button with tooltip */}
+ <div className="min-h-screen" style={{ background: '#1a1a1a' }}>
+ {/* Sidebar */}
+ <div className="fixed top-0 left-0 h-full flex flex-col items-center pt-5 gap-2" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
+{/* Katharos Logo - clickable to go home */}
+<button
+onClick={goToLanding}
+title="Go to Home"
+style={{
+  fontFamily: "Georgia, serif",
+  fontSize: '16px',
+  fontWeight: 500,
+  color: '#ffffff',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '8px 0',
+  marginBottom: '8px',
+  letterSpacing: '-0.5px'
+}}
+>
+K
+</button>
+{/* Divider */}
+<div style={{ width: '24px', height: '1px', background: '#3a3a3a', marginBottom: '8px' }} />
+ {/* Home Button */}
  <div className="relative group">
- <button
- onClick={goToLanding}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- >
- <Home className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ <button onClick={goToLanding} className="katharos-sidebar-icon" title="Home">
+ <Home className="w-[18px] h-[18px]" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Home</div>
  </div>
  </div>
-
- {/* New Case Button with tooltip */}
+ {/* Cases - Active */}
  <div className="relative group">
- <button
- onClick={() => setCurrentPage('newCase')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- >
- <Plus className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ <button className="katharos-sidebar-icon active" title="Case Management">
+ <FileText className="w-[18px] h-[18px]" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">New Case</div>
  </div>
- </div>
+{/* New Case */}
+<div className="relative group">
+<button onClick={startNewCase} className="katharos-sidebar-icon" title="New Case">
+<Plus className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>New Case</div>
+</div>
+</div>
+{/* Spacer */}
+<div style={{ flex: 1 }} />
+{/* Contact */}
+<div className="relative group mb-5">
+<a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
+<Mail className="w-[18px] h-[18px]" />
+</a>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Contact</div>
+</div>
+</div>
  </div>
 
  {!viewingCaseId ? (
- <div className="fade-in pt-6 px-36">
- <div className="flex items-center justify-between mb-8">
+ <div className="fade-in" style={{ marginLeft: '56px' }}>
+ {/* Page Header */}
+ <div style={{ padding: '28px 32px 0' }}>
+ <div className="flex items-start justify-between">
  <div>
- <h2 className="text-2xl font-bold tracking-tight leading-tight">Case Management</h2>
- <p className="text-gray-600">{cases.length} investigation{cases.length !== 1 ? 's' : ''} on file</p>
+ <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.3px' }}>Case Management</h1>
+ <p style={{ color: '#6b6b6b', fontSize: '13px', marginTop: '4px' }}>{cases.length} investigation{cases.length !== 1 ? 's' : ''} on file</p>
  </div>
- <button
- onClick={startNewCase}
- className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold tracking-wide px-4 py-2 rounded-xl transition-colors"
- >
- <Plus className="w-4 h-4" />
+ <button onClick={startNewCase} className="katharos-btn primary">
+ <Plus className="w-[14px] h-[14px]" />
  New Case
  </button>
  </div>
-
- {cases.length === 0 ? (
- <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
- <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
- <FolderOpen className="w-10 h-10 text-gray-400" />
  </div>
- <h3 className="text-xl font-bold tracking-tight mb-2 leading-tight">No Cases Yet</h3>
- <p className="text-base text-gray-600 leading-relaxed mb-6 max-w-md mx-auto">
- Start your first investigation by uploading evidence documents. 
- Katharos will analyze and organize your findings.
+
+ {/* Content */}
+ <div style={{ padding: '24px 32px' }}>
+ {cases.length === 0 ? (
+ <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '6px', padding: '80px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+ <div style={{ width: '48px', height: '48px', background: '#1a1a1a', border: '1px solid #3a3a3a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+ <Folder style={{ width: '22px', height: '22px', color: '#858585' }} />
+ </div>
+ <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', marginBottom: '6px' }}>No Cases Yet</h3>
+ <p style={{ fontSize: '13px', color: '#6b6b6b', maxWidth: '280px', lineHeight: 1.5 }}>
+ Start your first investigation by entering a name or uploading evidence documents.
  </p>
- <button
- onClick={startNewCase}
- className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors"
- >
- <Plus className="w-5 h-5" />
+ <button onClick={startNewCase} className="katharos-btn primary" style={{ marginTop: '24px' }}>
+ <Plus className="w-[14px] h-[14px]" />
  Start First Case
  </button>
  </div>
  ) : (
- <div className="grid gap-4">
- {cases.map((caseItem) => (
- <div key={caseItem.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden transition-all">
- {/* Case Header - Click to view case details */}
- <div
- onClick={() => { if (editingCaseId !== caseItem.id) { setViewingCaseId(caseItem.id); markCaseAsViewed(caseItem.id); } }}
- className="p-6 cursor-pointer hover:bg-gray-50 transition-all group"
+ <table style={{ width: '100%', borderCollapse: 'collapse', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '6px', overflow: 'hidden' }}>
+ <thead>
+ <tr>
+ <th style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b6b6b', textAlign: 'left', padding: '12px 20px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}>Name</th>
+ <th style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b6b6b', textAlign: 'left', padding: '12px 20px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}>Created</th>
+ <th style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b6b6b', textAlign: 'left', padding: '12px 20px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}>Messages</th>
+ <th style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b6b6b', textAlign: 'left', padding: '12px 20px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}>Risk</th>
+ <th style={{ width: '40px', padding: '12px 20px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}></th>
+ </tr>
+ </thead>
+ <tbody>
+ {cases.map((caseItem, idx) => (
+ <tr 
+ key={caseItem.id} 
+ onClick={() => { setViewingCaseId(caseItem.id); markCaseAsViewed(caseItem.id); }}
+ style={{ borderBottom: idx < cases.length - 1 ? '1px solid #3a3a3a' : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+ onMouseEnter={(e) => e.currentTarget.style.background = '#333333'}
+ onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
  >
- <div className="flex items-start gap-4">
- <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${
- caseItem.riskLevel === 'CRITICAL' ? 'bg-red-600/20' :
- caseItem.riskLevel === 'HIGH' ? 'bg-rose-50 border border-rose-200' :
- caseItem.riskLevel === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
- 'bg-emerald-50 border border-emerald-200'
- }`}>
- <Folder className={`w-7 h-7 ${
- caseItem.riskLevel === 'CRITICAL' ? 'text-red-600' :
- caseItem.riskLevel === 'HIGH' ? 'text-rose-500' :
- caseItem.riskLevel === 'MEDIUM' ? 'text-gray-600' :
- 'text-emerald-500'
- }`} />
- </div>
-
- <div className="flex-1 min-w-0">
- <div className="flex items-center gap-3 mb-2">
- {editingCaseId === caseItem.id ? (
- <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
- <input
- ref={editInputRef}
- type="text"
- value={editingCaseName}
- onChange={(e) => setEditingCaseName(e.target.value)}
- onKeyDown={handleEditKeyPress}
- onBlur={saveEditedCaseName}
- className="flex-1 bg-gray-100 border border-gray-600 rounded-lg px-3 py-1.5 text-gray-900 text-lg font-semibold leading-tight focus:outline-none"
- />
- <button
- onClick={saveEditedCaseName}
- className="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
- >
- <Check className="w-4 h-4 text-gray-900" />
- </button>
- </div>
- ) : (
- <>
- <h3 className="text-lg font-semibold leading-tight">{caseItem.name}</h3>
- {/* Show streaming indicator if this case is actively streaming */}
- {getCaseStreamingState(caseItem.id).isStreaming && (
-   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs font-medium">
-     <Loader2 className="w-3 h-3 animate-spin" />
-     Analyzing
-   </span>
- )}
- <button
- onClick={(e) => startEditingCase(caseItem, e)}
- className="p-1.5 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
- >
- <Pencil className="w-4 h-4 text-gray-500 hover:text-gray-600" />
- </button>
-{!caseItem.viewed && caseItem.riskLevel !== 'UNKNOWN' && (
-  <span className="px-2 py-0.5 rounded text-xs font-bold tracking-wide bg-blue-100 text-blue-700 animate-pulse">
-    NEW
-  </span>
-)}
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide ${getRiskColor(caseItem.riskLevel)}`}>
- {caseItem.riskLevel} RISK
- </span>
- </>
- )}
- </div>
-
- <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-3">
- {caseItem.analysis?.executiveSummary?.overview || 'No summary available'}
- </p>
-
- <div className="flex items-center gap-4 text-xs text-gray-500">
- <span className="flex items-center gap-1">
- <FileText className="w-3.5 h-3.5" />
- {caseItem.files.length} docs
- </span>
- <span className="flex items-center gap-1">
- <MessageCircle className="w-3.5 h-3.5" />
- {caseItem.conversationTranscript?.length || 0} messages
- </span>
- <span className="flex items-center gap-1">
- <Download className="w-3.5 h-3.5" />
- {caseItem.pdfReports?.length || 0} reports
- </span>
- <span className="flex items-center gap-1">
- <Calendar className="w-3.5 h-3.5" />
- {new Date(caseItem.createdAt).toLocaleDateString()}
- </span>
- {caseItem.createdByEmail && (
- <span className="flex items-center gap-1" title={caseItem.createdByEmail}>
- <User className="w-3.5 h-3.5" />
- {caseItem.createdByEmail.split('@')[0]}
- </span>
- )}
- <button
- onClick={(e) => { e.stopPropagation(); toggleMonitoring(caseItem.id); }}
- className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full transition-colors ${
-   caseItem.monitoringEnabled
-     ? 'bg-blue-100 text-blue-700 border border-blue-200'
-     : (darkMode ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')
- }`}
- >
- <Eye className="w-3 h-3" />
- {caseItem.monitoringEnabled ? 'Monitoring' : 'Monitor'}
- </button>
- </div>
- {caseItem.monitoringEnabled && caseItem.monitoringLastRun && (
- <div className="text-[10px] text-gray-400 mt-1">
- Last checked: {new Date(caseItem.monitoringLastRun).toLocaleDateString()}
- </div>
- )}
- </div>
-
- <div className="flex items-center gap-2">
- <button
- onClick={(e) => deleteCase(caseItem.id, e)}
- className="p-2 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
- >
- <Trash2 className="w-4 h-4 text-rose-500" />
- </button>
- <ChevronRight className="w-5 h-5 text-gray-400" />
- </div>
- </div>
- </div>
- </div>
+ <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</td>
+ <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
+ <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
+ <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f59e0b' : caseItem.riskLevel === 'MEDIUM' ? '#a1a1a1' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
+ <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+ <ChevronRight style={{ width: '16px', height: '16px', color: '#6b6b6b' }} />
+ </td>
+ </tr>
  ))}
- </div>
+ </tbody>
+ </table>
  )}
  </div>
+ </div>
  ) : (
- /* Case Detail View */
+ /* Case Detail View - Katharos Style */
  (() => {
    const viewingCase = getCaseById(viewingCaseId);
    if (!viewingCase) return null;
    return (
-     <div className="fade-in pt-6 px-8 max-w-6xl mx-auto">
-       {/* Back button and header */}
-       <div className="flex items-center gap-4 mb-6">
+     <div className="fade-in flex flex-col h-full" style={{ marginLeft: '56px', background: '#1a1a1a' }}>
+       {/* Case Header */}
+       <div style={{ padding: '24px 32px', borderBottom: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', gap: '16px' }}>
          <button
            onClick={() => setViewingCaseId(null)}
-           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+           style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #3a3a3a', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
          >
-           <ChevronLeft className="w-5 h-5 text-gray-600" />
+           <ChevronLeft style={{ width: '16px', height: '16px', color: '#a1a1a1' }} />
          </button>
-         <div className="flex-1">
-           <h2 className="text-2xl font-bold tracking-tight leading-tight">{viewingCase.name}</h2>
-           <p className="text-gray-500 text-sm">Created {new Date(viewingCase.createdAt).toLocaleDateString()}</p>
+         <div style={{ flex: 1 }}>
+           <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.3px' }}>{viewingCase.name}</h2>
+           <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Created {new Date(viewingCase.createdAt).toLocaleDateString()}</p>
          </div>
-         <div className="flex items-center gap-3">
-           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getRiskColor(viewingCase.riskLevel)}`}>
-             {viewingCase.riskLevel} RISK
+         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+           <span style={{
+             fontSize: '11px',
+             fontWeight: 600,
+             letterSpacing: '1px',
+             textTransform: 'uppercase',
+             padding: '6px 14px',
+             borderRadius: '4px',
+             background: viewingCase.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.1)' : 'rgba(133,133,133,0.1)',
+             color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : '#858585',
+             border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(133,133,133,0.25)'
+           }}>
+             {viewingCase.riskLevel || 'UNKNOWN'} RISK
            </span>
            <button
              onClick={() => exportCaseAsPdf(viewingCase)}
              disabled={isGeneratingCaseReport}
-             className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg transition-colors border border-gray-300 disabled:opacity-50"
+             className="katharos-btn secondary"
            >
              {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
              {isGeneratingCaseReport ? 'Generating...' : 'Generate Report'}
            </button>
-           <button
-             onClick={() => loadCase(viewingCase)}
-             className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-4 py-2 rounded-lg transition-colors"
-           >
+           <button onClick={() => loadCase(viewingCase)} className="katharos-btn primary">
              <MessageCircle className="w-4 h-4" />
              Continue Investigation
            </button>
          </div>
        </div>
 
-       {/* Stats Cards */}
-       <div className="grid grid-cols-4 gap-4 mb-8">
-         <div className="bg-white border border-gray-200 rounded-xl p-4">
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-               <FileText className="w-5 h-5 text-blue-500" />
-             </div>
-             <div>
-               <p className="text-2xl font-bold">{viewingCase.files?.length || 0}</p>
-               <p className="text-xs text-gray-500">Documents</p>
-             </div>
-           </div>
+       {/* Stats Row */}
+       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: '#3a3a3a', borderBottom: '1px solid #3a3a3a' }}>
+         <div style={{ background: '#1a1a1a', padding: '20px 24px' }}>
+           <p style={{ fontSize: '24px', fontWeight: 600, color: '#ffffff' }}>{viewingCase.files?.length || 0}</p>
+           <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Documents</p>
          </div>
-         <div className="bg-white border border-gray-200 rounded-xl p-4">
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-               <MessageCircle className="w-5 h-5 text-gray-600" />
-             </div>
-             <div>
-               <p className="text-2xl font-bold">{viewingCase.conversationTranscript?.length || 0}</p>
-               <p className="text-xs text-gray-500">Messages</p>
-             </div>
-           </div>
+         <div style={{ background: '#1a1a1a', padding: '20px 24px' }}>
+           <p style={{ fontSize: '24px', fontWeight: 600, color: '#ffffff' }}>{viewingCase.conversationTranscript?.length || 0}</p>
+           <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Messages</p>
          </div>
-         <div className="bg-white border border-gray-200 rounded-xl p-4">
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
-               <Download className="w-5 h-5 text-emerald-500" />
-             </div>
-             <div>
-               <p className="text-2xl font-bold">{viewingCase.pdfReports?.length || 0}</p>
-               <p className="text-xs text-gray-500">Reports</p>
-             </div>
-           </div>
+         <div style={{ background: '#1a1a1a', padding: '20px 24px' }}>
+           <p style={{ fontSize: '24px', fontWeight: 600, color: '#ffffff' }}>{viewingCase.pdfReports?.length || 0}</p>
+           <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Reports</p>
          </div>
-         <div className="bg-white border border-gray-200 rounded-xl p-4">
-           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
-               <Network className="w-5 h-5 text-purple-500" />
-             </div>
-             <div>
-               <p className="text-2xl font-bold">{viewingCase.networkArtifacts?.length || 0}</p>
-               <p className="text-xs text-gray-500">Network Maps</p>
-             </div>
-           </div>
+         <div style={{ background: '#1a1a1a', padding: '20px 24px' }}>
+           <p style={{ fontSize: '24px', fontWeight: 600, color: '#ffffff' }}>{viewingCase.networkArtifacts?.length || 0}</p>
+           <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Network Maps</p>
          </div>
        </div>
 
        {/* Main Content Grid */}
-       <div className="grid grid-cols-3 gap-6">
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', flex: 1 }}>
          {/* Left Column - Chat History */}
-         <div className="col-span-2 space-y-6">
-           {/* Chat History */}
-           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-               <h3 className="font-semibold flex items-center gap-2">
-                 <MessageCircle className="w-4 h-4 text-gray-600" />
+         <div style={{ padding: '24px 28px', borderRight: '1px solid #3a3a3a' }}>
+           <div className="katharos-panel">
+             <div className="katharos-panel-header">
+               <span className="katharos-panel-title">
+                 <MessageCircle className="w-[14px] h-[14px]" />
                  Conversation History
-               </h3>
+               </span>
                {viewingCase.conversationTranscript?.length > 0 && (
-                 <span className="text-xs text-gray-500">{viewingCase.conversationTranscript.length} messages</span>
+                 <span className="katharos-panel-meta">{viewingCase.conversationTranscript.length} message{viewingCase.conversationTranscript.length !== 1 ? 's' : ''}</span>
                )}
              </div>
-             <div className="max-h-[500px] overflow-y-auto">
+             <div className="katharos-panel-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                {viewingCase.conversationTranscript?.length > 0 ? (
                  viewingCase.conversationTranscript.map((msg, idx) => (
-                   <div key={idx} className={`p-4 border-b border-gray-50 last:border-0 ${msg.role === 'user' ? 'bg-gray-100/30' : ''}`}>
-                     <div className="flex items-center gap-2 mb-2">
-                       <span className={`text-xs font-semibold ${msg.role === 'user' ? 'text-gray-700' : 'text-gray-600'}`}>
+                   <div key={idx} style={{ marginBottom: idx < viewingCase.conversationTranscript.length - 1 ? '16px' : 0 }}>
+                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', fontSize: '14px' }}>
+                       <span style={{ fontWeight: 600, color: '#ffffff', fontSize: '12px' }}>
                          {msg.role === 'user' ? 'You' : 'Katharos'}
                        </span>
                        {msg.timestamp && (
-                         <span className="text-xs text-gray-400">{new Date(msg.timestamp).toLocaleString()}</span>
+                         <span style={{ fontSize: '11px', color: '#6b6b6b', fontFamily: "'JetBrains Mono', monospace" }}>
+                           {new Date(msg.timestamp).toLocaleString()}
+                         </span>
                        )}
                      </div>
-                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{stripVizData(msg.content)}</p>
+                     <p style={{ fontSize: '14px', color: '#a1a1a1', marginTop: '4px', whiteSpace: 'pre-wrap' }}>{stripVizData(msg.content)}</p>
                    </div>
                  ))
                ) : (
-                 <div className="p-8 text-center text-gray-500">
-                   <MessageCircle className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                   <p className="text-sm">No conversation history yet</p>
-                   <p className="text-xs text-gray-400 mt-1">Start an investigation to begin chatting</p>
+                 <div className="katharos-panel-empty">
+                   <MessageCircle className="w-6 h-6" />
+                   <div>No conversation history yet</div>
+                   <div style={{ fontSize: '12px', marginTop: '4px' }}>Start an investigation to begin chatting</div>
                  </div>
                )}
              </div>
            </div>
-
-           {/* Network Artifacts */}
-           {viewingCase.networkArtifacts?.length > 0 && (
-             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-               <div className="px-5 py-4 border-b border-gray-100">
-                 <h3 className="font-semibold flex items-center gap-2">
-                   <Network className="w-4 h-4 text-purple-500" />
-                   Network Maps
-                 </h3>
-               </div>
-               <div className="p-4 grid gap-4">
-                 {viewingCase.networkArtifacts.map((artifact, idx) => (
-                   <div key={artifact.id || idx} className="border border-gray-200 rounded-lg p-4">
-                     <div className="flex items-center justify-between mb-2">
-                       <span className="font-medium text-sm">{artifact.name || `Network Map ${idx + 1}`}</span>
-                       <span className="text-xs text-gray-500">{new Date(artifact.createdAt).toLocaleString()}</span>
-                     </div>
-                     {artifact.imageData && (
-                       <img src={artifact.imageData} alt={artifact.name} className="w-full rounded-lg border border-gray-100" />
-                     )}
-                   </div>
-                 ))}
-               </div>
-             </div>
-           )}
          </div>
 
          {/* Right Column - Reports & Documents */}
-         <div className="space-y-6">
-           {/* PDF Reports */}
-           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-             <div className="px-5 py-4 border-b border-gray-100">
-               <h3 className="font-semibold flex items-center gap-2">
-                 <Download className="w-4 h-4 text-emerald-500" />
+         <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+           {/* Saved Reports */}
+           <div className="katharos-panel">
+             <div className="katharos-panel-header">
+               <span className="katharos-panel-title">
+                 <Download className="w-[14px] h-[14px]" />
                  Saved Reports
-               </h3>
+               </span>
              </div>
-             <div className="p-4">
-               {viewingCase.pdfReports?.length > 0 ? (
-                 <div className="space-y-3">
-                   {viewingCase.pdfReports.map((report, idx) => (
-                     <div key={report.id || idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                       <div className="flex items-center gap-3 min-w-0">
-                         <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${
-                           report.riskLevel === 'CRITICAL' ? 'bg-red-100' :
-                           report.riskLevel === 'HIGH' ? 'bg-rose-100' :
-                           report.riskLevel === 'MEDIUM' ? 'bg-gray-200' :
-                           'bg-emerald-100'
-                         }`}>
-                           <FileText className={`w-4 h-4 ${
-                             report.riskLevel === 'CRITICAL' ? 'text-red-600' :
-                             report.riskLevel === 'HIGH' ? 'text-rose-500' :
-                             report.riskLevel === 'MEDIUM' ? 'text-gray-600' :
-                             'text-emerald-500'
-                           }`} />
-                         </div>
-                         <div className="min-w-0">
-                           <p className="text-sm font-medium text-gray-900 truncate">{report.name}</p>
-                           <p className="text-xs text-gray-500">{new Date(report.createdAt).toLocaleString()}</p>
-                         </div>
+             {viewingCase.pdfReports?.length > 0 ? (
+               <div className="katharos-panel-body">
+                 {viewingCase.pdfReports.map((report, idx) => (
+                   <div key={report.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', background: '#333333', borderRadius: '4px', marginBottom: idx < viewingCase.pdfReports.length - 1 ? '8px' : 0 }}>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                       <FileText style={{ width: '14px', height: '14px', color: '#858585' }} />
+                       <div>
+                         <p style={{ fontSize: '13px', color: '#ffffff' }}>{report.name}</p>
+                         <p style={{ fontSize: '11px', color: '#6b6b6b' }}>{new Date(report.createdAt).toLocaleString()}</p>
                        </div>
-                       <a
-                         href={report.dataUri}
-                         download={report.name}
-                         className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-700 font-medium shrink-0"
-                       >
-                         <Download className="w-4 h-4" />
-                       </a>
                      </div>
-                   ))}
-                 </div>
-               ) : (
-                 <div className="text-center py-6 text-gray-500">
-                   <Download className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                   <p className="text-sm">No reports generated yet</p>
-                   <p className="text-xs text-gray-400 mt-1">Generate reports during your investigation</p>
-                 </div>
-               )}
-             </div>
+                     <a href={report.dataUri} download={report.name} style={{ color: '#858585' }}>
+                       <Download style={{ width: '14px', height: '14px' }} />
+                     </a>
+                   </div>
+                 ))}
+               </div>
+             ) : (
+               <div className="katharos-panel-empty">
+                 <Download className="w-6 h-6" />
+                 <div>No reports generated yet</div>
+                 <div style={{ fontSize: '12px', marginTop: '4px' }}>Generate reports during your investigation</div>
+               </div>
+             )}
            </div>
 
            {/* Uploaded Documents */}
-           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-             <div className="px-5 py-4 border-b border-gray-100">
-               <h3 className="font-semibold flex items-center gap-2">
-                 <FileText className="w-4 h-4 text-blue-500" />
+           <div className="katharos-panel">
+             <div className="katharos-panel-header">
+               <span className="katharos-panel-title">
+                 <FileText className="w-[14px] h-[14px]" />
                  Uploaded Documents
-               </h3>
+               </span>
              </div>
-             <div className="p-4">
-               {viewingCase.files?.length > 0 ? (
-                 <div className="space-y-2">
-                   {viewingCase.files.map((file, idx) => (
-                     <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                       <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                       <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                     </div>
-                   ))}
-                 </div>
-               ) : (
-                 <div className="text-center py-6 text-gray-500">
-                   <FileText className="w-8 h-8 mx-auto mb-3 text-gray-300" />
-                   <p className="text-sm">No documents uploaded</p>
-                 </div>
-               )}
-             </div>
+             {viewingCase.files?.length > 0 ? (
+               <div className="katharos-panel-body">
+                 {viewingCase.files.map((file, idx) => (
+                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0' }}>
+                     <FileText style={{ width: '14px', height: '14px', color: '#858585' }} />
+                     <span style={{ fontSize: '13px', color: '#a1a1a1' }}>{file.name}</span>
+                   </div>
+                 ))}
+               </div>
+             ) : (
+               <div className="katharos-panel-empty">
+                 <FileText className="w-6 h-6" />
+                 <div>No documents uploaded</div>
+               </div>
+             )}
            </div>
 
-           {/* Case Actions */}
-           <div className="bg-white border border-gray-200 rounded-xl p-4">
-             <h3 className="font-semibold mb-4">Actions</h3>
-             <div className="space-y-2">
-               <button
-                 onClick={() => loadCase(viewingCase)}
-                 className="w-full flex items-center gap-2 justify-center bg-gray-600 hover:bg-gray-500 text-gray-900 font-semibold px-4 py-2.5 rounded-lg transition-colors"
-               >
-                 <MessageCircle className="w-4 h-4" />
-                 Continue Investigation
-               </button>
-               <button
-                 onClick={() => {
-                   if (window.confirm('Are you sure you want to delete this case?')) {
-                     deleteCase(viewingCase.id);
-                     setViewingCaseId(null);
-                   }
-                 }}
-                 className="w-full flex items-center gap-2 justify-center border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium px-4 py-2.5 rounded-lg transition-colors"
-               >
-                 <Trash2 className="w-4 h-4" />
-                 Delete Case
-               </button>
-             </div>
+           {/* Action Buttons */}
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+             <button onClick={() => loadCase(viewingCase)} className="katharos-btn primary action">
+               <MessageCircle className="w-4 h-4" />
+               Continue Investigation
+             </button>
+             <button
+               onClick={() => {
+                 if (window.confirm('Are you sure you want to delete this case?')) {
+                   deleteCase(viewingCase.id);
+                   setViewingCaseId(null);
+                 }
+               }}
+               className="katharos-btn danger action"
+             >
+               <Trash2 className="w-4 h-4" />
+               Delete Case
+             </button>
            </div>
          </div>
        </div>
@@ -10188,60 +9659,65 @@ ${analysisContext}`;
    );
  })()
  )}
- </>
+ </div>
  )}
 
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className={`h-screen flex ${darkMode ? 'bg-gray-900' : 'bg-[#f8f8f8]'}`}>
- {/* Left Icon Bar */}
- <div className={`w-12 border-r ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-300'} flex flex-col items-center pt-3 gap-2 overflow-visible`}>
+ <div className="h-screen flex" style={{ background: '#1a1a1a' }}>
+ {/* Left Icon Bar - Katharos Sidebar */}
+ <div className="flex flex-col items-center pt-5 gap-2 overflow-visible" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
+{/* Katharos Logo - clickable to go home */}
+<button
+onClick={goToLanding}
+title="Go to Home"
+style={{
+  fontFamily: "Georgia, serif",
+  fontSize: '16px',
+  fontWeight: 500,
+  color: '#ffffff',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '8px 0',
+  marginBottom: '8px',
+  letterSpacing: '-0.5px'
+}}
+>
+K
+</button>
+{/* Divider */}
+<div style={{ width: '24px', height: '1px', background: '#3a3a3a', marginBottom: '8px' }} />
  {/* Home icon - at top */}
  <div className="relative group">
  <button
  onClick={goToLanding}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
+ className="katharos-sidebar-icon active"
  title="Home"
  >
- <Home className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
+ <Home className="w-[18px] h-[18px]" />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
+ <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Home</div>
  </div>
  </div>
  {/* Case Management folder - below home */}
  <div className="relative group overflow-visible">
  <button
  onClick={() => setCurrentPage('existingCases')}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors relative overflow-visible`}
+ className="katharos-sidebar-icon relative overflow-visible"
  title="Case Management"
  >
- <FolderOpen className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
+ <FolderOpen className="w-[18px] h-[18px]" />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#ef4444',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
- </div>
- </div>
- {/* Dark Mode Toggle */}
- <div className="relative group">
- <button
- onClick={() => setDarkMode(!darkMode)}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
- >
- {darkMode ? (
- <Sun className="w-5 h-5 text-gray-500 group-hover:text-gray-400 transition-colors" />
- ) : (
- <Moon className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
- )}
- </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">{darkMode ? 'Light Mode' : 'Dark Mode'}</div>
+ <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Case Management</div>
  </div>
  </div>
  {conversationStarted && (
@@ -10256,16 +9732,27 @@ ${analysisContext}`;
  setActiveCase(null);
  setCurrentPage('newCase');
  }}
- className={`p-2 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
+ className="katharos-sidebar-icon"
  title="New Case"
  >
- <Plus className={`w-5 h-5 ${darkMode ? 'text-gray-400 group-hover:text-gray-200' : 'text-gray-400 group-hover:text-gray-600'}`} />
+ <Plus className="w-[18px] h-[18px]" />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">New Case</div>
+ <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>New Case</div>
  </div>
  </div>
  )}
+{/* Spacer */}
+<div style={{ flex: 1 }} />
+{/* Contact */}
+<div className="relative group mb-5">
+<a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
+<Mail className="w-[18px] h-[18px]" />
+</a>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Contact</div>
+</div>
+</div>
  </div>
 
  {/* Main Content Area */}
@@ -10273,25 +9760,27 @@ ${analysisContext}`;
  {/* Chat Area - Centered input before conversation starts, bottom after */}
  {!conversationStarted ? (
  /* Centered Input - Before Conversation */
- <div className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
- <div className="w-full max-w-2xl -mt-32 relative">
+ <div className="flex-1 flex flex-col items-center justify-center px-4 pb-12" style={{ background: '#1a1a1a' }}>
+ <div className="w-full max-w-[580px] -mt-32 relative">
  <h1
-  className="text-3xl font-semibold text-center mb-8 tracking-tight text-gray-700 drop-shadow-sm"
+  className="text-center mb-8"
   style={{
-    textShadow: '0 2px 8px rgba(217, 119, 6, 0.1)',
-    letterSpacing: '-0.02em'
+    fontSize: '28px',
+    fontWeight: 500,
+    color: '#ffffff',
+    letterSpacing: '-0.5px'
   }}
 >{currentHeader}</h1>
 
- {/* Centered Input Box */}
- <div className={`${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'} rounded-2xl border p-5 shadow-lg`}>
+ {/* Centered Input Box - Katharos Style */}
+ <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '10px', padding: '20px' }}>
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
- <div key={idx} className={`flex items-center gap-2 ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'} border px-3 py-1.5 rounded-lg text-sm`}>
+ <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#333333', border: '1px solid #3a3a3a', color: '#d4d4d4', padding: '6px 12px', borderRadius: '6px', fontSize: '14px' }}>
  <FileText className="w-4 h-4" />
  <span className="max-w-40 truncate">{file.name}</span>
- <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500">
+ <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} style={{ color: '#858585' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}>
  <X className="w-3 h-3" />
  </button>
  </div>
@@ -10306,26 +9795,24 @@ ${analysisContext}`;
  if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
- // ALWAYS create a new case for each new search/upload from the main input
- // This ensures each search appears as a separate case in Case Management
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
  sendConversationMessage(newCaseId, conversationInput, files);
  }
  }}
  placeholder="Enter a name, describe a case, or upload files."
  rows={3}
- className={`w-full resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} text-lg`}
+ style={{ width: '100%', resize: 'none', background: 'transparent', border: 'none', outline: 'none', fontSize: '15px', color: '#ffffff', lineHeight: 1.5, fontFamily: "'Inter', -apple-system, sans-serif" }}
  autoFocus
  />
- <div className={`flex items-center justify-between mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #3a3a3a' }}>
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
  <div className="relative group">
- <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
- <Plus className="w-5 h-5" />
+ <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
+ <Plus className="w-4 h-4" />
  </button>
  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-   <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>Upload Materials</div>
+   <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Upload Materials</div>
  </div>
  </div>
  </div>
@@ -10333,14 +9820,12 @@ ${analysisContext}`;
  onClick={() => {
  if (conversationInput.trim() || files.length > 0) {
  setConversationStarted(true);
- // ALWAYS create a new case for each new search/upload from the main input
- // This ensures each search appears as a separate case in Case Management
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
  sendConversationMessage(newCaseId, conversationInput, files);
  }
  }}
  disabled={!conversationInput.trim() && files.length === 0}
- className={`px-4 py-2 bg-gray-600 hover:bg-gray-700 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-xl transition-colors flex items-center gap-2`}
+ className="katharos-send-btn"
  >
  <Send className="w-4 h-4" />
  </button>
@@ -10366,7 +9851,7 @@ ${analysisContext}`;
  </div>
  </div>
  {suggestionsExpanded && (
- <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
+ <div ref={suggestionsDropdownRef} className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="grid grid-cols-2 gap-2">
    {[
    "Vladimir Putin",
@@ -10384,7 +9869,7 @@ ${analysisContext}`;
      setConversationInput(suggestion);
      setSuggestionsExpanded(false);
    }}
-   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
+   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
    >
    {suggestion}
    </button>
@@ -10411,7 +9896,7 @@ ${analysisContext}`;
  </div>
  </div>
  {samplesExpanded && (
- <div className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
+ <div ref={samplesDropdownRef} className="mt-3 w-full flex justify-center z-20 animate-in fade-in slide-in-from-top-2 duration-200" style={{position: 'absolute', left: 0, right: 0, top: '100%'}}>
    <div className="flex gap-2">
    <button
      onClick={() => loadSampleDocument('/samples/Bulk-KYC-Customer-Screening.csv', 'Bulk-KYC-Customer-Screening.csv')}
@@ -10437,26 +9922,35 @@ ${analysisContext}`;
  </div>
  </div>
  ) : (
- /* After Conversation Started - Messages with Bottom Input */
+ /* After Conversation Started - Messages with Bottom Input - Katharos Style */
  <>
- <div className="flex-1 overflow-y-auto px-4 py-3" onScroll={handleScrollContainer}>
- <div className="max-w-3xl mx-auto space-y-3">
+ <div className="flex-1 flex overflow-hidden" style={{ background: '#1a1a1a' }}>
+ {/* Main Content Area */}
+ <div className="flex-1 overflow-y-auto p-7" onScroll={handleScrollContainer}>
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {(() => {
  return conversationMessages.map((msg, idx) => (
- <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
- <div className={`max-w-2xl ${msg.role === 'user' ? 'bg-gray-600 text-white rounded-2xl px-5 py-3' : ''}`}>
- {msg.role === 'user' && msg.files && msg.files.length > 0 && (
+ <div key={idx}>
+ {msg.role === 'user' ? (
+ /* User message - chat bubble on the right */
+ <div className="flex justify-end mb-6">
+ <div style={{ background: 'transparent', border: '1px solid #3a3a3a', borderRadius: '16px 16px 4px 16px', padding: '12px 20px', color: '#d4d4d4', maxWidth: '300px' }}>
+ {msg.files && msg.files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-2">
  {msg.files.map((fileName, fIdx) => (
- <span key={fIdx} className="text-xs bg-white/20 px-2 py-1 rounded flex items-center gap-1">
+ <span key={fIdx} className="flex items-center gap-1" style={{ fontSize: '12px', background: '#333333', padding: '4px 8px', borderRadius: '4px', color: '#a1a1a1' }}>
  <FileText className="w-3 h-3" />
  {fileName}
  </span>
  ))}
  </div>
  )}
- {msg.role === 'assistant' ? (
- <>
+ <span className="text-sm">{msg.content}</span>
+ </div>
+ </div>
+ ) : (
+ /* Assistant message - full width analysis result */
+ <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  <MarkdownRenderer
    content={stripVizData(msg.content)}
@@ -10474,7 +9968,7 @@ ${analysisContext}`;
  />
  </div>
  {/* Action buttons for all assistant messages */}
- <div className={`flex justify-end gap-2 mt-4 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+ <div className="flex justify-end gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
  <button
  onClick={() => {
    navigator.clipboard.writeText(msg.content).then(() => {
@@ -10482,9 +9976,9 @@ ${analysisContext}`;
      setTimeout(() => setCopiedMessageId(null), 2000);
    });
  }}
- className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} rounded-lg font-medium transition-colors text-sm`}
+ className="katharos-btn secondary"
  >
- {copiedMessageId === idx ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+ {copiedMessageId === idx ? <Check className="w-4 h-4" style={{ color: '#22c55e' }} /> : <Copy className="w-4 h-4" />}
  {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
  {/* Export PDF button for screening results and substantial analysis */}
@@ -10492,23 +9986,101 @@ ${analysisContext}`;
  <button
  onClick={() => exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content))}
  disabled={isGeneratingCaseReport}
- className={`inline-flex items-center gap-2 px-3 py-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-900 hover:bg-gray-800'} text-white rounded-lg font-medium transition-colors shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+ className="katharos-btn primary"
+ style={{ opacity: isGeneratingCaseReport ? 0.5 : 1 }}
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  Export PDF
  </button>
  )}
  </div>
- </>
- ) : (
- <div className="whitespace-pre-wrap leading-relaxed">
- {msg.content}
  </div>
  )}
  </div>
- </div>
  ));
 })()}
+
+{/* Keep Exploring Panel - shows after last message when not streaming */}
+{currentCaseId && !getCaseStreamingState(currentCaseId).isStreaming && conversationMessages?.length > 0 && (
+  <div style={{
+    marginTop: '32px',
+    padding: '20px 24px',
+    background: '#1a1a1a',
+    borderRadius: '12px',
+    border: '1px solid #2d2d2d'
+  }}>
+    {/* Header */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      marginBottom: '16px'
+    }}>
+      <Search style={{ width: '18px', height: '18px', color: '#858585' }} />
+      <span style={{
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#ffffff',
+        letterSpacing: '-0.2px'
+      }}>Keep Exploring</span>
+    </div>
+
+    {/* Suggestion Items */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {[
+        'Run additional sanctions screening',
+        'Check for related entities',
+        'Search for adverse media coverage',
+        'Analyze corporate ownership structure'
+      ].map((suggestion, idx) => (
+        <button
+          key={idx}
+          onClick={() => {
+            setConversationInput(suggestion);
+            if (bottomInputRef.current) {
+              bottomInputRef.current.focus();
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '12px 14px',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            width: '100%',
+            transition: 'background-color 0.15s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2d2d2d'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          <div style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            background: '#2d2d2d',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Search style={{ width: '14px', height: '14px', color: '#858585' }} />
+          </div>
+          <span style={{
+            flex: 1,
+            fontSize: '14px',
+            color: '#d4d4d4',
+            fontFamily: "'Inter', -apple-system, sans-serif"
+          }}>{suggestion}</span>
+          <ChevronRight style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+        </button>
+      ))}
+    </div>
+  </div>
+)}
 
  {/* Show streaming indicator for current case */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
@@ -10539,28 +10111,31 @@ ${analysisContext}`;
  </div>
  </div>
 
+
+ </div>
+
  {/* Bottom Input */}
- <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} px-4 py-4`}>
+ <div className="px-4 py-4" style={{ borderTop: '1px solid #3a3a3a', background: '#1a1a1a' }}>
  <div className="max-w-3xl mx-auto">
  {files.length > 0 && (
  <div className="flex flex-wrap gap-2 mb-3">
  {files.map((file, idx) => (
- <div key={idx} className={`flex items-center gap-2 ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'} px-3 py-1.5 rounded-lg text-sm`}>
+ <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#333333', border: '1px solid #3a3a3a', color: '#d4d4d4', padding: '6px 12px', borderRadius: '6px', fontSize: '14px' }}>
  <FileText className="w-4 h-4" />
  <span className="max-w-32 truncate">{file.name}</span>
- <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+ <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} style={{ color: '#858585' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}><X className="w-3 h-3" /></button>
  </div>
  ))}
  </div>
  )}
- <div className={`flex items-end gap-3 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-500'} rounded-2xl border p-2`}>
+ <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '10px', padding: '8px' }}>
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
  <div className="relative group">
- <button onClick={() => fileInputRef.current?.click()} className={`p-2 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'} rounded-lg transition-colors`} title="Upload Materials">
- <Plus className="w-5 h-5" />
+ <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
+ <Plus className="w-4 h-4" />
  </button>
  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
- <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>Upload Materials</div>
+ <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Upload Materials</div>
  </div>
  </div>
  <textarea
@@ -10580,13 +10155,12 @@ ${analysisContext}`;
  }}
  placeholder=""
  rows={1}
- className={`flex-1 resize-none bg-transparent focus:outline-none ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900'} py-2`}
- style={{ minHeight: '40px', maxHeight: '200px', overflow: 'auto' }}
+ style={{ flex: 1, resize: 'none', background: 'transparent', border: 'none', outline: 'none', color: '#ffffff', padding: '8px 0', minHeight: '40px', maxHeight: '200px', overflow: 'auto', fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px' }}
  />
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming ? (
  <button
  onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); }}
- className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+ style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
  title="Stop generating"
  >
  <X className="w-4 h-4" />
@@ -10595,7 +10169,7 @@ ${analysisContext}`;
  <button
  onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
  disabled={!currentCaseId || (!conversationInput.trim() && files.length === 0)}
- className={`p-2 bg-gray-600 hover:bg-gray-700 ${darkMode ? 'disabled:bg-gray-700 disabled:text-gray-500' : 'disabled:bg-gray-200 disabled:text-gray-400'} text-white rounded-lg transition-colors`}
+ className="katharos-send-btn"
  >
  <Send className="w-4 h-4" />
  </button>
@@ -10636,7 +10210,7 @@ ${analysisContext}`;
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#374151',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(55,65,81,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
@@ -10799,7 +10373,7 @@ ${analysisContext}`;
  setShowModeDropdown(false);
  }}
  className={`w-full text-left px-3 py-2 hover:bg-gray-100/50 transition-colors rounded-b-lg ${
- investigationMode === 'scout' ? 'bg-emerald-50/50' : ''
+ investigationMode === 'scout' ? 'bg-gray-100/50' : ''
  }`}
  >
  <div className="text-sm font-medium text-gray-900">Scout</div>
@@ -10890,19 +10464,19 @@ ${analysisContext}`;
  {/* Progress Card - Shows during analysis AND when complete (on this page) */}
  {(backgroundAnalysis.isRunning || backgroundAnalysis.isComplete) && (
    <div className="mt-4">
-     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${backgroundAnalysis.isComplete ? 'border-emerald-300' : 'border-gray-200'}`}>
+     <div className={`bg-white/50 backdrop-blur-sm border rounded-2xl p-6 ${backgroundAnalysis.isComplete ? 'border-gray-400' : 'border-gray-200'}`}>
        {/* Case Name */}
        <div className="flex items-center gap-3 mb-4">
-         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-emerald-100' : 'bg-gray-200'}`}>
+         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${backgroundAnalysis.isComplete ? 'bg-gray-200' : 'bg-gray-200'}`}>
            {backgroundAnalysis.isComplete ? (
-             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+             <CheckCircle2 className="w-5 h-5 text-gray-600" />
            ) : (
              <Briefcase className="w-5 h-5 text-gray-700" />
            )}
          </div>
          <div>
            <h3 className="font-semibold text-gray-900">{backgroundAnalysis.caseName || 'Processing...'}</h3>
-           <p className={`text-xs mono tracking-wide ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-500'}`}>
+           <p className={`text-xs mono tracking-wide ${backgroundAnalysis.isComplete ? 'text-gray-600' : 'text-gray-500'}`}>
              {backgroundAnalysis.isComplete ? 'ANALYSIS COMPLETE' : 'CASE ANALYSIS IN PROGRESS'}
            </p>
          </div>
@@ -10912,11 +10486,11 @@ ${analysisContext}`;
        <div className="mb-4">
          <div className="flex justify-between items-center mb-2">
            <span className="text-sm text-gray-600">{backgroundAnalysis.currentStep}</span>
-           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-emerald-600' : 'text-gray-700'}`}>{backgroundAnalysis.progress}%</span>
+           <span className={`text-sm font-medium ${backgroundAnalysis.isComplete ? 'text-gray-600' : 'text-gray-700'}`}>{backgroundAnalysis.progress}%</span>
          </div>
          <div className="w-full bg-gray-100 rounded-full h-2">
            <div
-             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-emerald-500' : 'bg-gray-600'}`}
+             className={`h-2 rounded-full transition-all duration-500 ease-out ${backgroundAnalysis.isComplete ? 'bg-gray-1000' : 'bg-gray-600'}`}
              style={{ width: `${backgroundAnalysis.progress}%` }}
            />
          </div>
@@ -10928,7 +10502,7 @@ ${analysisContext}`;
            onClick={() => {
              viewAnalysisResults();
            }}
-           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+           className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
          >
            <Eye className="w-4 h-4" />
            View Results
@@ -10988,7 +10562,7 @@ ${analysisContext}`;
  >
  <FolderOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  {activeSearchCount > 0 && (
- <span style={{position:'absolute',top:'2px',right:'2px',background:'#f97316',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(249,115,22,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
+ <span style={{position:'absolute',top:'2px',right:'2px',background:'#374151',color:'white',fontSize:activeSearchCount > 1 ? '9px' : '0',fontWeight:'bold',width:activeSearchCount > 1 ? '16px' : '10px',height:activeSearchCount > 1 ? '16px' : '10px',borderRadius:'9999px',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10,boxShadow:'0 0 6px rgba(55,65,81,0.6)',animation:'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'}}>
  {activeSearchCount > 1 ? activeSearchCount : ''}
  </span>
  )}
@@ -11089,7 +10663,7 @@ ${analysisContext}`;
 
  {/* Overview Tab */}
  {activeTab === 'overview' && (
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {/* Editable Case Name */}
  <div className="bg-white rounded-xl border border-gray-200 p-8">
  {isEditingCaseName ? (
@@ -11167,7 +10741,7 @@ ${analysisContext}`;
  <h3 className="text-lg font-semibold text-slate-800">Red Flags</h3>
  <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">{analysis.redFlags.length} identified</span>
  </div>
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {analysis.redFlags.map((flag, idx) => (
  <div key={flag.id || idx} className="pb-2 border-b border-slate-100 last:border-0 last:pb-0">
  <div className="flex items-start gap-2 mb-2">
@@ -11175,7 +10749,7 @@ ${analysisContext}`;
    <h4 className="text-base font-medium text-slate-800">{flag.title}</h4>
  </div>
  {flag.quote && (
-   <blockquote className="ml-8 my-2 border-l-3 border-cyan-500 bg-slate-50 pl-3 py-2 rounded-r">
+   <blockquote className="ml-8 my-2 border-l-3 border-gray-500 bg-slate-50 pl-3 py-2 rounded-r">
      <p className="text-slate-600 italic text-sm leading-relaxed">"{flag.quote}"</p>
      {flag.citation && <p className="text-xs text-slate-500 mt-2 font-mono">— {flag.citation}</p>}
    </blockquote>
@@ -11196,7 +10770,7 @@ ${analysisContext}`;
  <div className="bg-white rounded-xl border border-slate-200 p-6">
  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
  <h3 className="text-lg font-semibold text-slate-800">Typologies</h3>
- <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{analysis.typologies.length} detected</span>
+ <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded">{analysis.typologies.length} detected</span>
  </div>
  <div className="overflow-x-auto">
  <table className="w-full text-sm">
@@ -11228,10 +10802,10 @@ ${analysisContext}`;
  {/* Stats Grid */}
  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
  {[
- { label: 'Entities', value: analysis.entities?.length || 0, icon: Users, color: 'text-blue-600' },
+ { label: 'Entities', value: analysis.entities?.length || 0, icon: Users, color: 'text-gray-600' },
  { label: 'Red Flags', value: analysis.redFlags?.length || 0, icon: AlertTriangle, color: 'text-red-600' },
- { label: 'Timeline Events', value: analysis.timeline?.length || 0, icon: Clock, color: 'text-emerald-600' },
- { label: 'Cross-Refs', value: (analysis.documentCrossReferences?.length || 0) + (analysis.contradictions?.length || 0), icon: Link2, color: 'text-purple-600' },
+ { label: 'Timeline Events', value: analysis.timeline?.length || 0, icon: Clock, color: 'text-gray-600' },
+ { label: 'Cross-Refs', value: (analysis.documentCrossReferences?.length || 0) + (analysis.contradictions?.length || 0), icon: Link2, color: 'text-gray-600' },
  { label: 'Hypotheses', value: analysis.hypotheses?.length || 0, icon: Lightbulb, color: 'text-gray-700' },
  ].map(stat => (
  <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -11258,7 +10832,7 @@ ${analysisContext}`;
  <div className="flex-1 text-sm text-gray-900">
  {step.action}
  {step.source && (
- <a href={step.source} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline">[Source]</a>
+ <a href={step.source} target="_blank" rel="noopener noreferrer" className="ml-2 text-gray-600 hover:underline">[Source]</a>
  )}
  </div>
  </div>
@@ -11281,7 +10855,7 @@ ${analysisContext}`;
  {/* Timeline line */}
  <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
 
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {analysis.timeline?.map((event, idx) => (
  <div
  key={event.id || idx}
@@ -11291,7 +10865,7 @@ ${analysisContext}`;
  {/* Timeline dot */}
  <div className={`absolute left-1 top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
    event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-500' :
-   event.riskLevel === 'MEDIUM' ? 'bg-gray-600' : 'bg-emerald-500'
+   event.riskLevel === 'MEDIUM' ? 'bg-gray-600' : 'bg-gray-1000'
  }`} />
 
  <div className={`pb-2 border-b border-slate-100 last:border-0 last:pb-0 ${
@@ -11302,7 +10876,7 @@ ${analysisContext}`;
  {event.riskLevel && (
  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
    event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-50 text-red-700' :
-   event.riskLevel === 'MEDIUM' ? 'bg-gray-100 text-gray-700' : 'bg-emerald-50 text-emerald-700'
+   event.riskLevel === 'MEDIUM' ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-700'
  }`}>
  {event.riskLevel}
  </span>
@@ -11344,7 +10918,7 @@ ${analysisContext}`;
 
  {/* Cross-References Tab - Document Intelligence */}
  {activeTab === 'crossref' && (
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {/* Cross-Document References */}
  {analysis.documentCrossReferences && analysis.documentCrossReferences.length > 0 && (
  <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -11358,9 +10932,9 @@ ${analysisContext}`;
  {analysis.documentCrossReferences.map((ref, idx) => (
  <div key={ref.id || idx} className={`border-l-4 ${
    ref.riskLevel === 'CRITICAL' ? 'border-red-500 bg-red-50' :
-   ref.riskLevel === 'HIGH' ? 'border-rose-400 bg-rose-50' :
+   ref.riskLevel === 'HIGH' ? 'border-gray-500 bg-gray-100' :
    ref.riskLevel === 'MEDIUM' ? 'border-gray-500 bg-gray-100' :
-   'border-blue-400 bg-blue-50'
+   'border-gray-500 bg-gray-100'
  } rounded-r-lg p-4`}>
  <div className="flex items-start justify-between mb-3">
    <h4 className="font-semibold text-gray-900">{ref.finding}</h4>
@@ -11395,36 +10969,36 @@ ${analysisContext}`;
  {analysis.contradictions && analysis.contradictions.length > 0 && (
  <div className="bg-white border border-gray-200 rounded-xl p-6">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
- <AlertTriangle className="w-5 h-5 text-rose-500" />
+ <AlertTriangle className="w-5 h-5 text-gray-600" />
  Contradictions Detected
  </h3>
  <p className="text-sm text-gray-600 mb-6">Information that directly conflicts between documents</p>
 
  <div className="space-y-4">
  {analysis.contradictions.map((contradiction, idx) => (
- <div key={contradiction.id || idx} className="border border-rose-200 bg-rose-50 rounded-lg p-4">
+ <div key={contradiction.id || idx} className="border border-gray-300 bg-gray-100 rounded-lg p-4">
  <h4 className="font-semibold text-gray-900 mb-3">{contradiction.title || contradiction.description}</h4>
 
  <div className="grid md:grid-cols-2 gap-4 mb-3">
-   <div className="bg-white rounded-lg p-3 border border-rose-100">
-     <p className="text-xs font-medium text-rose-600 mono uppercase tracking-wider mb-1">
+   <div className="bg-white rounded-lg p-3 border border-gray-200">
+     <p className="text-xs font-medium text-gray-600 mono uppercase tracking-wider mb-1">
        {contradiction.source1?.citation || 'Source 1'}
      </p>
      {contradiction.source1?.context && (
        <p className="text-xs text-gray-500 mb-1">{contradiction.source1.context}</p>
      )}
-     <blockquote className="text-sm text-gray-700 italic border-l-2 border-rose-300 pl-3">
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-gray-400 pl-3">
        "{contradiction.source1?.quote || contradiction.source1}"
      </blockquote>
    </div>
-   <div className="bg-white rounded-lg p-3 border border-rose-100">
-     <p className="text-xs font-medium text-rose-600 mono uppercase tracking-wider mb-1">
+   <div className="bg-white rounded-lg p-3 border border-gray-200">
+     <p className="text-xs font-medium text-gray-600 mono uppercase tracking-wider mb-1">
        {contradiction.source2?.citation || 'Source 2'}
      </p>
      {contradiction.source2?.context && (
        <p className="text-xs text-gray-500 mb-1">{contradiction.source2.context}</p>
      )}
-     <blockquote className="text-sm text-gray-700 italic border-l-2 border-rose-300 pl-3">
+     <blockquote className="text-sm text-gray-700 italic border-l-2 border-gray-400 pl-3">
        "{contradiction.source2?.quote || contradiction.source2}"
      </blockquote>
    </div>
@@ -11446,7 +11020,7 @@ ${analysisContext}`;
  {analysis.entities && analysis.entities.some(e => e.aliases && e.aliases.length > 0) && (
  <div className="bg-white border border-gray-200 rounded-xl p-6">
  <h3 className="text-lg font-semibold leading-tight mb-4 flex items-center gap-2">
- <Users className="w-5 h-5 text-blue-500" />
+ <Users className="w-5 h-5 text-gray-500" />
  Entity Resolution
  </h3>
  <p className="text-sm text-gray-600 mb-6">Same entities appearing under different names across documents</p>
@@ -11455,12 +11029,12 @@ ${analysisContext}`;
  {analysis.entities.filter(e => e.aliases && e.aliases.length > 0).map((entity, idx) => (
  <div key={entity.id || idx} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-     entity.type === 'PERSON' ? 'bg-blue-100' : 'bg-purple-100'
+     entity.type === 'PERSON' ? 'bg-gray-200' : 'bg-gray-200'
    }`}>
      {entity.type === 'PERSON' ? (
-       <Users className="w-5 h-5 text-blue-600" />
+       <Users className="w-5 h-5 text-gray-600" />
      ) : (
-       <Building2 className="w-5 h-5 text-purple-600" />
+       <Building2 className="w-5 h-5 text-gray-600" />
      )}
    </div>
    <div className="flex-1">
@@ -11572,7 +11146,7 @@ ${analysisContext}`;
  </span>
  </div>
 
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  <div>
  <h4 className="text-sm font-medium tracking-wide text-base text-gray-600 leading-relaxed mb-2">Role in Investigation</h4>
  <p className="text-base text-gray-900 leading-relaxed">{selectedEntity.role}</p>
@@ -11587,8 +11161,8 @@ ${analysisContext}`;
  </h4>
  <div className={`p-5 rounded-lg border-2 ${
  selectedEntity.sanctionStatus === 'MATCH' ? 'bg-red-600/10 border-red-600' :
- selectedEntity.sanctionStatus === 'POTENTIAL_MATCH' ? 'bg-rose-500/10 border-rose-500' :
- 'bg-emerald-500/10 border-emerald-500'
+ selectedEntity.sanctionStatus === 'POTENTIAL_MATCH' ? 'bg-gray-1000/10 border-gray-500' :
+ 'bg-gray-1000/10 border-gray-400'
  }`}>
  <div className="flex items-center gap-2">
  {selectedEntity.sanctionStatus === 'MATCH' ? (
@@ -11598,13 +11172,13 @@ ${analysisContext}`;
  </>
  ) : selectedEntity.sanctionStatus === 'POTENTIAL_MATCH' ? (
  <>
- <AlertTriangle className="w-5 h-5 text-rose-500" />
- <span className="font-bold text-rose-500 tracking-wide">POTENTIAL SANCTIONS MATCH</span>
+ <AlertTriangle className="w-5 h-5 text-gray-600" />
+ <span className="font-bold text-gray-600 tracking-wide">POTENTIAL SANCTIONS MATCH</span>
  </>
  ) : (
  <>
- <ShieldCheck className="w-5 h-5 text-emerald-500" />
- <span className="font-bold text-emerald-500 tracking-wide">NO SANCTIONS MATCH</span>
+ <ShieldCheck className="w-5 h-5 text-gray-500" />
+ <span className="font-bold text-gray-500 tracking-wide">NO SANCTIONS MATCH</span>
  </>
  )}
  </div>
@@ -11619,10 +11193,10 @@ ${analysisContext}`;
  <Flag className="w-4 h-4" />
  Political Exposure
  </h4>
- <div className="p-5 rounded-lg bg-purple-500/10 border-2 border-purple-500">
+ <div className="p-5 rounded-lg bg-gray-1000/10 border-2 border-gray-500">
  <div className="flex items-center gap-2">
- <Flag className="w-5 h-5 text-purple-500" />
- <span className="font-bold text-purple-500 tracking-wide">POLITICALLY EXPOSED PERSON (PEP)</span>
+ <Flag className="w-5 h-5 text-gray-500" />
+ <span className="font-bold text-gray-500 tracking-wide">POLITICALLY EXPOSED PERSON (PEP)</span>
  </div>
  </div>
  </div>
@@ -11642,7 +11216,7 @@ ${analysisContext}`;
  <span className="text-gray-500">Total</span>
  </div>
  <div className="text-center">
- <span className="block text-lg font-bold text-rose-600">
+ <span className="block text-lg font-bold text-gray-600">
  {selectedEntity.ownedCompanies.filter(c => c.ownershipPercent >= 50).length}
  </span>
  <span className="text-gray-500">Controlling</span>
@@ -11852,7 +11426,7 @@ ${analysisContext}`;
  />
  </div>
  <span className={`text-sm font-bold ${
-   (hypothesis.confidence || 0) >= 0.75 ? 'text-emerald-600' :
+   (hypothesis.confidence || 0) >= 0.75 ? 'text-gray-600' :
    (hypothesis.confidence || 0) >= 0.5 ? 'text-gray-700' :
    (hypothesis.confidence || 0) >= 0.25 ? 'text-gray-700' : 'text-red-600'
  }`}>
@@ -11872,15 +11446,15 @@ ${analysisContext}`;
  <div className="px-5 pb-5 border-t border-gray-200 pt-4 fade-in bg-gray-50/50">
  <div className="grid md:grid-cols-3 gap-4">
  {/* Supporting Evidence */}
- <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
- <h4 className="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2">
+ <div className="bg-gray-100 rounded-lg p-4 border border-gray-300">
+ <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
  <CheckCircle2 className="w-4 h-4" />
  Supporting Evidence
  </h4>
  <div className="space-y-2">
  {hypothesis.supportingEvidence?.map((evidence, eidx) => (
- <div key={eidx} className="text-sm bg-white p-3 rounded border-l-2 border-emerald-400">
- <span className="text-emerald-600 mr-1">✓</span> {evidence}
+ <div key={eidx} className="text-sm bg-white p-3 rounded border-l-2 border-gray-500">
+ <span className="text-gray-600 mr-1">✓</span> {evidence}
  </div>
  ))}
  </div>
@@ -11926,7 +11500,7 @@ ${analysisContext}`;
 
  {/* Network Tab */}
  {activeTab === 'network' && (
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
  <Network className="w-6 h-6 text-gray-600" />
@@ -11950,7 +11524,7 @@ ${analysisContext}`;
 
  {/* Evidence Tab */}
  {activeTab === 'evidence' && (
- <div className="space-y-6">
+ <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {/* Add More Evidence Section */}
  <div className="bg-white border border-gray-200 rounded-xl p-8">
  <div className="flex items-center justify-between mb-4">
@@ -12036,7 +11610,7 @@ ${analysisContext}`;
  </div>
  <button
  onClick={() => removeFile(file.id)}
- className="p-2 text-gray-500 hover:text-rose-600 hover:bg-gray-200 rounded-lg transition-colors"
+ className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
  >
  <Trash2 className="w-4 h-4" />
  </button>
@@ -12193,7 +11767,7 @@ ${analysisContext}`;
  {!kycChatOpen && (
  <button
  onClick={() => setKycChatOpen(true)}
- className="fixed bottom-6 right-6 w-14 h-14 bg-emerald-500 hover:bg-emerald-400 rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center transition-all hover:scale-110 z-40"
+ className="fixed bottom-6 right-6 w-14 h-14 bg-white hover:bg-gray-100 rounded-full shadow-lg border border-gray-300 flex items-center justify-center transition-all hover:scale-110 z-40"
  >
  <MessageCircle className="w-6 h-6 text-gray-900" />
  </button>
@@ -12205,8 +11779,8 @@ ${analysisContext}`;
  {/* Chat Header */}
  <div className="flex items-center justify-between p-4 border-b border-gray-200">
  <div className="flex items-center gap-3">
- <div className="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center">
- <MessageCircle className="w-5 h-5 text-emerald-500" />
+ <div className="w-10 h-10 bg-gray-100 border border-gray-300 rounded-xl flex items-center justify-center">
+ <MessageCircle className="w-5 h-5 text-gray-500" />
  </div>
  <div>
  <h3 className="font-semibold">Scout Assistant</h3>
@@ -12258,7 +11832,7 @@ ${analysisContext}`;
  <div
  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
  msg.role === 'user'
- ? 'bg-emerald-500 text-gray-900'
+ ? 'bg-gray-1000 text-gray-900'
  : 'bg-gray-100 text-gray-800'
  }`}
  >
@@ -12270,7 +11844,7 @@ ${analysisContext}`;
  {isKycChatLoading && (
  <div className="flex justify-start">
  <div className="bg-gray-100 rounded-2xl px-4 py-3">
- <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+ <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
  </div>
  </div>
  )}
@@ -12287,12 +11861,12 @@ ${analysisContext}`;
  onChange={(e) => setKycChatInput(e.target.value)}
  onKeyPress={(e) => e.key === 'Enter' && sendKycChatMessage()}
  placeholder="Ask about this screening..."
- className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-500 transition-colors placeholder-gray-400"
+ className="flex-1 bg-gray-100 border border-gray-300 rounded-xl px-4 py-2 text-sm text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400"
  />
  <button
  onClick={sendKycChatMessage}
  disabled={!kycChatInput.trim() || isKycChatLoading}
- className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 p-2 rounded-xl transition-colors"
+ className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 p-2 rounded-xl transition-colors"
  >
  <Send className="w-5 h-5" />
  </button>
@@ -12306,10 +11880,10 @@ ${analysisContext}`;
  {/* Floating Results Ready Notification - only shows when user is NOT on newCase page */}
  {backgroundAnalysis.isComplete && !notificationDismissed && currentPage !== 'newCase' && (
    <div className="fixed bottom-20 right-6 z-50 animate-slideUp">
-     <div className="bg-white border border-emerald-200 rounded-xl shadow-xl p-4 max-w-sm">
+     <div className="bg-white border border-gray-300 rounded-xl shadow-xl p-4 max-w-sm">
        <div className="flex items-start gap-3">
-         <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+         <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+           <CheckCircle2 className="w-5 h-5 text-gray-600" />
          </div>
          <div className="flex-1 min-w-0">
            <h4 className="font-semibold text-gray-900 text-sm">Analysis Complete</h4>
@@ -12328,7 +11902,7 @@ ${analysisContext}`;
            viewAnalysisResults();
            setNotificationDismissed(false); // Reset for next time
          }}
-         className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+         className="w-full mt-3 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
        >
          <Eye className="w-4 h-4" />
          View Results
@@ -12354,8 +11928,8 @@ ${analysisContext}`;
        className={`bg-white border-2 rounded-xl shadow-xl p-4 w-80 cursor-pointer hover:shadow-2xl transition-all ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-400' :
          chatCompletionNotification.riskLevel === 'HIGH' ? 'border-gray-500' :
-         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-400' :
-         'border-emerald-400'
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-gray-500' :
+         'border-gray-500'
        }`}
      >
        {/* Header with checkmark and close button */}
@@ -12364,14 +11938,14 @@ ${analysisContext}`;
            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
              chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
              chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200' :
-             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
-             'bg-emerald-100'
+             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-gray-200' :
+             'bg-gray-200'
            }`}>
              <CheckCircle2 className={`w-4 h-4 ${
                chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
                chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
-               chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
-               'text-emerald-600'
+               chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-gray-600' :
+               'text-gray-600'
              }`} />
            </div>
            <span className="text-sm font-medium text-gray-600">Analysis Complete</span>
@@ -12396,8 +11970,8 @@ ${analysisContext}`;
        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' :
          chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200 text-gray-700' :
-         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-         'bg-emerald-100 text-emerald-700'
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' :
+         'bg-gray-200 text-gray-700'
        }`}>
          {chatCompletionNotification.riskLevel} RISK
          {chatCompletionNotification.riskScore != null && (
@@ -12410,8 +11984,8 @@ ${analysisContext}`;
          <span className={`text-sm font-medium flex items-center gap-1 ${
            chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
            chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
-           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
-           'text-emerald-600'
+           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-gray-600' :
+           'text-gray-600'
          }`}>
            View Case <ChevronRight className="w-4 h-4" />
          </span>

@@ -7,10 +7,10 @@ import { X, Download, Maximize2, Minimize2 } from 'lucide-react';
 const STATUS_COLORS = {
   SANCTIONED: '#ef4444',
   CRITICAL: '#ef4444',
-  HIGH: '#f97316',
-  MEDIUM: '#f59e0b',
+  HIGH: '#374151',
+  MEDIUM: '#374151',
   PEP: '#a855f7',
-  DELISTED: '#f59e0b',
+  DELISTED: '#374151',
   LOW: '#22c55e',
   CLEAR: '#22c55e',
   UNKNOWN: '#64748b',
@@ -314,7 +314,7 @@ export default function ChatNetworkGraph({ entities, relationships, darkMode = f
       .attr('stroke-width', 2.5)
       .on('mouseover', function (event, d) {
         setHoveredNode(d);
-        d3.select(this).attr('stroke', '#fbbf24').attr('stroke-width', 3.5);
+        d3.select(this).attr('stroke', '#374151').attr('stroke-width', 3.5);
         // Highlight connected links
         link.attr('stroke-opacity', l =>
           (l.source.id || l.source) === d.id || (l.target.id || l.target) === d.id ? 1 : 0.15
@@ -434,11 +434,11 @@ export default function ChatNetworkGraph({ entities, relationships, darkMode = f
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                   selectedNode.status === 'SANCTIONED' ? 'bg-red-500/20 text-red-500' :
-                  selectedNode.status === 'PEP' ? 'bg-purple-500/20 text-purple-500' :
+                  selectedNode.status === 'PEP' ? 'bg-gray-500/20 text-gray-500' :
                   selectedNode.status === 'CRITICAL' ? 'bg-red-500/20 text-red-500' :
                   selectedNode.status === 'HIGH' ? 'bg-gray-500/20 text-gray-600' :
                   selectedNode.status === 'MEDIUM' ? 'bg-gray-500/20 text-gray-600' :
-                  selectedNode.status === 'LOW' || selectedNode.status === 'CLEAR' ? 'bg-emerald-500/20 text-emerald-500' :
+                  selectedNode.status === 'LOW' || selectedNode.status === 'CLEAR' ? 'bg-gray-400/20 text-gray-500' :
                   'bg-slate-500/20 text-slate-500'
                 }`}>
                   {selectedNode.status}

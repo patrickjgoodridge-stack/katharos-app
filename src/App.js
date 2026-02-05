@@ -27,6 +27,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import mammoth from 'mammoth';
+import LandingPage from './LandingPage';
 
 function App() {
   // Product selection state
@@ -592,10 +593,10 @@ End of Report
           <h1 className="text-6xl font-bold text-white mb-4">
             MARLOWE
           </h1>
-          <p className="text-2xl text-blue-200 mb-2">
+          <p className="text-2xl text-gray-300 mb-2">
             Investigative AI Platform
           </p>
-          <p className="text-lg text-blue-300">
+          <p className="text-lg text-gray-400">
             Powered by Claude AI - Advanced Analytics for Compliance & Investigation
           </p>
         </div>
@@ -614,28 +615,28 @@ End of Report
             <h2 className="text-3xl font-bold text-white mb-4 text-center">
               NOIR
             </h2>
-            <p className="text-xl text-blue-200 mb-6 text-center">
+            <p className="text-xl text-gray-300 mb-6 text-center">
               Investigative Analysis
             </p>
-            <ul className="space-y-3 text-blue-100">
+            <ul className="space-y-3 text-gray-200">
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Advanced evidence analysis with entity extraction</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Automated timeline generation and connection mapping</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Case management with document upload (.txt, .docx)</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Interactive AI chat for investigative insights</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Risk assessment and investigative lead generation</span>
               </li>
             </ul>
@@ -657,28 +658,28 @@ End of Report
             <h2 className="text-3xl font-bold text-white mb-4 text-center">
               SCOUT
             </h2>
-            <p className="text-xl text-blue-200 mb-6 text-center">
+            <p className="text-xl text-gray-300 mb-6 text-center">
               KYC & Sanctions Screening
             </p>
-            <ul className="space-y-3 text-blue-100">
+            <ul className="space-y-3 text-gray-200">
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Comprehensive sanctions screening (OFAC, EU, UN)</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>PEP (Politically Exposed Person) identification</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Adverse media monitoring and risk scoring</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Individual and entity screening capabilities</span>
               </li>
               <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-green-400" />
+                <CheckCircle className="w-5 h-5 mr-2 mt-1 flex-shrink-0 text-gray-400" />
                 <span>Project-based screening organization and reporting</span>
               </li>
             </ul>
@@ -689,10 +690,10 @@ End of Report
         </div>
 
         <div className="mt-16 text-center">
-          <p className="text-blue-200 text-sm">
+          <p className="text-gray-300 text-sm">
             Enterprise-grade investigative tools powered by Claude AI
           </p>
-          <p className="text-blue-300 text-xs mt-2">
+          <p className="text-gray-400 text-xs mt-2">
             Configure your REACT_APP_ANTHROPIC_API_KEY to enable full functionality
           </p>
         </div>
@@ -709,16 +710,16 @@ End of Report
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setCurrentPage('landing')}
-                className="text-white hover:text-purple-300 transition-colors"
+                className="text-white hover:text-gray-400 transition-colors"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Search className="w-6 h-6 text-purple-400" />
+                <Search className="w-6 h-6 text-gray-400" />
                 MARLOWE NOIR
               </h1>
               {currentCase && (
-                <span className="text-purple-300 text-sm">
+                <span className="text-gray-400 text-sm">
                   | {currentCase.name}
                 </span>
               )}
@@ -726,7 +727,7 @@ End of Report
             <div className="flex gap-2">
               <button
                 onClick={() => setShowCaseModal(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 New Case
@@ -734,7 +735,7 @@ End of Report
               {analysisResults && (
                 <button
                   onClick={generateReport}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
                 >
                   <Download className="w-4 h-4" />
                   Export Report
@@ -757,8 +758,8 @@ End of Report
                     key={caseItem.id}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${
                       currentCase?.id === caseItem.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white/5 text-blue-100 hover:bg-white/10'
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-white/5 text-gray-200 hover:bg-white/10'
                     }`}
                   >
                     {editingCaseId === caseItem.id ? (
@@ -776,7 +777,7 @@ End of Report
                         />
                         <button
                           onClick={() => updateCaseName(caseItem.id, document.querySelector(`input[defaultValue="${caseItem.name}"]`).value)}
-                          className="text-green-300 hover:text-green-100"
+                          className="text-gray-400 hover:text-gray-200"
                         >
                           <Save className="w-4 h-4" />
                         </button>
@@ -798,7 +799,7 @@ End of Report
                               e.stopPropagation();
                               setEditingCaseId(caseItem.id);
                             }}
-                            className="text-blue-300 hover:text-blue-100"
+                            className="text-gray-400 hover:text-gray-200"
                           >
                             <Edit2 className="w-3 h-3" />
                           </button>
@@ -817,7 +818,7 @@ End of Report
                   </div>
                 ))}
                 {cases.length === 0 && (
-                  <p className="text-blue-300 text-sm text-center py-4">
+                  <p className="text-gray-400 text-sm text-center py-4">
                     No cases yet. Create one to get started.
                   </p>
                 )}
@@ -830,19 +831,19 @@ End of Report
             {/* File Upload Section */}
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-purple-400" />
+                <Upload className="w-5 h-5 text-gray-400" />
                 Evidence Upload
               </h2>
 
               <div
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
-                className="border-2 border-dashed border-purple-400/50 rounded-lg p-8 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                className="border-2 border-dashed border-gray-500/50 rounded-lg p-8 text-center hover:border-gray-500 transition-colors cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-white mb-2">Drag and drop files here, or click to select</p>
-                <p className="text-blue-300 text-sm">Supported: .txt, .docx</p>
+                <p className="text-gray-400 text-sm">Supported: .txt, .docx</p>
               </div>
 
               <input
@@ -862,10 +863,10 @@ End of Report
                       className="flex items-center justify-between bg-white/5 p-3 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-purple-400" />
+                        <FileText className="w-5 h-5 text-gray-400" />
                         <div>
                           <div className="text-white font-medium">{file.name}</div>
-                          <div className="text-blue-300 text-xs">
+                          <div className="text-gray-400 text-xs">
                             {(file.size / 1024).toFixed(2)} KB
                           </div>
                         </div>
@@ -904,7 +905,7 @@ End of Report
             {analysisResults && (
               <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
                 <h2 className="text-xl font-semibold text-white mb-4">Analysis Results</h2>
-                <div className="bg-black/30 p-4 rounded-lg text-blue-100 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                <div className="bg-black/30 p-4 rounded-lg text-gray-200 whitespace-pre-wrap max-h-96 overflow-y-auto">
                   {analysisResults}
                 </div>
               </div>
@@ -913,13 +914,13 @@ End of Report
             {/* Chat Interface */}
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
               <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-purple-400" />
+                <MessageSquare className="w-5 h-5 text-gray-400" />
                 Investigative Chat
               </h2>
 
               <div className="bg-black/30 rounded-lg p-4 h-96 overflow-y-auto mb-4">
                 {messages.length === 0 ? (
-                  <p className="text-blue-300 text-center py-8">
+                  <p className="text-gray-400 text-center py-8">
                     Start a conversation with NOIR to explore your case...
                   </p>
                 ) : (
@@ -933,8 +934,8 @@ End of Report
                       <div
                         className={`inline-block max-w-3/4 p-3 rounded-lg ${
                           msg.role === 'user'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-white/10 text-blue-100'
+                            ? 'bg-gray-600 text-white'
+                            : 'bg-white/10 text-gray-200'
                         }`}
                       >
                         <div className="text-xs opacity-75 mb-1">
@@ -960,7 +961,7 @@ End of Report
                 <button
                   onClick={sendMessage}
                   disabled={!input.trim() || loading}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Send
                 </button>
@@ -987,7 +988,7 @@ End of Report
             <div className="flex gap-2">
               <button
                 onClick={createCase}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg transition-colors"
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg transition-colors"
               >
                 Create
               </button>
@@ -1016,23 +1017,23 @@ End of Report
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setCurrentPage('landing')}
-                className="text-white hover:text-blue-300 transition-colors"
+                className="text-white hover:text-gray-400 transition-colors"
               >
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                <Shield className="w-6 h-6 text-blue-400" />
+                <Shield className="w-6 h-6 text-gray-400" />
                 MARLOWE SCOUT
               </h1>
               {currentScoutProject && (
-                <span className="text-blue-300 text-sm">
+                <span className="text-gray-400 text-sm">
                   | {currentScoutProject.name}
                 </span>
               )}
             </div>
             <button
               onClick={() => setShowScoutProjectModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
             >
               <Plus className="w-4 h-4" />
               New Project
@@ -1052,8 +1053,8 @@ End of Report
                   onClick={() => setCurrentScoutProject(null)}
                   className={`p-3 rounded-lg cursor-pointer transition-all ${
                     !currentScoutProject
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/5 text-blue-100 hover:bg-white/10'
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-white/5 text-gray-200 hover:bg-white/10'
                   }`}
                 >
                   <div className="font-medium">All Screenings</div>
@@ -1066,8 +1067,8 @@ End of Report
                     key={project.id}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${
                       currentScoutProject?.id === project.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white/5 text-blue-100 hover:bg-white/10'
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-white/5 text-gray-200 hover:bg-white/10'
                     }`}
                   >
                     <div onClick={() => setCurrentScoutProject(project)}>
@@ -1102,8 +1103,8 @@ End of Report
                   onClick={() => setScoutSearchType('individual')}
                   className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                     scoutSearchType === 'individual'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/5 text-blue-100 hover:bg-white/10'
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-white/5 text-gray-200 hover:bg-white/10'
                   }`}
                 >
                   <Users className="w-5 h-5" />
@@ -1113,8 +1114,8 @@ End of Report
                   onClick={() => setScoutSearchType('entity')}
                   className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                     scoutSearchType === 'entity'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/5 text-blue-100 hover:bg-white/10'
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-white/5 text-gray-200 hover:bg-white/10'
                   }`}
                 >
                   <Building2 className="w-5 h-5" />
@@ -1158,7 +1159,7 @@ End of Report
                   <h2 className="text-xl font-semibold text-white">Screening Results</h2>
                   <button
                     onClick={() => generateScoutReport(scoutResults)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
                   >
                     <Download className="w-4 h-4" />
                     Export
@@ -1167,41 +1168,41 @@ End of Report
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="bg-black/30 p-4 rounded-lg">
-                    <div className="text-blue-300 text-sm mb-1">Risk Level</div>
+                    <div className="text-gray-400 text-sm mb-1">Risk Level</div>
                     <div className={`text-lg font-bold ${
                       scoutResults.riskLevel === 'critical' ? 'text-red-400' :
                       scoutResults.riskLevel === 'high' ? 'text-gray-400' :
                       scoutResults.riskLevel === 'medium' ? 'text-gray-400' :
-                      'text-green-400'
+                      'text-gray-400'
                     }`}>
                       {scoutResults.riskLevel.toUpperCase()}
                     </div>
                   </div>
                   <div className="bg-black/30 p-4 rounded-lg">
-                    <div className="text-blue-300 text-sm mb-1">Sanctions</div>
+                    <div className="text-gray-400 text-sm mb-1">Sanctions</div>
                     <div className={`text-lg font-bold ${
-                      scoutResults.hasSanctions ? 'text-red-400' : 'text-green-400'
+                      scoutResults.hasSanctions ? 'text-red-400' : 'text-gray-400'
                     }`}>
                       {scoutResults.hasSanctions ? 'FOUND' : 'CLEAR'}
                     </div>
                   </div>
                   <div className="bg-black/30 p-4 rounded-lg">
-                    <div className="text-blue-300 text-sm mb-1">PEP Status</div>
+                    <div className="text-gray-400 text-sm mb-1">PEP Status</div>
                     <div className={`text-lg font-bold ${
-                      scoutResults.isPEP ? 'text-gray-400' : 'text-green-400'
+                      scoutResults.isPEP ? 'text-gray-400' : 'text-gray-400'
                     }`}>
                       {scoutResults.isPEP ? 'YES' : 'NO'}
                     </div>
                   </div>
                   <div className="bg-black/30 p-4 rounded-lg">
-                    <div className="text-blue-300 text-sm mb-1">Type</div>
+                    <div className="text-gray-400 text-sm mb-1">Type</div>
                     <div className="text-lg font-bold text-white">
                       {scoutResults.type.toUpperCase()}
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-black/30 p-4 rounded-lg text-blue-100 whitespace-pre-wrap max-h-96 overflow-y-auto">
+                <div className="bg-black/30 p-4 rounded-lg text-gray-200 whitespace-pre-wrap max-h-96 overflow-y-auto">
                   {scoutResults.fullReport}
                 </div>
               </div>
@@ -1212,7 +1213,7 @@ End of Report
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-white">Screening History</h2>
                 <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-blue-300" />
+                  <Filter className="w-5 h-5 text-gray-400" />
                   <select
                     value={scoutFilters.riskLevel}
                     onChange={(e) => setScoutFilters(prev => ({ ...prev, riskLevel: e.target.value }))}
@@ -1256,7 +1257,7 @@ End of Report
                             item.riskLevel === 'critical' ? 'bg-red-500 text-white' :
                             item.riskLevel === 'high' ? 'bg-gray-600 text-white' :
                             item.riskLevel === 'medium' ? 'bg-gray-500 text-white' :
-                            'bg-green-500 text-white'
+                            'bg-gray-500 text-white'
                           }`}>
                             {item.riskLevel.toUpperCase()}
                           </span>
@@ -1273,7 +1274,7 @@ End of Report
                             </span>
                           )}
                         </div>
-                        <div className="text-blue-300 text-sm flex items-center gap-4">
+                        <div className="text-gray-400 text-sm flex items-center gap-4">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {new Date(item.timestamp).toLocaleString()}
@@ -1291,27 +1292,27 @@ End of Report
                       <div className="flex gap-2">
                         <button
                           onClick={() => setExpandedHistoryItem(expandedHistoryItem === item.id ? null : item.id)}
-                          className="text-blue-300 hover:text-blue-100"
+                          className="text-gray-400 hover:text-gray-200"
                         >
                           {expandedHistoryItem === item.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                         </button>
                         <button
                           onClick={() => generateScoutReport(item)}
-                          className="text-green-300 hover:text-green-100"
+                          className="text-gray-400 hover:text-gray-200"
                         >
                           <Download className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
                     {expandedHistoryItem === item.id && (
-                      <div className="mt-4 bg-black/30 p-4 rounded-lg text-blue-100 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
+                      <div className="mt-4 bg-black/30 p-4 rounded-lg text-gray-200 text-sm whitespace-pre-wrap max-h-64 overflow-y-auto">
                         {item.fullReport}
                       </div>
                     )}
                   </div>
                 ))}
                 {scoutHistory.filter(filterScoutHistory).length === 0 && (
-                  <p className="text-blue-300 text-center py-8">
+                  <p className="text-gray-400 text-center py-8">
                     No screening history yet. Perform a screening to get started.
                   </p>
                 )}
@@ -1338,7 +1339,7 @@ End of Report
             <div className="flex gap-2">
               <button
                 onClick={createScoutProject}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg transition-colors"
               >
                 Create
               </button>
@@ -1361,7 +1362,17 @@ End of Report
   // Main Render
   return (
     <>
-      {currentPage === 'landing' && renderLandingPage()}
+      {currentPage === 'landing' && (
+        <LandingPage
+          startNewCase={(searchTerm) => {
+            if (searchTerm) {
+              setScoutSearchQuery(searchTerm);
+            }
+            setCurrentPage('noir');
+          }}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
       {currentPage === 'noir' && renderNoirPage()}
       {currentPage === 'scout' && renderScoutPage()}
     </>

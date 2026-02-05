@@ -137,3 +137,165 @@ CREATE TRIGGER update_cases_updated_at
 -- ALTER TABLE cases ADD COLUMN IF NOT EXISTS files JSONB DEFAULT '[]'::jsonb;
 -- ALTER TABLE cases ADD COLUMN IF NOT EXISTS screenings JSONB DEFAULT '[]'::jsonb;
 -- =====================================================================
+
+-- =====================================================================
+-- METRICS TABLES - Product analytics and KPI tracking
+-- =====================================================================
+
+-- Investigation timing metrics
+CREATE TABLE IF NOT EXISTS metrics_investigations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  case_id TEXT REFERENCES cases(id) ON DELETE SET NULL,
+  user_email TEXT,
+  email_domain TEXT,
+
+  -- Timing
+  started_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ,
+  duration_ms INTEGER,
+  duration_minutes NUMERIC(10,2),
+
+  -- Outcome
+  outcome_risk_level TEXT,
+  outcome_decision TEXT,
+  event_count INTEGER DEFAULT 0,
+
+  -- Context
+  document_count INTEGER DEFAULT 0,
+  query_count INTEGER DEFAULT 0,
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS metrics_inv_email_domain_idx ON metrics_investigations(email_domain);
+CREATE INDEX IF NOT EXISTS metrics_inv_completed_at_idx ON metrics_investigations(completed_at DESC);
+
+-- RAG retrieval accuracy tracking
+CREATE TABLE IF NOT EXISTS metrics_retrievals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  query_id TEXT UNIQUE NOT NULL,
+  case_id TEXT,
+  user_email TEXT,
+
+  -- Query info
+  query_text TEXT,
+  top_k INTEGER DEFAULT 10,
+  result_count INTEGER,
+
+  -- Results with relevance feedback
+  results JSONB DEFAULT '[]'::jsonb,
+  -- Format: [{ rank, id, score, namespace, wasRelevant, wasUsed }]
+
+  -- Calculated metrics (updated on feedback)
+  relevant_in_top_k INTEGER,
+  precision_at_k NUMERIC(5,4),
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  feedback_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS metrics_ret_created_at_idx ON metrics_retrievals(created_at DESC);
+
+-- Sanctions screening precision tracking
+CREATE TABLE IF NOT EXISTS metrics_sanctions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  screening_id TEXT UNIQUE NOT NULL,
+  case_id TEXT,
+  user_email TEXT,
+
+  -- Query
+  query_name TEXT,
+  query_type TEXT,
+
+  -- Results
+  match_count INTEGER,
+  matches JSONB DEFAULT '[]'::jsonb,
+  -- Format: [{ sdnId, name, confidence, matchType, isTruePositive, analystNote }]
+
+  -- Calculated (updated on feedback)
+  true_positives INTEGER,
+  false_positives INTEGER,
+  precision NUMERIC(5,4),
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  feedback_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS metrics_sanc_created_at_idx ON metrics_sanctions(created_at DESC);
+
+-- Daily aggregated metrics snapshot
+CREATE TABLE IF NOT EXISTS metrics_daily (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  date DATE UNIQUE NOT NULL,
+
+  -- Investigation time
+  investigations_completed INTEGER DEFAULT 0,
+  avg_investigation_minutes NUMERIC(10,2),
+  median_investigation_minutes NUMERIC(10,2),
+
+  -- Retrieval accuracy
+  retrieval_queries INTEGER DEFAULT 0,
+  retrieval_recall_at_10 NUMERIC(5,4),
+
+  -- Sanctions precision
+  sanctions_screenings INTEGER DEFAULT 0,
+  sanctions_precision NUMERIC(5,4),
+  sanctions_false_positive_rate NUMERIC(5,4),
+
+  -- Usage
+  unique_users INTEGER DEFAULT 0,
+  peak_concurrent_users INTEGER DEFAULT 0,
+  total_cases_created INTEGER DEFAULT 0,
+
+  -- Document processing
+  documents_processed INTEGER DEFAULT 0,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS metrics_daily_date_idx ON metrics_daily(date DESC);
+
+-- Enable RLS on metrics tables
+ALTER TABLE metrics_investigations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metrics_retrievals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metrics_sanctions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metrics_daily ENABLE ROW LEVEL SECURITY;
+
+-- Allow inserts for metrics (internal use)
+CREATE POLICY "Allow metrics inserts" ON metrics_investigations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow metrics inserts" ON metrics_retrievals FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow metrics inserts" ON metrics_sanctions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow metrics inserts" ON metrics_daily FOR INSERT WITH CHECK (true);
+
+-- Allow updates for feedback
+CREATE POLICY "Allow metrics updates" ON metrics_retrievals FOR UPDATE USING (true);
+CREATE POLICY "Allow metrics updates" ON metrics_sanctions FOR UPDATE USING (true);
+CREATE POLICY "Allow metrics updates" ON metrics_daily FOR UPDATE USING (true);
+
+-- View for current metrics (last 30 days)
+CREATE OR REPLACE VIEW metrics_summary AS
+SELECT
+  -- Investigation time
+  (SELECT AVG(duration_minutes) FROM metrics_investigations
+   WHERE completed_at > NOW() - INTERVAL '30 days') AS avg_investigation_minutes,
+
+  -- Retrieval accuracy
+  (SELECT AVG(precision_at_k) FROM metrics_retrievals
+   WHERE feedback_at IS NOT NULL AND created_at > NOW() - INTERVAL '30 days') AS retrieval_recall_at_10,
+
+  -- Sanctions precision
+  (SELECT
+    CASE WHEN SUM(true_positives + false_positives) > 0
+    THEN SUM(true_positives)::NUMERIC / SUM(true_positives + false_positives)
+    ELSE NULL END
+   FROM metrics_sanctions
+   WHERE feedback_at IS NOT NULL AND created_at > NOW() - INTERVAL '30 days') AS sanctions_precision,
+
+  -- Volume
+  (SELECT COUNT(*) FROM metrics_investigations
+   WHERE completed_at > NOW() - INTERVAL '30 days') AS investigations_30d,
+
+  NOW() AS snapshot_at;
+
+-- =====================================================================

@@ -1,17 +1,22 @@
-body {
-  margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* Import Katharos Design System */
+@import './katharos-design-system.css';
 
-code {
-  font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
+/* Additional global resets */
 * {
   box-sizing: border-box;
+}
+
+/* Ensure monospace for code blocks */
+code, pre {
+  font-family: var(--font-mono);
+}
+
+/* Remove default focus outlines, use custom */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 1px solid var(--border-light);
+  outline-offset: 2px;
 }

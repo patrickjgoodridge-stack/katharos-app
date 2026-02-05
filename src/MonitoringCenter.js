@@ -43,15 +43,15 @@ const severityConfig = {
   critical: { dot: 'bg-red-500', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', darkBg: 'bg-red-900/30', darkBorder: 'border-red-800', darkText: 'text-red-300' },
   high: { dot: 'bg-gray-600', bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700', darkBg: 'bg-gray-700/30', darkBorder: 'border-gray-600', darkText: 'text-gray-300' },
   medium: { dot: 'bg-gray-500', bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700', darkBg: 'bg-gray-700/30', darkBorder: 'border-gray-600', darkText: 'text-gray-300' },
-  low: { dot: 'bg-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', darkBg: 'bg-blue-900/30', darkBorder: 'border-blue-800', darkText: 'text-blue-300' },
+  low: { dot: 'bg-gray-500', bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-700', darkBg: 'bg-gray-700/30', darkBorder: 'border-gray-600', darkText: 'text-gray-300' },
 };
 
 // Alert type labels and icons
 const alertTypeConfig = {
   risk_change: { label: 'RISK CHANGE', icon: AlertTriangle, color: 'bg-gray-200 text-gray-700', darkColor: 'bg-gray-700/40 text-gray-300' },
   sanctions_hit: { label: 'SANCTIONS', icon: Shield, color: 'bg-red-100 text-red-700', darkColor: 'bg-red-900/40 text-red-300' },
-  adverse_media: { label: 'ADVERSE MEDIA', icon: FileText, color: 'bg-purple-100 text-purple-700', darkColor: 'bg-purple-900/40 text-purple-300' },
-  corporate_change: { label: 'CORPORATE', icon: Activity, color: 'bg-blue-100 text-blue-700', darkColor: 'bg-blue-900/40 text-blue-300' },
+  adverse_media: { label: 'ADVERSE MEDIA', icon: FileText, color: 'bg-gray-200 text-gray-700', darkColor: 'bg-gray-700/40 text-gray-300' },
+  corporate_change: { label: 'CORPORATE', icon: Activity, color: 'bg-gray-200 text-gray-700', darkColor: 'bg-gray-700/40 text-gray-300' },
 };
 
 // Risk color utility (matches AppEnhanced pattern)
@@ -60,7 +60,7 @@ const getRiskColorLocal = (level) => {
   if (l === 'CRITICAL') return 'bg-red-600/20 text-red-600';
   if (l === 'HIGH') return 'bg-gray-200 text-gray-700';
   if (l === 'MEDIUM') return 'bg-gray-200 text-gray-700';
-  if (l === 'LOW') return 'bg-green-100 text-green-700';
+  if (l === 'LOW') return 'bg-gray-200 text-gray-700';
   return 'bg-gray-100 text-gray-600';
 };
 
@@ -69,7 +69,7 @@ const getRiskColorDark = (level) => {
   if (l === 'CRITICAL') return 'bg-red-900/40 text-red-300';
   if (l === 'HIGH') return 'bg-gray-700/40 text-gray-300';
   if (l === 'MEDIUM') return 'bg-gray-700/40 text-gray-300';
-  if (l === 'LOW') return 'bg-green-900/40 text-green-300';
+  if (l === 'LOW') return 'bg-gray-700/40 text-gray-300';
   return 'bg-gray-700 text-gray-400';
 };
 
@@ -167,7 +167,7 @@ const AlertDetailModal = ({ alert, onClose, onAcknowledge, onResolve, onDismiss,
                 className={`w-full px-3 py-2 rounded-lg text-sm border resize-none ${darkMode ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
               />
               <div className="flex gap-2 mt-3">
-                <button onClick={handleResolve} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg">
+                <button onClick={handleResolve} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium rounded-lg">
                   Resolve
                 </button>
                 <button onClick={() => setShowResolveForm(false)} className={`px-4 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-200 text-gray-700'}`}>
@@ -183,7 +183,7 @@ const AlertDetailModal = ({ alert, onClose, onAcknowledge, onResolve, onDismiss,
           {(!alert.status || alert.status === 'new') && (
             <button
               onClick={() => { onAcknowledge(alert.id, alert.caseId); onClose(); }}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
             >
               <Check className="w-3.5 h-3.5" /> Acknowledge
             </button>
@@ -191,7 +191,7 @@ const AlertDetailModal = ({ alert, onClose, onAcknowledge, onResolve, onDismiss,
           {alert.status !== 'resolved' && alert.status !== 'dismissed' && (
             <button
               onClick={() => setShowResolveForm(true)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-white'}`}
             >
               <Check className="w-3.5 h-3.5" /> Resolve
             </button>
@@ -405,7 +405,7 @@ const MonitoringCenter = ({
               <div key={i} className="flex items-center justify-between">
                 <span className={`text-sm ${textSecondary}`}>{feed.name}</span>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${feed.lastChecked ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <div className={`w-2 h-2 rounded-full ${feed.lastChecked ? 'bg-gray-500' : 'bg-gray-400'}`} />
                   <span className={`text-xs ${textMuted}`}>{feed.lastChecked ? timeAgo(new Date(feed.lastChecked).toISOString()) : 'Pending'}</span>
                 </div>
               </div>
@@ -423,7 +423,7 @@ const MonitoringCenter = ({
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>Resolved</span>
-              <span className="text-sm font-bold text-green-500">{stats.weeklyResolved}</span>
+              <span className="text-sm font-bold text-gray-500">{stats.weeklyResolved}</span>
             </div>
             <div className="flex justify-between">
               <span className={`text-sm ${textSecondary}`}>Unresolved</span>
@@ -432,7 +432,7 @@ const MonitoringCenter = ({
             <div className={`pt-2 mt-2 border-t ${cardBorder}`}>
               <div className="flex justify-between">
                 <span className={`text-sm ${textSecondary}`}>Resolution rate</span>
-                <span className={`text-sm font-bold ${stats.resolutionRate >= 80 ? 'text-green-500' : stats.resolutionRate >= 50 ? 'text-gray-600' : 'text-red-500'}`}>
+                <span className={`text-sm font-bold ${stats.resolutionRate >= 80 ? 'text-gray-500' : stats.resolutionRate >= 50 ? 'text-gray-600' : 'text-red-500'}`}>
                   {stats.resolutionRate}%
                 </span>
               </div>
@@ -477,9 +477,9 @@ const MonitoringCenter = ({
         {/* Alert list */}
         <div className="divide-y divide-gray-100">
           {monitoringInProgress && (
-            <div className={`flex items-center gap-3 px-6 py-4 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-              <Loader2 className={`w-4 h-4 animate-spin ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>Re-screening monitored entities...</span>
+            <div className={`flex items-center gap-3 px-6 py-4 ${darkMode ? 'bg-gray-800/20' : 'bg-gray-100'}`}>
+              <Loader2 className={`w-4 h-4 animate-spin ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+              <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Re-screening monitored entities...</span>
             </div>
           )}
 

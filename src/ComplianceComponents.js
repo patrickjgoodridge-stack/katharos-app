@@ -37,7 +37,7 @@ export const RiskBadge = ({ level }) => {
     critical: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', icon: 'text-red-600' },
     high: { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400', icon: 'text-gray-600' },
     medium: { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400', icon: 'text-gray-600' },
-    low: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', icon: 'text-green-600' },
+    low: { bg: 'bg-gray-200', text: 'text-gray-800', border: 'border-gray-400', icon: 'text-gray-600' },
     unknown: { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-300', icon: 'text-slate-600' },
   };
   const styles = config[normalizedLevel] || config.unknown;
@@ -61,7 +61,7 @@ export const AlertBanner = ({ level, title, subtitle }) => {
     critical: { bg: 'bg-red-50', border: 'border-red-200', icon: 'text-red-600', title: 'text-red-900', text: 'text-red-800' },
     high: { bg: 'bg-gray-100', border: 'border-gray-300', icon: 'text-gray-600', title: 'text-gray-900', text: 'text-gray-800' },
     medium: { bg: 'bg-gray-100', border: 'border-gray-300', icon: 'text-gray-600', title: 'text-gray-900', text: 'text-gray-800' },
-    low: { bg: 'bg-green-50', border: 'border-green-200', icon: 'text-green-600', title: 'text-green-900', text: 'text-green-800' },
+    low: { bg: 'bg-gray-100', border: 'border-gray-300', icon: 'text-gray-600', title: 'text-gray-900', text: 'text-gray-800' },
   };
   const styles = config[normalizedLevel] || config.medium;
 
@@ -204,7 +204,7 @@ export const RedFlagCard = ({ flag }) => {
                 {sources.map((source, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1 text-xs text-blue-600"
+                    className="inline-flex items-center gap-1 text-xs text-gray-600"
                   >
                     <ExternalLink className="w-3 h-3" />
                     {source}
@@ -235,21 +235,21 @@ export const TypologiesCard = ({ typologies }) => {
   if (!typologies || typologies.length === 0) return null;
 
   return (
-    <div className="bg-purple-50 border border-purple-200 rounded-xl overflow-hidden">
-      <div className="px-5 py-3 bg-purple-100 border-b border-purple-200">
+    <div className="bg-gray-100 border border-gray-300 rounded-xl overflow-hidden">
+      <div className="px-5 py-3 bg-gray-200 border-b border-gray-300">
         <div className="flex items-center gap-2">
-          <Network className="w-5 h-5 text-purple-700" />
-          <h3 className="font-semibold text-purple-900">Typologies Present</h3>
+          <Network className="w-5 h-5 text-gray-700" />
+          <h3 className="font-semibold text-gray-900">Typologies Present</h3>
         </div>
       </div>
       <div className="p-5">
         <ul className="space-y-3">
           {typologies.map((typology, index) => (
             <li key={index} className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-purple-200 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Network className="w-3.5 h-3.5 text-purple-700" />
+              <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Network className="w-3.5 h-3.5 text-gray-700" />
               </div>
-              <span className="text-sm text-purple-900">{typology}</span>
+              <span className="text-sm text-gray-900">{typology}</span>
             </li>
           ))}
         </ul>
@@ -269,7 +269,7 @@ export const DecisionBanner = ({ decision }) => {
   const isReject = normalizedStatus.includes('REJECT') || normalizedStatus.includes('BLOCK');
   const isEDD = normalizedStatus.includes('ENHANCED') || normalizedStatus.includes('EDD') || normalizedStatus.includes('CAUTION');
 
-  let bgColor = 'bg-emerald-600';
+  let bgColor = 'bg-gray-600';
   let Icon = CheckCircle;
   let displayStatus = status || 'PROCEED';
 
@@ -314,11 +314,11 @@ export const DocumentsCard = ({ documents }) => {
   return (
     <div className={`rounded-xl border ${isEmpty ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200'}`}>
       <div className="px-5 py-4 flex items-start gap-4">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isEmpty ? 'bg-slate-200' : 'bg-blue-100'}`}>
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isEmpty ? 'bg-slate-200' : 'bg-gray-200'}`}>
           {isEmpty ? (
             <FileX className="w-5 h-5 text-slate-400" />
           ) : (
-            <FileText className="w-5 h-5 text-blue-600" />
+            <FileText className="w-5 h-5 text-gray-600" />
           )}
         </div>
         <div className="flex-1">
@@ -333,7 +333,7 @@ export const DocumentsCard = ({ documents }) => {
             <ul className="mt-2 space-y-1">
               {documents.map((doc, index) => (
                 <li key={index} className="text-sm text-slate-600 flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
+                  <span className="text-gray-500 mt-1">•</span>
                   {doc}
                 </li>
               ))}
@@ -372,8 +372,8 @@ export const MemoCard = ({ memo }) => {
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-green-400">Copied</span>
+              <Check className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-gray-400">Copied</span>
             </>
           ) : (
             <>

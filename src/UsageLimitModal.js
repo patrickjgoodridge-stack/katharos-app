@@ -96,7 +96,7 @@ const UsageLimitModal = ({ isOpen, onClose, darkMode = false, userEmail = '' }) 
             <ul className="space-y-2">
               {features.map((feature, idx) => (
                 <li key={idx} className="flex items-center gap-2">
-                  <Check className={`w-4 h-4 flex-shrink-0 ${darkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                  <Check className={`w-4 h-4 flex-shrink-0 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     {feature}
                   </span>

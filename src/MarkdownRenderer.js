@@ -8,7 +8,6 @@ import {
   FileText,
   Flag,
   AlertCircle,
-  ChevronRight,
   Search,
   Users,
   Building2,
@@ -51,61 +50,31 @@ const sectionIcons = {
   'RECOMMENDED ACTIONS': Lightbulb,
 };
 
-// Get risk level styling
-const getRiskStyles = (text) => {
+// Get risk level styling - Katharos dark theme (from screen-3-investigation.html)
+const getRiskStyles = (text, darkMode = true) => {
   const upperText = (text || '').toUpperCase();
+  // CRITICAL: red bg rgba(239,68,68,0.1), border rgba(239,68,68,0.25), text #ef4444
   if (upperText.includes('CRITICAL') || upperText.includes('IMMEDIATE REJECT')) {
     return {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      text: 'text-red-800',
-      icon: 'text-red-600',
-      badgeBg: 'bg-red-600',
-      badgeText: 'text-white',
+      bgStyle: { background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
+      iconBgStyle: { width: '40px', height: '40px', background: 'rgba(239, 68, 68, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+      textStyle: { fontSize: '14px', fontWeight: 600, color: '#ef4444', letterSpacing: '0.5px' },
+      scoreStyle: { fontWeight: 400, color: 'rgba(239, 68, 68, 0.7)', marginLeft: '8px' },
+      iconColor: '#ef4444',
     };
   }
-  if (upperText.includes('HIGH') || upperText.includes('ENHANCED DUE DILIGENCE')) {
-    return {
-      bg: 'bg-gray-100',
-      border: 'border-gray-300',
-      text: 'text-gray-800',
-      icon: 'text-gray-600',
-      badgeBg: 'bg-gray-600',
-      badgeText: 'text-white',
-    };
-  }
-  if (upperText.includes('MEDIUM') || upperText.includes('STANDARD') || upperText.includes('PROCEED WITH MONITORING')) {
-    return {
-      bg: 'bg-gray-100',
-      border: 'border-gray-300',
-      text: 'text-gray-800',
-      icon: 'text-gray-600',
-      badgeBg: 'bg-gray-500',
-      badgeText: 'text-white',
-    };
-  }
-  if (upperText.includes('LOW') || upperText.includes('PROCEED') || upperText.includes('APPROVED')) {
-    return {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      text: 'text-green-800',
-      icon: 'text-green-600',
-      badgeBg: 'bg-green-600',
-      badgeText: 'text-white',
-    };
-  }
+  // HIGH/MEDIUM/LOW - gray styling
   return {
-    bg: 'bg-slate-50',
-    border: 'border-slate-200',
-    text: 'text-slate-800',
-    icon: 'text-slate-600',
-    badgeBg: 'bg-slate-600',
-    badgeText: 'text-white',
+    bgStyle: { background: 'rgba(133, 133, 133, 0.1)', border: '1px solid rgba(133, 133, 133, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
+    iconBgStyle: { width: '40px', height: '40px', background: 'rgba(133, 133, 133, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    textStyle: { fontSize: '14px', fontWeight: 600, color: '#858585', letterSpacing: '0.5px' },
+    scoreStyle: { fontWeight: 400, color: 'rgba(133, 133, 133, 0.7)', marginLeft: '8px' },
+    iconColor: '#858585',
   };
 };
 
 // Get icon for section header
-const getIconForSection = (text) => {
+const getIconForSection = (text) => { // eslint-disable-line no-unused-vars
   const upperText = (text || '').toUpperCase();
   for (const [key, Icon] of Object.entries(sectionIcons)) {
     if (upperText.includes(key)) {
@@ -133,19 +102,19 @@ const isDecisionSection = (text) => { // eslint-disable-line no-unused-vars
 };
 
 // Detect if text is the memo section
-const isMemoSection = (text) => {
+const isMemoSection = (text) => { // eslint-disable-line no-unused-vars
   const upperText = (text || '').toUpperCase();
   return upperText.includes('THE MEMO') || upperText === 'MEMO';
 };
 
 // Detect if text is typologies section
-const isTypologiesSection = (text) => {
+const isTypologiesSection = (text) => { // eslint-disable-line no-unused-vars
   const upperText = (text || '').toUpperCase();
   return upperText.includes('TYPOLOGIES');
 };
 
 // Detect if text is keep exploring section
-const isKeepExploringSection = (text) => {
+const isKeepExploringSection = (text) => { // eslint-disable-line no-unused-vars
   const upperText = (text || '').toUpperCase();
   return upperText.includes('KEEP EXPLORING') || upperText.includes('EXPLORE FURTHER');
 };
@@ -162,100 +131,42 @@ const getPlainText = (children) => {
   return '';
 };
 
-// Custom heading component
+// Custom heading component - Katharos dark theme (from screen-3-investigation.html)
 const CustomHeading = ({ level, children }) => {
   const text = getPlainText(children);
-  const Icon = getIconForSection(text);
-  const styles = getRiskStyles(text);
   const darkMode = useContext(DarkModeContext);
+  const styles = getRiskStyles(text, darkMode);
 
   // H2 - Major section headers
   if (level === 2) {
-    // Overall Risk & Onboarding Recommendation banners - matching style
+    // Overall Risk banner - exact mockup: .risk-alert
     if (isOverallRiskSection(text) || isOnboardingSection(text)) {
-      const BannerIcon = isOverallRiskSection(text)
-        ? (Icon || AlertTriangle)
-        : Gavel;
-      // Parse risk level and score from heading text to render cleanly
       const riskMatch = text.match(/OVERALL\s+RISK\s*:\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
       const scoreMatch = text.match(/(\d+)\s*\/\s*100/);
       const riskLabel = riskMatch ? riskMatch[1].toUpperCase() : null;
       const riskScore = scoreMatch ? scoreMatch[1] : null;
-      // For onboarding, extract the recommendation text
-      const onboardingMatch = text.match(/(?:ONBOARDING\s+)?RECOMMENDATION\s*:\s*(.+)/i)
-        || text.match(/ONBOARDING\s*:\s*(.+)/i);
-      const onboardingLabel = onboardingMatch ? `Recommendation: ${onboardingMatch[1].trim()}` : null;
-      // Build clean display text
-      const displayText = isOverallRiskSection(text)
-        ? (riskLabel ? `OVERALL RISK: ${riskLabel}` : text)
-        : (onboardingLabel || text);
+      const displayText = riskLabel ? `OVERALL RISK: ${riskLabel}` : text;
+
       return (
-        <div className={`${styles.bg} border ${styles.border} rounded-xl mb-4 ${isOverallRiskSection(text) ? 'mt-6' : 'mt-2'} shadow-md`}
-             style={{ overflow: 'visible', maxHeight: 'none' }}>
-          <div className="flex items-center gap-4 p-5">
-            <div className={`w-11 h-11 rounded-lg ${styles.badgeBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-              <BannerIcon className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex items-center gap-3 flex-1">
-              <h2 className={`text-lg font-bold ${styles.text} tracking-wide`} style={{ wordWrap: 'break-word', whiteSpace: 'normal' }}>
-                {displayText}
-              </h2>
-              {riskScore && (
-                <span className={`text-base font-bold ${styles.text} opacity-75`}>
-                  {riskScore} / 100
-                </span>
-              )}
-            </div>
+        <div style={styles.bgStyle} className="flex items-center gap-3.5">
+          <div style={styles.iconBgStyle}>
+            <AlertTriangle style={{ width: '20px', height: '20px', color: styles.iconColor }} />
+          </div>
+          <div>
+            <span style={styles.textStyle}>{displayText}</span>
+            {riskScore && <span style={styles.scoreStyle}>{riskScore} / 100</span>}
           </div>
         </div>
       );
     }
 
-    // Memo section
-    if (isMemoSection(text)) {
-      return (
-        <div className="flex items-center gap-2 mt-6 mb-3">
-          <FileText className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-slate-600'}`} />
-          <h2 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'} uppercase tracking-wide`}>
-            {children}
-          </h2>
-        </div>
-      );
-    }
-
-    // Typologies section
-    if (isTypologiesSection(text)) {
-      return (
-        <div className="flex items-center gap-2 mt-6 mb-3">
-          <Network className={`w-6 h-6 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-          <h2 className={`text-lg font-semibold ${darkMode ? 'text-purple-300' : 'text-purple-900'} uppercase tracking-wide`}>
-            {children}
-          </h2>
-        </div>
-      );
-    }
-
-    // Keep exploring section
-    if (isKeepExploringSection(text)) {
-      return (
-        <div className="mt-6 mb-3">
-          <div className="flex items-center gap-2 mb-3">
-            <Search className="w-6 h-6 text-gray-600" />
-            <h2 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'} uppercase tracking-wide`}>
-              {children}
-            </h2>
-          </div>
-        </div>
-      );
-    }
-
-    // Default H2
+    // All other H2 section labels - exact mockup: .report-label
+    // font-size: 11px, font-weight: 600, letter-spacing: 2px, uppercase, color: #6b6b6b, margin-bottom: 12px
     return (
-      <div className="flex items-center gap-2 mt-6 mb-3">
-        {Icon && <Icon className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-slate-600'}`} />}
-        <h2 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'} uppercase tracking-wide`}>
+      <div style={{ marginBottom: '28px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#6b6b6b', marginBottom: '12px' }}>
           {children}
-        </h2>
+        </div>
       </div>
     );
   }
@@ -263,8 +174,7 @@ const CustomHeading = ({ level, children }) => {
   // H3 - Sub-section headers
   if (level === 3) {
     return (
-      <h3 className={`text-base font-semibold ${darkMode ? 'text-gray-200' : 'text-slate-800'} mt-4 mb-2 flex items-center gap-2`}>
-        {Icon && <Icon className={`w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-slate-500'}`} />}
+      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginTop: '16px', marginBottom: '8px' }}>
         {children}
       </h3>
     );
@@ -272,7 +182,7 @@ const CustomHeading = ({ level, children }) => {
 
   // H4 and below
   return (
-    <h4 className={`text-base font-medium ${darkMode ? 'text-gray-300' : 'text-slate-700'} mt-3 mb-1`}>
+    <h4 style={{ fontSize: '14px', fontWeight: 500, color: '#d4d4d4', marginTop: '12px', marginBottom: '4px' }}>
       {children}
     </h4>
   );
@@ -282,22 +192,21 @@ const CustomHeading = ({ level, children }) => {
 const CustomList = ({ ordered, children }) => {
   if (ordered) {
     return (
-      <ol className="space-y-2 my-3 ml-4">
+      <ol style={{ marginLeft: '16px', marginTop: '12px', marginBottom: '12px' }}>
         {children}
       </ol>
     );
   }
   return (
-    <ul className="space-y-2 my-3">
+    <ul style={{ marginTop: '12px', marginBottom: '12px' }}>
       {children}
     </ul>
   );
 };
 
-// Custom list item component - CLICKABLE
+// Custom list item component
 const CustomListItem = ({ children, ordered, index }) => {
   const onExploreClick = useContext(ExploreContext);
-  const darkMode = useContext(DarkModeContext);
   const text = getPlainText(children);
 
   const handleClick = () => {
@@ -309,27 +218,26 @@ const CustomListItem = ({ children, ordered, index }) => {
   if (ordered) {
     return (
       <li
-        className={`flex gap-3 cursor-pointer ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-50'} rounded-lg p-2.5 -ml-2 transition-colors group`}
+        style={{ display: 'flex', gap: '12px', cursor: 'pointer', padding: '8px', marginLeft: '-8px', borderRadius: '4px' }}
         onClick={handleClick}
       >
-        <span className={`flex-shrink-0 w-7 h-7 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300 group-hover:bg-gray-600 group-hover:text-gray-200' : 'bg-slate-100 text-slate-600 group-hover:bg-gray-200 group-hover:text-gray-800'} text-sm font-semibold flex items-center justify-center transition-colors`}>
+        <span style={{ flexShrink: 0, width: '24px', height: '24px', borderRadius: '50%', background: '#2d2d2d', color: '#a1a1a1', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {index + 1}
         </span>
-        <div className={`flex-1 text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-100' : 'text-slate-700 group-hover:text-slate-900'} leading-relaxed`}>
+        <div style={{ flex: 1, fontSize: '15px', color: '#d4d4d4', lineHeight: 1.6, fontWeight: 300 }}>
           {children}
         </div>
-        <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5`} />
       </li>
     );
   }
 
   return (
     <li
-      className={`flex items-start gap-2 cursor-pointer ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-50'} rounded-lg p-2.5 -ml-2 transition-colors group`}
+      style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', padding: '8px', marginLeft: '-8px', borderRadius: '4px' }}
       onClick={handleClick}
     >
-      <ChevronRight className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0 group-hover:text-gray-500 transition-colors" />
-      <span className={`text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-100' : 'text-slate-700 group-hover:text-slate-900'} leading-relaxed flex-1`}>{children}</span>
+      <span style={{ fontSize: '12px', marginTop: '6px', color: '#6b6b6b' }}>•</span>
+      <span style={{ flex: 1, fontSize: '15px', color: '#d4d4d4', lineHeight: 1.6, fontWeight: 300 }}>{children}</span>
     </li>
   );
 };
@@ -337,17 +245,18 @@ const CustomListItem = ({ children, ordered, index }) => {
 // Custom paragraph component
 const CustomParagraph = ({ children }) => {
   const text = getPlainText(children);
-  const darkMode = useContext(DarkModeContext);
+  const darkMode = useContext(DarkModeContext); // eslint-disable-line no-unused-vars
 
-  // Check for bottom line callout
+  // Check for bottom line callout - exact mockup: .bottom-line
+  // border-left: 2px solid #ffffff, padding: 16px 20px, background: #2d2d2d, border-radius: 0 6px 6px 0
   if (text.toLowerCase().startsWith('bottom line:')) {
     const content = text.replace(/^bottom line:\s*/i, '');
     return (
-      <div className={`${darkMode ? 'bg-blue-900/20 border-blue-500' : 'bg-blue-50 border-blue-400'} border-l-4 rounded-r-lg p-4 my-4`}>
-        <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-blue-400' : 'text-blue-700'} mb-1`}>
+      <div style={{ borderLeft: '2px solid #ffffff', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '28px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#858585', marginBottom: '8px' }}>
           Bottom Line
-        </p>
-        <p className={`text-base ${darkMode ? 'text-blue-200' : 'text-blue-900'} leading-relaxed`}>{content}</p>
+        </div>
+        <div style={{ fontSize: '14px', color: '#d4d4d4', lineHeight: 1.6, fontWeight: 300 }}>{content}</div>
       </div>
     );
   }
@@ -358,17 +267,19 @@ const CustomParagraph = ({ children }) => {
       text.toLowerCase().startsWith('compliance impact:')) {
     const content = text.replace(/^(impact|translation|compliance impact):\s*/i, '');
     return (
-      <div className={`${darkMode ? 'bg-gray-700/30 border-gray-500' : 'bg-gray-100 border-gray-400'} border-l-4 rounded-r-lg p-4 my-3`}>
-        <p className={`text-sm font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-800'} mb-1`}>
+      <div style={{ borderLeft: '2px solid #858585', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '16px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#858585', marginBottom: '8px' }}>
           Impact
-        </p>
-        <p className={`text-base ${darkMode ? 'text-gray-200' : 'text-gray-900'} leading-relaxed`}>{content}</p>
+        </div>
+        <div style={{ fontSize: '14px', color: '#d4d4d4', lineHeight: 1.6, fontWeight: 300 }}>{content}</div>
       </div>
     );
   }
 
+  // Default paragraph - exact mockup: .report-text
+  // font-size: 15px, line-height: 1.75, color: #d4d4d4, font-weight: 300
   return (
-    <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-slate-700'} leading-relaxed my-2`}>
+    <p style={{ fontSize: '15px', lineHeight: 1.75, color: '#d4d4d4', fontWeight: 300, margin: '0 0 8px 0' }}>
       {children}
     </p>
   );
@@ -376,20 +287,19 @@ const CustomParagraph = ({ children }) => {
 
 // Custom blockquote component
 const CustomBlockquote = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <blockquote className={`border-l-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-slate-300 bg-slate-50'} pl-4 py-3 my-4 rounded-r-lg`}>
-      <div className={`text-base ${darkMode ? 'text-gray-400' : 'text-slate-600'} italic`}>
+    <blockquote style={{ borderLeft: '2px solid #3a3a3a', background: '#2d2d2d', paddingLeft: '16px', paddingTop: '12px', paddingBottom: '12px', marginTop: '16px', marginBottom: '16px', borderRadius: '0 4px 4px 0' }}>
+      <div style={{ fontSize: '14px', color: '#a1a1a1', fontStyle: 'italic' }}>
         {children}
       </div>
     </blockquote>
   );
 };
 
-// Custom strong/bold component - CLICKABLE
+// Custom strong/bold component - exact mockup: .report-text strong
+// color: #ffffff, font-weight: 600
 const CustomStrong = ({ children }) => {
   const onExploreClick = useContext(ExploreContext);
-  const darkMode = useContext(DarkModeContext);
   const text = getPlainText(children);
 
   const handleClick = (e) => {
@@ -401,7 +311,7 @@ const CustomStrong = ({ children }) => {
 
   return (
     <strong
-      className={`font-semibold ${darkMode ? 'text-gray-100 hover:text-gray-400' : 'text-slate-900 hover:text-gray-700'} cursor-pointer hover:underline transition-colors`}
+      style={{ color: '#ffffff', fontWeight: 600, cursor: 'pointer' }}
       onClick={handleClick}
     >
       {children}
@@ -409,12 +319,11 @@ const CustomStrong = ({ children }) => {
   );
 };
 
-// Custom table components — professional styled tables
+// Custom table components - exact mockup: .risk-table
 const CustomTable = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <div className={`rounded-lg border overflow-hidden my-4 ${darkMode ? 'border-gray-600' : 'border-slate-200'}`}>
-      <table className={`w-full text-sm ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>
+    <div style={{ marginTop: '16px', marginBottom: '16px', maxWidth: '640px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         {children}
       </table>
     </div>
@@ -422,47 +331,57 @@ const CustomTable = ({ children }) => {
 };
 
 const CustomThead = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <thead className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
+    <thead>
       {children}
     </thead>
   );
 };
 
+// Table header - exact mockup: .risk-table th
+// font-size: 10px, font-weight: 600, letter-spacing: 1.5px, uppercase, color: #6b6b6b, background: #2d2d2d
 const CustomTh = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <th className={`px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+    <th style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b6b6b', textAlign: 'left', padding: '10px 16px', background: '#2d2d2d', borderBottom: '1px solid #3a3a3a' }}>
       {children}
     </th>
   );
 };
 
+// Table row - exact mockup: .risk-table tr
 const CustomTr = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   const text = getPlainText(children);
   const isTotal = /\b(total|final)\b/i.test(text);
   return (
-    <tr className={`border-b ${isTotal ? (darkMode ? 'bg-gray-700 font-bold' : 'bg-slate-100 font-bold') : ''} ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-slate-100 even:bg-slate-50'}`}>
+    <tr style={isTotal ? { fontWeight: 600, color: '#ffffff' } : {}}>
       {children}
     </tr>
   );
 };
 
+// Table cell - exact mockup: .risk-table td
+// font-size: 14px, padding: 12px 16px, border-bottom: 1px solid #3a3a3a, color: #a1a1a1
+// .score-value: color: #ef4444, font-weight: 600, font-family: JetBrains Mono, font-size: 13px
 const CustomTd = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   const text = getPlainText(children);
   const scoreMatch = text.match(/^\+?(\d+)/);
-  let scoreColor = '';
+  let cellStyle = { fontSize: '14px', padding: '12px 16px', borderBottom: '1px solid #3a3a3a', color: '#a1a1a1' };
+
   if (scoreMatch) {
     const val = parseInt(scoreMatch[1]);
-    if (val >= 50) scoreColor = darkMode ? 'text-red-400' : 'text-red-600';
-    else if (val >= 20) scoreColor = darkMode ? 'text-gray-400' : 'text-gray-600';
-    else scoreColor = darkMode ? 'text-emerald-400' : 'text-emerald-600';
+    if (val >= 50) {
+      cellStyle = { ...cellStyle, color: '#ef4444', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
+    }
   }
+
+  // Check if this is the final row
+  const isTotal = /\b(total|final|blocked)\b/i.test(text);
+  if (isTotal) {
+    cellStyle = { ...cellStyle, fontWeight: 600, color: '#ffffff' };
+  }
+
   return (
-    <td className={`px-4 py-2.5 ${scoreColor}`}>
+    <td style={cellStyle}>
       {children}
     </td>
   );
@@ -470,9 +389,8 @@ const CustomTd = ({ children }) => {
 
 // Custom emphasis/italic component
 const CustomEmphasis = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <em className={`italic ${darkMode ? 'text-gray-400' : 'text-slate-600'}`}>
+    <em style={{ fontStyle: 'italic', color: '#a1a1a1' }}>
       {children}
     </em>
   );
@@ -480,9 +398,8 @@ const CustomEmphasis = ({ children }) => {
 
 // Custom code component (for inline code)
 const CustomCode = ({ children }) => {
-  const darkMode = useContext(DarkModeContext);
   return (
-    <code className={`${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-slate-100 text-slate-800'} px-1.5 py-0.5 rounded text-base font-mono`}>
+    <code style={{ background: '#2d2d2d', color: '#d4d4d4', padding: '2px 6px', borderRadius: '4px', fontSize: '14px', fontFamily: "'JetBrains Mono', monospace" }}>
       {children}
     </code>
   );
@@ -493,60 +410,6 @@ const CustomHr = () => {
   return <hr className="my-6 border-slate-200" />;
 };
 
-// Extract Keep Exploring items from content
-const extractKeepExploringItems = (content) => {
-  const keepExploringMatch = content.match(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i);
-  if (!keepExploringMatch) return [];
-
-  const section = keepExploringMatch[1];
-  const items = [];
-
-  // Match list items (- or * or numbered)
-  const listItemRegex = /^[\s]*[-*]\s*(.+)$|^[\s]*\d+\.\s*(.+)$/gm;
-  let match;
-  while ((match = listItemRegex.exec(section)) !== null) {
-    const item = (match[1] || match[2] || '').trim().replace(/\*\*/g, '');
-    if (item) {
-      items.push(item);
-    }
-  }
-
-  return items;
-};
-
-// Keep Exploring Card Component
-const KeepExploringCard = ({ items, onExploreClick, darkMode }) => {
-  if (!items || items.length === 0) return null;
-
-  return (
-    <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border rounded-xl overflow-hidden shadow-sm mt-6`}>
-      <div className={`px-5 py-4 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-slate-200'} border-b`}>
-        <div className="flex items-center gap-2">
-          <Search className="w-6 h-6 text-gray-600" />
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-100' : 'text-slate-900'}`}>Keep Exploring</h3>
-        </div>
-      </div>
-      <div className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-slate-100'}`}>
-        {items.map((item, index) => (
-          <button
-            key={index}
-            onClick={() => onExploreClick && onExploreClick(item)}
-            className={`w-full px-5 py-4 flex items-center gap-4 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors text-left group`}
-          >
-            <div className={`w-11 h-11 ${darkMode ? 'bg-gray-700 group-hover:bg-gray-600' : 'bg-gray-100 group-hover:bg-gray-200'} rounded-lg flex items-center justify-center flex-shrink-0 transition-colors`}>
-              <Search className="w-5 h-5 text-gray-600" />
-            </div>
-            <span className={`flex-1 text-base ${darkMode ? 'text-gray-300 group-hover:text-gray-200' : 'text-slate-700 group-hover:text-gray-900'}`}>
-              {item}
-            </span>
-            <ChevronRight className={`w-5 h-5 ${darkMode ? 'text-gray-600' : 'text-slate-300'} group-hover:text-gray-600 transition-colors`} />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // Pre-process markdown to fix common issues
 const preprocessMarkdown = (content) => {
   if (!content) return '';
@@ -555,6 +418,9 @@ const preprocessMarkdown = (content) => {
 
   // Remove any JSON code blocks (in case AI outputs both)
   processed = processed.replace(/```json[\s\S]*?```/g, '');
+
+  // Remove Keep Exploring section (rendered separately in AppEnhanced.js)
+  processed = processed.replace(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i, '');
 
   // Fix duplicate content patterns
   // Remove exact duplicate paragraphs
@@ -577,16 +443,9 @@ const preprocessMarkdown = (content) => {
   return processed.trim();
 };
 
-// Remove Keep Exploring section from main content (we'll render it separately)
-const removeKeepExploringSection = (content) => {
-  return content.replace(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i, '');
-};
-
 // Main MarkdownRenderer component
 const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
   const processedContent = preprocessMarkdown(content);
-  const keepExploringItems = extractKeepExploringItems(processedContent);
-  const mainContent = removeKeepExploringSection(processedContent);
 
   // Custom components for react-markdown
   const components = {
@@ -641,17 +500,8 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
             remarkPlugins={[remarkGfm]}
             components={components}
           >
-            {mainContent}
+            {processedContent}
           </ReactMarkdown>
-
-          {/* Render Keep Exploring as special card */}
-          {keepExploringItems.length > 0 && (
-            <KeepExploringCard
-              items={keepExploringItems}
-              onExploreClick={onExploreClick}
-              darkMode={darkMode}
-            />
-          )}
         </div>
       </ExploreContext.Provider>
     </DarkModeContext.Provider>
