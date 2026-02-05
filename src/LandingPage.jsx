@@ -134,18 +134,18 @@ const LandingPage = ({
 
         <div className="relative z-10">
           <p
-            className="text-[48px] font-medium mb-6"
-            style={{ fontFamily: "Georgia, serif", letterSpacing: '-0.5px', color: '#ffffff' }}
+            className="text-[80px] font-normal mb-8"
+            style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', color: '#ffffff' }}
           >
             Katharos
           </p>
 
           <h1
-            className="text-[72px] font-semibold mb-7 leading-[1.05]"
-            style={{ color: '#ffffff', letterSpacing: '-3px' }}
+            className="text-[68px] font-normal mb-7 leading-[1.1]"
+            style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
           >
             The AI investigator for<br />
-            <span style={{ color: '#858585' }}>financial crime</span>
+            <span style={{ color: '#858585', fontStyle: 'italic' }}>financial crime</span>
           </h1>
 
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff' }}>

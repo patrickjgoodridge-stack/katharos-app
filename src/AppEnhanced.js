@@ -583,6 +583,12 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
 
  // Start a new case (with email gate check)
  const startNewCase = () => {
+   // Check if user needs to enter email first
+   if (!isAuthenticated) {
+     setCurrentPage('newCase'); // This will trigger the auth gate
+     return;
+   }
+
    // Reset state for new case
    setFiles([]);
    setAnalysis(null);
@@ -599,17 +605,27 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
    setConversationMessages([]);
    setConversationStarted(false);
    setCurrentPage('newCase');
-
-   // Check if user needs to enter email first
-   if (!isAuthenticated) {
-     setShowEmailModal(true);
-   }
  };
 
  // Called after email is submitted - proceed to app
  const handleEmailSubmitted = () => {
    setShowEmailModal(false);
-   // Page is already set to 'newCase' - just close the modal
+   // Reset state and go to newCase page
+   setFiles([]);
+   setAnalysis(null);
+   setAnalysisError(null);
+   setChatMessages([]);
+   setCaseName('');
+   setCaseDescription('');
+   setActiveCase(null);
+   setActiveTab('overview');
+   setSelectedEvent(null);
+   setSelectedEntity(null);
+   setChatOpen(false);
+   setCurrentCaseId(null);
+   setConversationMessages([]);
+   setConversationStarted(false);
+   setCurrentPage('newCase');
  };
 
  // Auto-create a case when the first message is sent
@@ -7667,8 +7683,11 @@ ${analysisContext}`;
    );
  }
 
-// Show AuthPage as a separate page for unauthenticated users
-if (!isAuthenticated) {
+// Public pages that don't require authentication
+const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures'];
+
+// Show AuthPage only if user is trying to access a protected page
+if (!isAuthenticated && !publicPages.includes(currentPage)) {
   return <AuthPage onSuccess={handleEmailSubmitted} />;
 }
  return (
