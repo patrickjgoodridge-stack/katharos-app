@@ -175,7 +175,7 @@ const LandingPage = ({
       </section>
 
       {/* Capabilities Section */}
-      <section className="py-20 px-10" style={{ background: '#111111' }}>
+      <section className="pt-32 pb-20 px-10" style={{ background: '#111111' }}>
         <div className="max-w-[1100px] mx-auto">
           {/* Section Header */}
           <h2 className="text-4xl font-semibold text-center mb-12" style={{ color: '#ffffff', letterSpacing: '-1px' }}>
