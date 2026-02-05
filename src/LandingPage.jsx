@@ -134,7 +134,7 @@ const LandingPage = ({
 
         <div className="relative z-10">
           <p
-            className="text-[80px] font-normal mb-8"
+            className="text-[80px] font-normal mb-3"
             style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', color: '#ffffff' }}
           >
             Katharos
