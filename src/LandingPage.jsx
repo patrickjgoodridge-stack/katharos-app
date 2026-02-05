@@ -178,11 +178,8 @@ const LandingPage = ({
       <section className="py-20 px-10" style={{ background: '#111111' }}>
         <div className="max-w-[1100px] mx-auto">
           {/* Section Header */}
-          <p className="text-xs font-medium text-center mb-4 uppercase" style={{ color: '#6b6b6b', letterSpacing: '2px' }}>
-            CAPABILITIES
-          </p>
           <h2 className="text-4xl font-semibold text-center mb-12" style={{ color: '#ffffff', letterSpacing: '-1px' }}>
-            Everything You Need to Investigate
+            How It Works
           </h2>
 
           {/* Feature Grid Container */}
