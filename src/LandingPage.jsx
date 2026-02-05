@@ -329,7 +329,7 @@ const LandingPage = ({
           <h2 className="text-4xl font-semibold text-center mb-2" style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-1px' }}>
             Investigations Are Stuck at Human Speed
           </h2>
-          <p className="text-center mb-12" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>
+          <p className="text-center mb-12" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>
             Katharos Makes Them Faster, Deeper, Better
           </p>
 
