@@ -228,7 +228,7 @@ const LandingPage = ({
             {/* Small Feature Cards - Row 1 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
               {[
-                { icon: Users, title: 'Analyzing Documents', desc: 'Automatically identify people, companies, and relationships from unstructured documents' },
+                { icon: Users, title: 'Entity Analysis', desc: 'Automatically identify people, companies, and relationships from unstructured documents' },
                 { icon: Target, title: 'Typology Detection', desc: 'Identify financial crime patterns hidden in any data format' },
                 { icon: Network, title: 'Network Mapping', desc: 'Visualize corporate structures and ownership chains to uncover hidden connections' },
                 { icon: AlertTriangle, title: 'Risk Scoring', desc: 'AI-powered risk assessment with confidence scores and supporting evidence' }
