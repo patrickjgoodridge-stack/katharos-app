@@ -122,7 +122,7 @@ const LandingPage = ({
       </nav>
 
       {/* Hero */}
-      <section className="text-center pt-[120px] pb-20 px-10 relative">
+      <section className="text-center px-10 relative min-h-[calc(100vh-88px)] flex flex-col justify-center">
         {/* Radial gradient background */}
         <div
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] pointer-events-none"
