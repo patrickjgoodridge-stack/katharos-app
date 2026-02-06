@@ -9687,27 +9687,6 @@ K
  <div className="h-screen flex" style={{ background: '#1a1a1a' }}>
  {/* Left Icon Bar - Katharos Sidebar */}
  <div className="flex flex-col items-center pt-5 gap-2 overflow-visible" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
-{/* Katharos Logo - clickable to go home */}
-<button
-onClick={goToLanding}
-title="Go to Home"
-style={{
-  fontFamily: "Georgia, serif",
-  fontSize: '16px',
-  fontWeight: 500,
-  color: '#ffffff',
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  padding: '8px 0',
-  marginBottom: '8px',
-  letterSpacing: '-0.5px'
-}}
->
-K
-</button>
-{/* Divider */}
-<div style={{ width: '24px', height: '1px', background: '#3a3a3a', marginBottom: '8px' }} />
  {/* Home icon - at top */}
  <div className="relative group">
  <button

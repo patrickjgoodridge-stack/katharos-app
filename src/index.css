@@ -10,8 +10,16 @@
 html, body, #root {
   margin: 0;
   padding: 0;
-  border: none;
-  outline: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Prevent any outline/border on the app container */
+#root > div {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Ensure monospace for code blocks */
