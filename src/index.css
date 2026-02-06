@@ -13,6 +13,7 @@ html, body, #root {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+  background: #1a1a1a !important;
 }
 
 /* Prevent any outline/border on the app container */
@@ -20,6 +21,11 @@ html, body, #root {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* Force dark background on all potential wrapper elements */
+#root, #root > * {
+  background-color: #1a1a1a;
 }
 
 /* Ensure monospace for code blocks */

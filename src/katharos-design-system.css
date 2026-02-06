@@ -91,6 +91,10 @@
    BASE STYLES
    =========================================== */
 
+html {
+  background: var(--bg);
+}
+
 body {
   font-family: var(--font-body);
   background: var(--bg);
@@ -98,6 +102,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
+  min-height: 100vh;
 }
 
 code {
