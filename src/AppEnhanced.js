@@ -7856,7 +7856,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
 
 
- <main className="max-w-full mx-auto p-6 relative z-10 min-h-screen" style={{ backgroundColor: isLandingStyle ? '#1a1a1a' : '#f8f8f8' }}>
+ <main className={`max-w-full mx-auto relative z-10 min-h-screen ${isLandingStyle ? '' : 'p-6'}`} style={{ backgroundColor: isLandingStyle ? 'transparent' : '#f8f8f8' }}>
 
 
  {/* Scout Page */}
