@@ -130,13 +130,6 @@ const LandingPage = ({
         />
 
         <div className="relative z-10">
-          <p
-            className="text-[80px] font-normal mb-3"
-            style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', color: '#ffffff' }}
-          >
-            Katharos
-          </p>
-
           <h1
             className="text-[68px] font-normal mb-7 leading-[1.1]"
             style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
