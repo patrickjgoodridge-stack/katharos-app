@@ -7695,7 +7695,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'disclosures', 'contact'].includes(currentPage);
 
  return (
- <div className={`min-h-screen w-full transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: isLandingStyle ? '#1a1a1a' : (darkMode ? undefined : '#f3f3f3'), margin: 0, padding: 0 }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: isLandingStyle ? '#1a1a1a' : (darkMode ? undefined : '#f3f3f3'), margin: 0, padding: 0, width: '100%' }}>
 
  {/* Contact email link removed from new pages */}
 
