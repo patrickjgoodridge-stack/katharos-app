@@ -19,6 +19,7 @@ import UsageLimitModal from './UsageLimitModal';
 import LandingPage from './LandingPage';
 import ProductPage from './ProductPage';
 import AboutPage from './AboutPage';
+import ContactPage from './ContactPage';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -7684,14 +7685,14 @@ ${analysisContext}`;
  }
 
 // Public pages that don't require authentication
-const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures'];
+const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures', 'contact'];
 
 // Show AuthPage only if user is trying to access a protected page
 if (!isAuthenticated && !publicPages.includes(currentPage)) {
   return <AuthPage onSuccess={handleEmailSubmitted} />;
 }
  // Use dark background for landing pages, light for app pages
- const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'disclosures'].includes(currentPage);
+ const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'disclosures', 'contact'].includes(currentPage);
 
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: isLandingStyle ? '#1a1a1a' : (darkMode ? undefined : '#f3f3f3') }}>
@@ -9268,6 +9269,11 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
      }}
      setCurrentPage={setCurrentPage}
    />
+)}
+
+{/* Contact Page */}
+{currentPage === 'contact' && (
+   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
  {/* Disclosures Page */}

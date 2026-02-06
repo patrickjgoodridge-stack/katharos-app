@@ -299,3 +299,27 @@ SELECT
   NOW() AS snapshot_at;
 
 -- =====================================================================
+-- CONTACT SUBMISSIONS TABLE
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS contact_submissions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  company TEXT,
+  email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS contact_submissions_created_at_idx ON contact_submissions(created_at DESC);
+
+ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone to submit contact forms
+CREATE POLICY "Anyone can submit contact forms" ON contact_submissions FOR INSERT WITH CHECK (true);
+
+-- Only admins can view contact submissions (view in Supabase dashboard)
+CREATE POLICY "Only admins can view contact submissions" ON contact_submissions FOR SELECT USING (auth.role() = 'authenticated');
+
+-- =====================================================================
