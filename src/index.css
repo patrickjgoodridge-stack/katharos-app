@@ -1,58 +1,17 @@
 /* Import Katharos Design System */
 @import './katharos-design-system.css';
 
-/* AGGRESSIVE RESET - Override Tailwind preflight */
-*, *::before, *::after {
-  box-sizing: border-box;
-  border-width: 0;
-  border-style: solid;
-  border-color: transparent;
-}
-
-/* Remove any borders/outlines on root elements */
-html, body, #root {
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  min-height: 100vh;
-  width: 100vw !important;
-  max-width: 100vw !important;
-  background-color: #1a1a1a !important;
-  overflow-x: hidden;
-}
-
-/* Force full viewport coverage */
-#root > div {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* Kill any white/light backgrounds at root level */
-html {
-  background: #1a1a1a !important;
-}
-
-body {
-  background: #1a1a1a !important;
-  min-height: 100vh;
-  overflow-x: hidden;
+/* Simple reset */
+html, body {
+  background: #1a1a1a;
+  margin: 0;
+  padding: 0;
 }
 
 #root {
-  background: #1a1a1a !important;
-  min-height: 100vh;
-}
-
-/* Target ALL nested divs in root */
-#root > div,
-#root > div > div {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  background: #1a1a1a;
+  margin: 0;
+  padding: 0;
 }
 
 /* Ensure monospace for code blocks */
@@ -65,7 +24,6 @@ code, pre {
   outline: none;
 }
 
-/* Only show focus outline on interactive elements, not containers */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -73,12 +31,4 @@ textarea:focus-visible,
 select:focus-visible {
   outline: 1px solid var(--border-light);
   outline-offset: 2px;
-}
-
-/* Explicitly remove outline from container divs */
-div:focus,
-div:focus-visible,
-main:focus,
-main:focus-visible {
-  outline: none;
 }
