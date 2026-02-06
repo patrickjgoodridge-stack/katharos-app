@@ -38,25 +38,27 @@ const ProductPage = ({
           <button
             onClick={() => setCurrentPage('product')}
             className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            style={{ color: '#858585', letterSpacing: '0.5px' }}
           >
             Product
           </button>
           <button
+            onClick={() => setCurrentPage('about')}
             className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
-          >
-            Features
-          </button>
-          <button
-            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
+            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
           >
             About
+          </button>
+          <button
+            onClick={() => setCurrentPage('contact')}
+            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
+            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
+          >
+            Contact
           </button>
 
           {isConfigured && user ? (

@@ -36,26 +36,27 @@ const AboutPage = ({
           <button
             onClick={() => setCurrentPage('product')}
             className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
+            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
           >
             Product
           </button>
           <button
-            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}
-          >
-            Features
-          </button>
-          <button
             onClick={() => setCurrentPage('about')}
             className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            style={{ color: '#858585', letterSpacing: '0.5px' }}
           >
             About
+          </button>
+          <button
+            onClick={() => setCurrentPage('contact')}
+            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
+            style={{ color: '#ffffff', letterSpacing: '0.5px' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
+          >
+            Contact
           </button>
 
           {isConfigured && user ? (
@@ -335,13 +336,13 @@ const AboutPage = ({
             Katharos
           </div>
           <div className="flex gap-7">
-            {['Product', 'Features', 'About', 'Careers', 'Contact'].map((link) => (
+            {['Product', 'About', 'Contact'].map((link) => (
               <button
                 key={link}
                 onClick={() => {
                   if (link === 'Product') setCurrentPage('product');
                   else if (link === 'About') setCurrentPage('about');
-                  else if (link === 'Features') setCurrentPage('noirLanding');
+                  else if (link === 'Contact') setCurrentPage('contact');
                 }}
                 className="text-xs transition-colors bg-transparent border-none cursor-pointer"
                 style={{ color: '#6b6b6b', letterSpacing: '0.3px' }}
