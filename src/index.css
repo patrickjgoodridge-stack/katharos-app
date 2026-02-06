@@ -13,7 +13,23 @@ html, body, #root {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  background: #1a1a1a !important;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Default dark background - component styles will override for app pages */
+html {
+  background-color: #1a1a1a;
+}
+
+body {
+  background-color: #1a1a1a;
+  min-height: 100vh;
+}
+
+#root {
+  background-color: #1a1a1a;
+  min-height: 100vh;
 }
 
 /* Prevent any outline/border on the app container */
@@ -21,11 +37,7 @@ html, body, #root {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-}
-
-/* Force dark background on all potential wrapper elements */
-#root, #root > * {
-  background-color: #1a1a1a !important;
+  min-height: 100vh;
 }
 
 /* Ensure monospace for code blocks */
