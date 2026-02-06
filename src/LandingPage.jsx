@@ -194,7 +194,7 @@ const LandingPage = ({
                   <Upload style={{ width: '24px', height: '24px', color: '#858585' }} />
                 </div>
                 <h3 style={{ fontFamily: "Georgia, serif", fontSize: '18px', fontWeight: 600, color: '#ffffff', marginBottom: '12px' }}>Upload & Analyze</h3>
-                <p style={{ fontFamily: "Georgia, serif", fontSize: '15px', color: '#858585', lineHeight: 1.6 }}>
+                <p style={{ fontFamily: "Georgia, serif", fontSize: '15px', color: '#ffffff', lineHeight: 1.6 }}>
                   Drop in PDFs, emails, financials, or any documents. Katharos reads everything and surfaces what matters.
                 </p>
               </div>
@@ -216,7 +216,7 @@ const LandingPage = ({
                   <Search style={{ width: '24px', height: '24px', color: '#858585' }} />
                 </div>
                 <h3 style={{ fontFamily: "Georgia, serif", fontSize: '18px', fontWeight: 600, color: '#ffffff', marginBottom: '12px' }}>Ask & Investigate</h3>
-                <p style={{ fontFamily: "Georgia, serif", fontSize: '15px', color: '#858585', lineHeight: 1.6 }}>
+                <p style={{ fontFamily: "Georgia, serif", fontSize: '15px', color: '#ffffff', lineHeight: 1.6 }}>
                   Chat naturally about your case. Follow up on findings, request deeper analysis, explore leads.
                 </p>
               </div>
@@ -249,7 +249,7 @@ const LandingPage = ({
                     <feature.icon style={{ width: '20px', height: '20px', color: '#858585' }} />
                   </div>
                   <h4 style={{ fontFamily: "Georgia, serif", fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '8px' }}>{feature.title}</h4>
-                  <p style={{ fontFamily: "Georgia, serif", fontSize: '13px', color: '#6b6b6b', lineHeight: 1.5 }}>{feature.desc}</p>
+                  <p style={{ fontFamily: "Georgia, serif", fontSize: '13px', color: '#ffffff', lineHeight: 1.5 }}>{feature.desc}</p>
                 </div>
               ))}
             </div>
@@ -281,7 +281,7 @@ const LandingPage = ({
                     <feature.icon style={{ width: '20px', height: '20px', color: '#858585' }} />
                   </div>
                   <h4 style={{ fontFamily: "Georgia, serif", fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '8px' }}>{feature.title}</h4>
-                  <p style={{ fontFamily: "Georgia, serif", fontSize: '13px', color: '#6b6b6b', lineHeight: 1.5 }}>{feature.desc}</p>
+                  <p style={{ fontFamily: "Georgia, serif", fontSize: '13px', color: '#ffffff', lineHeight: 1.5 }}>{feature.desc}</p>
                 </div>
               ))}
             </div>
@@ -317,7 +317,7 @@ const LandingPage = ({
                   <customer.icon className="w-6 h-6" style={{ color: customer.highlight ? '#6366f1' : '#858585' }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>{customer.title}</h4>
-                <p className="text-sm leading-relaxed" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>{customer.desc}</p>
+                <p className="text-sm leading-relaxed" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>{customer.desc}</p>
               </div>
             ))}
           </div>
@@ -342,14 +342,14 @@ const LandingPage = ({
             >
               <span
                 className="text-[11px] font-semibold block mb-4"
-                style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', textTransform: 'uppercase', color: '#6b6b6b' }}
+                style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff' }}
               >
                 Before
               </span>
-              <p className="text-[15px] leading-[1.7] mb-6" style={{ fontFamily: "Georgia, serif", color: '#a1a1a1' }}>
+              <p className="text-[15px] leading-[1.7] mb-6" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>
                 An analyst spends <strong style={{ color: '#ffffff', fontWeight: 600 }}>6-8 hours</strong> manually reviewing documents, tracking entities in a spreadsheet, building a timeline by hand, cross-referencing corporate structures, and writing up findings.
               </p>
-              <div className="flex items-center gap-2 text-sm font-medium" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>
+              <div className="flex items-center gap-2 text-sm font-medium" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>
                 <span className="w-2 h-2 rounded-full" style={{ background: '#4a4a4a' }} />
                 6-8 hours per case
               </div>
@@ -362,15 +362,15 @@ const LandingPage = ({
             >
               <span
                 className="text-[11px] font-semibold block mb-4"
-                style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', textTransform: 'uppercase', color: '#858585' }}
+                style={{ fontFamily: "Georgia, serif", letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff' }}
               >
                 With Katharos
               </span>
-              <p className="text-[15px] leading-[1.7] mb-6" style={{ fontFamily: "Georgia, serif", color: '#a1a1a1' }}>
+              <p className="text-[15px] leading-[1.7] mb-6" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>
                 Katharos processes the same documents <strong style={{ color: '#ffffff', fontWeight: 600 }}>in seconds</strong> and outputs <strong style={{ color: '#ffffff', fontWeight: 600 }}>3x the conclusions</strong> the analyst would've reached. The analyst reviews, asks follow-up questions, and gets straight to judgment calls that require human expertise.
               </p>
-              <div className="flex items-center gap-2 text-sm font-medium" style={{ fontFamily: "Georgia, serif", color: '#858585' }}>
-                <span className="w-2 h-2 rounded-full" style={{ background: '#858585' }} />
+              <div className="flex items-center gap-2 text-sm font-medium" style={{ fontFamily: "Georgia, serif", color: '#ffffff' }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: '#ffffff' }} />
                 30 minutes per case
               </div>
             </div>
