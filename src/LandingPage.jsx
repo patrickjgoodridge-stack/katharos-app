@@ -34,9 +34,16 @@ const LandingPage = ({
     <div className="min-h-screen" style={{ background: '#1a1a1a', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {/* Nav */}
       <nav
-        className="flex items-center justify-center px-12 py-6 max-w-[1200px] mx-auto"
+        className="flex items-center justify-between px-12 py-6 max-w-[1200px] mx-auto"
         style={{ borderBottom: '1px solid #3a3a3a' }}
       >
+        <button
+          onClick={() => setCurrentPage('noirLanding')}
+          className="text-[28px] font-medium bg-transparent border-none cursor-pointer"
+          style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-0.5px' }}
+        >
+          Katharos
+        </button>
         <div className="flex items-center gap-9">
           <button
             onClick={() => setCurrentPage('product')}
