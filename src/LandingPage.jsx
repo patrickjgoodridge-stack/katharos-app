@@ -31,7 +31,7 @@ const LandingPage = ({
   setCurrentPage
 }) => {
   return (
-    <div className="min-h-screen" style={{ background: '#1a1a1a', fontFamily: "'Inter', -apple-system, sans-serif", margin: 0, padding: 0, width: '100%' }}>
+    <div className="min-h-screen" style={{ background: '#1a1a1a', fontFamily: "'Inter', -apple-system, sans-serif", margin: 0, padding: 0, width: '100%', border: 'none', outline: 'none', boxShadow: 'none' }}>
       {/* Nav */}
       <nav
         className="flex items-center justify-between px-12 py-6 max-w-[1200px] mx-auto"
@@ -76,7 +76,7 @@ const LandingPage = ({
             <div className="relative group">
               <button
                 className="flex items-center gap-2 px-5 py-2 rounded transition-all text-[13px] uppercase"
-                style={{ color: '#ffffff', border: '1px solid #4a4a4a', letterSpacing: '0.5px' }}
+                style={{ background: 'transparent', color: '#ffffff', border: '1px solid #4a4a4a', letterSpacing: '0.5px' }}
               >
                 <span>{user.email?.split('@')[0]}</span>
                 <ChevronDown className="w-4 h-4" />
@@ -425,12 +425,12 @@ const LandingPage = ({
           {/* Legend */}
           <div className="flex justify-center gap-8 mt-10">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ background: '#d4d4d4' }} />
-              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>Already automated</span>
+              <div className="w-3 h-3 rounded-full" style={{ background: '#858585' }} />
+              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#4a4a4a' }}>Already automated</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ background: '#4a4a4a' }} />
-              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>Now automated by Katharos</span>
+              <div className="w-3 h-3 rounded-full" style={{ background: '#3a3a3a' }} />
+              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#3a3a3a' }}>Now automated by Katharos</span>
             </div>
           </div>
         </div>

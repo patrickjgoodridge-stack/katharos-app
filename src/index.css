@@ -2,16 +2,41 @@
 @import './katharos-design-system.css';
 
 /* Simple reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: transparent;
+  outline-color: transparent;
+}
+
+/* Force no visible borders on page structure */
+html, body, #root, #root > div {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Reset button defaults since preflight is disabled */
+button {
+  background: transparent;
+}
+
 html, body {
   background: #1a1a1a;
   margin: 0;
   padding: 0;
+  border: none;
+  outline: none;
+  overflow-x: hidden;
 }
 
 #root {
   background: #1a1a1a;
   margin: 0;
   padding: 0;
+  border: none;
+  outline: none;
 }
 
 /* Ensure monospace for code blocks */
