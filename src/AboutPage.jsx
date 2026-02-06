@@ -130,7 +130,7 @@ const AboutPage = ({
           Our Mission
         </p>
         <h2 className="text-4xl font-semibold text-center mb-6" style={{ color: '#ffffff', letterSpacing: '-1px' }}>
-          End Financial Crime Faster
+          To Fight Back Against Financial Crime
         </h2>
         <p className="text-base font-light text-center max-w-[560px] mx-auto mb-12 leading-[1.7]" style={{ color: '#a1a1a1' }}>
           Trillions of dollars flow through illicit channels every year.
