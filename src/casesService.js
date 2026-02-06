@@ -13,17 +13,21 @@ export const fetchUserCases = async (workspaceId, userEmail) => {
   }
 
   try {
+    // Use OR filter to match cases by either email_domain or created_by_email
+    // This handles cases where email_domain might be empty but created_by_email is set
     let query = supabase
       .from('cases')
       .select('*')
       .order('updated_at', { ascending: false });
 
-    // Filter by workspace (email domain) if provided
-    if (workspaceId) {
+    if (workspaceId && userEmail) {
+      // Filter by workspace OR user email (handles both cases)
+      console.log('[Cases] Filtering by email_domain:', workspaceId, 'OR created_by_email:', userEmail);
+      query = query.or(`email_domain.eq.${workspaceId},created_by_email.eq.${userEmail}`);
+    } else if (workspaceId) {
       console.log('[Cases] Filtering by email_domain:', workspaceId);
       query = query.eq('email_domain', workspaceId);
     } else if (userEmail) {
-      // Otherwise filter by user's email
       console.log('[Cases] Filtering by created_by_email:', userEmail);
       query = query.eq('created_by_email', userEmail);
     } else {
@@ -62,7 +66,12 @@ export const createCase = async (caseData) => {
       id: caseData.id, // Include the case ID
     };
 
-    console.log('[Cases] Creating case in database:', caseData.id, caseData.name);
+    console.log('[Cases] Creating case in database:', {
+      id: caseData.id,
+      name: caseData.name,
+      email_domain: supabaseData.email_domain,
+      created_by_email: supabaseData.created_by_email
+    });
 
     const { data, error } = await supabase
       .from('cases')

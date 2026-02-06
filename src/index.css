@@ -6,6 +6,14 @@
   box-sizing: border-box;
 }
 
+/* Remove any borders/outlines on root elements */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+}
+
 /* Ensure monospace for code blocks */
 code, pre {
   font-family: var(--font-mono);
@@ -16,7 +24,20 @@ code, pre {
   outline: none;
 }
 
-*:focus-visible {
+/* Only show focus outline on interactive elements, not containers */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: 1px solid var(--border-light);
   outline-offset: 2px;
+}
+
+/* Explicitly remove outline from container divs */
+div:focus,
+div:focus-visible,
+main:focus,
+main:focus-visible {
+  outline: none;
 }
