@@ -426,7 +426,7 @@ const LandingPage = ({
           <div className="flex justify-center gap-8 mt-10">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ background: '#d4d4d4' }} />
-              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>Already automated by existing tools</span>
+              <span className="text-sm" style={{ fontFamily: "Georgia, serif", color: '#6b6b6b' }}>Already automated</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ background: '#4a4a4a' }} />
