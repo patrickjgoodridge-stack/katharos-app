@@ -7690,8 +7690,11 @@ const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures'
 if (!isAuthenticated && !publicPages.includes(currentPage)) {
   return <AuthPage onSuccess={handleEmailSubmitted} />;
 }
+ // Use dark background for landing pages, light for app pages
+ const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'disclosures'].includes(currentPage);
+
  return (
- <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: darkMode ? undefined : '#f3f3f3' }}>
+ <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: isLandingStyle ? '#1a1a1a' : (darkMode ? undefined : '#f3f3f3') }}>
 
  {/* Contact email link removed from new pages */}
 

@@ -31,7 +31,7 @@ const LandingPage = ({
   setCurrentPage
 }) => {
   return (
-    <div className="min-h-screen" style={{ background: '#1a1a1a', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: '#1a1a1a', fontFamily: "'Inter', -apple-system, sans-serif", border: 'none', outline: 'none', margin: 0, padding: 0 }}>
       {/* Nav */}
       <nav
         className="flex items-center justify-between px-12 py-6 max-w-[1200px] mx-auto"
