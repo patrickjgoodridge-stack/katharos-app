@@ -1,43 +1,48 @@
 /* Import Katharos Design System */
 @import './katharos-design-system.css';
 
-/* Additional global resets */
-* {
+/* AGGRESSIVE RESET - Override Tailwind preflight */
+*, *::before, *::after {
   box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: transparent;
 }
 
 /* Remove any borders/outlines on root elements */
 html, body, #root {
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   min-height: 100vh;
   width: 100%;
+  background-color: #1a1a1a !important;
 }
 
-/* Default dark background - component styles will override for app pages */
+/* Kill any white/light backgrounds at root level */
 html {
-  background-color: #1a1a1a;
+  background: #1a1a1a !important;
 }
 
 body {
-  background-color: #1a1a1a;
+  background: #1a1a1a !important;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 #root {
-  background-color: #1a1a1a;
+  background: #1a1a1a !important;
   min-height: 100vh;
 }
 
-/* Prevent any outline/border on the app container */
-#root > div {
+/* Target ALL nested divs in root */
+#root > div,
+#root > div > div {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  min-height: 100vh;
 }
 
 /* Ensure monospace for code blocks */
