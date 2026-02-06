@@ -34,6 +34,13 @@ const AboutPage = ({
         </button>
         <div className="flex items-center gap-9">
           <button
+            onClick={() => setCurrentPage('about')}
+            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
+            style={{ color: '#858585', letterSpacing: '0.5px' }}
+          >
+            About
+          </button>
+          <button
             onClick={() => setCurrentPage('product')}
             className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
             style={{ color: '#ffffff', letterSpacing: '0.5px' }}
@@ -41,13 +48,6 @@ const AboutPage = ({
             onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
           >
             Product
-          </button>
-          <button
-            onClick={() => setCurrentPage('about')}
-            className="text-[13px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer"
-            style={{ color: '#858585', letterSpacing: '0.5px' }}
-          >
-            About
           </button>
           <button
             onClick={() => setCurrentPage('contact')}
@@ -336,7 +336,7 @@ const AboutPage = ({
             Katharos
           </div>
           <div className="flex gap-7">
-            {['Product', 'About', 'Contact'].map((link) => (
+            {['About', 'Product', 'Contact'].map((link) => (
               <button
                 key={link}
                 onClick={() => {
