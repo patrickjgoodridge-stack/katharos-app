@@ -7856,7 +7856,60 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
 
 
- <main className={`max-w-full mx-auto relative z-10 min-h-screen ${isLandingStyle ? '' : 'p-6'}`} style={{ backgroundColor: isLandingStyle ? 'transparent' : '#f8f8f8' }}>
+ {/* Landing pages render directly without main wrapper */}
+{currentPage === 'noirLanding' && (
+  <LandingPage
+    isConfigured={isConfigured}
+    user={user}
+    workspaceName={workspaceName}
+    signOut={signOut}
+    startNewCase={(searchTerm) => {
+      if (searchTerm) {
+        setConversationInput(searchTerm);
+      }
+      startNewCase();
+    }}
+    setCurrentPage={setCurrentPage}
+  />
+)}
+
+{currentPage === 'product' && (
+  <ProductPage
+    isConfigured={isConfigured}
+    user={user}
+    signOut={signOut}
+    startNewCase={(searchTerm) => {
+      if (searchTerm) {
+        setConversationInput(searchTerm);
+      }
+      startNewCase();
+    }}
+    setCurrentPage={setCurrentPage}
+  />
+)}
+
+{currentPage === 'about' && (
+  <AboutPage
+    isConfigured={isConfigured}
+    user={user}
+    signOut={signOut}
+    startNewCase={(searchTerm) => {
+      if (searchTerm) {
+        setConversationInput(searchTerm);
+      }
+      startNewCase();
+    }}
+    setCurrentPage={setCurrentPage}
+  />
+)}
+
+{currentPage === 'contact' && (
+  <ContactPage setCurrentPage={setCurrentPage} />
+)}
+
+{/* Main wrapper only for app pages */}
+{!isLandingStyle && (
+<main className="max-w-full mx-auto relative z-10 min-h-screen p-6" style={{ backgroundColor: '#f8f8f8' }}>
 
 
  {/* Scout Page */}
@@ -9221,60 +9274,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
  )}
 
- {/* Noir Landing Page */}
- {currentPage === 'noirLanding' && (
-   <LandingPage
-     isConfigured={isConfigured}
-     user={user}
-     workspaceName={workspaceName}
-     signOut={signOut}
-     startNewCase={(searchTerm) => {
-       if (searchTerm) {
-         setConversationInput(searchTerm);
-       }
-       startNewCase();
-     }}
-     setCurrentPage={setCurrentPage}
-   />
- )}
-
-
-{/* Product Page */}
-{currentPage === 'product' && (
-   <ProductPage
-     isConfigured={isConfigured}
-     user={user}
-     signOut={signOut}
-     startNewCase={(searchTerm) => {
-       if (searchTerm) {
-         setConversationInput(searchTerm);
-       }
-       startNewCase();
-     }}
-     setCurrentPage={setCurrentPage}
-   />
-)}
-
-{/* About Page */}
-{currentPage === 'about' && (
-   <AboutPage
-     isConfigured={isConfigured}
-     user={user}
-     signOut={signOut}
-     startNewCase={(searchTerm) => {
-       if (searchTerm) {
-         setConversationInput(searchTerm);
-       }
-       startNewCase();
-     }}
-     setCurrentPage={setCurrentPage}
-   />
-)}
-
-{/* Contact Page */}
-{currentPage === 'contact' && (
-   <ContactPage setCurrentPage={setCurrentPage} />
-)}
+{/* Landing pages now rendered outside main - see above */}
 
  {/* Disclosures Page */}
  {currentPage === 'disclosures' && (
@@ -11640,6 +11640,7 @@ K
  )}
 
  </main>
+ )}
 
  {/* Chat Panel - Only visible when analysis is complete */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && (
