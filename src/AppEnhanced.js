@@ -9401,27 +9401,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <div className="min-h-screen" style={{ background: '#1a1a1a' }}>
  {/* Sidebar */}
  <div className="fixed top-0 left-0 h-full flex flex-col items-center pt-5 gap-2" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
-{/* Katharos Logo - clickable to go home */}
-<button
-onClick={goToLanding}
-title="Go to Home"
-style={{
-  fontFamily: "Georgia, serif",
-  fontSize: '16px',
-  fontWeight: 500,
-  color: '#ffffff',
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  padding: '8px 0',
-  marginBottom: '8px',
-  letterSpacing: '-0.5px'
-}}
->
-K
-</button>
-{/* Divider */}
-<div style={{ width: '24px', height: '1px', background: '#3a3a3a', marginBottom: '8px' }} />
  {/* Home Button */}
  <div className="relative group">
  <button onClick={goToLanding} className="katharos-sidebar-icon" title="Home">
@@ -9514,16 +9493,19 @@ K
  <td style={{ padding: '14px 20px' }}>
   <div style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</div>
   {(() => {
-    const tx = (caseItem.conversationTranscript || []).map(m => m.content || '').join(' ').toLowerCase();
+    const msgs = caseItem.conversationTranscript || [];
+    const tx = msgs.map(m => m.content || '').join(' ').toLowerCase();
+    const hasAnalysis = msgs.some(m => m.role === 'assistant' && (m.content || '').length > 100);
+    const userMsgCount = msgs.filter(m => m.role === 'user').length;
     const steps = [
-      { name: 'Initial screening', done: tx.length > 200, w: 20 },
-      { name: 'Sanctions check', done: /sanction|ofac|sdn list|designated/.test(tx), w: 15 },
-      { name: 'Adverse media', done: /adverse media|negative news|press coverage|media search/.test(tx), w: 15 },
-      { name: 'Ownership analysis', done: /ownership|ubo|beneficial owner|corporate structure|subsidiary/.test(tx), w: 15 },
-      { name: 'Related entities', done: /related entit|associated compan|network|linked to|connected to/.test(tx), w: 10 },
-      { name: 'PEP screening', done: /pep|politically exposed|government official/.test(tx), w: 10 },
-      { name: 'Results reviewed', done: (caseItem.conversationTranscript || []).filter(m => m.role === 'user').length >= 2, w: 10 },
-      { name: 'Determination', done: /final determination|recommend|conclusion|overall risk/i.test(tx) && !!caseItem.riskLevel, w: 5 }
+      { name: 'Initial screening', done: hasAnalysis || !!caseItem.riskLevel || tx.length > 100, w: 20 },
+      { name: 'Sanctions check', done: /sanction|ofac|sdn|designated|sanctioned/.test(tx), w: 15 },
+      { name: 'Adverse media', done: /adverse media|negative news|press coverage|media search|news article|allegation/.test(tx), w: 15 },
+      { name: 'Ownership analysis', done: /ownership|ubo|beneficial owner|corporate structure|subsidiary|shareholder|director/.test(tx), w: 15 },
+      { name: 'Related entities', done: /related entit|associated compan|network|linked to|connected to|affiliate/.test(tx), w: 10 },
+      { name: 'PEP screening', done: /pep|politically exposed|government official|public official/.test(tx), w: 10 },
+      { name: 'Results reviewed', done: userMsgCount >= 2, w: 10 },
+      { name: 'Determination', done: !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN', w: 5 }
     ];
     const pct = steps.reduce((s, st) => s + (st.done ? st.w : 0), 0);
     const doneNames = steps.filter(s => s.done).map(s => s.name);
