@@ -7907,9 +7907,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
-{/* Main wrapper only for app pages */}
-{!isLandingStyle && (
-<main className="max-w-full mx-auto relative z-10 min-h-screen p-6" style={{ backgroundColor: '#f8f8f8' }}>
+<main className="max-w-full mx-auto relative z-10 min-h-screen" style={{ backgroundColor: 'transparent', padding: 0 }}>
 
 
  {/* Scout Page */}
@@ -11640,7 +11638,6 @@ K
  )}
 
  </main>
- )}
 
  {/* Chat Panel - Only visible when analysis is complete */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && analysis && (
