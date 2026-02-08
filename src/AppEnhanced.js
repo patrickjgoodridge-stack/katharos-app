@@ -9494,18 +9494,21 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <div style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</div>
   {(() => {
     const msgs = caseItem.conversationTranscript || [];
-    const tx = msgs.map(m => m.content || '').join(' ').toLowerCase();
-    const hasAnalysis = msgs.some(m => m.role === 'assistant' && (m.content || '').length > 100);
+    const assistantMsgs = msgs.filter(m => m.role === 'assistant');
     const userMsgCount = msgs.filter(m => m.role === 'user').length;
+    const totalChars = assistantMsgs.reduce((sum, m) => sum + (m.content || '').length, 0);
+    const hasRisk = !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN';
+    const hasFiles = (caseItem.files || []).length > 0;
+    const hasReports = (caseItem.pdfReports || []).length > 0;
     const steps = [
-      { name: 'Initial screening', done: hasAnalysis || !!caseItem.riskLevel || tx.length > 100, w: 20 },
-      { name: 'Sanctions check', done: /sanction|ofac|sdn|designated|sanctioned/.test(tx), w: 15 },
-      { name: 'Adverse media', done: /adverse media|negative news|press coverage|media search|news article|allegation/.test(tx), w: 15 },
-      { name: 'Ownership analysis', done: /ownership|ubo|beneficial owner|corporate structure|subsidiary|shareholder|director/.test(tx), w: 15 },
-      { name: 'Related entities', done: /related entit|associated compan|network|linked to|connected to|affiliate/.test(tx), w: 10 },
-      { name: 'PEP screening', done: /pep|politically exposed|government official|public official/.test(tx), w: 10 },
-      { name: 'Results reviewed', done: userMsgCount >= 2, w: 10 },
-      { name: 'Determination', done: !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN', w: 5 }
+      { name: 'Case created', done: true, w: 10 },
+      { name: 'Screening initiated', done: msgs.length > 0, w: 15 },
+      { name: 'Analysis received', done: assistantMsgs.length > 0 && totalChars > 200, w: 20 },
+      { name: 'Risk assessed', done: hasRisk, w: 15 },
+      { name: 'Evidence gathered', done: totalChars > 1500 || hasFiles, w: 10 },
+      { name: 'Follow-up conducted', done: userMsgCount >= 2, w: 10 },
+      { name: 'Deep analysis', done: assistantMsgs.length >= 2 && totalChars > 3000, w: 10 },
+      { name: 'Report generated', done: hasReports, w: 10 }
     ];
     const pct = steps.reduce((s, st) => s + (st.done ? st.w : 0), 0);
     const doneNames = steps.filter(s => s.done).map(s => s.name);
