@@ -4,8 +4,7 @@ import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDow
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
-import { pdf } from '@react-pdf/renderer';
-import ComplianceReportPDF from './ComplianceReportPDF';
+// pdf and ComplianceReportPDF removed — generatePdfReport now uses DOM capture via captureDomToPdf
 import posthog from 'posthog-js';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 // eslint-disable-next-line no-unused-vars
@@ -56,16 +55,83 @@ const detectVisualizationRequest = (message) => {
   return 'network';
 };
 
-// Elapsed time counter for active searches
-function ElapsedTimer({ startedAt }) {
+// Screening progress steps with cumulative timing (in seconds)
+const SCREENING_STEPS = [
+  { name: 'Searching sanctions lists', pct: 15, at: 3 },
+  { name: 'Checking PEP databases', pct: 30, at: 7 },
+  { name: 'Scanning adverse media', pct: 45, at: 12 },
+  { name: 'Analyzing corporate records', pct: 60, at: 18 },
+  { name: 'Cross-referencing sources', pct: 75, at: 25 },
+  { name: 'Generating risk assessment', pct: 85, at: 33 },
+  { name: 'Compiling report', pct: 92, at: 42 },
+];
+
+// Real-time screening progress bar with step simulation
+function ScreeningProgressBar({ startedAt }) {
+  const [progress, setProgress] = useState(0);
+  const [stepName, setStepName] = useState('Initializing...');
   const [elapsed, setElapsed] = useState(0);
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-    }, 1000);
+      const secs = (Date.now() - new Date(startedAt).getTime()) / 1000;
+      setElapsed(Math.floor(secs));
+
+      // Find the current step based on elapsed time
+      let currentPct = 5;
+      let currentName = 'Initializing...';
+      for (let i = SCREENING_STEPS.length - 1; i >= 0; i--) {
+        if (secs >= SCREENING_STEPS[i].at) {
+          currentPct = SCREENING_STEPS[i].pct;
+          // Show the *next* step name as what's currently running, or last step if done
+          if (i < SCREENING_STEPS.length - 1) {
+            currentName = SCREENING_STEPS[i + 1].name + '...';
+          } else {
+            currentName = 'Finalizing...';
+          }
+          // Add smooth interpolation toward next step
+          if (i < SCREENING_STEPS.length - 1) {
+            const nextStep = SCREENING_STEPS[i + 1];
+            const stepDuration = nextStep.at - SCREENING_STEPS[i].at;
+            const stepElapsed = secs - SCREENING_STEPS[i].at;
+            const stepFraction = Math.min(stepElapsed / stepDuration, 0.95);
+            currentPct += (nextStep.pct - currentPct) * stepFraction;
+          }
+          break;
+        }
+      }
+      // First step hasn't been reached yet — interpolate from 5% toward first step
+      if (secs < SCREENING_STEPS[0].at) {
+        const fraction = secs / SCREENING_STEPS[0].at;
+        currentPct = 5 + (SCREENING_STEPS[0].pct - 5) * fraction;
+        currentName = SCREENING_STEPS[0].name + '...';
+      }
+
+      // Cap at 95% — actual completion will jump to 100%
+      setProgress(Math.min(Math.round(currentPct), 95));
+      setStepName(currentName);
+    }, 400);
+
     return () => clearInterval(interval);
   }, [startedAt]);
-  return <span className="text-gray-500 text-xs">{elapsed}s</span>;
+
+  return (
+    <div className="w-full mt-1.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-gray-400 text-[10px] truncate mr-2">{stepName}</span>
+        <span className="text-gray-500 text-[10px] shrink-0">{elapsed}s</span>
+      </div>
+      <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gray-400 rounded-full"
+          style={{ width: `${progress}%`, transition: 'width 0.4s ease-out' }}
+        />
+      </div>
+      <div className="text-right mt-0.5">
+        <span className="text-gray-600 text-[10px] font-mono">{progress}%</span>
+      </div>
+    </div>
+  );
 }
 
 // Sanitize API errors into user-friendly messages
@@ -1454,50 +1520,46 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  }
  };
 
- // Generate PDF report using @react-pdf/renderer
+ // Generate PDF report — captures the live KYC results DOM for pixel-perfect output
  const generatePdfReport = async (screening) => {
  setIsGeneratingPdf(true);
 
  try {
  const result = screening.result;
+ const subjectName = result.subject?.name || screening.query || 'Unknown Entity';
+ const riskLevel = (result.overallRisk || 'UNKNOWN').toUpperCase();
 
- // Transform screening data into the format expected by ComplianceReportPDF
- const pdfData = {
- subjectName: result.subject?.name || screening.query || 'Unknown Entity',
- caseNumber: `SCR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
- riskLevel: result.overallRisk || 'unknown',
- entity: {
- name: result.subject?.name || 'Unknown Entity',
- type: result.subject?.type || 'Entity',
- status: result.subject?.status || null,
- statusDate: result.subject?.statusDate || null,
- },
- metadata: {
- designation: result.subject?.designation || null,
- jurisdiction: screening.country || 'Global',
- lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
- },
- summary: result.summary || `Compliance screening completed for ${result.subject?.name}. Risk level assessed as ${result.overallRisk?.toUpperCase() || 'UNKNOWN'}.`,
- redFlags: (result.redFlags || []).map(flag => ({
- category: flag.category || 'Compliance Alert',
- title: flag.title || flag.headline || 'Red Flag Identified',
- fact: flag.fact || flag.description || flag.finding || '',
- complianceImpact: flag.translation || flag.complianceImpact || flag.impact || '',
- sources: flag.sources || flag.citations || [],
- })),
- analystName: 'Compliance Analyst',
- generatedAt: new Date().toISOString(),
- };
+ // Navigate to results view so kyc-results-content renders this screening
+ setSelectedHistoryItem(screening);
+ setKycResults(result);
+ setKycQuery(screening.query);
+ setKycClientRef(screening.clientRef || '');
+ setKycYearOfBirth(screening.yearOfBirth || '');
+ setKycCountry(screening.country || '');
+ setKycType(screening.type);
+ setKycPage('results');
 
- // Generate PDF blob
- posthog.capture('pdf_exported', { subject: result.subject?.name || 'unknown', risk_level: result.overallRisk || null });
- const pdfBlob = await pdf(<ComplianceReportPDF data={pdfData} />).toBlob();
+ // Wait for React to render the results
+ await new Promise(resolve => setTimeout(resolve, 500));
+
+ const sourceEl = document.getElementById('kyc-results-content');
+ if (!sourceEl) {
+ throw new Error('Could not find results content element');
+ }
+
+ posthog.capture('pdf_exported', { subject: subjectName, risk_level: riskLevel });
+
+ const { pdfBlob } = await captureDomToPdf(sourceEl, {
+ subjectName,
+ riskLevel,
+ bgColor: '#ffffff'
+ });
 
  // Create download link
  const url = URL.createObjectURL(pdfBlob);
  const a = document.createElement('a');
  a.href = url;
- a.download = `${(result.subject?.name || 'entity').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${new Date().toISOString().split('T')[0]}.pdf`;
+ a.download = `${subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${new Date().toISOString().split('T')[0]}.pdf`;
  document.body.appendChild(a);
  a.click();
  document.body.removeChild(a);
@@ -1945,397 +2007,169 @@ Format the report professionally with clear headers, bullet points where appropr
  }
  };
 
- // Parse markdown into structured data for PDF
- const parseMarkdownForPdf = (markdown) => {
-   if (!markdown) return { sections: [] };
-   const lines = markdown.split('\n');
-   const rawSections = [];
-   let current = null;
-   let preamble = [];
 
-   for (const line of lines) {
-     if (line.startsWith('## ')) {
-       if (current) {
-         current.content = current.lines.join('\n').trim();
-         rawSections.push(current);
-       }
-       current = { title: line.replace(/^##\s+/, '').trim(), lines: [] };
-     } else if (current) {
-       current.lines.push(line);
-     } else {
-       preamble.push(line);
-     }
-   }
-   if (current) {
-     current.content = current.lines.join('\n').trim();
-     rawSections.push(current);
-   }
+// Shared DOM-capture PDF generator — captures any element as a pixel-perfect PDF
+// Used by both chat message export and KYC screening report export
+const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#1a1a1a' }) => {
+  const html2canvas = (await import('html2canvas')).default;
+  const { jsPDF } = await import('jspdf');
 
-   // Parse bold segments from text
-   const parseSegments = (text) => {
-     const segments = [];
-     const parts = text.split(/(\*\*[^*]+\*\*)/g);
-     for (const part of parts) {
-       if (part.startsWith('**') && part.endsWith('**')) {
-         segments.push({ text: part.slice(2, -2), bold: true });
-       } else if (part) {
-         // Strip markdown links [text](url) → text
-         segments.push({ text: part.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') });
-       }
-     }
-     return segments;
-   };
+  const canvas = await html2canvas(sourceEl, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: bgColor,
+    logging: false
+  });
 
-   // Extract risk info
-   let riskLevel = null; // Only set if found in content
-   let riskScore = null;
-   let onboardingRecommendation = null;
-   let onboardingRiskLevel = null;
-   let subjectName = null; // Only set if found in content
+  const canvasW = canvas.width;
+  const canvasH = canvas.height;
+  const canvasCtx = canvas.getContext('2d');
 
-   for (const sec of rawSections) {
-     const upper = sec.title.toUpperCase();
-     if (upper.includes('OVERALL RISK')) {
-       if (upper.includes('CRITICAL')) riskLevel = 'CRITICAL';
-       else if (upper.includes('HIGH')) riskLevel = 'HIGH';
-       else if (upper.includes('MEDIUM')) riskLevel = 'MEDIUM';
-       else if (upper.includes('LOW')) riskLevel = 'LOW';
-       const scoreMatch = sec.title.match(/(\d+)\s*\/\s*100/);
-       if (scoreMatch) riskScore = parseInt(scoreMatch[1]);
-     }
-     if (upper.includes('ONBOARDING') || upper.includes('RECOMMENDATION')) {
-       const recMatch = sec.title.match(/:\s*(.+)$/);
-       if (recMatch) onboardingRecommendation = recMatch[1].trim();
-       if (upper.includes('IMMEDIATE REJECT') || upper.includes('DO NOT PROCEED')) onboardingRiskLevel = 'CRITICAL';
-       else if (upper.includes('ENHANCED DUE DILIGENCE')) onboardingRiskLevel = 'HIGH';
-       else if (upper.includes('PROCEED WITH MONITORING') || upper.includes('PROCEED WITH CAUTION')) onboardingRiskLevel = 'MEDIUM';
-       else if (upper.includes('STANDARD') || upper.includes('APPROVE')) onboardingRiskLevel = 'LOW';
-     }
-     if (upper.includes('ENTITY SUMMARY')) {
-       const nameMatch = sec.content.match(/\*\*Name:\*\*\s*(.+?)(?:\n|$)/i);
-       if (nameMatch) subjectName = nameMatch[1].trim();
-     }
-   }
+  // PDF dimensions (A4 in mm)
+  const pdfWidth = 210;
+  const pdfHeight = 297;
+  const headerH = 18;
+  const footerH = 12;
+  const margin = 10;
+  const contentWidth = pdfWidth - margin * 2;
+  const contentAreaH = pdfHeight - headerH - footerH;
 
-   // Classify and parse each section into content blocks
-   // Each section gets an array of blocks: { type, data } to handle mixed content
-   const sections = rawSections.map(sec => {
-     const upper = sec.title.toUpperCase();
-     const contentLines = sec.content.split('\n').filter(l => l.trim());
-     const blocks = [];
-     const bottomLine = [];
+  // Scale factor: canvas pixels to mm
+  const mmPerPx = contentWidth / canvasW;
+  const canvasPagePx = contentAreaH / mmPerPx;
 
-     // Helper: parse a table from lines
-     const parseTable = (lines) => {
-       const tLines = lines.filter(l => l.includes('|'));
-       const sepLines = lines.filter(l => /^\|[\s:|-]+\|$/.test(l.trim()));
-       if (tLines.length >= 3 && sepLines.length >= 1) {
-         const parseRow = (line) => line.split('|').map(c => c.trim()).filter(c => c !== '');
-         const headers = parseRow(tLines[0]);
-         const rows = tLines.slice(2)
-           .filter(l => !/^[\s:|-]+$/.test(l.replace(/\|/g, '')))
-           .map(l => parseRow(l));
-         return { headers, rows };
-       }
-       return null;
-     };
+  // Smart page break: scan canvas rows for uniform-color gaps
+  const findBestBreak = (targetY) => {
+    if (targetY >= canvasH) return canvasH;
+    const searchRange = Math.floor(canvasPagePx * 0.15);
+    const startY = Math.max(0, Math.floor(targetY - searchRange));
+    const endY = Math.min(canvasH - 1, Math.floor(targetY + 10));
+    let bestY = Math.floor(targetY);
+    let bestScore = -1;
+    for (let y = endY; y >= startY; y--) {
+      const rowData = canvasCtx.getImageData(0, y, canvasW, 1).data;
+      let uniform = 0;
+      const r0 = rowData[0], g0 = rowData[1], b0 = rowData[2];
+      for (let x = 0; x < canvasW * 4; x += 16) {
+        if (Math.abs(rowData[x] - r0) < 10 && Math.abs(rowData[x+1] - g0) < 10 && Math.abs(rowData[x+2] - b0) < 10) {
+          uniform++;
+        }
+      }
+      const score = uniform / (canvasW / 4);
+      if (score > 0.95) return y;
+      if (score > bestScore) { bestScore = score; bestY = y; }
+    }
+    return bestY;
+  };
 
-     // Helper: check if line is part of a table
-     const isTableLine = (line) => line.includes('|') || /^\|[\s:|-]+\|$/.test(line.trim());
+  // Build page slices with smart breaks
+  const slices = [];
+  let srcY = 0;
+  while (srcY < canvasH) {
+    const idealEnd = srcY + canvasPagePx;
+    const sliceEnd = idealEnd >= canvasH ? canvasH : findBestBreak(idealEnd);
+    const h = sliceEnd - srcY;
+    if (h <= 0) break;
+    slices.push({ y: srcY, h });
+    srcY = sliceEnd;
+  }
 
-     // Helper: extract bottom line from text
-     const checkBottomLine = (text) => {
-       if (text.toLowerCase().startsWith('bottom line:') || text.toLowerCase().startsWith('**bottom line')) {
-         const cleaned = text.replace(/^\*\*bottom line:?\*\*\s*/i, '').replace(/^bottom line:\s*/i, '');
-         bottomLine.push({ text: cleaned, segments: parseSegments(cleaned) });
-         return true;
-       }
-       return false;
-     };
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const reportId = 'KTH-' + Date.now().toString(36).toUpperCase();
+  const generatedAt = new Date().toLocaleString();
+  const analystEmail = user?.email || 'Unknown';
 
-     // Split content into groups: table lines vs non-table lines
-     let currentGroup = [];
-     let currentIsTable = false;
+  slices.forEach((slice, pageIdx) => {
+    if (pageIdx > 0) doc.addPage();
 
-     const flushGroup = () => {
-       if (currentGroup.length === 0) return;
-       if (currentIsTable) {
-         const table = parseTable(currentGroup);
-         if (table) blocks.push({ type: 'table', ...table });
-       } else {
-         // Parse non-table lines into appropriate block types
-         const lines = currentGroup;
+    // -- Header --
+    doc.setFillColor(26, 26, 26);
+    doc.rect(0, 0, pdfWidth, headerH, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Katharos', margin, 11);
+    doc.setFontSize(8);
+    doc.setTextColor(133, 133, 133);
+    doc.text('Report ' + reportId, pdfWidth - margin, 8, { align: 'right' });
+    doc.text(generatedAt + '  \u2022  ' + analystEmail, pdfWidth - margin, 13, { align: 'right' });
 
-         // Check for key-value pairs
-         if (upper.includes('ENTITY SUMMARY') || upper.includes('MATCH CONFIDENCE')) {
-           const items = [];
-           const leftover = [];
-           for (const line of lines) {
-             const kvMatch = line.match(/^\*?\*?\s*\*\*(.+?):\*\*\s*(.+)/);
-             const simpleKv = !kvMatch && line.match(/^[-•*]\s*\*?\*?(.+?):\*?\*?\s+(.+)/);
-             if (kvMatch) {
-               items.push({ label: kvMatch[1].trim(), value: kvMatch[2].trim(), valueSegments: parseSegments(kvMatch[2].trim()) });
-             } else if (simpleKv) {
-               items.push({ label: simpleKv[1].trim(), value: simpleKv[2].trim(), valueSegments: parseSegments(simpleKv[2].trim()) });
-             } else {
-               leftover.push(line);
-             }
-           }
-           if (items.length > 0) blocks.push({ type: 'key-value', items });
-           // Process leftover lines as paragraphs
-           for (const line of leftover) {
-             const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
-             if (cleaned && !checkBottomLine(line.trim())) {
-               blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
-             }
-           }
-           currentGroup = [];
-           return;
-         }
+    // -- Content slice --
+    const sliceCanvas = document.createElement('canvas');
+    sliceCanvas.width = canvasW;
+    sliceCanvas.height = Math.ceil(slice.h);
+    const ctx = sliceCanvas.getContext('2d');
+    ctx.drawImage(canvas, 0, slice.y, canvasW, slice.h, 0, 0, canvasW, slice.h);
+    const sliceImgH = slice.h * mmPerPx;
+    doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, headerH, contentWidth, sliceImgH);
 
-         // Check for numbered items (Red Flags, Typologies)
-         if (upper.includes('RED FLAG') || upper.includes('TYPOLOG')) {
-           const items = [];
-           let currentItem = null;
-           const leftover = [];
-           for (const line of lines) {
-             const numMatch = line.match(/^\d+\.\s*(.+)/);
-             const bulletBold = line.match(/^[-•*]\s*\*\*(.+?)\*\*\s*[—→:]*\s*(.*)/);
-             if (numMatch || bulletBold) {
-               if (currentItem) items.push(currentItem);
-               const titleText = numMatch ? numMatch[1] : bulletBold[1];
-               const bodyText = numMatch ? '' : (bulletBold[2] || '');
-               currentItem = {
-                 title: titleText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
-                 titleSegments: parseSegments(titleText),
-                 body: bodyText.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
-               };
-             } else if (currentItem) {
-               const cleaned = line.replace(/^\s+/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-               currentItem.body = currentItem.body ? currentItem.body + ' ' + cleaned : cleaned;
-             } else {
-               leftover.push(line);
-             }
-           }
-           if (currentItem) items.push(currentItem);
-           if (items.length > 0) blocks.push({ type: 'numbered', items });
-           for (const line of leftover) {
-             if (!checkBottomLine(line.trim())) {
-               const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
-               if (cleaned) blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
-             }
-           }
-           currentGroup = [];
-           return;
-         }
+    // -- Footer --
+    doc.setFillColor(26, 26, 26);
+    doc.rect(0, pdfHeight - footerH, pdfWidth, footerH, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(107, 107, 107);
+    doc.text('Katharos Compliance Platform  \u2022  Confidential', margin, pdfHeight - 4);
+    doc.text('Page ' + (pageIdx + 1) + ' of ' + slices.length, pdfWidth - margin, pdfHeight - 4, { align: 'right' });
+  });
 
-         // Check for bullet lists
-         const bulletLines = lines.filter(l => /^[-•*]\s/.test(l.trim()) || /^\d+\.\s/.test(l.trim()));
-         if (bulletLines.length > lines.length * 0.4 && bulletLines.length >= 2) {
-           const listItems = [];
-           const leftover = [];
-           for (const line of lines) {
-             if (/^[-•*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim())) {
-               const cleaned = line.replace(/^[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
-               if (cleaned) listItems.push({ text: cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'), segments: parseSegments(cleaned) });
-             } else {
-               leftover.push(line);
-             }
-           }
-           if (listItems.length > 0) blocks.push({ type: 'list', items: listItems });
-           for (const line of leftover) {
-             if (!checkBottomLine(line.trim())) {
-               const cleaned = line.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
-               if (cleaned) blocks.push({ type: 'paragraph', content: [{ text: cleaned, segments: parseSegments(line.trim()) }] });
-             }
-           }
-           currentGroup = [];
-           return;
-         }
+  return { pdfBlob: doc.output('blob'), reportId, riskLevel, subjectName };
+};
 
-         // Default: paragraphs
-         let currentPara = '';
-         for (const line of lines) {
-           const cleaned = line.trim();
-           if (!cleaned) {
-             if (currentPara) {
-               if (!checkBottomLine(currentPara)) {
-                 blocks.push({ type: 'paragraph', content: [{ text: currentPara, segments: parseSegments(currentPara) }] });
-               }
-               currentPara = '';
-             }
-           } else {
-             currentPara = currentPara ? currentPara + ' ' + cleaned : cleaned;
-           }
-         }
-         if (currentPara) {
-           if (!checkBottomLine(currentPara)) {
-             blocks.push({ type: 'paragraph', content: [{ text: currentPara, segments: parseSegments(currentPara) }] });
-           }
-         }
-       }
-       currentGroup = [];
-     };
+// Export conversation message as PDF — captures the exact MarkdownRenderer DOM
+const exportMessageAsPdf = async (elementId, markdownContent) => {
+  if (!elementId) return;
+  const sourceEl = document.getElementById(elementId);
+  if (!sourceEl) return;
 
-     for (const line of contentLines) {
-       const lineIsTable = isTableLine(line);
-       if (currentGroup.length > 0 && lineIsTable !== currentIsTable) {
-         flushGroup();
-       }
-       currentIsTable = lineIsTable;
-       currentGroup.push(line);
-     }
-     flushGroup();
+  setIsGeneratingCaseReport(true);
 
-     // For backwards compatibility, also set top-level type/items/content from the first block
-     const primaryBlock = blocks[0] || { type: 'paragraph', content: [] };
-     return {
-       title: sec.title,
-       type: primaryBlock.type,
-       items: primaryBlock.items,
-       headers: primaryBlock.headers,
-       rows: primaryBlock.rows,
-       content: primaryBlock.content,
-       blocks, // all content blocks
-       bottomLine,
-     };
-   });
+  try {
+    let subjectName = caseName || '';
+    subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
+    if (!subjectName || subjectName === 'New Investigation') subjectName = 'Compliance Report';
 
-   return { subjectName, riskLevel, riskScore, onboardingRecommendation, onboardingRiskLevel, sections };
- };
+    const content = markdownContent || sourceEl.textContent || '';
+    const riskMatch = content.match(/OVERALL RISK[:\s]*\*?\*?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
+    const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : 'UNKNOWN';
 
- // Export conversation message as PDF
- const exportMessageAsPdf = async (elementId, markdownContent) => {
- if (!elementId) return;
- const sourceEl = document.getElementById(elementId);
- if (!sourceEl) return;
+    const { pdfBlob } = await captureDomToPdf(sourceEl, { subjectName, riskLevel });
 
- setIsGeneratingCaseReport(true);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
+    const fileName = subjectSlug + '-' + dateStr + '.pdf';
 
- try {
- // Derive subject name from case
- let subjectName = caseName || '';
- subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
- if (!subjectName || subjectName === 'New Investigation') subjectName = 'Compliance Report';
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 
- // Extract risk level from content
- const content = markdownContent || sourceEl.textContent || '';
- const riskMatch = content.match(/OVERALL RISK[:\s]*\*?\*?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
- const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : 'UNKNOWN';
+    if (currentCaseId) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        addPdfReportToCase(currentCaseId, {
+          id: Math.random().toString(36).substr(2, 9),
+          name: fileName,
+          createdAt: new Date().toISOString(),
+          dataUri: reader.result,
+          riskLevel: riskLevel,
+          entityName: subjectName,
+        });
+      };
+      reader.readAsDataURL(pdfBlob);
+    }
 
- // Capture the exact DOM as rendered on screen
- const html2canvas = (await import('html2canvas')).default;
- const { jsPDF } = await import('jspdf');
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    setIsGeneratingCaseReport(false);
+  }
+};
 
- const canvas = await html2canvas(sourceEl, {
-   scale: 2,
-   useCORS: true,
-   backgroundColor: '#1a1a1a',
-   logging: false
- });
-
- const imgData = canvas.toDataURL('image/png');
- const imgWidth = canvas.width;
- const imgHeight = canvas.height;
-
- // PDF dimensions (A4)
- const pdfWidth = 210; // mm
- const headerHeight = 18; // mm - Katharos header
- const footerHeight = 12; // mm - footer
- const margin = 10; // mm
- const contentWidth = pdfWidth - (margin * 2);
- const contentAreaHeight = 297 - headerHeight - footerHeight; // mm available per page
-
- // Scale image to fit content width
- const scale = contentWidth / (imgWidth / (canvas.width / canvas.offsetWidth || 2));
- const scaledImgWidth = contentWidth;
- const scaledImgHeight = (imgHeight * scaledImgWidth) / imgWidth;
-
- const totalPages = Math.ceil(scaledImgHeight / contentAreaHeight);
- const doc = new jsPDF('p', 'mm', 'a4');
- const reportId = `KTH-${Date.now().toString(36).toUpperCase()}`;
- const generatedAt = new Date().toLocaleString();
- const analystEmail = user?.email || 'Unknown';
-
- for (let page = 0; page < totalPages; page++) {
-   if (page > 0) doc.addPage();
-
-   // -- Header --
-   doc.setFillColor(26, 26, 26);
-   doc.rect(0, 0, pdfWidth, headerHeight, 'F');
-   doc.setFont('helvetica', 'normal');
-   doc.setFontSize(14);
-   doc.setTextColor(255, 255, 255);
-   doc.text('Katharos', margin, 11);
-   doc.setFontSize(8);
-   doc.setTextColor(133, 133, 133);
-   doc.text(`Report ${reportId}`, pdfWidth - margin, 8, { align: 'right' });
-   doc.text(`${generatedAt}  •  ${analystEmail}`, pdfWidth - margin, 13, { align: 'right' });
-
-   // -- Content (clipped slice of the captured image) --
-   const sourceY = page * contentAreaHeight;
-   const sliceHeight = Math.min(contentAreaHeight, scaledImgHeight - sourceY);
-
-   // Create a clipped canvas for this page slice
-   const sliceCanvas = document.createElement('canvas');
-   const sourcePixelY = (sourceY / scaledImgHeight) * imgHeight;
-   const sourcePixelHeight = (sliceHeight / scaledImgHeight) * imgHeight;
-   sliceCanvas.width = imgWidth;
-   sliceCanvas.height = Math.ceil(sourcePixelHeight);
-   const ctx = sliceCanvas.getContext('2d');
-   ctx.drawImage(canvas, 0, sourcePixelY, imgWidth, sourcePixelHeight, 0, 0, imgWidth, sourcePixelHeight);
-
-   const sliceData = sliceCanvas.toDataURL('image/png');
-   doc.addImage(sliceData, 'PNG', margin, headerHeight, scaledImgWidth, sliceHeight);
-
-   // -- Footer --
-   doc.setFillColor(26, 26, 26);
-   doc.rect(0, 297 - footerHeight, pdfWidth, footerHeight, 'F');
-   doc.setFontSize(7);
-   doc.setTextColor(107, 107, 107);
-   doc.text('Katharos Compliance Platform  •  Confidential', margin, 297 - 4);
-   doc.text(`Page ${page + 1} of ${totalPages}`, pdfWidth - margin, 297 - 4, { align: 'right' });
- }
-
- const pdfBlob = doc.output('blob');
-
- // Generate filename and download
- const dateStr = new Date().toISOString().split('T')[0];
- const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
- const fileName = `${subjectSlug}-${dateStr}.pdf`;
-
- const url = URL.createObjectURL(pdfBlob);
- const a = document.createElement('a');
- a.href = url;
- a.download = fileName;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- URL.revokeObjectURL(url);
-
- // Save to current case
- if (currentCaseId) {
-   const reader = new FileReader();
-   reader.onloadend = () => {
-     addPdfReportToCase(currentCaseId, {
-       id: Math.random().toString(36).substr(2, 9),
-       name: fileName,
-       createdAt: new Date().toISOString(),
-       dataUri: reader.result,
-       riskLevel: riskLevel,
-       entityName: subjectName,
-     });
-   };
-   reader.readAsDataURL(pdfBlob);
- }
-
- } catch (error) {
- console.error('PDF export error:', error);
- alert('Error generating PDF. Please try again.');
- } finally {
- setIsGeneratingCaseReport(false);
- }
- };
 
  // Export entire case as PDF report
  const exportCaseAsPdf = async (caseData) => {
@@ -5564,12 +5398,7 @@ List ALL sources cited throughout the report. For databases, link directly. For 
 
 ## KEEP EXPLORING
 
-- Screen [specific associate name] in Katharos
-- Upload ownership documents for deeper analysis
-- Review corporate network for indirect connections
-- Analyze [specific document type] for hidden exposures
-
-(3-4 actionable next steps — always phrase screening suggestions as "Screen [name] in Katharos", NEVER "check against OFAC/EU lists")
+Do NOT include this section. Keep Exploring suggestions are generated automatically by the application based on structured data. Do not write your own suggestions here.
 
 FORMATTING RULES:
 1. ⚠️ #1 PRIORITY — INLINE CITATIONS: Every factual claim MUST have a clickable source link RIGHT NEXT TO IT. For databases (OFAC, OpenCorporates, etc.) link directly. For news articles, use Google search verification links. Do NOT collect sources at the bottom. Do NOT fabricate specific article URLs. Example: "Designated on the [OFAC SDN List](https://sanctionssearch.ofac.treas.gov/) in March 2022. Named in a Reuters investigation ([verify](https://www.google.com/search?q=%22Subject%22+Reuters+sanctions))."
@@ -6336,12 +6165,12 @@ Respond with JSON:
      const step4Parsed = JSON.parse(step4Match[0]);
      scoutPipelineData.entityRiskAssessments = step4Parsed.entityRiskAssessments || [];
      scoutPipelineData.typologies = step4Parsed.typologies || [];
-     scoutPipelineData.overallRiskLevel = step4Parsed.overallRiskLevel || 'MEDIUM';
+     scoutPipelineData.overallRiskLevel = step4Parsed.overallRiskLevel || 'UNKNOWN';
      scoutPipelineData.overallRiskRationale = step4Parsed.overallRiskRationale || '';
    } catch (e) {
      scoutPipelineData.entityRiskAssessments = [];
      scoutPipelineData.typologies = [];
-     scoutPipelineData.overallRiskLevel = 'MEDIUM';
+     scoutPipelineData.overallRiskLevel = 'UNKNOWN';
    }
  }
 
@@ -6417,7 +6246,7 @@ Respond with JSON:
    const sanctionResult = scoutPipelineData.screeningResults?.find(r => r.entityId === entity.id) || {};
    return {
      ...entity,
-     riskLevel: riskAssessment.riskLevel || 'MEDIUM',
+     riskLevel: riskAssessment.riskLevel || entity.riskLevel || 'UNKNOWN',
      riskIndicators: riskAssessment.riskIndicators || entity.initialRiskIndicators || [],
      sanctionStatus: sanctionResult.sanctionStatus || 'CLEAR',
      sanctionDetails: sanctionResult.sanctionDetails || null,
@@ -6446,7 +6275,7 @@ Respond with JSON:
  const finalAnalysis = {
    executiveSummary: {
      ...scoutPipelineData.executiveSummary,
-     riskLevel: scoutPipelineData.overallRiskLevel || 'MEDIUM'
+     riskLevel: scoutPipelineData.overallRiskLevel || 'UNKNOWN'
    },
    entities: finalEntities,
    typologies: scoutPipelineData.typologies || [],
@@ -7532,9 +7361,9 @@ setIsAnalyzing(false);
  const getRiskColor = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-500 text-white';
- case 'HIGH': return 'bg-gray-600 text-white';
- case 'MEDIUM': return 'bg-gray-500 text-white';
- case 'LOW': return 'bg-gray-1000 text-white';
+ case 'HIGH': return 'bg-orange-500 text-white';
+ case 'MEDIUM': return 'bg-yellow-500 text-white';
+ case 'LOW': return 'bg-emerald-500 text-white';
  default: return 'bg-gray-500 text-white';
  }
  };
@@ -7542,9 +7371,9 @@ setIsAnalyzing(false);
  const getRiskBorder = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'border-l-4 border-red-500';
- case 'HIGH': return 'border-l-4 border-gray-600';
- case 'MEDIUM': return 'border-l-4 border-gray-500';
- case 'LOW': return 'border-l-4 border-gray-400';
+ case 'HIGH': return 'border-l-4 border-orange-500';
+ case 'MEDIUM': return 'border-l-4 border-yellow-500';
+ case 'LOW': return 'border-l-4 border-emerald-500';
  default: return 'border-l-4 border-gray-400';
  }
  };
@@ -7553,9 +7382,9 @@ setIsAnalyzing(false);
 const getRiskBg = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-50';
- case 'HIGH': return 'bg-gray-100';
- case 'MEDIUM': return 'bg-gray-100';
- case 'LOW': return 'bg-gray-100';
+ case 'HIGH': return 'bg-orange-50';
+ case 'MEDIUM': return 'bg-yellow-50';
+ case 'LOW': return 'bg-emerald-50';
  default: return 'bg-gray-50';
  }
  };
@@ -7564,9 +7393,9 @@ const getRiskBg = (level) => {
  const getRiskDot = (level) => {
  switch (level?.toUpperCase()) {
  case 'CRITICAL': return 'bg-red-500 ring-red-200';
- case 'HIGH': return 'bg-gray-600 ring-gray-200';
- case 'MEDIUM': return 'bg-gray-500 ring-gray-200';
- case 'LOW': return 'bg-gray-1000 ring-emerald-200';
+ case 'HIGH': return 'bg-orange-500 ring-orange-200';
+ case 'MEDIUM': return 'bg-yellow-500 ring-yellow-200';
+ case 'LOW': return 'bg-emerald-500 ring-emerald-200';
  default: return 'bg-gray-400 ring-gray-200';
  }
  };
@@ -8070,21 +7899,27 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  >
  <div className="flex items-center gap-4">
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-gray-100 border border-gray-300' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
- 'bg-gray-100 border border-gray-300'
+ item.result.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
+ item.result.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
+ item.result.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
+item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' :
+'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-6 h-6 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-gray-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-gray-600'
+ item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-6 h-6 ${
- item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-gray-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-gray-600'
+ item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+'text-gray-600'
  }`} />
  )}
  </div>
@@ -8288,21 +8123,27 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  >
  <div className="flex items-center gap-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- item.result.overallRisk === 'LOW' ? 'bg-gray-100 border border-gray-300' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-gray-100 border border-gray-300' :
- 'bg-gray-100 border border-gray-300'
+ item.result.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
+ item.result.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
+ item.result.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
+item.result.overallRisk === 'LOW' ? 'bg-emerald-50 border border-emerald-200' :
+'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-5 h-5 ${
- item.result.overallRisk === 'LOW' ? 'text-gray-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-gray-600'
+ item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-5 h-5 ${
- item.result.overallRisk === 'LOW' ? 'text-gray-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-gray-600' :
- 'text-gray-600'
+ item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+'text-gray-600'
  }`} />
  )}
  </div>
@@ -8644,6 +8485,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
  </div>
 
+ <div id="kyc-results-content">
  {/* No Risks Identified - Simplified View */}
  {kycResults.noRisksIdentified ? (
  <div className="bg-white border-2 border-gray-400 rounded-2xl p-8 text-center">
@@ -8766,16 +8608,16 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'bg-red-600/20'
- : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'bg-gray-100 border border-gray-300'
- : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'bg-gray-100 border border-gray-300'
- : 'bg-gray-100 border border-gray-300'
+ : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'bg-orange-50 border border-orange-200'
+ : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200'
+ : kycResults.ownershipAnalysis.riskLevel === 'LOW' ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-100 border border-gray-300'
  }`}>
  <GitBranch className={`w-6 h-6 ${
  kycResults.ownershipAnalysis.fiftyPercentRuleTriggered
  ? 'text-red-600'
- : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'text-gray-600'
- : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'text-gray-600'
- : 'text-gray-500'
+ : kycResults.ownershipAnalysis.riskLevel === 'HIGH' ? 'text-orange-500'
+ : kycResults.ownershipAnalysis.riskLevel === 'MEDIUM' ? 'text-yellow-600'
+ : kycResults.ownershipAnalysis.riskLevel === 'LOW' ? 'text-emerald-500' : 'text-gray-500'
  }`} />
  </div>
  <div className="flex-1">
@@ -9197,6 +9039,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  )}
  </>
  )}
+ </div>{/* end kyc-results-content */}
  </div>
  )}
 
@@ -9214,32 +9057,34 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
  <div className="px-2 py-1">
    {searchJobs.map(job => (
-     <div key={job.id} className="flex items-center justify-between px-2 py-2 border-b border-gray-800 last:border-0">
-       <div className="flex items-center gap-2 min-w-0">
-         {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin shrink-0" />}
-         {job.status === 'queued' && <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-         {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-         {job.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-         <span className={`truncate ${job.status === 'complete' ? 'text-gray-400' : job.status === 'error' ? 'text-red-400' : 'text-gray-100'}`}>{job.query}</span>
+     <div key={job.id} className="px-2 py-2 border-b border-gray-800 last:border-0">
+       <div className="flex items-center justify-between">
+         <div className="flex items-center gap-2 min-w-0">
+           {job.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin shrink-0" />}
+           {job.status === 'queued' && <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+           {job.status === 'complete' && <CheckCircle2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+           {job.status === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+           <span className={`truncate ${job.status === 'complete' ? 'text-gray-400' : job.status === 'error' ? 'text-red-400' : 'text-gray-100'}`}>{job.query}</span>
+         </div>
+         <div className="flex items-center gap-2 shrink-0 ml-3">
+           {job.status === 'queued' && <span className="text-gray-600 text-xs">queued</span>}
+           {job.status === 'complete' && (
+             <>
+               <span className={`text-xs font-bold ${
+                 job.riskLevel === 'CRITICAL' ? 'text-red-400' : job.riskLevel === 'HIGH' ? 'text-orange-400' : job.riskLevel === 'MEDIUM' ? 'text-yellow-500' : 'text-emerald-400'
+               }`}>{job.riskLevel}</span>
+               <button onClick={() => viewSearchResult(job.id)} className="text-gray-400 hover:text-gray-300 text-xs">View</button>
+             </>
+           )}
+           {job.status === 'error' && (
+             <button onClick={() => {
+               setSearchJobs(prev => prev.filter(j => j.id !== job.id));
+               setKycQuery(job.query); setKycType(job.type);
+             }} className="text-red-400 hover:text-red-300 text-xs">Retry</button>
+           )}
+         </div>
        </div>
-       <div className="flex items-center gap-2 shrink-0 ml-3">
-         {job.status === 'running' && <ElapsedTimer startedAt={job.startedAt} />}
-         {job.status === 'queued' && <span className="text-gray-600 text-xs">queued</span>}
-         {job.status === 'complete' && (
-           <>
-             <span className={`text-xs font-bold ${
-               job.riskLevel === 'LOW' ? 'text-gray-400' : job.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
-             }`}>{job.riskLevel}</span>
-             <button onClick={() => viewSearchResult(job.id)} className="text-gray-400 hover:text-gray-300 text-xs">View</button>
-           </>
-         )}
-         {job.status === 'error' && (
-           <button onClick={() => {
-             setSearchJobs(prev => prev.filter(j => j.id !== job.id));
-             setKycQuery(job.query); setKycType(job.type);
-           }} className="text-red-400 hover:text-red-300 text-xs">Retry</button>
-         )}
-       </div>
+       {job.status === 'running' && <ScreeningProgressBar startedAt={job.startedAt} />}
      </div>
    ))}
  </div>
@@ -9251,7 +9096,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex flex-col-reverse gap-3 z-[60]">
  {completionNotifs.slice(0, 2).map(notif => (
    <div key={notif.id} className={`bg-white dark:bg-gray-800 border rounded-xl shadow-2xl min-w-[360px] p-4 animate-[slideInRight_0.3s_ease-out] ${
-     notif.riskLevel === 'LOW' ? 'border-gray-400' : notif.riskLevel === 'MEDIUM' ? 'border-gray-400' : 'border-red-300'
+     notif.riskLevel === 'CRITICAL' ? 'border-red-300' : notif.riskLevel === 'HIGH' ? 'border-orange-300' : notif.riskLevel === 'MEDIUM' ? 'border-yellow-300' : 'border-emerald-300'
    }`}>
      <div className="flex items-center justify-between mb-1">
        <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -9263,7 +9108,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
      <p className="text-gray-900 font-semibold text-sm mt-1">{notif.entityName}</p>
      <div className="flex items-center justify-between mt-2">
        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-         notif.riskLevel === 'LOW' ? 'bg-gray-200 text-gray-700' : notif.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' : 'bg-red-100 text-red-700'
+         notif.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' : notif.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-700' : notif.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'
        }`}>{notif.riskLevel} ({notif.riskScore}/100)</span>
        <button
          onClick={() => {
@@ -9284,7 +9129,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <div className="fixed bottom-6 right-6 flex flex-col-reverse gap-3 z-50">
  {searchToasts.slice(0, 3).map(toast => (
    <div key={toast.id} className={`bg-gray-900 border border-gray-700 rounded-xl shadow-2xl min-w-[320px] p-4 animate-[slideInRight_0.3s_ease-out] ${toast.error ? 'border-l-4 border-l-red-500' : `border-l-4 ${
-     toast.riskLevel === 'LOW' ? 'border-l-emerald-500' : toast.riskLevel === 'MEDIUM' ? 'border-l-gray-500' : 'border-l-red-500'
+     toast.riskLevel === 'CRITICAL' ? 'border-l-red-500' : toast.riskLevel === 'HIGH' ? 'border-l-orange-500' : toast.riskLevel === 'MEDIUM' ? 'border-l-yellow-500' : 'border-l-emerald-500'
    }`}`}>
      <div className="flex items-center justify-between mb-1">
        <span className="text-gray-400 text-xs font-mono tracking-wider">{toast.error ? 'SEARCH FAILED' : 'SEARCH COMPLETE'}</span>
@@ -9296,7 +9141,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
      ) : (
        <div className="flex items-center justify-between mt-2">
          <span className={`text-sm font-bold ${
-           toast.riskLevel === 'LOW' ? 'text-gray-400' : toast.riskLevel === 'MEDIUM' ? 'text-gray-500' : 'text-red-400'
+           toast.riskLevel === 'CRITICAL' ? 'text-red-400' : toast.riskLevel === 'HIGH' ? 'text-orange-400' : toast.riskLevel === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400'
          }`}>{toast.riskLevel} ({toast.riskScore}/100)</span>
          <button onClick={() => { viewSearchResult(toast.id); setSearchToasts(prev => prev.filter(t => t.id !== toast.id)); }} className="text-gray-400 hover:text-gray-300 text-sm">View &rarr;</button>
        </div>
@@ -9482,6 +9327,32 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </tr>
  </thead>
  <tbody>
+{/* Live in-progress case row — shows real-time backgroundAnalysis progress */}
+{backgroundAnalysis.isRunning && (
+<tr style={{ borderBottom: '1px solid #3a3a3a', background: '#2a2a2a' }}>
+<td style={{ padding: '14px 20px' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+   <Loader2 className="w-4 h-4 text-gray-400 animate-spin" style={{ flexShrink: 0 }} />
+   <div style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{backgroundAnalysis.caseName || 'New Case'}</div>
+ </div>
+ <div style={{ marginTop: '6px' }}>
+   <div style={{ fontSize: '11px', color: '#858585', marginBottom: '4px' }}>{backgroundAnalysis.currentStep}</div>
+   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+     <div style={{ flex: 1, height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden' }}>
+       <div style={{ width: `${backgroundAnalysis.progress}%`, height: '100%', background: '#858585', borderRadius: '2px', transition: 'width 0.5s ease-out' }} />
+     </div>
+     <span style={{ fontSize: '11px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>{backgroundAnalysis.progress}%</span>
+   </div>
+ </div>
+</td>
+<td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>Just now</td>
+<td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>—</td>
+<td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#858585' }}>ANALYZING</td>
+<td style={{ padding: '14px 20px', textAlign: 'right' }}>
+<Loader2 style={{ width: '16px', height: '16px', color: '#6b6b6b' }} className="animate-spin" />
+</td>
+</tr>
+)}
  {cases.map((caseItem, idx) => (
  <tr 
  key={caseItem.id} 
@@ -9527,7 +9398,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
- <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f59e0b' : caseItem.riskLevel === 'MEDIUM' ? '#a1a1a1' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
+ <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
  <ChevronRight style={{ width: '16px', height: '16px', color: '#6b6b6b' }} />
  </td>
@@ -10083,53 +9954,123 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
     {/* Suggestion Items */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {(() => {
+        // === TEMPLATE-BASED SUGGESTION SYSTEM ===
+        // Pull structured data from the case analysis — NOT raw text regex
         const activeCase = cases.find(c => c.id === currentCaseId);
-        const entity = activeCase?.name?.split(' - ')[0] || 'this entity';
-        const text = conversationMessages?.[conversationMessages.length - 1]?.content || '';
-        const lc = text.toLowerCase();
+        const subjectName = activeCase?.name?.split(' - ')[0]?.trim() || '';
+        const caseAnalysis = analysis || activeCase?.analysis || null;
+        const lastMsg = conversationMessages?.[conversationMessages.length - 1]?.content || '';
+        const lc = lastMsg.toLowerCase();
+
+        // Extract structured facts from analysis object
+        const entities = caseAnalysis?.entities || [];
+        const redFlags = caseAnalysis?.redFlags || [];
+        const relationships = caseAnalysis?.relationships || [];
+
+        // Categorize entities by type
+        const sanctionedEntities = entities.filter(e =>
+          e.sanctionStatus === 'MATCH' || e.riskLevel === 'CRITICAL' ||
+          (e.role && /sanctioned|designated|blocked/i.test(e.role))
+        );
+        const pepEntities = entities.filter(e =>
+          e.role && /pep|politically exposed|government|minister|official|parliament/i.test(e.role)
+        );
+        const corporateEntities = entities.filter(e =>
+          e.type === 'ORGANIZATION' || e.type === 'COMPANY' ||
+          (e.name && /Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited/i.test(e.name))
+        );
+
+        // Detect topics from last message (for contextual relevance)
+        const hasSanctions = lc.includes('sanction') || lc.includes('ofac') || lc.includes('sdn') || lc.includes('designated');
+        const hasPep = lc.includes('pep') || lc.includes('politically exposed') || lc.includes('government official');
+        const hasAdverseMedia = lc.includes('adverse media') || lc.includes('negative news') || lc.includes('allegation') || lc.includes('litigation') || lc.includes('indictment');
+        const hasCorporate = lc.includes('shell') || lc.includes('beneficial owner') || lc.includes('corporate structure') || lc.includes('subsidiary') || lc.includes('nominee');
+        const hasOwnership = lc.includes('ownership') || lc.includes('50%') || lc.includes('fifty percent') || lc.includes('controlled by');
+
+        // Extract a specific quoted headline from the text
+        const headlineMatch = lastMsg.match(/["\u201C\u201D]([^"\u201C\u201D]{15,80})["\u201C\u201D]/);
+        const headline = headlineMatch ? headlineMatch[1] : null;
+
+        // Build suggestions from templates — each template requires specific data to activate
         const suggestions = [];
 
-        // Extract specific names, companies, jurisdictions from the analysis
-        const companyMatches = text.match(/(?:Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited|International|Capital|Partners|Investments|Trading)[\w\s,.]*/gi) || [];
-        const companies = [...new Set(companyMatches.map(m => m.trim().replace(/[.,]+$/, '')).filter(c => c.length > 3 && c.length < 60))];
-        const countryMatches = text.match(/(?:Cyprus|Panama|BVI|British Virgin Islands|Cayman|Seychelles|Luxembourg|Malta|Dubai|UAE|Switzerland|Singapore|Hong Kong|Liechtenstein|Isle of Man|Jersey|Guernsey|Bermuda|Bahamas|Belize|Marshall Islands|Samoa|Vanuatu|Delaware|Nevada|Wyoming)/gi) || [];
-        const jurisdictions = [...new Set(countryMatches.map(j => j.trim()))];
-        const personMatches = text.match(/(?:Mr\.|Ms\.|Dr\.|CEO|Director|Chairman|President|Officer|Principal|Founder)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}/g) || [];
-        const persons = [...new Set(personMatches.map(p => p.replace(/^(?:Mr\.|Ms\.|Dr\.|CEO|Director|Chairman|President|Officer|Principal|Founder)\s+/, '').trim()))];
-        const addressMatch = text.match(/\d+\s+[A-Z][a-zA-Z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Boulevard|Blvd)[,.\s]+[A-Z][a-zA-Z\s]+/);
-        const yearMatches = text.match(/20[0-2]\d/g) || [];
-        const recentYear = yearMatches.length > 0 ? Math.max(...yearMatches.map(Number)) : null;
+        // --- SDN / Sanctions templates ---
+        if (hasSanctions || sanctionedEntities.length > 0) {
+          const target = sanctionedEntities[0]?.name || subjectName;
+          if (target) {
+            suggestions.push(`Trace entities owned 50%+ by ${target} under OFAC's 50% rule`);
+            // Find a different person to suggest screening
+            const associate = entities.find(e => e.type === 'PERSON' && e.name !== target);
+            if (associate) suggestions.push(`Identify ${target}'s known associates and family members`);
+          }
+        }
 
-        // Build contextual suggestions based on what was found
-        if (lc.includes('sanction') || lc.includes('ofac') || lc.includes('sdn')) {
-          if (companies.length > 0) suggestions.push(`Trace entities owned 50%+ by ${companies[0]} to check for sanctions evasion`);
-          else suggestions.push(`Trace entities connected to ${entity} for potential sanctions evasion networks`);
+        // --- PEP templates ---
+        if (hasPep || pepEntities.length > 0) {
+          const pepName = pepEntities[0]?.name || (hasPep ? subjectName : null);
+          if (pepName) {
+            suggestions.push(`Map ${pepName}'s government connections and tenure in office`);
+            if (suggestions.length < 3) suggestions.push(`Check for ${pepName}'s relatives in corporate registries`);
+          }
         }
-        if (lc.includes('pep') || lc.includes('politically exposed') || lc.includes('government official')) {
-          if (persons.length > 0) suggestions.push(`Map ${persons[0]}'s family members and close business associates`);
-          else suggestions.push(`Identify close associates and family members with undisclosed business ties`);
-        }
-        if (lc.includes('shell') || lc.includes('nominee') || lc.includes('registered agent') || lc.includes('beneficial owner')) {
-          if (addressMatch) suggestions.push(`Search for other entities registered at ${addressMatch[0].trim()}`);
-          else if (jurisdictions.length > 0) suggestions.push(`Check ${jurisdictions[0]} corporate registry for related shell entities`);
-        }
-        if (jurisdictions.length > 0 && suggestions.length < 4) {
-          suggestions.push(`Pull beneficial ownership records from the ${jurisdictions[0]} registry`);
-        }
-        if ((lc.includes('litigation') || lc.includes('lawsuit') || lc.includes('indictment') || lc.includes('enforcement')) && recentYear) {
-          suggestions.push(`Deep dive into the ${recentYear} enforcement action — what were the specific allegations?`);
-        }
-        if (lc.includes('adverse media') || lc.includes('negative news') || lc.includes('allegations')) {
-          suggestions.push(`What is the most serious allegation and what is the current status of that matter?`);
-        }
-        if (companies.length > 1 && suggestions.length < 4) {
-          suggestions.push(`What is the relationship between ${companies[0]} and ${companies[1]}?`);
-        }
-        // Always end with a strong investigative question if we have room
-        if (suggestions.length < 3) suggestions.push(`What are the strongest red flags here and what would a senior investigator prioritize next?`);
-        if (suggestions.length < 4) suggestions.push(`Summarize the key risks and recommend whether to escalate or clear ${entity}`);
 
-        return suggestions.slice(0, 4);
+        // --- Adverse media templates ---
+        if (hasAdverseMedia || redFlags.length > 0) {
+          if (headline) {
+            suggestions.push(`Deep dive into "${headline}" — what are the specific allegations?`);
+          } else if (redFlags.length > 0) {
+            const flag = redFlags[0];
+            const flagDesc = flag.title || flag.category || flag.description || '';
+            if (flagDesc) suggestions.push(`What is the current status of the ${flagDesc.toLowerCase().replace(/[.!?]+$/, '')} matter?`);
+          }
+        }
+
+        // --- Corporate structure templates ---
+        if (hasCorporate || hasOwnership || corporateEntities.length > 1) {
+          const parent = corporateEntities.find(e => e.role && /parent|holding|ultimate/i.test(e.role));
+          if (parent) {
+            suggestions.push(`Investigate ${parent.name}'s beneficial ownership structure`);
+          } else if (corporateEntities.length > 0 && corporateEntities[0].name !== subjectName) {
+            suggestions.push(`Investigate ${corporateEntities[0].name}'s beneficial ownership structure`);
+          }
+        }
+
+        // --- Relationship-based templates ---
+        if (relationships.length > 0 && suggestions.length < 3) {
+          const rel = relationships[0];
+          const otherEntity = rel.target || rel.to || rel.entity2 || '';
+          if (otherEntity && otherEntity !== subjectName) {
+            suggestions.push(`Screen ${otherEntity} in Katharos for independent risk assessment`);
+          }
+        }
+
+        // === VALIDATION: filter out bad suggestions ===
+        const validated = suggestions.filter(s => {
+          if (s.length > 120) return false;
+          if (/\bis\s+is\b|\bthe\s+the\b|\bor\s+or\b|\band\s+and\b/i.test(s)) return false;
+          if (/undefined|null|\[\]|\{\}/i.test(s)) return false;
+          if (!/^[A-Z]/.test(s)) return false;
+          return true;
+        });
+
+        // === FALLBACK DEFAULTS if fewer than 2 valid suggestions ===
+        const defaults = [];
+        if (subjectName && subjectName !== 'this entity') {
+          defaults.push(`Summarize the key risks for ${subjectName} and recommend next steps`);
+        } else {
+          defaults.push('Summarize the key risks and recommend next steps');
+        }
+        defaults.push('What should a compliance officer prioritize based on these findings?');
+        defaults.push('Are there any additional entities that should be screened?');
+
+        // Fill up to 3 with defaults if needed
+        const final = [...validated];
+        for (const d of defaults) {
+          if (final.length >= 3) break;
+          if (!final.includes(d)) final.push(d);
+        }
+
+        return final.slice(0, 3);
       })().map((suggestion, idx) => (
         <button
           key={idx}
@@ -10962,8 +10903,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  >
  {/* Timeline dot */}
  <div className={`absolute left-1 top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-   event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-500' :
-   event.riskLevel === 'MEDIUM' ? 'bg-gray-600' : 'bg-gray-1000'
+   event.riskLevel === 'CRITICAL' ? 'bg-red-500' :
+   event.riskLevel === 'HIGH' ? 'bg-orange-500' :
+   event.riskLevel === 'MEDIUM' ? 'bg-yellow-500' : 'bg-emerald-500'
  }`} />
 
  <div className={`pb-2 border-b border-slate-100 last:border-0 last:pb-0 ${
@@ -10973,8 +10915,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <span className="text-xs font-mono text-slate-500">{event.date}</span>
  {event.riskLevel && (
  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-   event.riskLevel === 'CRITICAL' || event.riskLevel === 'HIGH' ? 'bg-red-50 text-red-700' :
-   event.riskLevel === 'MEDIUM' ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-700'
+   event.riskLevel === 'CRITICAL' ? 'bg-red-50 text-red-700' :
+   event.riskLevel === 'HIGH' ? 'bg-orange-50 text-orange-700' :
+   event.riskLevel === 'MEDIUM' ? 'bg-yellow-50 text-yellow-700' : 'bg-emerald-50 text-emerald-700'
  }`}>
  {event.riskLevel}
  </span>
@@ -11030,9 +10973,10 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  {analysis.documentCrossReferences.map((ref, idx) => (
  <div key={ref.id || idx} className={`border-l-4 ${
    ref.riskLevel === 'CRITICAL' ? 'border-red-500 bg-red-50' :
-   ref.riskLevel === 'HIGH' ? 'border-gray-500 bg-gray-100' :
-   ref.riskLevel === 'MEDIUM' ? 'border-gray-500 bg-gray-100' :
-   'border-gray-500 bg-gray-100'
+   ref.riskLevel === 'HIGH' ? 'border-orange-500 bg-orange-50' :
+   ref.riskLevel === 'MEDIUM' ? 'border-yellow-500 bg-yellow-50' :
+   ref.riskLevel === 'LOW' ? 'border-emerald-500 bg-emerald-50' :
+   'border-gray-300 bg-gray-50'
  } rounded-r-lg p-4`}>
  <div className="flex items-start justify-between mb-3">
    <h4 className="font-semibold text-gray-900">{ref.finding}</h4>
@@ -11858,6 +11802,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </>
  )}
 
+
  {/* KYC Chat - Fixed Position (only shows on KYC results page) */}
  {currentPage === 'kycScreening' && kycPage === 'results' && kycResults && (
  <>
@@ -12025,9 +11970,10 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
        }}
        className={`bg-white border-2 rounded-xl shadow-xl p-4 w-80 cursor-pointer hover:shadow-2xl transition-all ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'border-red-400' :
-         chatCompletionNotification.riskLevel === 'HIGH' ? 'border-gray-500' :
-         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-gray-500' :
-         'border-gray-500'
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'border-orange-400' :
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'border-yellow-400' :
+         chatCompletionNotification.riskLevel === 'LOW' ? 'border-emerald-400' :
+         'border-gray-300'
        }`}
      >
        {/* Header with checkmark and close button */}
@@ -12035,14 +11981,16 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
          <div className="flex items-center gap-2">
            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
              chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100' :
-             chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200' :
-             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-gray-200' :
+             chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100' :
+             chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100' :
+             chatCompletionNotification.riskLevel === 'LOW' ? 'bg-emerald-100' :
              'bg-gray-200'
            }`}>
              <CheckCircle2 className={`w-4 h-4 ${
                chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-               chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
-               chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-gray-600' :
+               chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+               chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+               chatCompletionNotification.riskLevel === 'LOW' ? 'text-emerald-600' :
                'text-gray-600'
              }`} />
            </div>
@@ -12067,8 +12015,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
        {/* Risk level with score */}
        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm ${
          chatCompletionNotification.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-         chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-gray-200 text-gray-700' :
-         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-gray-200 text-gray-700' :
+         chatCompletionNotification.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+         chatCompletionNotification.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+         chatCompletionNotification.riskLevel === 'LOW' ? 'bg-emerald-100 text-emerald-700' :
          'bg-gray-200 text-gray-700'
        }`}>
          {chatCompletionNotification.riskLevel} RISK
@@ -12081,8 +12030,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
        <div className="flex justify-end mt-3">
          <span className={`text-sm font-medium flex items-center gap-1 ${
            chatCompletionNotification.riskLevel === 'CRITICAL' ? 'text-red-600' :
-           chatCompletionNotification.riskLevel === 'HIGH' ? 'text-gray-700' :
-           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-gray-600' :
+           chatCompletionNotification.riskLevel === 'HIGH' ? 'text-orange-600' :
+           chatCompletionNotification.riskLevel === 'MEDIUM' ? 'text-yellow-600' :
+           chatCompletionNotification.riskLevel === 'LOW' ? 'text-emerald-600' :
            'text-gray-600'
          }`}>
            View Case <ChevronRight className="w-4 h-4" />
