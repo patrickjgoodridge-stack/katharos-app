@@ -9475,7 +9475,35 @@ K
  onMouseEnter={(e) => e.currentTarget.style.background = '#333333'}
  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
  >
- <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</td>
+ <td style={{ padding: '14px 20px' }}>
+  <div style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</div>
+  {(() => {
+    const tx = (caseItem.conversationTranscript || []).map(m => m.content || '').join(' ').toLowerCase();
+    const steps = [
+      { name: 'Initial screening', done: tx.length > 200, w: 20 },
+      { name: 'Sanctions check', done: /sanction|ofac|sdn list|designated/.test(tx), w: 15 },
+      { name: 'Adverse media', done: /adverse media|negative news|press coverage|media search/.test(tx), w: 15 },
+      { name: 'Ownership analysis', done: /ownership|ubo|beneficial owner|corporate structure|subsidiary/.test(tx), w: 15 },
+      { name: 'Related entities', done: /related entit|associated compan|network|linked to|connected to/.test(tx), w: 10 },
+      { name: 'PEP screening', done: /pep|politically exposed|government official/.test(tx), w: 10 },
+      { name: 'Results reviewed', done: (caseItem.conversationTranscript || []).filter(m => m.role === 'user').length >= 2, w: 10 },
+      { name: 'Determination', done: /final determination|recommend|conclusion|overall risk/i.test(tx) && !!caseItem.riskLevel, w: 5 }
+    ];
+    const pct = steps.reduce((s, st) => s + (st.done ? st.w : 0), 0);
+    const doneNames = steps.filter(s => s.done).map(s => s.name);
+    const todoNames = steps.filter(s => !s.done).map(s => s.name);
+    return (
+      <div style={{ marginTop: '6px' }} title={`Done: ${doneNames.join(', ') || 'None'}\nRemaining: ${todoNames.join(', ') || 'None'}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ flex: 1, height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#22c55e' : '#6b6b6b', borderRadius: '2px', transition: 'width 0.3s' }} />
+          </div>
+          <span style={{ fontSize: '11px', color: '#6b6b6b', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>{pct}%</span>
+        </div>
+      </div>
+    );
+  })()}
+ </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
  <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f59e0b' : caseItem.riskLevel === 'MEDIUM' ? '#a1a1a1' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
