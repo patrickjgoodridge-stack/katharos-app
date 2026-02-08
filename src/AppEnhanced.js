@@ -7907,7 +7907,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
-<main className="max-w-full mx-auto relative z-10 min-h-screen" style={{ backgroundColor: 'transparent', padding: 0 }}>
+<main className="max-w-full mx-auto relative z-10" style={{ backgroundColor: 'transparent', padding: 0, display: isLandingStyle ? 'none' : 'block', minHeight: isLandingStyle ? 0 : '100vh' }}>
 
 
  {/* Scout Page */}
