@@ -12033,10 +12033,6 @@ K
 
 
 
-        {/* Footer */}
-        <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white py-3 text-center text-xs text-gray-400">
- <p>Katharos Investigative Intelligence</p>
- </footer>
  </div>
  );
 }
