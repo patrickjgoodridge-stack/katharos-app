@@ -10033,12 +10033,55 @@ K
 
     {/* Suggestion Items */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {[
-        'Run additional sanctions screening',
-        'Check for related entities',
-        'Search for adverse media coverage',
-        'Analyze corporate ownership structure'
-      ].map((suggestion, idx) => (
+      {(() => {
+        const activeCase = cases.find(c => c.id === currentCaseId);
+        const entity = activeCase?.name?.split(' - ')[0] || 'this entity';
+        const text = conversationMessages?.[conversationMessages.length - 1]?.content || '';
+        const lc = text.toLowerCase();
+        const suggestions = [];
+
+        // Extract specific names, companies, jurisdictions from the analysis
+        const companyMatches = text.match(/(?:Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited|International|Capital|Partners|Investments|Trading)[\w\s,.]*/gi) || [];
+        const companies = [...new Set(companyMatches.map(m => m.trim().replace(/[.,]+$/, '')).filter(c => c.length > 3 && c.length < 60))];
+        const countryMatches = text.match(/(?:Cyprus|Panama|BVI|British Virgin Islands|Cayman|Seychelles|Luxembourg|Malta|Dubai|UAE|Switzerland|Singapore|Hong Kong|Liechtenstein|Isle of Man|Jersey|Guernsey|Bermuda|Bahamas|Belize|Marshall Islands|Samoa|Vanuatu|Delaware|Nevada|Wyoming)/gi) || [];
+        const jurisdictions = [...new Set(countryMatches.map(j => j.trim()))];
+        const personMatches = text.match(/(?:Mr\.|Ms\.|Dr\.|CEO|Director|Chairman|President|Officer|Principal|Founder)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}/g) || [];
+        const persons = [...new Set(personMatches.map(p => p.replace(/^(?:Mr\.|Ms\.|Dr\.|CEO|Director|Chairman|President|Officer|Principal|Founder)\s+/, '').trim()))];
+        const addressMatch = text.match(/\d+\s+[A-Z][a-zA-Z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Boulevard|Blvd)[,.\s]+[A-Z][a-zA-Z\s]+/);
+        const yearMatches = text.match(/20[0-2]\d/g) || [];
+        const recentYear = yearMatches.length > 0 ? Math.max(...yearMatches.map(Number)) : null;
+
+        // Build contextual suggestions based on what was found
+        if (lc.includes('sanction') || lc.includes('ofac') || lc.includes('sdn')) {
+          if (companies.length > 0) suggestions.push(`Trace entities owned 50%+ by ${companies[0]} to check for sanctions evasion`);
+          else suggestions.push(`Trace entities connected to ${entity} for potential sanctions evasion networks`);
+        }
+        if (lc.includes('pep') || lc.includes('politically exposed') || lc.includes('government official')) {
+          if (persons.length > 0) suggestions.push(`Map ${persons[0]}'s family members and close business associates`);
+          else suggestions.push(`Identify close associates and family members with undisclosed business ties`);
+        }
+        if (lc.includes('shell') || lc.includes('nominee') || lc.includes('registered agent') || lc.includes('beneficial owner')) {
+          if (addressMatch) suggestions.push(`Search for other entities registered at ${addressMatch[0].trim()}`);
+          else if (jurisdictions.length > 0) suggestions.push(`Check ${jurisdictions[0]} corporate registry for related shell entities`);
+        }
+        if (jurisdictions.length > 0 && suggestions.length < 4) {
+          suggestions.push(`Pull beneficial ownership records from the ${jurisdictions[0]} registry`);
+        }
+        if ((lc.includes('litigation') || lc.includes('lawsuit') || lc.includes('indictment') || lc.includes('enforcement')) && recentYear) {
+          suggestions.push(`Deep dive into the ${recentYear} enforcement action — what were the specific allegations?`);
+        }
+        if (lc.includes('adverse media') || lc.includes('negative news') || lc.includes('allegations')) {
+          suggestions.push(`What is the most serious allegation and what is the current status of that matter?`);
+        }
+        if (companies.length > 1 && suggestions.length < 4) {
+          suggestions.push(`What is the relationship between ${companies[0]} and ${companies[1]}?`);
+        }
+        // Always end with a strong investigative question if we have room
+        if (suggestions.length < 3) suggestions.push(`What are the strongest red flags here and what would a senior investigator prioritize next?`);
+        if (suggestions.length < 4) suggestions.push(`Summarize the key risks and recommend whether to escalate or clear ${entity}`);
+
+        return suggestions.slice(0, 4);
+      })().map((suggestion, idx) => (
         <button
           key={idx}
           onClick={() => {
