@@ -2206,67 +2206,104 @@ Format the report professionally with clear headers, bullet points where appropr
 
  // Export conversation message as PDF
  const exportMessageAsPdf = async (elementId, markdownContent) => {
- if (!elementId && !markdownContent) return;
+ if (!elementId) return;
+ const sourceEl = document.getElementById(elementId);
+ if (!sourceEl) return;
 
  setIsGeneratingCaseReport(true);
 
  try {
+ // Derive subject name from case
+ let subjectName = caseName || '';
+ subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
+ if (!subjectName || subjectName === 'New Investigation') subjectName = 'Compliance Report';
 
- // Get markdown content — either passed directly or from the DOM element
- let markdown = markdownContent;
- if (!markdown && elementId) {
-   const element = document.getElementById(elementId);
-   if (element) markdown = element.textContent || '';
+ // Extract risk level from content
+ const content = markdownContent || sourceEl.textContent || '';
+ const riskMatch = content.match(/OVERALL RISK[:\s]*\*?\*?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
+ const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : 'UNKNOWN';
+
+ // Capture the exact DOM as rendered on screen
+ const html2canvas = (await import('html2canvas')).default;
+ const { jsPDF } = await import('jspdf');
+
+ const canvas = await html2canvas(sourceEl, {
+   scale: 2,
+   useCORS: true,
+   backgroundColor: '#1a1a1a',
+   logging: false
+ });
+
+ const imgData = canvas.toDataURL('image/png');
+ const imgWidth = canvas.width;
+ const imgHeight = canvas.height;
+
+ // PDF dimensions (A4)
+ const pdfWidth = 210; // mm
+ const headerHeight = 18; // mm - Katharos header
+ const footerHeight = 12; // mm - footer
+ const margin = 10; // mm
+ const contentWidth = pdfWidth - (margin * 2);
+ const contentAreaHeight = 297 - headerHeight - footerHeight; // mm available per page
+
+ // Scale image to fit content width
+ const scale = contentWidth / (imgWidth / (canvas.width / canvas.offsetWidth || 2));
+ const scaledImgWidth = contentWidth;
+ const scaledImgHeight = (imgHeight * scaledImgWidth) / imgWidth;
+
+ const totalPages = Math.ceil(scaledImgHeight / contentAreaHeight);
+ const doc = new jsPDF('p', 'mm', 'a4');
+ const reportId = `KTH-${Date.now().toString(36).toUpperCase()}`;
+ const generatedAt = new Date().toLocaleString();
+ const analystEmail = user?.email || 'Unknown';
+
+ for (let page = 0; page < totalPages; page++) {
+   if (page > 0) doc.addPage();
+
+   // -- Header --
+   doc.setFillColor(26, 26, 26);
+   doc.rect(0, 0, pdfWidth, headerHeight, 'F');
+   doc.setFont('helvetica', 'normal');
+   doc.setFontSize(14);
+   doc.setTextColor(255, 255, 255);
+   doc.text('Katharos', margin, 11);
+   doc.setFontSize(8);
+   doc.setTextColor(133, 133, 133);
+   doc.text(`Report ${reportId}`, pdfWidth - margin, 8, { align: 'right' });
+   doc.text(`${generatedAt}  •  ${analystEmail}`, pdfWidth - margin, 13, { align: 'right' });
+
+   // -- Content (clipped slice of the captured image) --
+   const sourceY = page * contentAreaHeight;
+   const sliceHeight = Math.min(contentAreaHeight, scaledImgHeight - sourceY);
+
+   // Create a clipped canvas for this page slice
+   const sliceCanvas = document.createElement('canvas');
+   const sourcePixelY = (sourceY / scaledImgHeight) * imgHeight;
+   const sourcePixelHeight = (sliceHeight / scaledImgHeight) * imgHeight;
+   sliceCanvas.width = imgWidth;
+   sliceCanvas.height = Math.ceil(sourcePixelHeight);
+   const ctx = sliceCanvas.getContext('2d');
+   ctx.drawImage(canvas, 0, sourcePixelY, imgWidth, sourcePixelHeight, 0, 0, imgWidth, sourcePixelHeight);
+
+   const sliceData = sliceCanvas.toDataURL('image/png');
+   doc.addImage(sliceData, 'PNG', margin, headerHeight, scaledImgWidth, sliceHeight);
+
+   // -- Footer --
+   doc.setFillColor(26, 26, 26);
+   doc.rect(0, 297 - footerHeight, pdfWidth, footerHeight, 'F');
+   doc.setFontSize(7);
+   doc.setTextColor(107, 107, 107);
+   doc.text('Katharos Compliance Platform  •  Confidential', margin, 297 - 4);
+   doc.text(`Page ${page + 1} of ${totalPages}`, pdfWidth - margin, 297 - 4, { align: 'right' });
  }
- if (!markdown) {
-   console.error('No content for PDF export');
-   return;
- }
 
- // Parse markdown into structured data
- const pdfData = parseMarkdownForPdf(markdown);
+ const pdfBlob = doc.output('blob');
 
- // Get subject name ONLY from markdown content or case name - no external data sources
- const stripCaseNameSuffix = (name) => {
-   return (name || '').replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
- };
- // Priority: 1) From markdown content, 2) From case name, 3) Generic fallback
- let subjectName = pdfData.subjectName || '';
- if (!subjectName && caseName && caseName !== 'New Investigation') {
-   subjectName = stripCaseNameSuffix(caseName);
- }
- // Do NOT pull from kycResults or kycQuery - PDF must only show what's in the chat
- if (!subjectName) subjectName = 'Compliance Report';
- // Strip markdown artifacts from subject name
-subjectName = subjectName.replace(/\*\*/g, '').replace(/[#*_~`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\s.,'-]/g, '').trim();
-if (!subjectName) subjectName = 'Compliance Screening Report';
-subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
-
- // Entity appendix list - only include if found in chat content
- // Do NOT pull from external data sources (kycResults, etc.) - PDF must mirror chat exactly
- const entities = [];
-
- const caseUrl = currentCaseId
-   ? `https://marlowe-app.vercel.app/?case=${currentCaseId}`
-   : 'https://marlowe-app.vercel.app';
-
- const fullPdfData = {
-   ...pdfData,
-   subjectName,
-   generatedAt: new Date().toISOString(),
-   caseUrl,
-   entities,
- };
-
- // Generate PDF using @react-pdf/renderer
- const pdfBlob = await pdf(<ComplianceReportPDF data={fullPdfData} />).toBlob();
-
- // Generate filename
+ // Generate filename and download
  const dateStr = new Date().toISOString().split('T')[0];
  const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
  const fileName = `${subjectSlug}-${dateStr}.pdf`;
 
- // Download the PDF
  const url = URL.createObjectURL(pdfBlob);
  const a = document.createElement('a');
  a.href = url;
@@ -2276,17 +2313,16 @@ subjectName = subjectName.replace(/\b\w/g, c => c.toUpperCase());
  document.body.removeChild(a);
  URL.revokeObjectURL(url);
 
- // Also save to current case if one exists
+ // Save to current case
  if (currentCaseId) {
    const reader = new FileReader();
    reader.onloadend = () => {
-     const dataUri = reader.result;
      addPdfReportToCase(currentCaseId, {
        id: Math.random().toString(36).substr(2, 9),
        name: fileName,
        createdAt: new Date().toISOString(),
-       dataUri: dataUri,
-       riskLevel: pdfData.riskLevel || 'UNKNOWN',
+       dataUri: reader.result,
+       riskLevel: riskLevel,
        entityName: subjectName,
      });
    };
