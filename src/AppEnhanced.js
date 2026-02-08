@@ -308,6 +308,7 @@ export default function Katharos() {
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
  const conversationAbortRef = useRef(null); // AbortController for stopping conversation streaming
+ const currentCaseIdRef = useRef(null); // Track current case for async handlers
  // eslint-disable-next-line no-unused-vars
  const [networkGraphPanel, setNetworkGraphPanel] = useState({ open: false, entities: [], relationships: [], loading: false });
  const modeDropdownRef = useRef(null);
@@ -435,6 +436,9 @@ const samplesDropdownRef = useRef(null);
      }
    }
  }, [refreshPaidStatus]);
+
+ // Keep currentCaseIdRef in sync with state for async handlers
+ useEffect(() => { currentCaseIdRef.current = currentCaseId; }, [currentCaseId]);
 
  // Handle case deep-link: ?case=ID
  useEffect(() => {
@@ -766,37 +770,6 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      }
    }
    return null;
- };
-
- const updateCaseTranscript = (caseId, messages) => {
-   setCases(prev => {
-     // Extract risk level from the latest messages
-     const extractedRisk = extractRiskLevel(messages);
-
-     const updated = prev.map(c => {
-       if (c.id === caseId) {
-         const updates = {
-           ...c,
-           conversationTranscript: messages,
-           updatedAt: new Date().toISOString()
-         };
-         // Update risk level if we extracted one (and it's not already set or is UNKNOWN)
-         if (extractedRisk && (c.riskLevel === 'UNKNOWN' || !c.riskLevel || extractedRisk !== c.riskLevel)) {
-           updates.riskLevel = extractedRisk;
-         }
-         return updates;
-       }
-       return c;
-     });
-     // Sync update to Supabase (inside updater to avoid stale closure)
-     if (isSupabaseConfigured() && user) {
-       const updatedCase = updated.find(c => c.id === caseId);
-       if (updatedCase) {
-         syncCase(updatedCase).catch(console.error);
-       }
-     }
-     return updated;
-   });
  };
 
  // Toggle monitoring for a case
@@ -2010,16 +1983,95 @@ Format the report professionally with clear headers, bullet points where appropr
 
 // Shared DOM-capture PDF generator — captures any element as a pixel-perfect PDF
 // Used by both chat message export and KYC screening report export
-const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#1a1a1a' }) => {
+const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#ffffff' }) => {
   const html2canvas = (await import('html2canvas')).default;
   const { jsPDF } = await import('jspdf');
 
-  const canvas = await html2canvas(sourceEl, {
+  // Clone the element and apply print-friendly (white bg, dark text) styling
+  const clone = sourceEl.cloneNode(true);
+  clone.style.position = 'absolute';
+  clone.style.left = '-9999px';
+  clone.style.top = '0';
+  clone.style.width = sourceEl.offsetWidth + 'px';
+  clone.style.background = '#ffffff';
+  clone.style.color = '#1a1a1a';
+  clone.style.padding = '20px';
+
+  // Inject a <style> that forces light-mode colors on all descendants
+  const printStyle = document.createElement('style');
+  printStyle.textContent = `
+    .pdf-print-clone, .pdf-print-clone * {
+      color: #1a1a1a !important;
+      background-color: transparent !important;
+      border-color: #d4d4d4 !important;
+    }
+    .pdf-print-clone { background-color: #ffffff !important; }
+    .pdf-print-clone h1, .pdf-print-clone h2, .pdf-print-clone h3,
+    .pdf-print-clone h4, .pdf-print-clone h5, .pdf-print-clone h6 {
+      color: #111111 !important;
+      border-bottom-color: #e5e5e5 !important;
+    }
+    .pdf-print-clone strong, .pdf-print-clone b { color: #111111 !important; }
+    .pdf-print-clone a { color: #2563eb !important; }
+    .pdf-print-clone code, .pdf-print-clone pre {
+      background-color: #f5f5f5 !important;
+      color: #333333 !important;
+      border-color: #e5e5e5 !important;
+    }
+    .pdf-print-clone table { border-color: #d4d4d4 !important; }
+    .pdf-print-clone th { background-color: #f5f5f5 !important; color: #111111 !important; }
+    .pdf-print-clone td { border-color: #e5e5e5 !important; }
+    .pdf-print-clone .text-red-400, .pdf-print-clone .text-red-500 { color: #dc2626 !important; }
+    .pdf-print-clone .text-yellow-400, .pdf-print-clone .text-yellow-500 { color: #ca8a04 !important; }
+    .pdf-print-clone .text-green-400, .pdf-print-clone .text-green-500 { color: #16a34a !important; }
+    .pdf-print-clone .text-orange-400, .pdf-print-clone .text-orange-500 { color: #ea580c !important; }
+    .pdf-print-clone [style*="background"] { background-color: transparent !important; }
+    .pdf-print-clone [style*="color: #fff"], .pdf-print-clone [style*="color: #d4d4d4"],
+    .pdf-print-clone [style*="color: #a1a1a1"], .pdf-print-clone [style*="color: #858585"],
+    .pdf-print-clone [style*="color: #ffffff"], .pdf-print-clone [style*="color: rgb(255"],
+    .pdf-print-clone [style*="color: rgb(212"], .pdf-print-clone [style*="color: rgb(161"],
+    .pdf-print-clone [style*="color: rgb(133"] { color: #1a1a1a !important; }
+  `;
+  clone.classList.add('pdf-print-clone');
+  document.body.appendChild(printStyle);
+  document.body.appendChild(clone);
+
+  // Force inline style overrides on all elements with inline dark-mode colors
+  const allEls = clone.querySelectorAll('*');
+  allEls.forEach(el => {
+    const s = el.style;
+    if (s.color) {
+      const c = s.color.toLowerCase();
+      if (c.includes('#fff') || c.includes('#d4d4') || c.includes('#a1a1') || c.includes('#858') ||
+          c.includes('rgb(255') || c.includes('rgb(212') || c.includes('rgb(161') || c.includes('rgb(133')) {
+        s.color = '#1a1a1a';
+      }
+    }
+    if (s.backgroundColor) {
+      const bg = s.backgroundColor.toLowerCase();
+      if (bg.includes('#1a1a') || bg.includes('#2d2d') || bg.includes('#333') || bg.includes('#3a3a') ||
+          bg.includes('rgb(26') || bg.includes('rgb(45') || bg.includes('rgb(51') || bg.includes('rgb(58')) {
+        s.backgroundColor = 'transparent';
+      }
+    }
+    if (s.borderColor) {
+      const bc = s.borderColor.toLowerCase();
+      if (bc.includes('#3a3a') || bc.includes('#333') || bc.includes('rgb(58') || bc.includes('rgb(51')) {
+        s.borderColor = '#e5e5e5';
+      }
+    }
+  });
+
+  const canvas = await html2canvas(clone, {
     scale: 2,
     useCORS: true,
-    backgroundColor: bgColor,
+    backgroundColor: '#ffffff',
     logging: false
   });
+
+  // Clean up clone
+  document.body.removeChild(clone);
+  document.body.removeChild(printStyle);
 
   const canvasW = canvas.width;
   const canvasH = canvas.height;
@@ -2082,15 +2134,18 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#1
   slices.forEach((slice, pageIdx) => {
     if (pageIdx > 0) doc.addPage();
 
-    // -- Header --
-    doc.setFillColor(26, 26, 26);
+    // -- Header (clean white with subtle border) --
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pdfWidth, headerH, 'F');
-    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(229, 229, 229);
+    doc.line(0, headerH, pdfWidth, headerH);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(17, 17, 17);
     doc.text('Katharos', margin, 11);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(133, 133, 133);
+    doc.setTextColor(107, 107, 107);
     doc.text('Report ' + reportId, pdfWidth - margin, 8, { align: 'right' });
     doc.text(generatedAt + '  \u2022  ' + analystEmail, pdfWidth - margin, 13, { align: 'right' });
 
@@ -2103,9 +2158,11 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#1
     const sliceImgH = slice.h * mmPerPx;
     doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, headerH, contentWidth, sliceImgH);
 
-    // -- Footer --
-    doc.setFillColor(26, 26, 26);
+    // -- Footer (clean white with subtle border) --
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, pdfHeight - footerH, pdfWidth, footerH, 'F');
+    doc.setDrawColor(229, 229, 229);
+    doc.line(0, pdfHeight - footerH, pdfWidth, pdfHeight - footerH);
     doc.setFontSize(7);
     doc.setTextColor(107, 107, 107);
     doc.text('Katharos Compliance Platform  \u2022  Confidential', margin, pdfHeight - 4);
@@ -3900,7 +3957,7 @@ ${messageContent}`,
          body: JSON.stringify({
            action: 'search',
            query: userMessage,
-           filters: { workspaceId: currentCaseId, excludeCaseId: currentCaseId }
+           filters: { caseId: caseId, excludeNamespaces: ['case_notes'] } // No cross-case overlap — only shared knowledge base
          })
        }).then(r => r.json()),
        new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
@@ -5569,8 +5626,18 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        };
      }));
 
-     // Also update global state for compatibility
-     setConversationMessages(prev => [...prev, assistantMessage]);
+     // Sync to Supabase after transcript update
+     if (isSupabaseConfigured() && user) {
+       const updatedCase = cases.find(c => c.id === caseId);
+       if (updatedCase) {
+         syncCase({ ...updatedCase, conversationTranscript: [...(updatedCase.conversationTranscript || []), assistantMessage], ...(extractedRisk && { riskLevel: extractedRisk }) }).catch(console.error);
+       }
+     }
+
+     // Only update global state if this is still the active case (prevents cross-case overlap)
+     if (currentCaseIdRef.current === caseId) {
+       setConversationMessages(prev => [...prev, assistantMessage]);
+     }
      setCaseStreamingState(caseId, { streamingText: '' });
      setStreamingText(''); // Legacy
 
@@ -5615,7 +5682,9 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
              ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), partialMessage] }
              : c
          ));
-         setConversationMessages(prev => [...prev, partialMessage]);
+         if (currentCaseIdRef.current === caseId) {
+           setConversationMessages(prev => [...prev, partialMessage]);
+         }
        }
      } else {
        console.error('Streaming error:', error);
@@ -5629,7 +5698,9 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
            ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] }
            : c
        ));
-       setConversationMessages(prev => [...prev, errorMessage]);
+       if (currentCaseIdRef.current === caseId) {
+         setConversationMessages(prev => [...prev, errorMessage]);
+       }
      }
    } finally {
      conversationAbortRef.current = null;
@@ -5648,12 +5719,9 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
    }
  }, [conversationMessages, streamingText]);
 
- // Sync conversation transcript to current case
- useEffect(() => {
-   if (currentCaseId && conversationMessages.length > 0) {
-     updateCaseTranscript(currentCaseId, conversationMessages);
-   }
- }, [conversationMessages, currentCaseId]); // eslint-disable-line react-hooks/exhaustive-deps
+ // Case transcript is updated directly in sendConversationMessage — no sync effect needed.
+ // Removed to prevent cross-case overlap when switching cases.
+
 
  const analyzeEvidence = async () => {
  console.log('analyzeEvidence called', { files: files.length, caseDescription: caseDescription.substring(0, 50) });
@@ -9363,38 +9431,78 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <td style={{ padding: '14px 20px' }}>
   <div style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff' }}>{caseItem.name}</div>
-  {(() => {
-    const msgs = caseItem.conversationTranscript || [];
-    const assistantMsgs = msgs.filter(m => m.role === 'assistant');
-    const userMsgCount = msgs.filter(m => m.role === 'user').length;
-    const totalChars = assistantMsgs.reduce((sum, m) => sum + (m.content || '').length, 0);
-    const hasRisk = !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN';
-    const hasFiles = (caseItem.files || []).length > 0;
-    const hasReports = (caseItem.pdfReports || []).length > 0;
-    const steps = [
-      { name: 'Case created', done: true, w: 10 },
-      { name: 'Screening initiated', done: msgs.length > 0, w: 15 },
-      { name: 'Analysis received', done: assistantMsgs.length > 0 && totalChars > 200, w: 20 },
-      { name: 'Risk assessed', done: hasRisk, w: 15 },
-      { name: 'Evidence gathered', done: totalChars > 1500 || hasFiles, w: 10 },
-      { name: 'Follow-up conducted', done: userMsgCount >= 2, w: 10 },
-      { name: 'Deep analysis', done: assistantMsgs.length >= 2 && totalChars > 3000, w: 10 },
-      { name: 'Report generated', done: hasReports, w: 10 }
-    ];
-    const pct = steps.reduce((s, st) => s + (st.done ? st.w : 0), 0);
-    const doneNames = steps.filter(s => s.done).map(s => s.name);
-    const todoNames = steps.filter(s => !s.done).map(s => s.name);
-    return (
-      <div style={{ marginTop: '6px' }} title={`Done: ${doneNames.join(', ') || 'None'}\nRemaining: ${todoNames.join(', ') || 'None'}`}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ flex: 1, height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#22c55e' : '#6b6b6b', borderRadius: '2px', transition: 'width 0.3s' }} />
+    {(() => {
+      const caseStreaming = getCaseStreamingState(caseItem.id);
+      const isStreaming = caseStreaming.isStreaming;
+      const streamText = isStreaming ? (caseStreaming.streamingText || '') : '';
+      const streamLen = streamText.length;
+      const msgs = caseItem.conversationTranscript || [];
+      const assistantMsgs = msgs.filter(m => m.role === 'assistant');
+      const completedChars = assistantMsgs.reduce((sum, m) => sum + (m.content || '').length, 0);
+      const totalChars = completedChars + streamLen;
+      const hasRisk = !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN';
+      const hasReports = (caseItem.pdfReports || []).length > 0;
+      const userMsgCount = msgs.filter(m => m.role === 'user').length;
+    
+      let pct;
+      if (isStreaming && streamLen === 0) {
+        // Phase 1: Pipeline running (screening APIs), no text yet.
+        // Use the global countdown timer to drive progress 5% → 40%.
+        const elapsed = countdownTotalRef.current > 0
+          ? (countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current
+          : 0;
+        pct = Math.round(5 + elapsed * 35);
+      } else if (isStreaming && streamLen > 0) {
+        // Phase 2: Text streaming in. Map text length 0 → 8000 to 40% → 75%.
+        const textFill = Math.min(1, Math.log(1 + streamLen / 300) / Math.log(1 + 8000 / 300));
+        pct = Math.round(40 + textFill * 35);
+      } else {
+        // Phase 3: Not streaming. Use milestone steps.
+        const textFill = totalChars > 0
+          ? Math.min(50, Math.round(50 * Math.log(1 + totalChars / 300) / Math.log(1 + 8000 / 300)))
+          : 0;
+        const milestones = (hasRisk ? 15 : 0)
+          + (userMsgCount >= 2 ? 10 : 0)
+          + (assistantMsgs.length >= 2 && totalChars > 3000 ? 10 : 0)
+          + (hasReports ? 5 : 0);
+        pct = Math.min(100, 10 + textFill + milestones);
+      }
+    
+      const screeningDone = !isStreaming && completedChars > 200;
+      if (screeningDone) pct = 100;
+      const barColor = screeningDone ? '#22c55e' : isStreaming ? '#d4a017' : '#6b6b6b';
+      return (
+        <div style={{ marginTop: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ flex: 1, height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${pct}%`,
+                height: '100%',
+                background: isStreaming
+                  ? 'linear-gradient(90deg, #b8860b, #eab308)'
+                  : barColor,
+                borderRadius: '2px',
+                transition: 'width 1s ease-out'
+              }} />
+            </div>
+            <span style={{
+              fontSize: '11px',
+              color: isStreaming ? '#eab308' : screeningDone ? '#22c55e' : '#6b6b6b',
+              fontFamily: "'JetBrains Mono', monospace",
+              whiteSpace: 'nowrap',
+              minWidth: '32px',
+              textAlign: 'right'
+            }}>{pct}%</span>
           </div>
-          <span style={{ fontSize: '11px', color: '#6b6b6b', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>{pct}%</span>
+          {isStreaming && (
+            <div style={{ fontSize: '10px', color: '#eab308', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div className="animate-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#eab308' }} />
+              {streamLen === 0 ? 'Running screening pipeline...' : 'Streaming analysis...'}
+            </div>
+          )}
         </div>
-      </div>
-    );
-  })()}
+      );
+    })()}
  </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
@@ -9651,6 +9759,9 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  onClick={() => {
  setConversationMessages([]);
  setConversationStarted(false);
+ setCurrentCaseId(null);
+ setCaseName('');
+ setChatOpen(false);
  setFiles([]);
  setCaseDescription('');
  setAnalysis(null);
