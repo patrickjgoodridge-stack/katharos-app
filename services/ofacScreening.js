@@ -213,7 +213,7 @@ class OFACScreeningService {
 
       // Name matching
       const nameScore = this.matchName(queryLower, entry);
-      if (nameScore >= 0.75) {
+      if (nameScore >= 0.90) {
         matches.push({
           matchType: 'name',
           confidence: nameScore,
@@ -356,13 +356,12 @@ class OFACScreeningService {
       }
     }
 
-    // Check aliases
+    // Check aliases — require full alias match, not substring
     for (const alias of entry.aliases) {
       const aliasLower = alias.toLowerCase();
       if (queryLower === aliasLower) return 0.95;
       for (const qv of queryVariants) {
         if (qv === aliasLower) return 0.95;
-        if (aliasLower.includes(qv) || qv.includes(aliasLower)) return 0.85;
       }
     }
 
