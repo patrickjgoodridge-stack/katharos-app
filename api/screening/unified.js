@@ -198,7 +198,7 @@ export default async function handler(req, res) {
       ofacStep1Res, ownershipRes,
       dataSourceRes, adverseMediaRes, courtRecordsRes, ofacStep3Res,
       occrpRes, pepRes, regulatoryRes, openCorporatesRes,
-      blockchainRes, shippingRes
+      blockchainRes, shippingRes, webIntelRes
     ] = await Promise.all([
       race(s.ofac.screenEntity({ name: isWallet ? undefined : kycQuery, type: screeningType, address: isWallet ? kycQuery : undefined }), 'ofac-step1'),
       !isWallet ? Promise.resolve(analyzeOwnership(kycQuery, kycType)) : Promise.resolve({}),
@@ -212,6 +212,7 @@ export default async function handler(req, res) {
       race(s.openCorporates.screenEntity({ name: kycQuery }), 'opencorporates'),
       isWallet ? race(s.blockchain.screenAddress({ address: kycQuery }), 'blockchain') : Promise.resolve(null),
       kycType === 'entity' ? race(s.shipping.screenEntity({ name: kycQuery, type: 'entity' }), 'shipping') : Promise.resolve(null),
+      race(s.webIntel.search(kycQuery), 'web-intelligence'),
     ]);
 
     // Parse OFAC Step 1 into sanctionsData
@@ -259,11 +260,12 @@ export default async function handler(req, res) {
     const shippingResults = isOk(shippingRes) ? shippingRes : null;
 
     // ── Step 4: Build context ──
+    const webIntelResults = isOk(webIntelRes) ? webIntelRes : null;
     const realDataContext = buildDataContext({
       kycType, kycQuery, sanctionsData, ownershipData, ownershipNetwork,
       dataSourceResults, adverseMediaResults, courtRecordsResults, ofacResults,
       occrpResults, pepResults, regulatoryResults, openCorporatesResults,
-      blockchainResults, shippingResults
+      blockchainResults, shippingResults, webIntelResults
     });
 
     const systemPrompt = getSystemPrompt();
@@ -341,7 +343,7 @@ function buildDataContext(d) {
   const { kycType, kycQuery, sanctionsData, ownershipData, ownershipNetwork,
     dataSourceResults, adverseMediaResults, courtRecordsResults, ofacResults,
     occrpResults, pepResults, regulatoryResults, openCorporatesResults,
-    blockchainResults, shippingResults } = d;
+    blockchainResults, shippingResults, webIntelResults } = d;
 
   let ctx = '';
 
@@ -461,6 +463,13 @@ function buildDataContext(d) {
     ctx += `\nSHIPPING & TRADE SCREENING:\nRisk Level: ${shippingResults.riskAssessment?.level || 'LOW'} (Score: ${shippingResults.riskAssessment?.score || 0}/100)\n`;
     if (shippingResults.findings?.vessels?.length > 0) {
       ctx += `Vessels:\n${shippingResults.findings.vessels.slice(0, 5).map(v => `- ${v.name} (IMO: ${v.imo || 'N/A'}) — Flag: ${v.flag || 'Unknown'}`).join('\n')}\n`;
+    }
+  }
+
+  if (webIntelResults) {
+    ctx += `\nWEB INTELLIGENCE (LIVE SEARCH):\nFound: ${webIntelResults.found ? 'YES' : 'NO'}\nSanctioned: ${webIntelResults.sanctioned ? 'YES' : 'NO'}\nCriminal Activity: ${webIntelResults.criminalActivity ? 'YES' : 'NO'}\nConfidence: ${webIntelResults.confidence || 'low'}\nAuthority: ${webIntelResults.authority || 'None'}\nSummary: ${webIntelResults.summary || 'No findings'}\n`;
+    if (webIntelResults.sources?.length > 0) {
+      ctx += `Sources:\n${webIntelResults.sources.slice(0, 10).map(s => `- ${s.title}${s.url ? ' — ' + s.url : ''}`).join('\n')}\n`;
     }
   }
 

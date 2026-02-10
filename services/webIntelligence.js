@@ -51,23 +51,28 @@ class WebIntelligenceService {
           }],
           messages: [{
             role: 'user',
-            content: `You are a sanctions screening tool. Search for sanctions information about: "${entityName}"
+            content: `You are a compliance and criminal risk screening tool. Search for ALL risk-relevant information about: "${entityName}"
 
 Search for:
 1. OFAC designations or SDN list additions
-2. Treasury.gov press releases mentioning this name
+2. Treasury.gov, Justice.gov press releases mentioning this name
 3. EU, UK, UN sanctions mentions
-4. Any enforcement actions or indictments
-5. If this is a crypto address, search for it specifically
+4. Any enforcement actions, indictments, or criminal charges
+5. Human trafficking, drug trafficking, prostitution, or organized crime links
+6. Police reports, raids, nuisance property declarations, or crackdowns
+7. Violence, shootings, homicides, or other serious criminal activity
+8. Local law enforcement actions or news reports about criminal activity
+9. If this is a crypto address, search for it specifically
 
 Respond ONLY with this JSON, no other text:
 {
   "found": true or false,
   "sanctioned": true or false,
+  "criminalActivity": true or false,
   "confidence": "high" or "medium" or "low",
-  "authority": "OFAC" or "EU" or "UK" or "UN" or null,
-  "program": "program name if found" or null,
-  "date": "designation date if found" or null,
+  "authority": "OFAC" or "EU" or "UK" or "UN" or "LAW_ENFORCEMENT" or null,
+  "program": "program name or criminal category if found" or null,
+  "date": "designation or incident date if found" or null,
   "summary": "one sentence summary",
   "sources": [{"title": "...", "url": "..."}]
 }`

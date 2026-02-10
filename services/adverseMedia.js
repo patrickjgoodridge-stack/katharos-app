@@ -33,7 +33,7 @@ class AdverseMediaService {
 
     // Add government/regulatory source searches
     sourcePromises.push(
-      this.searchGDELTDomain(name, ['sec.gov', 'justice.gov', 'treasury.gov', 'fincen.gov'])
+      this.searchGDELTDomain(name, ['sec.gov', 'justice.gov', 'treasury.gov', 'fincen.gov', 'fbi.gov', 'dea.gov', 'ice.gov', 'atf.gov', 'seattle.gov', 'nyc.gov', 'lapd.com', 'chicagopolice.org'])
         .catch(e => ({ source: 'Government', articles: [], error: e.message }))
     );
 
@@ -92,28 +92,37 @@ class AdverseMediaService {
   }
 
   buildSearchTerms(name, type, country, additionalTerms) {
+    // Financial crime & compliance terms
     const complianceTerms = [
       'sanctions', 'fraud', 'money laundering', 'corruption',
       'indictment', 'prosecution', 'investigation', 'enforcement',
       'penalty', 'fine', 'settlement', 'violation',
     ];
+    // Criminal activity terms — catches trafficking, drugs, violence, etc.
+    const criminalTerms = [
+      'human trafficking', 'drug trafficking', 'prostitution',
+      'criminal', 'arrested', 'seized', 'raid',
+      'nuisance property', 'violence', 'shooting', 'homicide',
+      'organized crime', 'cartel', 'trafficking',
+    ];
     const baseQuery = `"${name}"`;
     const terms = [
       baseQuery,
-      ...complianceTerms.slice(0, 4).map(t => `${baseQuery} ${t}`),
+      ...complianceTerms.map(t => `${baseQuery} ${t}`),
+      ...criminalTerms.slice(0, 6).map(t => `${baseQuery} ${t}`),
     ];
 
     // Generate name variants for "LAST, First" format (common in OFAC/sanctions data)
     const nameVariants = this.generateNameVariants(name);
     for (const variant of nameVariants) {
       if (variant !== name) {
-        terms.push(`"${variant}" sanctions`, `"${variant}"`);
+        terms.push(`"${variant}" sanctions`, `"${variant}" criminal`, `"${variant}"`);
       }
     }
 
     terms.push(...additionalTerms.map(t => `${baseQuery} ${t}`));
     if (country) {
-      terms.push(`${baseQuery} ${country} sanctions`);
+      terms.push(`${baseQuery} ${country} sanctions`, `${baseQuery} ${country} criminal`);
     }
     return terms;
   }
@@ -142,8 +151,8 @@ class AdverseMediaService {
   // GDELT DOC API - free, no key needed
   async searchGDELT(searchTerms) {
     const articles = [];
-    // Use the first 3 search terms to avoid overloading
-    for (const term of searchTerms.slice(0, 2)) {
+    // Use a mix of compliance + criminal search terms
+    for (const term of searchTerms.slice(0, 6)) {
       const query = encodeURIComponent(term);
       const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=10&format=json&timespan=2y`;
       try {
@@ -207,7 +216,7 @@ class AdverseMediaService {
   // Google News RSS - free, no key needed
   async searchGoogleNewsRSS(searchTerms) {
     const articles = [];
-    for (const term of searchTerms.slice(0, 2)) {
+    for (const term of searchTerms.slice(0, 6)) {
       const query = encodeURIComponent(term);
       const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
       try {
