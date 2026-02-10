@@ -416,9 +416,12 @@ function buildDataContext(d) {
   }
 
   if (ofacResults) {
-    ctx += `\nOFAC SDN LIST (LIVE):\nTotal SDN Entries Checked: ${ofacResults.totalSDNEntries || 0}\nMatches Found: ${ofacResults.matchCount || 0}\nRisk Level: ${ofacResults.riskAssessment?.level || 'LOW'} (Score: ${ofacResults.riskAssessment?.score || 0}/100)\n`;
-    if (ofacResults.matches?.length > 0) {
-      ctx += `Top Matches:\n${ofacResults.matches.slice(0, 5).map(m => `- ${m.name} (${m.type}) — Confidence: ${(m.matchConfidence * 100).toFixed(0)}%, Programs: ${(m.programs || []).join(', ')}`).join('\n')}\n`;
+    const highConfidenceMatches = (ofacResults.matches || []).filter(m => m.matchConfidence >= 0.95);
+    ctx += `\nOFAC SDN LIST (LIVE):\nTotal SDN Entries Checked: ${ofacResults.totalSDNEntries || 0}\nMatches Found: ${highConfidenceMatches.length}\n`;
+    if (highConfidenceMatches.length > 0) {
+      ctx += `Top Matches:\n${highConfidenceMatches.slice(0, 5).map(m => `- ${m.name} (${m.type}) — Confidence: ${(m.matchConfidence * 100).toFixed(0)}%, Programs: ${(m.programs || []).join(', ')}`).join('\n')}\n`;
+    } else {
+      ctx += `No high-confidence matches found (threshold: 95%).\n`;
     }
   }
 
