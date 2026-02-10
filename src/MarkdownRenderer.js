@@ -63,7 +63,37 @@ const getRiskStyles = (text, darkMode = true) => {
       iconColor: '#ef4444',
     };
   }
-  // HIGH/MEDIUM/LOW - gray styling
+  // HIGH: orange
+  if (upperText.includes('HIGH')) {
+    return {
+      bgStyle: { background: 'rgba(249, 115, 22, 0.1)', border: '1px solid rgba(249, 115, 22, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
+      iconBgStyle: { width: '40px', height: '40px', background: 'rgba(249, 115, 22, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+      textStyle: { fontSize: '14px', fontWeight: 600, color: '#f97316', letterSpacing: '0.5px' },
+      scoreStyle: { fontWeight: 400, color: 'rgba(249, 115, 22, 0.7)', marginLeft: '8px' },
+      iconColor: '#f97316',
+    };
+  }
+  // MEDIUM: yellow/amber
+  if (upperText.includes('MEDIUM')) {
+    return {
+      bgStyle: { background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
+      iconBgStyle: { width: '40px', height: '40px', background: 'rgba(234, 179, 8, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+      textStyle: { fontSize: '14px', fontWeight: 600, color: '#eab308', letterSpacing: '0.5px' },
+      scoreStyle: { fontWeight: 400, color: 'rgba(234, 179, 8, 0.7)', marginLeft: '8px' },
+      iconColor: '#eab308',
+    };
+  }
+  // LOW: green
+  if (upperText.includes('LOW') || upperText.includes('SAFE TO ONBOARD') || upperText.includes('CLEAR')) {
+    return {
+      bgStyle: { background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
+      iconBgStyle: { width: '40px', height: '40px', background: 'rgba(16, 185, 129, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+      textStyle: { fontSize: '14px', fontWeight: 600, color: '#10b981', letterSpacing: '0.5px' },
+      scoreStyle: { fontWeight: 400, color: 'rgba(16, 185, 129, 0.7)', marginLeft: '8px' },
+      iconColor: '#10b981',
+    };
+  }
+  // Default fallback - gray
   return {
     bgStyle: { background: 'rgba(133, 133, 133, 0.1)', border: '1px solid rgba(133, 133, 133, 0.25)', borderRadius: '6px', padding: '18px 22px', marginBottom: '28px' },
     iconBgStyle: { width: '40px', height: '40px', background: 'rgba(133, 133, 133, 0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -309,9 +339,17 @@ const CustomStrong = ({ children }) => {
     }
   };
 
+  // Color risk-level keywords in bold text
+  const upperText = (text || '').toUpperCase().trim();
+  let boldColor = '#ffffff';
+  if (upperText === 'CRITICAL' || upperText === 'IMMEDIATE REJECT') boldColor = '#ef4444';
+  else if (upperText === 'HIGH' || upperText === 'HIGH RISK') boldColor = '#f97316';
+  else if (upperText === 'MEDIUM' || upperText === 'MEDIUM RISK') boldColor = '#eab308';
+  else if (upperText === 'LOW' || upperText === 'LOW RISK' || upperText === 'CLEAR' || upperText === 'NO MATCH' || upperText === 'SAFE TO ONBOARD') boldColor = '#10b981';
+
   return (
     <strong
-      style={{ color: '#ffffff', fontWeight: 600, cursor: 'pointer' }}
+      style={{ color: boldColor, fontWeight: 600, cursor: 'pointer' }}
       onClick={handleClick}
     >
       {children}
@@ -371,7 +409,21 @@ const CustomTd = ({ children }) => {
     const val = parseInt(scoreMatch[1]);
     if (val >= 50) {
       cellStyle = { ...cellStyle, color: '#ef4444', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
+    } else if (val <= 25) {
+      cellStyle = { ...cellStyle, color: '#10b981', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
     }
+  }
+
+  // Color risk-level keywords in table cells
+  const upperText = (text || '').toUpperCase().trim();
+  if (upperText === 'CRITICAL' || upperText === 'IMMEDIATE REJECT') {
+    cellStyle = { ...cellStyle, color: '#ef4444', fontWeight: 600 };
+  } else if (upperText === 'HIGH') {
+    cellStyle = { ...cellStyle, color: '#f97316', fontWeight: 600 };
+  } else if (upperText === 'MEDIUM') {
+    cellStyle = { ...cellStyle, color: '#eab308', fontWeight: 600 };
+  } else if (upperText === 'LOW' || upperText === 'CLEAR' || upperText === 'NO MATCH' || upperText === 'SAFE TO ONBOARD') {
+    cellStyle = { ...cellStyle, color: '#10b981', fontWeight: 600 };
   }
 
   // Check if this is the final row
