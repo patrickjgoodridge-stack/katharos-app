@@ -219,7 +219,7 @@ export default async function handler(req, res) {
     if (isOk(ofacStep1Res)) {
       const liveOfac = ofacStep1Res;
       const topMatch = liveOfac.matches?.[0];
-      if (topMatch && topMatch.matchConfidence >= 0.90) {
+      if (topMatch && topMatch.matchConfidence >= 0.95) {
         sanctionsData = {
           status: 'MATCH',
           match: {
@@ -232,10 +232,10 @@ export default async function handler(req, res) {
           },
           totalEntries: liveOfac.totalSDNEntries, confidence: topMatch.matchConfidence
         };
-      } else if (topMatch && topMatch.matchConfidence >= 0.75) {
+      } else if (topMatch && topMatch.matchConfidence >= 0.95) {
         sanctionsData = {
           status: 'POTENTIAL_MATCH',
-          potentialMatches: liveOfac.matches.filter(m => m.matchConfidence >= 0.75).map(m => ({
+          potentialMatches: liveOfac.matches.filter(m => m.matchConfidence >= 0.95).map(m => ({
             name: m.name, lists: ['OFAC SDN'], confidence: m.matchConfidence, programs: m.programs || []
           })),
           totalEntries: liveOfac.totalSDNEntries

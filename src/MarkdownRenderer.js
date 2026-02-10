@@ -164,7 +164,7 @@ const CustomHeading = ({ level, children }) => {
     // font-size: 11px, font-weight: 600, letter-spacing: 2px, uppercase, color: #6b6b6b, margin-bottom: 12px
     return (
       <div style={{ marginBottom: '28px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#6b6b6b', marginBottom: '12px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff', marginBottom: '12px' }}>
           {children}
         </div>
       </div>

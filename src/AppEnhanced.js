@@ -8,7 +8,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import posthog from 'posthog-js';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 // eslint-disable-next-line no-unused-vars
-import ChatNetworkGraph from './ChatNetworkGraph';
+import ChatNetworkGraph, { buildGraphFromScreeningResult } from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
@@ -3800,103 +3800,59 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
  // Extract entities/relationships from message text via API call
- // eslint-disable-next-line no-unused-vars
  const extractNetworkFromMessage = async (messageContent) => {
-   // Try to build graph from kycResults.ownershipAnalysis first
-   if (kycResults?.ownershipAnalysis) {
-     const oa = kycResults.ownershipAnalysis;
-     const entities = [];
-     const relationships = [];
-     const subjectName = kycResults.subject?.name || kycQuery;
+   // Determine subject name from context
+   const subject = kycResults?.subject?.name || kycQuery ||
+     cases.find(c => c.id === currentCaseId)?.name?.split(' - ')[0]?.trim() || '';
 
-     // Add the subject as the central entity
-     entities.push({
-       id: 'subject',
-       name: subjectName,
-       type: kycResults.subject?.type === 'individual' ? 'PERSON' : 'ORGANIZATION',
-       riskLevel: oa.riskLevel || 'UNKNOWN',
-       sanctionStatus: kycResults.sanctions?.status === 'MATCH' ? 'SANCTIONED' : 'CLEAR',
-       description: oa.summary || '',
-     });
-
-     // Add beneficial owners
-     if (oa.beneficialOwners?.length > 0) {
-       oa.beneficialOwners.forEach((owner, idx) => {
-         const id = `owner_${idx}`;
-         entities.push({
-           id,
-           name: owner.name,
-           type: 'PERSON',
-           riskLevel: owner.sanctionStatus === 'SANCTIONED' ? 'CRITICAL' : owner.pepStatus ? 'HIGH' : 'LOW',
-           sanctionStatus: owner.sanctionStatus === 'SANCTIONED' ? 'SANCTIONED' : owner.pepStatus ? 'PEP' : 'CLEAR',
-           description: owner.sanctionDetails || `${owner.ownershipType || 'Beneficial'} owner — ${owner.ownershipPercent || 0}%`,
-         });
-         relationships.push({
-           source: id,
-           target: 'subject',
-           type: `${owner.ownershipType || 'BENEFICIAL'} owner`,
-           ownership: owner.ownershipPercent ? `${owner.ownershipPercent}%` : null,
-           description: `${owner.ownershipType || 'Beneficial'} ownership${owner.ownershipPercent ? ` (${owner.ownershipPercent}%)` : ''}`,
-         });
-       });
-     }
-
-     // Add corporate structure entities
-     if (oa.corporateStructure?.length > 0) {
-       oa.corporateStructure.forEach((corp, idx) => {
-         const id = `corp_${idx}`;
-         entities.push({
-           id,
-           name: corp.entity,
-           type: 'ORGANIZATION',
-           riskLevel: corp.sanctionExposure === 'DIRECT' ? 'CRITICAL' : corp.sanctionExposure === 'INDIRECT' ? 'HIGH' : 'LOW',
-           sanctionStatus: corp.sanctionExposure === 'DIRECT' ? 'SANCTIONED' : 'CLEAR',
-           description: [corp.relationship, corp.jurisdiction, corp.notes].filter(Boolean).join(' — '),
-         });
-         const isParentOrShareholder = corp.relationship === 'PARENT' || corp.relationship === 'SHAREHOLDER';
-         relationships.push({
-           source: isParentOrShareholder ? id : 'subject',
-           target: isParentOrShareholder ? 'subject' : id,
-           type: corp.relationship || 'RELATED',
-           ownership: corp.ownershipPercent ? `${corp.ownershipPercent}%` : null,
-           description: corp.relationship || 'Related entity',
-         });
-       });
-     }
-
-     if (entities.length > 1) {
-       setNetworkGraphPanel({ open: true, loading: false, entities, relationships });
+   // Try to build graph from full kycResults (sanctions, ownership, PEP, ICIJ, courts, etc.)
+   if (kycResults?.subject) {
+     const graphData = buildGraphFromScreeningResult(kycResults);
+     if (graphData.nodes.length > 2) {
+       // Good graph — show directly, no AI needed
+       setNetworkGraphPanel({ open: true, loading: false, subjectName: subject, graphData });
        return;
      }
    }
 
-   // Fallback: extract from message text via API
-   setNetworkGraphPanel(prev => ({ ...prev, open: true, loading: true, entities: [], relationships: [] }));
+   // Extract from message text via API — show loading state immediately
+   setNetworkGraphPanel(prev => ({ ...prev, open: true, loading: true, subjectName: subject }));
    try {
+     const truncated = messageContent.length > 6000 ? messageContent.slice(0, 6000) + '\n...[truncated]' : messageContent;
+
      const response = await fetch(`${API_BASE}/api/chat`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
-         message: `Extract all entities and relationships from this screening report. Return ONLY valid JSON with this exact structure, no other text:
-{"entities":[{"name":"string","type":"person|company|government|organization","riskLevel":"HIGH|MEDIUM|LOW|UNKNOWN","details":"brief description"}],"relationships":[{"source":"entity name","target":"entity name","type":"ownership|director|sanctions|associate|subsidiary|beneficialOwner","details":"brief description"}]}
+         message: `Extract ALL entities and their relationships from this screening report for "${subject}". Include the subject "${subject}" as the central entity (id "e1").
+
+CRITICAL INSTRUCTIONS:
+- Extract EVERY person, company, organization, government body, country, vessel, or asset mentioned
+- Include ALL associates, family members, business partners, and connected entities
+- For each relationship, specify: ownership, leadership, associate, subsidiary, family, jurisdiction, designated_by, transaction
+- The subject "${subject}" MUST connect to multiple entities — if you see names mentioned, include them
+- Include countries mentioned as jurisdiction nodes
+
+Return ONLY valid JSON (no markdown, no explanation):
+{"entities":[{"id":"e1","name":"${subject}","type":"PERSON","role":"Subject of screening","riskLevel":"CRITICAL"},{"id":"e2","name":"Example Entity","type":"ORGANIZATION|PERSON|COUNTRY|VESSEL","role":"brief role","riskLevel":"CRITICAL|HIGH|MEDIUM|LOW"}],"relationships":[{"entity1":"e1","entity2":"e2","relationshipType":"ownership|leadership|associate|subsidiary|family|jurisdiction|designated_by","description":"brief description"}]}
 
 Screening report:
-${messageContent}`,
-         systemPrompt: 'You are a JSON extraction tool. Extract entities and relationships from compliance screening text. Return ONLY valid JSON, no markdown, no explanation.',
+${truncated}`,
+         systemPrompt: 'You are a JSON extraction tool for compliance network analysis. Your job is to extract EVERY entity and relationship mentioned in screening reports. Always include at least 5 entities and their relationships to the subject. Include associates, family, companies, countries, and organizations. The subject must have connections. Return ONLY valid JSON.',
          skipHistory: true
        })
      });
      const data = await response.json();
      const text = data.response || data.content || '';
-     // Try to parse JSON from the response
      const jsonMatch = text.match(/\{[\s\S]*\}/);
      if (jsonMatch) {
        const parsed = JSON.parse(jsonMatch[0]);
        if (parsed.entities?.length > 0) {
-         setNetworkGraphPanel({ open: true, loading: false, entities: parsed.entities, relationships: parsed.relationships || [] });
+         setNetworkGraphPanel(prev => ({ ...prev, loading: false, entities: parsed.entities, relationships: parsed.relationships || [] }));
          return;
        }
      }
+     // AI extraction returned no entities — stop loading, show whatever we have
      setNetworkGraphPanel(prev => ({ ...prev, loading: false }));
    } catch (err) {
      console.error('Network extraction error:', err);
@@ -9326,7 +9282,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  {/* Cases - Active */}
  <div className="relative group">
  <button className="katharos-sidebar-icon active" title="Case Management">
- <FileText className="w-[18px] h-[18px]" />
+ <FolderOpen className="w-[18px] h-[18px]" />
  </button>
  </div>
 {/* New Case */}
@@ -9497,7 +9453,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
           {isStreaming && (
             <div style={{ fontSize: '10px', color: '#eab308', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div className="animate-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#eab308' }} />
-              {streamLen === 0 ? 'Running screening pipeline...' : 'Streaming analysis...'}
+              {streamLen === 0 ? 'Running search...' : 'Streaming analysis...'}
             </div>
           )}
         </div>
@@ -9521,7 +9477,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  /* Case Detail View - Katharos Style */
  (() => {
    const viewingCase = getCaseById(viewingCaseId);
-   if (!viewingCase) return null;
+   if (!viewingCase) { setViewingCaseId(null); return null; }
    return (
      <div className="fade-in flex flex-col h-full" style={{ marginLeft: '56px', background: '#1a1a1a' }}>
        {/* Case Header */}
@@ -9738,7 +9694,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  {/* Case Management folder - below home */}
  <div className="relative group overflow-visible">
  <button
- onClick={() => setCurrentPage('existingCases')}
+ onClick={() => { setViewingCaseId(null); setCurrentPage('existingCases'); }}
  className="katharos-sidebar-icon relative overflow-visible"
  title="Case Management"
  >
@@ -10030,6 +9986,35 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  Export PDF
  </button>
  )}
+ {msg.content.length > 800 && (msg.content.includes('Risk') || msg.content.includes('Screening') || msg.content.includes('entities') || msg.content.includes('sanctions') || msg.content.includes('OFAC') || analysis) && (
+ <button
+ onClick={() => {
+   // Priority: case analysis > kycResults > AI extraction from text
+   const caseAnalysis = analysis || activeCase?.analysis;
+   if (caseAnalysis?.entities?.length > 0) {
+     const subject = caseAnalysis.entities[0]?.name || caseName || '';
+     setNetworkGraphPanel({ open: true, analysis: caseAnalysis, subjectName: subject });
+   } else if (kycResults?.subject) {
+     const graphData = buildGraphFromScreeningResult(kycResults);
+     const subject = kycResults.subject?.name || kycQuery || caseName || '';
+     if (graphData.nodes.length > 2) {
+       // Good graph — show it directly
+       setNetworkGraphPanel({ open: true, graphData, subjectName: subject });
+     } else {
+       // Sparse graph from structured data — enrich with AI extraction
+       setNetworkGraphPanel({ open: true, graphData, subjectName: subject, loading: true });
+       extractNetworkFromMessage(msg.content);
+     }
+   } else {
+     extractNetworkFromMessage(msg.content);
+   }
+ }}
+ className="katharos-btn secondary"
+ >
+ <Network className="w-4 h-4" />
+ View Network
+ </button>
+ )}
  </div>
  </div>
  )}
@@ -10066,122 +10051,180 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {(() => {
         // === TEMPLATE-BASED SUGGESTION SYSTEM ===
-        // Pull structured data from the case analysis — NOT raw text regex
+        // Pull structured data from case analysis OR kycResults — never generic
         const activeCase = cases.find(c => c.id === currentCaseId);
-        const subjectName = activeCase?.name?.split(' - ')[0]?.trim() || '';
+        const subjectName = kycResults?.subject?.name || kycQuery || activeCase?.name?.split(' - ')[0]?.trim() || '';
         const caseAnalysis = analysis || activeCase?.analysis || null;
         const lastMsg = conversationMessages?.[conversationMessages.length - 1]?.content || '';
         const lc = lastMsg.toLowerCase();
 
-        // Extract structured facts from analysis object
+        // Robust subject matching — never suggest screening the subject again
+        const subjectLower = subjectName.toLowerCase();
+        const subjectParts = subjectLower.split(/[\s,]+/).filter(p => p.length > 2);
+        const isSubject = (name) => {
+          if (!name || !subjectName) return false;
+          const nl = name.toLowerCase();
+          if (nl === subjectLower) return true;
+          if (subjectLower.includes(nl) || nl.includes(subjectLower)) return true;
+          // Check if most name parts match (handles "PUTIN, Vladimir" vs "Vladimir Putin")
+          const nameParts = nl.split(/[\s,]+/).filter(p => p.length > 2);
+          const overlap = nameParts.filter(p => subjectParts.some(sp => sp.includes(p) || p.includes(sp)));
+          return overlap.length >= Math.min(nameParts.length, subjectParts.length) && overlap.length > 0;
+        };
+
+        // Extract structured facts — from case analysis OR kycResults
         const entities = caseAnalysis?.entities || [];
         const redFlags = caseAnalysis?.redFlags || [];
         const relationships = caseAnalysis?.relationships || [];
 
+        // Also pull from kycResults when case analysis is empty
+        const kycBeneficialOwners = kycResults?.ownershipAnalysis?.beneficialOwners || [];
+        const kycCorporateStructure = kycResults?.ownershipAnalysis?.corporateStructure || [];
+        const kycOwnedCompanies = kycResults?.ownedCompanies || [];
+        const kycPepMatches = kycResults?.pep?.matches || [];
+        const kycSanctionMatches = kycResults?.sanctions?.matches || [];
+        const kycRiskFactors = kycResults?.riskFactors || [];
+
         // Categorize entities by type
         const sanctionedEntities = entities.filter(e =>
-          e.sanctionStatus === 'MATCH' || e.riskLevel === 'CRITICAL' ||
-          (e.role && /sanctioned|designated|blocked/i.test(e.role))
+          !isSubject(e.name) && (e.sanctionStatus === 'MATCH' || e.riskLevel === 'CRITICAL' ||
+          (e.role && /sanctioned|designated|blocked/i.test(e.role)))
         );
         const pepEntities = entities.filter(e =>
-          e.role && /pep|politically exposed|government|minister|official|parliament/i.test(e.role)
+          !isSubject(e.name) && e.role && /pep|politically exposed|government|minister|official|parliament/i.test(e.role)
         );
         const corporateEntities = entities.filter(e =>
-          e.type === 'ORGANIZATION' || e.type === 'COMPANY' ||
-          (e.name && /Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited/i.test(e.name))
+          !isSubject(e.name) && (e.type === 'ORGANIZATION' || e.type === 'COMPANY' ||
+          (e.name && /Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited/i.test(e.name)))
         );
 
-        // Detect topics from last message (for contextual relevance)
+        // Detect topics from last message
         const hasSanctions = lc.includes('sanction') || lc.includes('ofac') || lc.includes('sdn') || lc.includes('designated');
-        const hasPep = lc.includes('pep') || lc.includes('politically exposed') || lc.includes('government official');
-        const hasAdverseMedia = lc.includes('adverse media') || lc.includes('negative news') || lc.includes('allegation') || lc.includes('litigation') || lc.includes('indictment');
-        const hasCorporate = lc.includes('shell') || lc.includes('beneficial owner') || lc.includes('corporate structure') || lc.includes('subsidiary') || lc.includes('nominee');
-        const hasOwnership = lc.includes('ownership') || lc.includes('50%') || lc.includes('fifty percent') || lc.includes('controlled by');
+        const hasCorporate = lc.includes('shell') || lc.includes('beneficial owner') || lc.includes('corporate structure') || lc.includes('subsidiary');
 
-        // Extract a specific quoted headline from the text
-        const headlineMatch = lastMsg.match(/["\u201C\u201D]([^"\u201C\u201D]{15,80})["\u201C\u201D]/);
-        const headline = headlineMatch ? headlineMatch[1] : null;
-
-        // Build suggestions from templates — each template requires specific data to activate
+        // Build suggestions — specific, investigative, always outward from subject
         const suggestions = [];
 
-        // --- SDN / Sanctions templates ---
-        if (hasSanctions || sanctionedEntities.length > 0) {
-          const target = sanctionedEntities[0]?.name || subjectName;
-          if (target) {
+        // Collect all named people and orgs (EXCLUDING the subject)
+        const otherPeople = entities.filter(e => e.type === 'PERSON' && !isSubject(e.name));
+        const otherOrgs = corporateEntities.filter(e => !isSubject(e.name));
+
+        // Also collect from kycResults
+        const kycOtherPeople = kycBeneficialOwners.filter(o => o.name && !isSubject(o.name));
+        const kycOtherOrgs = [
+          ...kycCorporateStructure.filter(c => (c.entity || c.name) && !isSubject(c.entity || c.name)),
+          ...kycOwnedCompanies.filter(c => (c.company || c.name) && !isSubject(c.company || c.name)),
+        ];
+        const kycOtherPeps = kycPepMatches.filter(p => p.name && !isSubject(p.name));
+        const kycOtherSanctioned = kycSanctionMatches.filter(m => {
+          const n = m.matchedName || m.name || '';
+          return n && !isSubject(n);
+        });
+
+        // --- 1. Screen a specific related person ---
+        if (otherPeople.length > 0) {
+          const person = otherPeople[0];
+          const role = person.role ? ` — ${person.role.replace(/[.!]+$/, '')}` : '';
+          suggestions.push(`Screen ${person.name}${role}`);
+        } else if (kycOtherPeople.length > 0) {
+          const owner = kycOtherPeople[0];
+          const pct = owner.ownershipPercent ? ` — ${owner.ownershipPercent}% beneficial owner` : ' — beneficial owner';
+          suggestions.push(`Screen ${owner.name}${pct}`);
+        } else if (kycOtherPeps.length > 0) {
+          const pep = kycOtherPeps[0];
+          const pos = pep.position ? ` — ${pep.position}` : '';
+          suggestions.push(`Screen ${pep.name}${pos}`);
+        }
+
+        // --- 2. Investigate a specific related entity/company ---
+        if (otherOrgs.length > 0) {
+          const org = otherOrgs[0];
+          const detail = org.role ? ` (${org.role.replace(/[.!]+$/, '')})` : '';
+          suggestions.push(`Investigate ${org.name}${detail}`);
+        } else if (kycOtherOrgs.length > 0) {
+          const corp = kycOtherOrgs[0];
+          const name = corp.entity || corp.company || corp.name;
+          const rel = corp.relationship ? ` — ${corp.relationship}` : '';
+          suggestions.push(`Investigate ${name}${rel}`);
+        } else if (otherPeople.length > 1) {
+          const person2 = otherPeople[1];
+          const role2 = person2.role ? ` — ${person2.role.replace(/[.!]+$/, '')}` : '';
+          suggestions.push(`Screen ${person2.name}${role2}`);
+        } else if (kycOtherPeople.length > 1) {
+          const owner2 = kycOtherPeople[1];
+          suggestions.push(`Screen ${owner2.name} for independent risk assessment`);
+        }
+
+        // --- 3. Red flag deep dive ---
+        if (redFlags.length > 0 && suggestions.length < 3) {
+          const flag = redFlags[0];
+          const flagText = flag.title || flag.category || flag.description || '';
+          if (flagText && flagText.length > 5) {
+            suggestions.push(`Deep dive into the ${flagText.toLowerCase().replace(/[.!?]+$/, '')} findings`);
+          }
+        } else if (kycRiskFactors.length > 0 && suggestions.length < 3) {
+          const rf = kycRiskFactors[0];
+          const rfText = rf.factor || rf.description || '';
+          if (rfText && rfText.length > 5) {
+            suggestions.push(`Deep dive into the ${rfText.toLowerCase().replace(/[.!?]+$/, '')} findings`);
+          }
+        }
+
+        // --- 4. Sanctions-specific: trace ownership (use a non-subject entity) ---
+        if ((hasSanctions || sanctionedEntities.length > 0 || kycOtherSanctioned.length > 0) && suggestions.length < 3) {
+          const target = sanctionedEntities[0]?.name || kycOtherSanctioned[0]?.matchedName || kycOtherSanctioned[0]?.name;
+          if (target && !isSubject(target)) {
             suggestions.push(`Trace entities owned 50%+ by ${target} under OFAC's 50% rule`);
-            // Find a different person to suggest screening
-            const associate = entities.find(e => e.type === 'PERSON' && e.name !== target);
-            if (associate) suggestions.push(`Identify ${target}'s known associates and family members`);
           }
         }
 
-        // --- PEP templates ---
-        if (hasPep || pepEntities.length > 0) {
-          const pepName = pepEntities[0]?.name || (hasPep ? subjectName : null);
-          if (pepName) {
-            suggestions.push(`Map ${pepName}'s government connections and tenure in office`);
-            if (suggestions.length < 3) suggestions.push(`Check for ${pepName}'s relatives in corporate registries`);
+        // --- 5. Corporate structure: map ownership (use a non-subject entity) ---
+        if ((hasCorporate || kycOtherOrgs.length > 0) && suggestions.length < 3) {
+          const target = corporateEntities[0]?.name || kycOtherOrgs[0]?.entity || kycOtherOrgs[0]?.company || kycOtherOrgs[0]?.name;
+          if (target && !isSubject(target)) {
+            suggestions.push(`Map the full beneficial ownership chain for ${target}`);
           }
         }
 
-        // --- Adverse media templates ---
-        if (hasAdverseMedia || redFlags.length > 0) {
-          if (headline) {
-            suggestions.push(`Deep dive into "${headline}" — what are the specific allegations?`);
-          } else if (redFlags.length > 0) {
-            const flag = redFlags[0];
-            const flagDesc = flag.title || flag.category || flag.description || '';
-            if (flagDesc) suggestions.push(`What is the current status of the ${flagDesc.toLowerCase().replace(/[.!?]+$/, '')} matter?`);
-          }
-        }
-
-        // --- Corporate structure templates ---
-        if (hasCorporate || hasOwnership || corporateEntities.length > 1) {
-          const parent = corporateEntities.find(e => e.role && /parent|holding|ultimate/i.test(e.role));
-          if (parent) {
-            suggestions.push(`Investigate ${parent.name}'s beneficial ownership structure`);
-          } else if (corporateEntities.length > 0 && corporateEntities[0].name !== subjectName) {
-            suggestions.push(`Investigate ${corporateEntities[0].name}'s beneficial ownership structure`);
-          }
-        }
-
-        // --- Relationship-based templates ---
+        // --- 6. Relationship-based: screen connected entity ---
         if (relationships.length > 0 && suggestions.length < 3) {
-          const rel = relationships[0];
-          const otherEntity = rel.target || rel.to || rel.entity2 || '';
-          if (otherEntity && otherEntity !== subjectName) {
-            suggestions.push(`Screen ${otherEntity} in Katharos for independent risk assessment`);
+          const rel = relationships.find(r => {
+            const other = r.target || r.to || r.entity2 || '';
+            return other && !isSubject(other) && !suggestions.some(s => s.includes(other));
+          });
+          if (rel) {
+            const other = rel.target || rel.to || rel.entity2;
+            suggestions.push(`Screen ${other} for independent risk assessment`);
           }
         }
 
-        // === VALIDATION: filter out bad suggestions ===
+        // --- 7. Outward fallbacks (never re-investigate the subject) ---
+        if (suggestions.length < 2 && subjectName) {
+          suggestions.push(`Search for corporate entities linked to ${subjectName} in global registries`);
+        }
+        if (suggestions.length < 2 && subjectName) {
+          suggestions.push(`Check for family members and close associates in PEP databases`);
+        }
+        if (suggestions.length < 3 && subjectName) {
+          suggestions.push(`Review recent enforcement actions mentioning ${subjectName}'s associates`);
+        }
+
+        // === FINAL VALIDATION ===
+        // Remove any suggestion that is essentially "screen/investigate [subject]"
         const validated = suggestions.filter(s => {
-          if (s.length > 120) return false;
-          if (/\bis\s+is\b|\bthe\s+the\b|\bor\s+or\b|\band\s+and\b/i.test(s)) return false;
+          if (s.length > 120 || s.length < 10) return false;
           if (/undefined|null|\[\]|\{\}/i.test(s)) return false;
-          if (!/^[A-Z]/.test(s)) return false;
+          if (!/^[A-Z""]/.test(s)) return false;
+          // Block suggestions that just re-screen the subject
+          const sLower = s.toLowerCase();
+          if (sLower.startsWith('screen ') || sLower.startsWith('investigate ')) {
+            const target = s.replace(/^(Screen|Investigate)\s+/i, '').split(/\s*[—\-(]/)[0].trim();
+            if (isSubject(target)) return false;
+          }
           return true;
         });
 
-        // === FALLBACK DEFAULTS if fewer than 2 valid suggestions ===
-        const defaults = [];
-        if (subjectName && subjectName !== 'this entity') {
-          defaults.push(`Summarize the key risks for ${subjectName} and recommend next steps`);
-        } else {
-          defaults.push('Summarize the key risks and recommend next steps');
-        }
-        defaults.push('What should a compliance officer prioritize based on these findings?');
-        defaults.push('Are there any additional entities that should be screened?');
-
-        // Fill up to 3 with defaults if needed
-        const final = [...validated];
-        for (const d of defaults) {
-          if (final.length >= 3) break;
-          if (!final.includes(d)) final.push(d);
-        }
-
-        return final.slice(0, 3);
+        return validated.slice(0, 3);
       })().map((suggestion, idx) => (
         <button
           key={idx}
@@ -10354,7 +10397,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  {/* Case Management Button with tooltip */}
  <div className="relative group overflow-visible">
  <button
- onClick={() => setCurrentPage('existingCases')}
+ onClick={() => { setViewingCaseId(null); setCurrentPage('existingCases'); }}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative overflow-visible"
  title="Case Management"
  >
@@ -10706,7 +10749,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  {/* Case Management Button with tooltip */}
  <div className="relative group overflow-visible">
  <button
- onClick={() => setCurrentPage('existingCases')}
+ onClick={() => { setViewingCaseId(null); setCurrentPage('existingCases'); }}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative overflow-visible"
  title="Case Management"
  >
@@ -10870,6 +10913,16 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  {isGeneratingCaseReport ? 'Generating...' : 'Export PDF Report'}
+ </button>
+ <button
+ onClick={() => {
+                          const subject = analysis?.entities?.[0]?.name || caseName || '';
+                          setNetworkGraphPanel({ open: true, analysis, subjectName: subject });
+                        }}
+ className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+ >
+ <Network className="w-4 h-4" />
+ View Network
  </button>
  </div>
  <p className="text-xl font-medium text-gray-900 leading-relaxed mb-6">
@@ -12066,7 +12119,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  )}
 
  {/* Chat Completion Notification - shows when conversational response completes with risk assessment */}
- {chatCompletionNotification.show && (
+ {chatCompletionNotification.show && chatCompletionNotification.caseId !== viewingCaseId && (
    <div
      className="fixed bottom-24 right-6 z-[9999] animate-slideUp"
      onMouseEnter={() => setChatCompletionNotification(prev => ({ ...prev, isPaused: true }))}
@@ -12173,7 +12226,30 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  )}
 
- {/* Usage Limit Modal */}
+ {/* Network Graph Modal */}
+{networkGraphPanel.open && (
+  <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+    <div className="relative bg-white rounded-xl shadow-2xl" style={{ width: '95vw', height: '90vh' }}>
+      <button
+        onClick={() => setNetworkGraphPanel(prev => ({ ...prev, open: false }))}
+        className="absolute top-3 right-3 z-10 p-2 bg-white/90 hover:bg-gray-100 rounded-full shadow-md transition-colors"
+      >
+        <X className="w-5 h-5 text-gray-600" />
+      </button>
+      <ChatNetworkGraph
+        graphData={networkGraphPanel.graphData}
+        analysis={networkGraphPanel.analysis}
+        entities={networkGraphPanel.entities}
+        relationships={networkGraphPanel.relationships}
+        subjectName={networkGraphPanel.subjectName}
+        loading={networkGraphPanel.loading}
+        onClose={() => setNetworkGraphPanel(prev => ({ ...prev, open: false }))}
+      />
+    </div>
+  </div>
+)}
+
+{/* Usage Limit Modal */}
         <UsageLimitModal
           isOpen={showUsageLimitModal}
           onClose={() => setShowUsageLimitModal(false)}
