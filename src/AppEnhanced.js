@@ -10090,9 +10090,6 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
           !isSubject(e.name) && (e.sanctionStatus === 'MATCH' || e.riskLevel === 'CRITICAL' ||
           (e.role && /sanctioned|designated|blocked/i.test(e.role)))
         );
-        const pepEntities = entities.filter(e =>
-          !isSubject(e.name) && e.role && /pep|politically exposed|government|minister|official|parliament/i.test(e.role)
-        );
         const corporateEntities = entities.filter(e =>
           !isSubject(e.name) && (e.type === 'ORGANIZATION' || e.type === 'COMPANY' ||
           (e.name && /Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited/i.test(e.name)))
