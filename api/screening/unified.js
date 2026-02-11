@@ -642,7 +642,7 @@ Return a JSON object with this EXACT structure (all fields required):
  "adverseMedia": {
  "status": "CLEAR|FINDINGS",
  "totalArticles": 0,
- "categories": {"FINANCIAL_CRIME":0,"CORRUPTION":0,"FRAUD":0,"SANCTIONS_EVASION":0,"MONEY_LAUNDERING":0,"OTHER":0},
+ "categories": {"FINANCIAL_CRIME":0,"SANCTIONS_EXPORT":0,"ORGANIZED_CRIME":0,"REGULATORY_LEGAL":0,"CORPORATE_MISCONDUCT":0,"AML_SPECIFIC":0,"HIGH_RISK_INDICATORS":0,"CYBER_MODERN":0,"OTHER":0},
  "articles": [{"headline":"","source":"","sourceCredibility":"","date":"","summary":"","category":"","relevance":""}]
  },
  "riskFactors": [{"factor":"","severity":"","description":"","mitigants":""}],
