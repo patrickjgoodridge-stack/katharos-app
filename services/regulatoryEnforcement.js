@@ -1,11 +1,12 @@
 // RegulatoryEnforcementService — Multi-agency enforcement action screening
 // Sources: DOJ, CFPB, FTC, CFTC, Federal Reserve, FDIC, OCC, UK FCA, EU Competition, BaFin, MAS, HKMA, ASIC
 
+const { BoundedCache } = require('./boundedCache');
+
 class RegulatoryEnforcementService {
 
   constructor() {
-    this.cache = new Map();
-    this.cacheTimeout = 60 * 60 * 1000;
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   // ============================================

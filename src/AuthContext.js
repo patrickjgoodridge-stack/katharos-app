@@ -1,6 +1,8 @@
-// AuthContext.js - Simple Email Gate with Name & Company + Usage Limits
+// AuthContext.js - Email Gate with Name & Company + Usage Limits + User Roles
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { getOrCreateUser, hasPermission as checkPermission } from './userService';
+import { logAudit } from './auditService';
 
 const AuthContext = createContext({});
 
@@ -131,6 +133,7 @@ const saveDailyUsage = (email, count) => {
 
 export const AuthProvider = ({ children }) => {
   const [userInfo, setUserInfo] = useState(null);
+  const [userRecord, setUserRecord] = useState(null); // DB user record with role
   const [loading, setLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
   const [dailyScreenings, setDailyScreenings] = useState(0);
@@ -150,6 +153,11 @@ export const AuthProvider = ({ children }) => {
         // Check paid status from Supabase
         checkPaidStatus(userData.email).then(paid => {
           setIsPaid(paid);
+        });
+
+        // Load user record with role
+        getOrCreateUser(userData.email, userData.name, userData.company).then(record => {
+          if (record) setUserRecord(record);
         });
       } catch {
         localStorage.removeItem('marlowe_user');
@@ -173,13 +181,22 @@ export const AuthProvider = ({ children }) => {
     // Store in Supabase for collection
     await storeLead(userData.email, userData.name, userData.company);
 
+    // Create/fetch user record with role
+    const record = await getOrCreateUser(userData.email, userData.name, userData.company);
+    if (record) setUserRecord(record);
+
+    // Audit log
+    logAudit('user_login', { entityType: 'user', entityId: userData.email, details: { name: userData.name, company: userData.company } });
+
     return { success: true };
   };
 
   // Sign out (clear user)
   const signOut = () => {
+    logAudit('user_logout', { entityType: 'user', entityId: userInfo?.email });
     localStorage.removeItem('marlowe_user');
     setUserInfo(null);
+    setUserRecord(null);
   };
 
   // Track a query for the current user
@@ -241,6 +258,10 @@ export const AuthProvider = ({ children }) => {
     incrementScreening,
     refreshPaidStatus,
     DAILY_FREE_LIMIT,
+    // User management features
+    userRecord,
+    userRole: userRecord?.role || 'analyst',
+    hasPermission: (perm) => checkPermission(userRecord, perm),
   };
 
   return (

@@ -7,18 +7,27 @@ import * as pdfjsLib from 'pdfjs-dist';
 // pdf and ComplianceReportPDF removed — generatePdfReport now uses DOM capture via captureDomToPdf
 import posthog from 'posthog-js';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
-// eslint-disable-next-line no-unused-vars
-import ChatNetworkGraph, { buildGraphFromScreeningResult } from './ChatNetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
+import InlineChatGraph from './InlineChatGraph';
 import UsageLimitModal from './UsageLimitModal';
 import LandingPage from './LandingPage';
 import ProductPage from './ProductPage';
 import AboutPage from './AboutPage';
 import ContactPage from './ContactPage';
+import { saveScreening, fetchScreenings, fetchScreeningById } from './screeningsService';
+import { logAudit } from './auditService';
+import AuditTrailPanel from './AuditTrailPanel';
+import AdminPanel from './AdminPanel';
+import DataSourcesPanel from './DataSourcesPanel';
+import AccuracyDashboard from './AccuracyDashboard';
+import WorkflowControls from './WorkflowControls';
+import ActivityFeed from './ActivityFeed';
+import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
+import { fetchTeamUsers } from './userService';
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -40,10 +49,48 @@ const parseVizData = (content) => { // eslint-disable-line no-unused-vars
   return null;
 };
 
-// Strip vizdata block from content for display
+// All supported visualization block types
+const VIZ_TYPES = [
+  { block: 'networkgraph', label: 'Network Graph', type: 'network', filename: 'network-graph', validate: html => html.includes('d3') },
+  { block: 'timeline', label: 'Timeline', type: 'timeline', filename: 'timeline', validate: html => html.includes('timeline') || html.includes('Timeline') },
+  { block: 'riskassessment', label: 'Risk Assessment', type: 'risk', filename: 'risk-assessment' },
+  { block: 'screeningresult', label: 'Screening Result', type: 'screening', filename: 'screening-result' },
+  { block: 'comparisontable', label: 'Comparison Table', type: 'comparison', filename: 'comparison-table' },
+  { block: 'datatable', label: 'Data Table', type: 'datatable', filename: 'data-table' },
+  { block: 'dashboard', label: 'Dashboard', type: 'dashboard', filename: 'dashboard' },
+  { block: 'processflow', label: 'Process Flow', type: 'processflow', filename: 'process-flow' },
+  { block: 'geomap', label: 'Geographic Map', type: 'geomap', filename: 'geo-map', validate: html => html.includes('leaflet') || html.includes('Leaflet') || html.includes('map') },
+  { block: 'documentviewer', label: 'Document Viewer', type: 'document', filename: 'document-viewer' },
+];
+
+const VIZ_BLOCK_NAMES = VIZ_TYPES.map(v => v.block);
+const VIZ_BLOCK_RE = new RegExp('```(?:' + VIZ_BLOCK_NAMES.join('|') + ')\\s*\\n?[\\s\\S]*?```', 'g');
+const VIZ_BLOCK_UNCLOSED_RE = new RegExp('```(?:' + VIZ_BLOCK_NAMES.join('|') + ')\\s*\\n?[\\s\\S]*$', 'g');
+
+// Parse all HTML artifact blocks from AI response content
+const parseHtmlArtifacts = (content) => {
+  if (!content) return [];
+  const artifacts = [];
+  for (const vt of VIZ_TYPES) {
+    const re = new RegExp('```' + vt.block + '\\s*\\n?([\\s\\S]*?)```');
+    const match = content.match(re);
+    if (!match) continue;
+    const html = match[1].trim();
+    if (!html.includes('<')) continue;
+    if (vt.validate && !vt.validate(html)) continue;
+    artifacts.push({ html, label: vt.label, type: vt.type, filename: vt.filename });
+  }
+  return artifacts;
+};
+
+// Strip all viz blocks from content for display
 const stripVizData = (content) => {
   if (!content) return content;
-  return content.replace(/```vizdata\s*\n?[\s\S]*?```/g, '').trim();
+  return content
+    .replace(/```vizdata\s*\n?[\s\S]*?```/g, '')
+    .replace(VIZ_BLOCK_RE, '')
+    .replace(VIZ_BLOCK_UNCLOSED_RE, '')
+    .trim();
 };
 
 // Detect if a chat message is requesting a visualization
@@ -153,7 +200,7 @@ function friendlyError(error) {
 // Main Katharos Component
 export default function Katharos() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName } = useAuth();
+ const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [cases, setCases] = useState([]);
@@ -235,10 +282,9 @@ export default function Katharos() {
  const [searchToasts, setSearchToasts] = useState([]);
  const [completionNotifs, setCompletionNotifs] = useState([]);
  const MAX_CONCURRENT = 3;
- const [kycHistory, setKycHistory] = useState(() => {
-   try { return JSON.parse(localStorage.getItem('marlowe_kycHistory') || '[]'); } catch { return []; }
- });
+ const [kycHistory, setKycHistory] = useState([]);
  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
+ const [teamUsers, setTeamUsers] = useState([]);
  
  // Individual screening fields
  const [kycClientRef, setKycClientRef] = useState('');
@@ -284,8 +330,34 @@ export default function Katharos() {
    streamingStates.get(caseId) || { isStreaming: false, streamingText: '' },
    [streamingStates]);
 
- // Helper to update streaming state for a specific case
+ // Helper to update streaming state for a specific case (throttled for text updates)
+ const streamingBufferRef = useRef({}); // { [caseId]: { text, timer } }
  const setCaseStreamingState = useCallback((caseId, updates) => {
+   // For text-only updates during streaming, throttle to every 50ms
+   if (updates.streamingText !== undefined && !('isStreaming' in updates)) {
+     const buf = streamingBufferRef.current;
+     buf[caseId] = updates.streamingText;
+     if (!buf[`_timer_${caseId}`]) {
+       buf[`_timer_${caseId}`] = setTimeout(() => {
+         const latestText = buf[caseId];
+         delete buf[`_timer_${caseId}`];
+         setStreamingStates(prev => {
+           const newMap = new Map(prev);
+           const current = newMap.get(caseId) || { isStreaming: false, streamingText: '' };
+           newMap.set(caseId, { ...current, streamingText: latestText });
+           return newMap;
+         });
+       }, 50);
+     }
+     return;
+   }
+   // Flush any pending buffer when changing isStreaming
+   const buf = streamingBufferRef.current;
+   if (buf[`_timer_${caseId}`]) {
+     clearTimeout(buf[`_timer_${caseId}`]);
+     delete buf[`_timer_${caseId}`];
+     delete buf[caseId];
+   }
    setStreamingStates(prev => {
      const newMap = new Map(prev);
      const current = newMap.get(caseId) || { isStreaming: false, streamingText: '' };
@@ -308,9 +380,10 @@ export default function Katharos() {
  const editInputRef = useRef(null);
  const analysisAbortRef = useRef(null); // AbortController for cancelling analysis
  const conversationAbortRef = useRef(null); // AbortController for stopping conversation streaming
+ const screeningAbortRef = useRef(null); // AbortController for unified screening fetches
  const currentCaseIdRef = useRef(null); // Track current case for async handlers
- // eslint-disable-next-line no-unused-vars
- const [networkGraphPanel, setNetworkGraphPanel] = useState({ open: false, entities: [], relationships: [], loading: false });
+ const sendingLockRef = useRef(new Set()); // Prevent concurrent sends to same case
+ const deepLinkHandledRef = useRef(false); // Prevent deep-link re-triggering
  const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
 
@@ -361,6 +434,20 @@ const samplesDropdownRef = useRef(null);
  ];
 
  const placeholderExamples = investigationMode === 'scout' ? scoutPlaceholderExamples : cipherPlaceholderExamples;
+
+ // Cleanup in-flight requests on unmount
+ useEffect(() => {
+   return () => {
+     if (analysisAbortRef.current) analysisAbortRef.current.abort();
+     if (conversationAbortRef.current) conversationAbortRef.current.abort();
+     if (screeningAbortRef.current) screeningAbortRef.current.abort();
+     // Flush streaming throttle timers
+     const buf = streamingBufferRef.current;
+     for (const key of Object.keys(buf)) {
+       if (key.startsWith('_timer_')) clearTimeout(buf[key]);
+     }
+   };
+ }, []);
 
  // Auto-decrement countdown timer
  useEffect(() => {
@@ -419,6 +506,46 @@ const samplesDropdownRef = useRef(null);
  loadCases();
  }, [user, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+ // Load screening history from Supabase when user logs in
+ useEffect(() => {
+   if (!user) { setKycHistory([]); return; }
+   if (!isSupabaseConfigured()) return;
+   fetchScreenings(user.email, workspaceId, { page: 1, pageSize: 50 })
+     .then(({ data }) => {
+       if (data && data.length > 0) {
+         console.log('[Screenings] Loaded', data.length, 'screenings from database');
+         setKycHistory(data);
+       }
+     })
+     .catch(err => console.error('[Screenings] Error loading history:', err));
+ }, [user, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Load team users for case assignment
+ useEffect(() => {
+   if (!user || !workspaceId) return;
+   if (!isSupabaseConfigured()) return;
+   fetchTeamUsers(workspaceId)
+     .then(users => { if (users) setTeamUsers(users); })
+     .catch(err => console.error('[Users] Error loading team:', err));
+ }, [user, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Clear case state on sign-out to prevent stale data across sessions
+ useEffect(() => {
+   if (!user) {
+     setCases([]);
+     setActiveCase(null);
+     setCurrentCaseId(null);
+     setConversationMessages([]);
+     setChatMessages([]);
+     setCaseName('');
+     setCaseDescription('');
+     setConversationStarted(false);
+     setAnalysis(null);
+     setFiles([]);
+     setTeamUsers([]);
+   }
+ }, [user]);
+
  // Handle payment success redirect from Stripe
  useEffect(() => {
    const urlParams = new URLSearchParams(window.location.search);
@@ -440,23 +567,28 @@ const samplesDropdownRef = useRef(null);
  // Keep currentCaseIdRef in sync with state for async handlers
  useEffect(() => { currentCaseIdRef.current = currentCaseId; }, [currentCaseId]);
 
- // Handle case deep-link: ?case=ID
+ // Handle case deep-link: ?case=ID (runs once when cases first load)
  useEffect(() => {
+   if (deepLinkHandledRef.current) return;
    const urlParams = new URLSearchParams(window.location.search);
    const caseParam = urlParams.get('case');
-   if (caseParam && cases.length > 0) {
-     const targetCase = cases.find(c => c.id === caseParam);
-     if (targetCase) {
-       setCurrentPage('activeCase');
-       setActiveCase(targetCase);
-       if (targetCase.conversationTranscript) {
-         setChatMessages(targetCase.conversationTranscript);
-       }
-       setCurrentCaseId(targetCase.id);
+   if (!caseParam) { deepLinkHandledRef.current = true; return; }
+   if (cases.length === 0) return; // Wait for cases to load
+   deepLinkHandledRef.current = true;
+   const targetCase = cases.find(c => c.id === caseParam);
+   if (targetCase) {
+     setCurrentPage('activeCase');
+     setActiveCase(targetCase);
+     if (targetCase.conversationTranscript) {
+       setChatMessages(targetCase.conversationTranscript);
+       setConversationMessages(targetCase.conversationTranscript);
      }
-     // Clear the param
-     window.history.replaceState({}, '', window.location.pathname);
+     setCurrentCaseId(targetCase.id);
+     setCaseName(targetCase.name || '');
+     setConversationStarted((targetCase.conversationTranscript?.length || 0) > 0);
    }
+   // Clear the param
+   window.history.replaceState({}, '', window.location.pathname);
  }, [cases]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -570,16 +702,24 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  files: files,
  analysis: analysisData,
  chatHistory: [],
+ conversationTranscript: [],
+ pdfReports: [],
+ networkArtifacts: [],
  screenings: [],
- riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN'
+ riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN',
+ viewed: false,
+ description: '',
+ emailDomain: workspaceId || '',
+ createdByEmail: user?.email || '',
  };
  setCases(prev => [newCase, ...prev]);
  setActiveCase(newCase);
  // Don't navigate here - user will click popup to view results
 
- // Sync to Supabase if configured
+ // Save to Supabase if configured
  if (isSupabaseConfigured() && user) {
-   syncCase(newCase).catch(console.error);
+   createCase(newCase).catch(err => console.error('[Cases] Failed to save case:', err));
+   logAudit('case_created', { entityType: 'case', entityId: newCase.id, details: { name: newCase.name, source: 'analysis' } });
  }
 
  // Save to reference database for AI learning (HIGH or CRITICAL cases only)
@@ -736,6 +876,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
          console.log('[Cases] Case saved to database successfully:', newCaseId);
        }
      });
+     logAudit('case_created', { entityType: 'case', entityId: newCaseId, details: { name: generatedName, source: 'conversation' } });
    } else {
      console.log('[Cases] Supabase not configured or user not logged in, case saved locally only');
    }
@@ -898,13 +1039,15 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
    runMonitoringRescreen(monitoredCases);
  }, [cases, monitoringInProgress, runMonitoringRescreen]);
 
- // Mark monitoring alerts as read when monitoring page opens
+ // Mark monitoring alerts as read when monitoring page opens (only for monitored cases)
  useEffect(() => {
    if (currentPage === 'monitoring' && unreadAlertCount > 0) {
-     setCases(prev => prev.map(c => ({
-       ...c,
-       monitoringAlerts: (c.monitoringAlerts || []).map(a => ({ ...a, read: true }))
-     })));
+     setCases(prev => prev.map(c => {
+       if (!c.monitoringEnabled || !(c.monitoringAlerts || []).some(a => !a.read)) return c;
+       const updated = { ...c, monitoringAlerts: c.monitoringAlerts.map(a => a.read ? a : { ...a, read: true }) };
+       if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+       return updated;
+     }));
    }
  }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -922,6 +1065,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      if (isSupabaseConfigured() && user) syncCase(updatedCase).catch(console.error);
      return updatedCase;
    }));
+   logAudit('alert_acknowledged', { entityType: 'alert', entityId: alertId, details: { caseId } });
  };
 
  // eslint-disable-next-line no-unused-vars
@@ -937,6 +1081,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      if (isSupabaseConfigured() && user) syncCase(updatedCase).catch(console.error);
      return updatedCase;
    }));
+   logAudit('alert_resolved', { entityType: 'alert', entityId: alertId, details: { caseId, outcome: resolution.outcome } });
  };
 
  // eslint-disable-next-line no-unused-vars
@@ -1193,14 +1338,22 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  setCurrentPage('noirLanding');
  };
 
- // Delete a case
+ // Delete a case (with confirmation guard)
  const deleteCase = (caseId, e) => {
- e.stopPropagation();
+ if (e) e.stopPropagation();
+ if (!window.confirm('Are you sure you want to delete this case? This cannot be undone.')) return;
  setCases(prev => prev.filter(c => c.id !== caseId));
+ // Clear active case if it was deleted
+ if (activeCase?.id === caseId) {
+   setActiveCase(null);
+   setCurrentCaseId(null);
+   setCurrentPage('noirLanding');
+ }
  // Also delete from Supabase if configured
  if (isSupabaseConfigured() && user) {
    deleteCaseFromDb(caseId).catch(console.error);
  }
+ logAudit('case_deleted', { entityType: 'case', entityId: caseId });
  };
 
  // Start editing a case name
@@ -1215,11 +1368,15 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  const saveEditedCaseName = (e) => {
  e?.stopPropagation();
  if (editingCaseName.trim()) {
- setCases(prev => prev.map(c => 
- c.id === editingCaseId 
- ? { ...c, name: editingCaseName.trim(), updatedAt: new Date().toISOString() }
- : c
- ));
+ setCases(prev => prev.map(c => {
+ if (c.id !== editingCaseId) return c;
+ const updated = { ...c, name: editingCaseName.trim(), updatedAt: new Date().toISOString() };
+ // Sync renamed case to Supabase
+ if (isSupabaseConfigured() && user) {
+   syncCase(updated).catch(console.error);
+ }
+ return updated;
+ }));
  // Also update active case if it's the one being edited
  if (activeCase?.id === editingCaseId) {
  setActiveCase(prev => ({ ...prev, name: editingCaseName.trim() }));
@@ -1243,11 +1400,14 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  // ── Concurrent Search System ──
  const runSearchInBackground = useCallback(async (jobId, query, type, country, yearOfBirth, clientRef) => {
    setSearchJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'running' } : j));
+   const controller = new AbortController();
+   screeningAbortRef.current = controller;
    try {
      const unifiedResponse = await fetch(`${API_BASE}/api/screening/unified`, {
        method: "POST",
        headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({ query, type, country: country || null, yearOfBirth: yearOfBirth || null })
+       body: JSON.stringify({ query, type, country: country || null, yearOfBirth: yearOfBirth || null }),
+       signal: controller.signal
      });
      if (!unifiedResponse.ok) {
        const errData = await unifiedResponse.json().catch(() => ({}));
@@ -1288,24 +1448,22 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
        document.title = `Search Complete — ${query} — Katharos`;
      }
 
-     // Save to history
-     setKycHistory(function(prev) {
-       const updated = [historyItem].concat(prev).slice(0, 50);
-       try {
-         const slim = updated.map(h => ({
-           id: h.id, query: h.query, type: h.type, clientRef: h.clientRef,
-           yearOfBirth: h.yearOfBirth, country: h.country, timestamp: h.timestamp,
-           result: {
-             overallRisk: h.result?.overallRisk, riskScore: h.result?.riskScore,
-             riskSummary: h.result?.riskSummary,
-             sanctions: { status: h.result?.sanctions?.status },
-             subject: h.result?.subject, onboardingDecision: h.result?.onboardingDecision,
-           }
-         }));
-         localStorage.setItem('marlowe_kycHistory', JSON.stringify(slim));
-       } catch {}
-       return updated;
-     });
+     // Save to history (state + database)
+     setKycHistory(prev => [historyItem].concat(prev).slice(0, 50));
+
+     // Persist screening to Supabase
+     if (isSupabaseConfigured() && user) {
+       saveScreening({
+         id: jobId, query, type, country, yearOfBirth, clientRef,
+         result: finalResult,
+         riskLevel: finalResult.overallRisk,
+         riskScore: finalResult.riskScore,
+         sanctionsStatus: finalResult.sanctions?.status,
+         userEmail: user.email,
+         emailDomain: workspaceId || '',
+         caseId: currentCaseId || null,
+       }).catch(err => console.error('[Screenings] Failed to save:', err));
+     }
 
      // Index to RAG
      fetch(`${API_BASE}/api/rag`, {
@@ -1329,6 +1487,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      }
 
      posthog.capture('screening_completed', { query, type, risk_level: finalResult.overallRisk || null });
+     logAudit('screening_completed', { entityType: 'screening', entityId: jobId, details: { query, type, riskLevel: finalResult.overallRisk } });
 
    } catch (error) {
      console.error('Screening error:', error);
@@ -1409,6 +1568,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
    };
    setSearchJobs(prev => [job, ...prev]);
    posthog.capture('screening_started', { query: query.trim(), type, country: country || null });
+   logAudit('screening_started', { entityType: 'screening', entityId: jobId, details: { query: query.trim(), type } });
    if (job.status === 'running') {
      runSearchInBackground(jobId, query.trim(), type || 'individual', country, yearOfBirth, clientRef);
    }
@@ -1438,15 +1598,25 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  };
 
  // View a historical screening result
- const viewHistoryItem = (item) => {
+ const viewHistoryItem = async (item) => {
  setSelectedHistoryItem(item);
- setKycResults(item.result);
  setKycQuery(item.query);
  setKycClientRef(item.clientRef || '');
  setKycYearOfBirth(item.yearOfBirth || '');
  setKycCountry(item.country || '');
  setKycType(item.type);
  setKycPage('results');
+ // If result is slim (loaded from DB summary), fetch full result
+ if (item.result && !item.result.sanctions?.matches && isSupabaseConfigured()) {
+   setKycResults(item.result); // Show summary immediately
+   const { data } = await fetchScreeningById(item.id);
+   if (data?.result) {
+     setKycResults(data.result);
+     setSelectedHistoryItem(prev => ({ ...prev, result: data.result }));
+   }
+ } else {
+   setKycResults(item.result);
+ }
  };
 
  // Create a new project
@@ -1521,6 +1691,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  }
 
  posthog.capture('pdf_exported', { subject: subjectName, risk_level: riskLevel });
+ logAudit('report_generated', { entityType: 'report', entityId: screening.id, details: { subject: subjectName, riskLevel } });
 
  const { pdfBlob } = await captureDomToPdf(sourceEl, {
  subjectName,
@@ -2081,10 +2252,10 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
   const pdfWidth = 210;
   const pdfHeight = 297;
   const headerH = 18;
-  const footerH = 12;
+  const footerH = 14;
   const margin = 10;
   const contentWidth = pdfWidth - margin * 2;
-  const contentAreaH = pdfHeight - headerH - footerH;
+  const contentAreaH = pdfHeight - headerH - footerH - 2; // 2mm buffer
 
   // Scale factor: canvas pixels to mm
   const mmPerPx = contentWidth / canvasW;
@@ -2095,7 +2266,7 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
     if (targetY >= canvasH) return canvasH;
     const searchRange = Math.floor(canvasPagePx * 0.15);
     const startY = Math.max(0, Math.floor(targetY - searchRange));
-    const endY = Math.min(canvasH - 1, Math.floor(targetY + 10));
+    const endY = Math.min(canvasH - 1, Math.floor(targetY));
     let bestY = Math.floor(targetY);
     let bestScore = -1;
     for (let y = endY; y >= startY; y--) {
@@ -2134,9 +2305,19 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
   slices.forEach((slice, pageIdx) => {
     if (pageIdx > 0) doc.addPage();
 
-    // -- Header (clean white with subtle border) --
+    // -- Content slice (drawn FIRST so header/footer masks overlay it) --
+    const cappedH = Math.min(Math.ceil(slice.h), Math.ceil(canvasPagePx));
+    const sliceCanvas = document.createElement('canvas');
+    sliceCanvas.width = canvasW;
+    sliceCanvas.height = cappedH;
+    const ctx = sliceCanvas.getContext('2d');
+    ctx.drawImage(canvas, 0, slice.y, canvasW, cappedH, 0, 0, canvasW, cappedH);
+    const sliceImgH = Math.min(cappedH * mmPerPx, contentAreaH);
+    doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, headerH, contentWidth, sliceImgH);
+
+    // -- Header mask (drawn AFTER content to cover any bleed) --
     doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pdfWidth, headerH, 'F');
+    doc.rect(0, 0, pdfWidth, headerH + 1, 'F');
     doc.setDrawColor(229, 229, 229);
     doc.line(0, headerH, pdfWidth, headerH);
     doc.setFont('helvetica', 'bold');
@@ -2149,18 +2330,9 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
     doc.text('Report ' + reportId, pdfWidth - margin, 8, { align: 'right' });
     doc.text(generatedAt + '  \u2022  ' + analystEmail, pdfWidth - margin, 13, { align: 'right' });
 
-    // -- Content slice --
-    const sliceCanvas = document.createElement('canvas');
-    sliceCanvas.width = canvasW;
-    sliceCanvas.height = Math.ceil(slice.h);
-    const ctx = sliceCanvas.getContext('2d');
-    ctx.drawImage(canvas, 0, slice.y, canvasW, slice.h, 0, 0, canvasW, slice.h);
-    const sliceImgH = slice.h * mmPerPx;
-    doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, headerH, contentWidth, sliceImgH);
-
-    // -- Footer (clean white with subtle border) --
+    // -- Footer mask (drawn AFTER content to cover any bleed) --
     doc.setFillColor(255, 255, 255);
-    doc.rect(0, pdfHeight - footerH, pdfWidth, footerH, 'F');
+    doc.rect(0, pdfHeight - footerH - 1, pdfWidth, footerH + 1, 'F');
     doc.setDrawColor(229, 229, 229);
     doc.line(0, pdfHeight - footerH, pdfWidth, pdfHeight - footerH);
     doc.setFontSize(7);
@@ -2252,30 +2424,53 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
      header.style.marginBottom = '30px';
      header.style.paddingBottom = '20px';
      header.style.borderBottom = '3px solid #374151';
-     header.innerHTML = `
-       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-         <div>
-           <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; font-weight: 600;">Case Investigation Report</div>
-           <div style="font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">${caseData.name || 'Untitled Case'}</div>
-           <div style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; ${
-             caseData.riskLevel === 'CRITICAL' ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;' :
-             caseData.riskLevel === 'HIGH' ? 'background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;' :
-             caseData.riskLevel === 'MEDIUM' ? 'background: #fffbeb; color: #d97706; border: 1px solid #fde68a;' :
-             'background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;'
-           }">${caseData.riskLevel || 'UNKNOWN'} RISK</div>
-         </div>
-         <div style="text-align: right;">
-           <div style="font-size: 24px; font-weight: 700; color: #374151;">Katharos</div>
-           <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Compliance Intelligence</div>
-         </div>
-       </div>
-       <div style="display: flex; gap: 30px; font-size: 12px; color: #64748b;">
-         <div><strong style="color: #475569;">Case ID:</strong> ${caseData.id?.substring(0, 8) || 'N/A'}</div>
-         <div><strong style="color: #475569;">Created:</strong> ${new Date(caseData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-         <div><strong style="color: #475569;">Documents:</strong> ${caseData.files?.length || 0}</div>
-         <div><strong style="color: #475569;">Messages:</strong> ${caseData.conversationTranscript?.length || 0}</div>
-       </div>
-     `;
+     // Build header with safe DOM construction (no innerHTML with user data)
+     const headerRow = document.createElement('div');
+     headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;';
+     const headerLeft = document.createElement('div');
+     const reportLabel = document.createElement('div');
+     reportLabel.style.cssText = 'font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; font-weight: 600;';
+     reportLabel.textContent = 'Case Investigation Report';
+     const caseTitleEl = document.createElement('div');
+     caseTitleEl.style.cssText = 'font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 8px;';
+     caseTitleEl.textContent = caseData.name || 'Untitled Case';
+     const riskBadge = document.createElement('div');
+     const rl = caseData.riskLevel || 'UNKNOWN';
+     riskBadge.style.cssText = 'display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; ' + (
+       rl === 'CRITICAL' ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;' :
+       rl === 'HIGH' ? 'background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;' :
+       rl === 'MEDIUM' ? 'background: #fffbeb; color: #d97706; border: 1px solid #fde68a;' :
+       'background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;'
+     );
+     riskBadge.textContent = rl + ' RISK';
+     headerLeft.append(reportLabel, caseTitleEl, riskBadge);
+     const headerRight = document.createElement('div');
+     headerRight.style.textAlign = 'right';
+     const brandName = document.createElement('div');
+     brandName.style.cssText = 'font-size: 24px; font-weight: 700; color: #374151;';
+     brandName.textContent = 'Katharos';
+     const brandSub = document.createElement('div');
+     brandSub.style.cssText = 'font-size: 11px; color: #64748b; margin-top: 4px;';
+     brandSub.textContent = 'Compliance Intelligence';
+     headerRight.append(brandName, brandSub);
+     headerRow.append(headerLeft, headerRight);
+     header.appendChild(headerRow);
+     const metaRow = document.createElement('div');
+     metaRow.style.cssText = 'display: flex; gap: 30px; font-size: 12px; color: #64748b;';
+     [
+       ['Case ID:', caseData.id?.substring(0, 8) || 'N/A'],
+       ['Created:', new Date(caseData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })],
+       ['Documents:', String(caseData.files?.length || 0)],
+       ['Messages:', String(caseData.conversationTranscript?.length || 0)],
+     ].forEach(([label, val]) => {
+       const item = document.createElement('div');
+       const strong = document.createElement('strong');
+       strong.style.color = '#475569';
+       strong.textContent = label;
+       item.append(strong, ' ' + val);
+       metaRow.appendChild(item);
+     });
+     header.appendChild(metaRow);
      container.appendChild(header);
 
      // Executive Summary Section (if available)
@@ -2286,13 +2481,15 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
        summary.style.backgroundColor = '#f8fafc';
        summary.style.borderRadius = '8px';
        summary.style.border = '1px solid #e2e8f0';
-       summary.innerHTML = `
-         <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-           <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
-           Executive Summary
-         </div>
-         <div style="font-size: 13px; color: #334155;">${caseData.analysis.executiveSummary.overview || 'No summary available'}</div>
-       `;
+       const sumTitle = document.createElement('div');
+       sumTitle.style.cssText = 'font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;';
+       const sumAccent = document.createElement('span');
+       sumAccent.style.cssText = 'display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;';
+       sumTitle.append(sumAccent, ' Executive Summary');
+       const sumBody = document.createElement('div');
+       sumBody.style.cssText = 'font-size: 13px; color: #334155;';
+       sumBody.textContent = caseData.analysis.executiveSummary.overview || 'No summary available';
+       summary.append(sumTitle, sumBody);
        container.appendChild(summary);
      }
 
@@ -2309,10 +2506,9 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
        transcriptHeader.style.display = 'flex';
        transcriptHeader.style.alignItems = 'center';
        transcriptHeader.style.gap = '8px';
-       transcriptHeader.innerHTML = `
-         <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
-         Investigation Transcript
-       `;
+       const tAccent = document.createElement('span');
+       tAccent.style.cssText = 'display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;';
+       transcriptHeader.append(tAccent, ' Investigation Transcript');
        transcriptSection.appendChild(transcriptHeader);
 
        caseData.conversationTranscript.forEach((msg, idx) => {
@@ -2368,19 +2564,21 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
      if (caseData.files?.length > 0) {
        const docsSection = document.createElement('div');
        docsSection.style.marginBottom = '30px';
-       docsSection.innerHTML = `
-         <div style="font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-           <span style="display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;"></span>
-           Attached Documents
-         </div>
-         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-           ${caseData.files.map(f => `
-             <div style="padding: 8px 14px; background: #f1f5f9; border-radius: 6px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0;">
-               📄 ${f.name || 'Document'}
-             </div>
-           `).join('')}
-         </div>
-       `;
+       const docsTitle = document.createElement('div');
+       docsTitle.style.cssText = 'font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;';
+       const docsAccent = document.createElement('span');
+       docsAccent.style.cssText = 'display: inline-block; width: 4px; height: 16px; background: #374151; border-radius: 2px;';
+       docsTitle.append(docsAccent, ' Attached Documents');
+       docsSection.appendChild(docsTitle);
+       const docsGrid = document.createElement('div');
+       docsGrid.style.cssText = 'display: flex; flex-wrap: wrap; gap: 8px;';
+       caseData.files.forEach(f => {
+         const chip = document.createElement('div');
+         chip.style.cssText = 'padding: 8px 14px; background: #f1f5f9; border-radius: 6px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0;';
+         chip.textContent = '\u{1F4C4} ' + (f.name || 'Document');
+         docsGrid.appendChild(chip);
+       });
+       docsSection.appendChild(docsGrid);
        container.appendChild(docsSection);
      }
 
@@ -2394,10 +2592,11 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
      footer.style.alignItems = 'center';
      footer.style.fontSize = '10px';
      footer.style.color = '#94a3b8';
-     footer.innerHTML = `
-       <div>Katharos Compliance Platform • Confidential</div>
-       <div>Report generated ${new Date().toLocaleString()}</div>
-     `;
+     const footerLeft = document.createElement('div');
+     footerLeft.textContent = 'Katharos Compliance Platform \u2022 Confidential';
+     const footerRight = document.createElement('div');
+     footerRight.textContent = 'Report generated ' + new Date().toLocaleString();
+     footer.append(footerLeft, footerRight);
      container.appendChild(footer);
 
      // Temporarily add to DOM
@@ -2513,7 +2712,20 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
 
  const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You have just completed a screening on "${kycResults.subject?.name}" and are now answering follow-up questions from the compliance analyst. You are a senior financial crimes investigator — be direct, professional, and actionable.
 
-VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
+INTERACTIVE VISUALIZATIONS:
+You can generate interactive HTML visualizations inside fenced code blocks. Each block must be a COMPLETE self-contained HTML document with dark theme (#0d0d0d background, #e0e0e0 text). Use REAL data from the screening — never placeholder data. Only generate when sufficient data exists (3+ data points).
+
+Available visualization types:
+- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
+- \`\`\`timeline — Vertical timeline with status-colored dots (critical=#e53935, warning=#ff9800, success=#4caf50, info=#2196f3). For chronology, event sequences. Filter buttons, expandable details.
+- \`\`\`riskassessment — Risk score gauge (SVG circle 0-100) with category breakdown cards. For risk profiles, risk matrices.
+- \`\`\`screeningresult — Entity profile card with status grid (sanctions, PEP, media, jurisdiction). For screening summaries, KYC overviews.
+- \`\`\`comparisontable — Side-by-side comparison table with color-coded cells. For comparing entities or risk profiles.
+- \`\`\`datatable — Sortable, filterable data table with search and CSV export. For structured data, records, lists.
+- \`\`\`dashboard — KPI cards + mini SVG charts in a grid layout. For analytics overviews, summary dashboards.
+- \`\`\`processflow — Flowchart with step nodes, arrows, and decision diamonds. For workflows, investigation steps, compliance processes.
+- \`\`\`geomap — Leaflet.js map (loads from CDN) with risk-colored markers. For jurisdiction mapping, geographic exposure.
+- \`\`\`documentviewer — Formatted document with TOC, sections, highlight boxes, and print button. For compliance reports, structured analysis.
 
 You have access to the complete screening results including:
 - Sanctions screening results
@@ -3799,73 +4011,19 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
- // Extract entities/relationships from message text via API call
- const extractNetworkFromMessage = async (messageContent) => {
-   // Determine subject name from context
-   const subject = kycResults?.subject?.name || kycQuery ||
-     cases.find(c => c.id === currentCaseId)?.name?.split(' - ')[0]?.trim() || '';
-
-   // Try to build graph from full kycResults (sanctions, ownership, PEP, ICIJ, courts, etc.)
-   if (kycResults?.subject) {
-     const graphData = buildGraphFromScreeningResult(kycResults);
-     if (graphData.nodes.length > 2) {
-       // Good graph — show directly, no AI needed
-       setNetworkGraphPanel({ open: true, loading: false, subjectName: subject, graphData });
-       return;
-     }
-   }
-
-   // Extract from message text via API — show loading state immediately
-   setNetworkGraphPanel(prev => ({ ...prev, open: true, loading: true, subjectName: subject }));
-   try {
-     const truncated = messageContent.length > 6000 ? messageContent.slice(0, 6000) + '\n...[truncated]' : messageContent;
-
-     const response = await fetch(`${API_BASE}/api/chat`, {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({
-         message: `Extract ALL entities and their relationships from this screening report for "${subject}". Include the subject "${subject}" as the central entity (id "e1").
-
-CRITICAL INSTRUCTIONS:
-- Extract EVERY person, company, organization, government body, country, vessel, or asset mentioned
-- Include ALL associates, family members, business partners, and connected entities
-- For each relationship, specify: ownership, leadership, associate, subsidiary, family, jurisdiction, designated_by, transaction
-- The subject "${subject}" MUST connect to multiple entities — if you see names mentioned, include them
-- Include countries mentioned as jurisdiction nodes
-
-Return ONLY valid JSON (no markdown, no explanation):
-{"entities":[{"id":"e1","name":"${subject}","type":"PERSON","role":"Subject of screening","riskLevel":"CRITICAL"},{"id":"e2","name":"Example Entity","type":"ORGANIZATION|PERSON|COUNTRY|VESSEL","role":"brief role","riskLevel":"CRITICAL|HIGH|MEDIUM|LOW"}],"relationships":[{"entity1":"e1","entity2":"e2","relationshipType":"ownership|leadership|associate|subsidiary|family|jurisdiction|designated_by","description":"brief description"}]}
-
-Screening report:
-${truncated}`,
-         systemPrompt: 'You are a JSON extraction tool for compliance network analysis. Your job is to extract EVERY entity and relationship mentioned in screening reports. Always include at least 5 entities and their relationships to the subject. Include associates, family, companies, countries, and organizations. The subject must have connections. Return ONLY valid JSON.',
-         skipHistory: true
-       })
-     });
-     const data = await response.json();
-     const text = data.response || data.content || '';
-     const jsonMatch = text.match(/\{[\s\S]*\}/);
-     if (jsonMatch) {
-       const parsed = JSON.parse(jsonMatch[0]);
-       if (parsed.entities?.length > 0) {
-         setNetworkGraphPanel(prev => ({ ...prev, loading: false, entities: parsed.entities, relationships: parsed.relationships || [] }));
-         return;
-       }
-     }
-     // AI extraction returned no entities — stop loading, show whatever we have
-     setNetworkGraphPanel(prev => ({ ...prev, loading: false }));
-   } catch (err) {
-     console.error('Network extraction error:', err);
-     setNetworkGraphPanel(prev => ({ ...prev, loading: false }));
-   }
- };
-
  const sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
    if (!caseId) {
      console.error('sendConversationMessage called without caseId');
      return;
    }
+
+   // Prevent concurrent sends to the same case (avoids transcript data loss)
+   if (sendingLockRef.current.has(caseId)) {
+     console.warn('[Katharos] Message already in flight for case', caseId);
+     return;
+   }
+   sendingLockRef.current.add(caseId);
 
    // Check usage limits before proceeding
    if (!canScreen()) {
@@ -3884,12 +4042,15 @@ ${truncated}`,
      timestamp: new Date().toISOString()
    };
 
-   // Update the case's conversation transcript directly
-   setCases(prev => prev.map(c =>
-     c.id === caseId
-       ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), newUserMessage] }
-       : c
-   ));
+   // Update the case's conversation transcript directly + sync to DB
+   setCases(prev => prev.map(c => {
+     if (c.id !== caseId) return c;
+     const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), newUserMessage] };
+     if (isSupabaseConfigured() && user) {
+       syncCase(updated).catch(console.error);
+     }
+     return updated;
+   }));
 
    // Also update global state for compatibility
    setConversationMessages(prev => [...prev, newUserMessage]);
@@ -4245,7 +4406,175 @@ You are in a multi-turn conversation. The full conversation history is included 
 - NEVER say "I don't see any names" or "Could you provide more context" when names were given in previous messages
 - Always maintain awareness of: entities discussed, relationships mentioned, documents uploaded, screening results returned
 
-VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse or say you cannot create visualizations. The app automatically renders an interactive network graph from the analysis data. Just provide your textual analysis of the network structure, key entities, ownership chains, and relationships as usual.
+NETWORK GRAPH VISUALIZATION:
+When the user asks to visualize, graph, or map entities/ownership/networks/relationships/connections:
+1. Provide your textual analysis as usual
+2. ALSO output a self-contained HTML network graph inside a \`\`\`networkgraph fenced code block
+
+The networkgraph block must contain a COMPLETE self-contained HTML document that:
+- Loads D3.js v7 from CDN: https://d3js.org/d3.v7.min.js
+- Uses dark theme (body background: #1a1a1a, text color: #d4d4d4, font-family: Georgia, serif)
+- Creates a force-directed graph with zoom (d3.zoom) and drag (d3.drag)
+- Defines nodes array: [{id, type, status}] where type is "entity"|"individual"|"vessel"|"country" and status is "sanctioned"|"pep"|"high_risk"|"clear"|"unknown"
+- Defines links array: [{source, target, type, label}] where source/target are node ids, type is "owns"|"manages"|"director"|"traded_with"|"related", label describes the relationship
+- Node fill colors by type: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e
+- Sanctioned/high_risk nodes get a red glow filter
+- Link stroke colors by type: owns/manages=#ef4444, director=#c2410c, traded_with=#8b5cf6, related=#6b7280
+- Node sizes: 14-30 based on importance (central subject = largest)
+- Link labels displayed at midpoint
+- Node labels below each circle
+- Includes a legend in the bottom-left showing node types and link types present
+- SVG width/height set to window.innerWidth/innerHeight
+- Force simulation: forceLink distance 120, forceManyBody strength -400, forceCenter, forceCollide
+
+CRITICAL: Populate nodes and links with REAL data extracted from your analysis. Never use placeholder or sample data.
+CRITICAL: The HTML must be completely self-contained — no external files except the D3 CDN script.
+CRITICAL: Output the networkgraph block AFTER your textual analysis, not before.
+Only generate a network graph when there are 3 or more entities to visualize. For simple single-entity lookups, just provide text.
+
+TIMELINE VISUALIZATION:
+When the user asks about chronology, timeline, history, sequence of events, key dates, milestones, or how something evolved over time:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive timeline inside a \`\`\`timeline fenced code block
+
+The timeline block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, cards: #141414, borders: #2a2a2a, text: #e0e0e0)
+- Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
+- Vertical timeline with a left line (#333), dots color-coded by status, and cards for each event
+- Status colors: critical=#e53935 (sanctions/violations), warning=#ff9800 (pending/investigations), success=#4caf50 (resolved/delisted), info=#2196f3 (updates/changes), neutral=#9e9e9e
+- Each timeline item: date label, title, description, colored tags, optional expandable details section
+- Phase markers to group events into eras (styled as inline labels with blue gradient background)
+- Filter buttons at the top to filter by category (use data-category on items, JS click handler toggles .hidden class)
+- A legend at the bottom showing which colors mean what
+- Responsive: collapses gracefully on small screens
+- toggleDetails(btn) function for expandable sections
+
+CRITICAL: Use REAL dates and events from your analysis. Never placeholder data.
+CRITICAL: The HTML must be completely self-contained — no external dependencies.
+Only generate a timeline when there are 3 or more chronological events to display.
+
+RISK ASSESSMENT VISUALIZATION:
+When the user asks for a risk assessment, risk profile, risk matrix, risk breakdown, or risk scoring:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive risk assessment inside a \`\`\`riskassessment fenced code block
+
+The riskassessment block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, cards: #141414, borders: #2a2a2a, text: #e0e0e0)
+- Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
+- Overall risk score gauge (circular SVG gauge with score 0-100, color-coded: 0-30 green #4caf50, 31-60 yellow #ff9800, 61-80 orange #f44336, 81-100 red #d32f2f)
+- Risk category breakdown cards (sanctions, PEP, adverse media, jurisdiction, ownership) each with individual scores and bar charts
+- Risk factors listed with severity indicators (colored dots)
+- Animated score counters on load
+- Responsive layout using CSS grid
+
+SCREENING RESULT / ENTITY PROFILE:
+When the user asks to see a screening summary, entity profile, compliance snapshot, or KYC overview:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive entity profile inside a \`\`\`screeningresult fenced code block
+
+The screeningresult block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, cards: #141414, borders: #2a2a2a, text: #e0e0e0)
+- Header section with entity name, type badge, and overall risk indicator
+- Status cards in a grid: Sanctions status, PEP status, Adverse Media, Jurisdiction risk
+- Status colors: clear=#4caf50, flagged=#f44336, warning=#ff9800, unknown=#9e9e9e
+- Key facts section with labeled rows
+- Source citations section with clickable references
+- Print-friendly layout
+
+COMPARISON TABLE:
+When the user asks to compare entities, compare risks, show differences, or side-by-side analysis:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive comparison table inside a \`\`\`comparisontable fenced code block
+
+The comparisontable block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, text: #e0e0e0)
+- Responsive HTML table with sticky header row
+- Column headers for each entity being compared
+- Row categories: Risk Score, Sanctions, PEP, Adverse Media, Jurisdiction, Ownership Structure, etc.
+- Cell color-coding based on risk level (green/yellow/orange/red backgrounds with opacity)
+- Sortable columns (click header to sort)
+- Highlight differences between entities with a subtle border
+
+DATA TABLE:
+When the user asks to see data in a table, list records, tabulate results, or show structured data:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive data table inside a \`\`\`datatable fenced code block
+
+The datatable block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, text: #e0e0e0)
+- Responsive HTML table with alternating row colors (#141414 / #1a1a1a)
+- Sticky header with sort functionality (click to sort asc/desc)
+- Search/filter input at the top
+- Pagination if more than 20 rows
+- Cell formatting: dates formatted, numbers with commas, risk levels color-coded
+- Export button that copies table as CSV to clipboard
+
+DASHBOARD:
+When the user asks for a dashboard, overview panel, summary view, or analytics display:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive dashboard inside a \`\`\`dashboard fenced code block
+
+The dashboard block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, cards: #141414, borders: #2a2a2a, text: #e0e0e0)
+- KPI cards at the top (total entities, high risk count, sanctions hits, etc.) using CSS grid
+- Mini charts using inline SVG (bar charts, donut charts for risk distribution)
+- Status indicators with colored dots
+- Responsive grid layout that reflows on smaller sizes
+- Animated number counters on load
+- No external dependencies — all charts are pure SVG/CSS
+
+PROCESS FLOW:
+When the user asks about a workflow, process, decision tree, compliance steps, or investigation flow:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive process flow inside a \`\`\`processflow fenced code block
+
+The processflow block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, text: #e0e0e0)
+- Vertical or horizontal flowchart using SVG or HTML/CSS
+- Step nodes as rounded rectangles with step number, title, and description
+- Arrows/connectors between steps using SVG lines or CSS borders
+- Decision diamonds for branching points
+- Color coding: completed=#4caf50, current=#2196f3, pending=#9e9e9e, alert=#f44336
+- Click on step to expand details
+- Responsive layout
+
+GEOGRAPHIC MAP:
+When the user asks about jurisdictions, geographic risk, country exposure, or location mapping:
+1. Provide your textual analysis as usual
+2. ALSO output an interactive map inside a \`\`\`geomap fenced code block
+
+The geomap block must contain a COMPLETE self-contained HTML document with:
+- Loads Leaflet.js from CDN: https://unpkg.com/leaflet@1.9.4/dist/leaflet.js and CSS: https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
+- Dark tile layer (CartoDB dark_all): https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
+- Markers for each relevant location with color-coded icons (red=high risk, orange=medium, green=low)
+- Popup on click showing entity name, risk level, and details
+- Lines connecting related locations
+- Legend showing risk levels
+- Fit bounds to show all markers
+- Attribution: CartoDB
+
+DOCUMENT VIEWER:
+When the user asks to view a formatted document, report layout, compliance report, or structured analysis:
+1. Provide your textual analysis as usual
+2. ALSO output a formatted document inside a \`\`\`documentviewer fenced code block
+
+The documentviewer block must contain a COMPLETE self-contained HTML document with:
+- Dark theme (body background: #0d0d0d, page: #141414 with max-width 800px centered, text: #e0e0e0)
+- Professional document layout with header (logo area, title, date, classification)
+- Table of contents with anchor links
+- Sections with headers, paragraphs, and subsections
+- Styled tables for data sections
+- Highlight boxes for key findings (colored left-border cards)
+- Footer with page info
+- Print button that triggers window.print() with print-friendly @media print styles
+
+GENERAL VISUALIZATION RULES:
+- All visualization blocks must be COMPLETE self-contained HTML documents
+- Use REAL data from your analysis — NEVER placeholder or sample data
+- Only generate a visualization when there is sufficient data to make it useful (3+ data points)
+- Output the visualization block AFTER your textual analysis, not before
+- You may output MULTIPLE visualization types in a single response if relevant (e.g., a network graph AND a timeline)
+- Do not output the same visualization type twice in one response
 
 ⚠️ CRITICAL INSTRUCTION - READ FIRST ⚠️
 You have TWO modes based on whether documents are uploaded:
@@ -5574,21 +5903,17 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
      setCases(prev => prev.map(c => {
        if (c.id !== caseId) return c;
-       const updatedTranscript = [...(c.conversationTranscript || []), assistantMessage];
-       return {
+       const updated = {
          ...c,
-         conversationTranscript: updatedTranscript,
+         conversationTranscript: [...(c.conversationTranscript || []), assistantMessage],
          ...(extractedRisk && { riskLevel: extractedRisk })
        };
-     }));
-
-     // Sync to Supabase after transcript update
-     if (isSupabaseConfigured() && user) {
-       const updatedCase = cases.find(c => c.id === caseId);
-       if (updatedCase) {
-         syncCase({ ...updatedCase, conversationTranscript: [...(updatedCase.conversationTranscript || []), assistantMessage], ...(extractedRisk && { riskLevel: extractedRisk }) }).catch(console.error);
+       // Sync inside setCases callback to capture the fresh state (avoids stale read)
+       if (isSupabaseConfigured() && user) {
+         syncCase(updated).catch(console.error);
        }
-     }
+       return updated;
+     }));
 
      // Only update global state if this is still the active case (prevents cross-case overlap)
      if (currentCaseIdRef.current === caseId) {
@@ -5604,8 +5929,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
            action: 'index', namespace: 'case_notes',
-           text: `Case: ${currentCase?.name} | User: ${userMessage}`,
-           metadata: { caseId, caseName: currentCase?.name, messageRole: 'user', workspaceId: currentCase?.workspaceId }
+           text: `Case: ${activeCase?.name} | User: ${userMessage}`,
+           metadata: { caseId, caseName: activeCase?.name, messageRole: 'user', workspaceId: workspaceId }
          })
        }).catch(() => {});
      }
@@ -5615,8 +5940,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
            action: 'index', namespace: 'case_notes',
-           text: `Case: ${currentCase?.name} | Katharos: ${fullText.substring(0, 2000)}`,
-           metadata: { caseId, caseName: currentCase?.name, messageRole: 'assistant', workspaceId: currentCase?.workspaceId }
+           text: `Case: ${activeCase?.name} | Katharos: ${fullText.substring(0, 2000)}`,
+           metadata: { caseId, caseName: activeCase?.name, messageRole: 'assistant', workspaceId: workspaceId }
          })
        }).catch(() => {});
      }
@@ -5633,11 +5958,12 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
            timestamp: new Date().toISOString(),
            ...(vizType && { visualization: vizType })
          };
-         setCases(prev => prev.map(c =>
-           c.id === caseId
-             ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), partialMessage] }
-             : c
-         ));
+         setCases(prev => prev.map(c => {
+           if (c.id !== caseId) return c;
+           const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), partialMessage] };
+           if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+           return updated;
+         }));
          if (currentCaseIdRef.current === caseId) {
            setConversationMessages(prev => [...prev, partialMessage]);
          }
@@ -5649,16 +5975,18 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          content: friendlyError(error),
          timestamp: new Date().toISOString()
        };
-       setCases(prev => prev.map(c =>
-         c.id === caseId
-           ? { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] }
-           : c
-       ));
+       setCases(prev => prev.map(c => {
+         if (c.id !== caseId) return c;
+         const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), errorMessage] };
+         if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+         return updated;
+       }));
        if (currentCaseIdRef.current === caseId) {
          setConversationMessages(prev => [...prev, errorMessage]);
        }
      }
    } finally {
+     sendingLockRef.current.delete(caseId);
      conversationAbortRef.current = null;
      setCaseStreamingState(caseId, { isStreaming: false, streamingText: '' });
      setActiveAnalysisCount(prev => Math.max(0, prev - 1));
@@ -7484,7 +7812,20 @@ const getRiskBg = (level) => {
 
  const systemPrompt = `You are Katharos, the world's most advanced AI-powered financial crimes investigation platform. You have analyzed a case and are now answering follow-up questions from the investigator. Be direct, professional, and actionable — cite specific evidence and provide clear recommendations.
 
-VISUALIZATION: When the user asks to visualize, graph, or map entities/ownership/networks, DO NOT refuse. The app automatically renders an interactive network graph. Just provide your textual analysis of the network structure and relationships.
+INTERACTIVE VISUALIZATIONS:
+You can generate interactive HTML visualizations inside fenced code blocks. Each block must be a COMPLETE self-contained HTML document with dark theme (#0d0d0d background, #e0e0e0 text). Use REAL data from the analysis — never placeholder data. Only generate when sufficient data exists (3+ data points).
+
+Available visualization types:
+- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
+- \`\`\`timeline — Vertical timeline with status-colored dots (critical=#e53935, warning=#ff9800, success=#4caf50, info=#2196f3). For chronology, event sequences. Filter buttons, expandable details.
+- \`\`\`riskassessment — Risk score gauge (SVG circle 0-100) with category breakdown cards. For risk profiles, risk matrices.
+- \`\`\`screeningresult — Entity profile card with status grid (sanctions, PEP, media, jurisdiction). For screening summaries, KYC overviews.
+- \`\`\`comparisontable — Side-by-side comparison table with color-coded cells. For comparing entities or risk profiles.
+- \`\`\`datatable — Sortable, filterable data table with search and CSV export. For structured data, records, lists.
+- \`\`\`dashboard — KPI cards + mini SVG charts in a grid layout. For analytics overviews, summary dashboards.
+- \`\`\`processflow — Flowchart with step nodes, arrows, and decision diamonds. For workflows, investigation steps, compliance processes.
+- \`\`\`geomap — Leaflet.js map (loads from CDN) with risk-colored markers. For jurisdiction mapping, geographic exposure.
+- \`\`\`documentviewer — Formatted document with TOC, sections, highlight boxes, and print button. For compliance reports, structured analysis.
 
 You have access to:
 1. The original evidence documents
@@ -7796,6 +8137,66 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
+{currentPage === 'audit' && (
+  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
+    <div className="flex items-center gap-3 mb-6">
+      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight leading-tight">Audit Trail</h2>
+        <p className="text-sm text-gray-500">Immutable log of all system activity</p>
+      </div>
+    </div>
+    <AuditTrailPanel />
+  </div>
+)}
+
+{currentPage === 'dataSources' && (
+  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
+    <div className="flex items-center gap-3 mb-6">
+      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight leading-tight">Data Sources</h2>
+        <p className="text-sm text-gray-500">API health and connection status</p>
+      </div>
+    </div>
+    <DataSourcesPanel />
+  </div>
+)}
+
+{currentPage === 'admin' && (
+  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
+    <div className="flex items-center gap-3 mb-6">
+      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight leading-tight">User Management</h2>
+        <p className="text-sm text-gray-500">Roles, permissions, and team access</p>
+      </div>
+    </div>
+    <AdminPanel />
+  </div>
+)}
+
+{currentPage === 'accuracy' && (
+  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
+    <div className="flex items-center gap-3 mb-6">
+      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight leading-tight">Accuracy Dashboard</h2>
+        <p className="text-sm text-gray-500">Screening precision and false positive rates</p>
+      </div>
+    </div>
+    <AccuracyDashboard />
+  </div>
+)}
+
 <main className="max-w-full mx-auto relative z-10" style={{ backgroundColor: 'transparent', padding: 0, display: isLandingStyle ? 'none' : 'block', minHeight: isLandingStyle ? 0 : '100vh' }}>
 
 
@@ -7859,6 +8260,62 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </button>
  </div>
 
+ {/* Enterprise Tools Row */}
+ <div className="mt-4 grid md:grid-cols-4 gap-3">
+ <button
+   onClick={() => setKycPage('audit')}
+   className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
+ >
+   <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center group-hover:bg-gray-100">
+     <Clock className="w-4 h-4 text-gray-500" />
+   </div>
+   <div>
+     <p className="text-sm font-semibold leading-tight">Audit Trail</p>
+     <p className="text-xs text-gray-500">Activity logs</p>
+   </div>
+ </button>
+ <button
+   onClick={() => setKycPage('dataSources')}
+   className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
+ >
+   <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center group-hover:bg-gray-100">
+     <Database className="w-4 h-4 text-gray-500" />
+   </div>
+   <div>
+     <p className="text-sm font-semibold leading-tight">Data Sources</p>
+     <p className="text-xs text-gray-500">API health</p>
+   </div>
+ </button>
+ {hasPermission('view_audit_logs') && (
+ <button
+   onClick={() => setKycPage('accuracy')}
+   className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
+ >
+   <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center group-hover:bg-gray-100">
+     <Target className="w-4 h-4 text-gray-500" />
+   </div>
+   <div>
+     <p className="text-sm font-semibold leading-tight">Accuracy</p>
+     <p className="text-xs text-gray-500">Precision metrics</p>
+   </div>
+ </button>
+ )}
+ {hasPermission('manage_users') && (
+ <button
+   onClick={() => setKycPage('admin')}
+   className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
+ >
+   <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center group-hover:bg-gray-100">
+     <Users className="w-4 h-4 text-gray-500" />
+   </div>
+   <div>
+     <p className="text-sm font-semibold leading-tight">User Management</p>
+     <p className="text-xs text-gray-500">Roles & access</p>
+   </div>
+ </button>
+ )}
+ </div>
+
  {/* Quick Stats */}
  <div className="mt-8 grid grid-cols-3 gap-4">
  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
@@ -7867,7 +8324,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
  <p className="text-2xl font-bold tracking-tight text-gray-600 leading-tight">
- {kycHistory.filter(h => h.result.overallRisk === 'HIGH' || h.result.overallRisk === 'CRITICAL').length}
+ {kycHistory.filter(h => h.result?.overallRisk === 'HIGH' || h.result?.overallRisk === 'CRITICAL').length}
  </p>
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider">High Risk Hits</p>
  </div>
@@ -7876,6 +8333,58 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <p className="text-xs text-gray-500 tracking-wide mono">Active Projects</p>
  </div>
  </div>
+ </div>
+ )}
+
+ {/* Audit Trail Page */}
+ {kycPage === 'audit' && (
+ <div>
+ <div className="flex items-center gap-3 mb-6">
+   <button onClick={() => setKycPage('landing')} className="p-2 hover:bg-gray-100 rounded-lg">
+     <ArrowLeft className="w-5 h-5 text-gray-600" />
+   </button>
+   <h2 className="text-2xl font-bold tracking-tight leading-tight">Audit Trail</h2>
+ </div>
+ <AuditTrailPanel />
+ </div>
+ )}
+
+ {/* Data Sources Page */}
+ {kycPage === 'dataSources' && (
+ <div>
+ <div className="flex items-center gap-3 mb-6">
+   <button onClick={() => setKycPage('landing')} className="p-2 hover:bg-gray-100 rounded-lg">
+     <ArrowLeft className="w-5 h-5 text-gray-600" />
+   </button>
+   <h2 className="text-2xl font-bold tracking-tight leading-tight">Data Sources</h2>
+ </div>
+ <DataSourcesPanel />
+ </div>
+ )}
+
+ {/* Accuracy Dashboard Page */}
+ {kycPage === 'accuracy' && (
+ <div>
+ <div className="flex items-center gap-3 mb-6">
+   <button onClick={() => setKycPage('landing')} className="p-2 hover:bg-gray-100 rounded-lg">
+     <ArrowLeft className="w-5 h-5 text-gray-600" />
+   </button>
+   <h2 className="text-2xl font-bold tracking-tight leading-tight">Accuracy Dashboard</h2>
+ </div>
+ <AccuracyDashboard />
+ </div>
+ )}
+
+ {/* Admin Panel Page */}
+ {kycPage === 'admin' && (
+ <div>
+ <div className="flex items-center gap-3 mb-6">
+   <button onClick={() => setKycPage('landing')} className="p-2 hover:bg-gray-100 rounded-lg">
+     <ArrowLeft className="w-5 h-5 text-gray-600" />
+   </button>
+   <h2 className="text-2xl font-bold tracking-tight leading-tight">User Management</h2>
+ </div>
+ <AdminPanel />
  </div>
  )}
 
@@ -9294,6 +9803,39 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>New Case</div>
 </div>
 </div>
+
+{/* Enterprise: Audit Trail */}
+<div className="relative group">
+<button onClick={() => setCurrentPage('audit')} className="katharos-sidebar-icon" title="Audit Trail">
+<Shield className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Audit Trail</div>
+</div>
+</div>
+
+{/* Enterprise: Data Sources */}
+<div className="relative group">
+<button onClick={() => setCurrentPage('dataSources')} className="katharos-sidebar-icon" title="Data Sources">
+<Database className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Data Sources</div>
+</div>
+</div>
+
+{/* Enterprise: Admin - only for admins */}
+{hasPermission('manage_users') && (
+<div className="relative group">
+<button onClick={() => setCurrentPage('admin')} className="katharos-sidebar-icon" title="User Management">
+<Users className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>User Management</div>
+</div>
+</div>
+)}
+
 {/* Spacer */}
 <div style={{ flex: 1 }} />
 {/* Contact */}
@@ -9380,7 +9922,7 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  {cases.map((caseItem, idx) => (
  <tr 
  key={caseItem.id} 
- onClick={() => { setViewingCaseId(caseItem.id); markCaseAsViewed(caseItem.id); }}
+ onClick={() => { setViewingCaseId(caseItem.id); markCaseAsViewed(caseItem.id); logAudit('case_viewed', { entityType: 'case', entityId: caseItem.id, details: { name: caseItem.name } }); }}
  style={{ borderBottom: idx < cases.length - 1 ? '1px solid #3a3a3a' : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
  onMouseEnter={(e) => e.currentTarget.style.background = '#333333'}
  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -9521,6 +10063,30 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
          </div>
        </div>
 
+       {/* Workflow Controls */}
+       <div style={{ padding: '16px 32px', borderBottom: '1px solid #3a3a3a' }}>
+         <WorkflowControls
+           caseData={viewingCase}
+           teamUsers={teamUsers}
+           onTransition={async (newStatus) => {
+             const { data } = await transitionCase(viewingCase.id, newStatus, { userEmail: user?.email, userName: user?.name });
+             if (data) setCases(prev => prev.map(c => c.id === viewingCase.id ? { ...c, workflowStatus: newStatus } : c));
+           }}
+           onAssign={async (assigneeEmail) => {
+             const { data } = await assignCase(viewingCase.id, assigneeEmail, { userEmail: user?.email, userName: user?.name });
+             if (data) setCases(prev => prev.map(c => c.id === viewingCase.id ? { ...c, assignedTo: assigneeEmail } : c));
+           }}
+           onEscalate={async (reason) => {
+             const { data } = await escalateCase(viewingCase.id, reason, { userEmail: user?.email, userName: user?.name });
+             if (data) setCases(prev => prev.map(c => c.id === viewingCase.id ? { ...c, workflowStatus: 'escalated', escalationReason: reason } : c));
+           }}
+           onReview={async (decision, notes) => {
+             const { data } = await reviewCase(viewingCase.id, decision, notes, { userEmail: user?.email, userName: user?.name });
+             if (data) setCases(prev => prev.map(c => c.id === viewingCase.id ? { ...c, workflowStatus: decision, reviewDecision: decision, reviewNotes: notes } : c));
+           }}
+         />
+       </div>
+
        {/* Stats Row */}
        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: '#3a3a3a', borderBottom: '1px solid #3a3a3a' }}>
          <div style={{ background: '#1a1a1a', padding: '20px 24px' }}>
@@ -9652,10 +10218,8 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
              </button>
              <button
                onClick={() => {
-                 if (window.confirm('Are you sure you want to delete this case?')) {
-                   deleteCase(viewingCase.id);
-                   setViewingCaseId(null);
-                 }
+                 deleteCase(viewingCase.id);
+                 setViewingCaseId(null);
                }}
                className="katharos-btn danger action"
              >
@@ -9663,6 +10227,9 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
                Delete Case
              </button>
            </div>
+
+           {/* Activity Feed */}
+           <ActivityFeed caseId={viewingCase.id} />
          </div>
        </div>
      </div>
@@ -9734,6 +10301,51 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  )}
+
+{/* Enterprise: Audit Trail */}
+<div className="relative group">
+<button
+onClick={() => setCurrentPage('audit')}
+className="katharos-sidebar-icon"
+title="Audit Trail"
+>
+<Shield className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Audit Trail</div>
+</div>
+</div>
+
+{/* Enterprise: Data Sources */}
+<div className="relative group">
+<button
+onClick={() => setCurrentPage('dataSources')}
+className="katharos-sidebar-icon"
+title="Data Sources"
+>
+<Database className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Data Sources</div>
+</div>
+</div>
+
+{/* Enterprise: Admin Panel - only for admins */}
+{hasPermission('manage_users') && (
+<div className="relative group">
+<button
+onClick={() => setCurrentPage('admin')}
+className="katharos-sidebar-icon"
+title="User Management"
+>
+<Users className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>User Management</div>
+</div>
+</div>
+)}
+
 {/* Spacer */}
 <div style={{ flex: 1 }} />
 {/* Contact */}
@@ -9960,11 +10572,14 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
    }}
  />
  </div>
+ {parseHtmlArtifacts(msg.content).map((artifact, ai) => (
+   <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
+ ))}
  {/* Action buttons for all assistant messages */}
  <div className="flex justify-end gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
  <button
  onClick={() => {
-   navigator.clipboard.writeText(msg.content).then(() => {
+   navigator.clipboard.writeText(stripVizData(msg.content)).then(() => {
      setCopiedMessageId(idx);
      setTimeout(() => setCopiedMessageId(null), 2000);
    });
@@ -9984,35 +10599,6 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  Export PDF
- </button>
- )}
- {msg.content.length > 800 && (msg.content.includes('Risk') || msg.content.includes('Screening') || msg.content.includes('entities') || msg.content.includes('sanctions') || msg.content.includes('OFAC') || analysis) && (
- <button
- onClick={() => {
-   // Priority: case analysis > kycResults > AI extraction from text
-   const caseAnalysis = analysis || activeCase?.analysis;
-   if (caseAnalysis?.entities?.length > 0) {
-     const subject = caseAnalysis.entities[0]?.name || caseName || '';
-     setNetworkGraphPanel({ open: true, analysis: caseAnalysis, subjectName: subject });
-   } else if (kycResults?.subject) {
-     const graphData = buildGraphFromScreeningResult(kycResults);
-     const subject = kycResults.subject?.name || kycQuery || caseName || '';
-     if (graphData.nodes.length > 2) {
-       // Good graph — show it directly
-       setNetworkGraphPanel({ open: true, graphData, subjectName: subject });
-     } else {
-       // Sparse graph from structured data — enrich with AI extraction
-       setNetworkGraphPanel({ open: true, graphData, subjectName: subject, loading: true });
-       extractNetworkFromMessage(msg.content);
-     }
-   } else {
-     extractNetworkFromMessage(msg.content);
-   }
- }}
- className="katharos-btn secondary"
- >
- <Network className="w-4 h-4" />
- View Network
  </button>
  )}
  </div>
@@ -10762,6 +11348,47 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
 
+ {/* Audit Trail with tooltip */}
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('audit')}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ <Shield className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Audit Trail</div>
+ </div>
+ </div>
+
+ {/* Data Sources with tooltip */}
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('dataSources')}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ <Database className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Data Sources</div>
+ </div>
+ </div>
+
+ {/* Admin Panel with tooltip - only for admins */}
+ {hasPermission('manage_users') && (
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('admin')}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ <Users className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">User Management</div>
+ </div>
+ </div>
+ )}
+
  {/* Dark Mode Toggle with tooltip */}
  <div className="relative group">
  <button
@@ -10910,16 +11537,6 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
  {isGeneratingCaseReport ? 'Generating...' : 'Export PDF Report'}
- </button>
- <button
- onClick={() => {
-                          const subject = analysis?.entities?.[0]?.name || caseName || '';
-                          setNetworkGraphPanel({ open: true, analysis, subjectName: subject });
-                        }}
- className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
- >
- <Network className="w-4 h-4" />
- View Network
  </button>
  </div>
  <p className="text-xl font-medium text-gray-900 leading-relaxed mb-6">
@@ -11917,8 +12534,13 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  : 'bg-gray-100 text-gray-800'
  }`}
  >
- <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+ <p className="text-sm whitespace-pre-wrap">{stripVizData(msg.content)}</p>
  </div>
+ {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => (
+   <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
+     <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
+   </div>
+ ))}
  </div>
  ))}
 
@@ -12040,11 +12662,16 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  : 'bg-gray-100 text-gray-800'
  }`}
  >
- <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+ <p className="text-sm whitespace-pre-wrap">{stripVizData(msg.content)}</p>
  </div>
+ {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => (
+   <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
+     <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
+   </div>
+ ))}
  </div>
  ))}
- 
+
  {isKycChatLoading && (
  <div className="flex justify-start">
  <div className="bg-gray-100 rounded-2xl px-4 py-3">
@@ -12222,29 +12849,6 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  )}
-
- {/* Network Graph Modal */}
-{networkGraphPanel.open && (
-  <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
-    <div className="relative bg-white rounded-xl shadow-2xl" style={{ width: '95vw', height: '90vh' }}>
-      <button
-        onClick={() => setNetworkGraphPanel(prev => ({ ...prev, open: false }))}
-        className="absolute top-3 right-3 z-10 p-2 bg-white/90 hover:bg-gray-100 rounded-full shadow-md transition-colors"
-      >
-        <X className="w-5 h-5 text-gray-600" />
-      </button>
-      <ChatNetworkGraph
-        graphData={networkGraphPanel.graphData}
-        analysis={networkGraphPanel.analysis}
-        entities={networkGraphPanel.entities}
-        relationships={networkGraphPanel.relationships}
-        subjectName={networkGraphPanel.subjectName}
-        loading={networkGraphPanel.loading}
-        onClose={() => setNetworkGraphPanel(prev => ({ ...prev, open: false }))}
-      />
-    </div>
-  </div>
-)}
 
 {/* Usage Limit Modal */}
         <UsageLimitModal

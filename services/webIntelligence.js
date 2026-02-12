@@ -2,22 +2,20 @@
 // Uses Claude's built-in web search to find live sanctions intelligence
 // Catches designations that may not yet appear in structured data sources
 
+const { BoundedCache } = require('./boundedCache');
+
 class WebIntelligenceService {
   constructor() {
-    this.apiKey = process.env.REACT_APP_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-    this.cache = new Map(); // entityName -> { result, timestamp }
-    this.cacheTTL = 60 * 60 * 1000; // 1 hour
+    this.apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   getCached(entity) {
-    const key = entity.toLowerCase().trim();
-    const entry = this.cache.get(key);
-    if (entry && Date.now() - entry.timestamp < this.cacheTTL) return entry.result;
-    return null;
+    return this.cache.get(entity.toLowerCase().trim()) || null;
   }
 
   setCache(entity, result) {
-    this.cache.set(entity.toLowerCase().trim(), { result, timestamp: Date.now() });
+    this.cache.set(entity.toLowerCase().trim(), result);
   }
 
   async search(entityName) {

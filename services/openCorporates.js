@@ -1,13 +1,14 @@
 // OpenCorporatesService — Global corporate registry search
 // Source: OpenCorporates API (free tier: 50 req/day, no key needed)
 
+const { BoundedCache } = require('./boundedCache');
+
 class OpenCorporatesService {
 
   constructor() {
     this.apiKey = process.env.OPENCORPORATES_API_KEY || null;
     this.baseUrl = 'https://api.opencorporates.com/v0.4';
-    this.cache = new Map();
-    this.cacheTimeout = 60 * 60 * 1000;
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   // ============================================
@@ -149,7 +150,7 @@ class OpenCorporatesService {
   async getCompanyDetail(jurisdictionCode, companyNumber) {
     const cacheKey = `${jurisdictionCode}/${companyNumber}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < this.cacheTimeout) return cached.data;
+    if (cached) return cached;
 
     const params = this.apiKey ? `?api_token=${this.apiKey}` : '';
     try {
@@ -185,7 +186,7 @@ class OpenCorporatesService {
         source: 'opencorporates'
       };
 
-      this.cache.set(cacheKey, { data: detail, ts: Date.now() });
+      this.cache.set(cacheKey, detail);
       return detail;
     } catch {
       return null;

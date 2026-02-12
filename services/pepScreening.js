@@ -1,12 +1,13 @@
 // PEPScreeningService — Politically Exposed Persons screening
 // Sources: OpenSanctions API (free), Wikidata SPARQL, EveryPolitician (GitHub archive)
 
+const { BoundedCache } = require('./boundedCache');
+
 class PEPScreeningService {
 
   constructor() {
     this.openSanctionsKey = process.env.OPENSANCTIONS_API_KEY || null;
-    this.cache = new Map();
-    this.cacheTimeout = 60 * 60 * 1000; // 1 hour
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   // ============================================
@@ -50,7 +51,7 @@ class PEPScreeningService {
   async searchOpenSanctions(name, options = {}) {
     const cacheKey = `os:${name}:${JSON.stringify(options)}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < this.cacheTimeout) return cached.data;
+    if (cached) return cached;
 
     const params = new URLSearchParams({ q: name, limit: '50' });
     if (options.country) params.append('countries', options.country);
@@ -107,7 +108,7 @@ class PEPScreeningService {
     }
 
     const result = { source: 'opensanctions', data: { matches: matches.sort((a, b) => b.matchScore - a.matchScore), total: matches.length } };
-    this.cache.set(cacheKey, { data: result, ts: Date.now() });
+    this.cache.set(cacheKey, result);
     return result;
   }
 

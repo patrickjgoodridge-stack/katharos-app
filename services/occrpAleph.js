@@ -1,13 +1,14 @@
 // OCCRPAlephService — OCCRP Aleph investigative data platform integration
 // Searches leaked documents, corporate registries, sanctions lists, offshore leaks
 
+const { BoundedCache } = require('./boundedCache');
+
 class OCCRPAlephService {
 
   constructor() {
     this.baseUrl = 'https://aleph.occrp.org/api/2';
     this.apiKey = process.env.OCCRP_ALEPH_API_KEY;
-    this.cache = new Map();
-    this.cacheTimeout = 60 * 60 * 1000; // 1 hour
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   headers() {
@@ -57,7 +58,7 @@ class OCCRPAlephService {
   async searchEntities(query, options = {}) {
     const cacheKey = `entities:${query}:${JSON.stringify(options)}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.data;
+    if (cached) return cached;
 
     const params = new URLSearchParams({
       q: query,
@@ -75,7 +76,7 @@ class OCCRPAlephService {
       });
       if (!response.ok) return { results: [], total: 0 };
       const data = await response.json();
-      this.cache.set(cacheKey, { data, timestamp: Date.now() });
+      this.cache.set(cacheKey, data);
       return data;
     } catch (e) {
       console.error('Aleph entity search error:', e.message);
@@ -86,7 +87,7 @@ class OCCRPAlephService {
   async searchDocuments(query, options = {}) {
     const cacheKey = `documents:${query}:${JSON.stringify(options)}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.data;
+    if (cached) return cached;
 
     const params = new URLSearchParams({
       q: query,
@@ -100,7 +101,7 @@ class OCCRPAlephService {
       });
       if (!response.ok) return { results: [], total: 0 };
       const data = await response.json();
-      this.cache.set(cacheKey, { data, timestamp: Date.now() });
+      this.cache.set(cacheKey, data);
       return data;
     } catch (e) {
       console.error('Aleph document search error:', e.message);

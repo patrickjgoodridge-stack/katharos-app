@@ -1,20 +1,19 @@
 // Financial Regulatory Registration Sources — Layer 8
 // Free public APIs: FINRA BrokerCheck, SEC IAPD, NFA BASIC, FDIC BankFind, NCUA, SEC EDGAR
 
+const { BoundedCache } = require('./boundedCache');
+
 class FinancialRegistrationsService {
   constructor() {
-    this.cache = new Map();
-    this.cacheTimeout = 60 * 60 * 1000; // 1 hour
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   _cached(key) {
-    const entry = this.cache.get(key);
-    if (entry && Date.now() - entry.ts < this.cacheTimeout) return entry.data;
-    return null;
+    return this.cache.get(key);
   }
 
   _setCache(key, data) {
-    this.cache.set(key, { data, ts: Date.now() });
+    this.cache.set(key, data);
     return data;
   }
 

@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS collected_emails (
   email TEXT UNIQUE NOT NULL,
   name TEXT,
   company TEXT,
+  query_count INTEGER DEFAULT 0,
+  is_paid BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -323,3 +325,166 @@ CREATE POLICY "Anyone can submit contact forms" ON contact_submissions FOR INSER
 CREATE POLICY "Only admins can view contact submissions" ON contact_submissions FOR SELECT USING (auth.role() = 'authenticated');
 
 -- =====================================================================
+-- MIGRATION: Add missing columns to collected_emails (if table already exists)
+-- =====================================================================
+-- ALTER TABLE collected_emails ADD COLUMN IF NOT EXISTS query_count INTEGER DEFAULT 0;
+-- ALTER TABLE collected_emails ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;
+-- =====================================================================
+
+-- =====================================================================
+-- SCREENINGS TABLE - Persistent screening history
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS screenings (
+  id TEXT PRIMARY KEY,
+  user_email TEXT NOT NULL,
+  query TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'individual',
+  country TEXT,
+  year_of_birth TEXT,
+  client_ref TEXT,
+  result JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result_summary JSONB DEFAULT '{}'::jsonb,
+  risk_level TEXT,
+  risk_score INTEGER,
+  sanctions_status TEXT,
+  case_id TEXT REFERENCES cases(id) ON DELETE SET NULL,
+  email_domain TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS screenings_user_email_idx ON screenings(user_email);
+CREATE INDEX IF NOT EXISTS screenings_email_domain_idx ON screenings(email_domain);
+CREATE INDEX IF NOT EXISTS screenings_created_at_idx ON screenings(created_at DESC);
+CREATE INDEX IF NOT EXISTS screenings_case_id_idx ON screenings(case_id);
+CREATE INDEX IF NOT EXISTS screenings_risk_level_idx ON screenings(risk_level);
+
+ALTER TABLE screenings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert screenings" ON screenings FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can view screenings" ON screenings FOR SELECT USING (true);
+CREATE POLICY "Users can update screenings" ON screenings FOR UPDATE USING (true);
+
+-- =====================================================================
+-- AUDIT LOGS TABLE - Immutable compliance audit trail
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email TEXT NOT NULL,
+  user_name TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id TEXT,
+  details JSONB DEFAULT '{}'::jsonb,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS audit_logs_user_email_idx ON audit_logs(user_email);
+CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS audit_logs_entity_type_idx ON audit_logs(entity_type);
+CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_entity_id_idx ON audit_logs(entity_id);
+
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Immutable: INSERT and SELECT only, NO UPDATE or DELETE
+CREATE POLICY "Allow audit log inserts" ON audit_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow audit log reads" ON audit_logs FOR SELECT USING (true);
+
+-- =====================================================================
+-- TEAMS TABLE - Workspace/organization management
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS teams (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  domain TEXT,
+  settings JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Teams viewable" ON teams FOR SELECT USING (true);
+CREATE POLICY "Teams insertable" ON teams FOR INSERT WITH CHECK (true);
+CREATE POLICY "Teams updatable" ON teams FOR UPDATE USING (true);
+
+-- =====================================================================
+-- USERS TABLE - User management with roles and permissions
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  name TEXT,
+  company TEXT,
+  role TEXT NOT NULL DEFAULT 'analyst',
+  status TEXT NOT NULL DEFAULT 'active',
+  permissions JSONB DEFAULT '{}'::jsonb,
+  email_domain TEXT,
+  team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+  last_login TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+CREATE INDEX IF NOT EXISTS users_email_domain_idx ON users(email_domain);
+CREATE INDEX IF NOT EXISTS users_role_idx ON users(role);
+CREATE INDEX IF NOT EXISTS users_team_id_idx ON users(team_id);
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view users" ON users FOR SELECT USING (true);
+CREATE POLICY "Users can insert" ON users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update" ON users FOR UPDATE USING (true);
+
+-- =====================================================================
+-- CASE ACTIVITIES TABLE - Per-case activity timeline
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS case_activities (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+  user_email TEXT NOT NULL,
+  user_name TEXT,
+  activity_type TEXT NOT NULL,
+  from_value TEXT,
+  to_value TEXT,
+  comment TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS case_activities_case_id_idx ON case_activities(case_id);
+CREATE INDEX IF NOT EXISTS case_activities_created_at_idx ON case_activities(created_at DESC);
+
+ALTER TABLE case_activities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Activities insertable" ON case_activities FOR INSERT WITH CHECK (true);
+CREATE POLICY "Activities viewable" ON case_activities FOR SELECT USING (true);
+
+-- =====================================================================
+-- WORKFLOW COLUMNS ON CASES TABLE
+-- =====================================================================
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS workflow_status TEXT DEFAULT 'new';
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS assigned_to TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalated_by TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS escalation_reason TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS review_decision TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS review_notes TEXT;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+
+CREATE INDEX IF NOT EXISTS cases_workflow_status_idx ON cases(workflow_status);
+CREATE INDEX IF NOT EXISTS cases_assigned_to_idx ON cases(assigned_to);
+CREATE INDEX IF NOT EXISTS cases_priority_idx ON cases(priority);
+
+-- =====================================================================
+-- ACCURACY VALIDATION - Add source breakdown to metrics_sanctions
+-- =====================================================================
+
+ALTER TABLE metrics_sanctions ADD COLUMN IF NOT EXISTS source_breakdown JSONB DEFAULT '{}'::jsonb;

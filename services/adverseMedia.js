@@ -383,16 +383,18 @@ class AdverseMediaService {
     return variants;
   }
 
-  // GDELT DOC API - free, no key needed
+  // Simple delay helper for rate limiting
+  _delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+  // GDELT DOC API - free, no key needed (sequential with 300ms delay to respect rate limits)
   async searchGDELT(searchTerms) {
     const articles = [];
-    // Use a mix of search terms across buckets
     for (const term of searchTerms.slice(0, 8)) {
       const query = encodeURIComponent(term);
       const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=10&format=json&timespan=2y`;
       try {
         const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!response.ok) continue;
+        if (!response.ok) { await this._delay(300); continue; }
         const data = await response.json();
         if (data.articles) {
           for (const a of data.articles) {
@@ -412,6 +414,7 @@ class AdverseMediaService {
       } catch {
         // Skip failed queries
       }
+      await this._delay(300);
     }
     return { source: 'GDELT', articles };
   }
@@ -448,7 +451,7 @@ class AdverseMediaService {
     return { source: 'Government', articles };
   }
 
-  // Google News RSS - free, no key needed
+  // Google News RSS - free, no key needed (sequential with 300ms delay)
   async searchGoogleNewsRSS(searchTerms) {
     const articles = [];
     for (const term of searchTerms.slice(0, 8)) {
@@ -456,7 +459,7 @@ class AdverseMediaService {
       const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
       try {
         const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!response.ok) continue;
+        if (!response.ok) { await this._delay(300); continue; }
         const xml = await response.text();
         const items = this.parseRSSItems(xml);
         for (const item of items) {
@@ -475,6 +478,7 @@ class AdverseMediaService {
       } catch {
         // Skip failed queries
       }
+      await this._delay(300);
     }
     return { source: 'Google News', articles };
   }

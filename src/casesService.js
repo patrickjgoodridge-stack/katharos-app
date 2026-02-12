@@ -168,30 +168,21 @@ export const syncCase = async (caseData) => {
   }
 
   try {
-    // Check if case exists in Supabase
-    const { data: existing } = await supabase
+    const supabaseData = {
+      ...transformToSupabase(caseData),
+      id: caseData.id,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
       .from('cases')
-      .select('id')
-      .eq('id', caseData.id)
+      .upsert([supabaseData], { onConflict: 'id' })
+      .select()
       .single();
 
-    if (existing) {
-      // Update existing case
-      return await updateCase(caseData.id, caseData);
-    } else {
-      // Create new case with the same ID
-      const supabaseData = transformToSupabase(caseData);
+    if (error) throw error;
 
-      const { data, error } = await supabase
-        .from('cases')
-        .insert([{ ...supabaseData, id: caseData.id }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return { data: transformFromSupabase(data), error: null };
-    }
+    return { data: transformFromSupabase(data), error: null };
   } catch (error) {
     console.error('Error syncing case:', error);
     return { data: null, error };
@@ -220,6 +211,16 @@ const transformToSupabase = (caseData) => ({
   monitoring_alerts: caseData.monitoringAlerts || [],
   email_domain: caseData.emailDomain || '',
   created_by_email: caseData.createdByEmail || '',
+  // Workflow fields
+  workflow_status: caseData.workflowStatus || 'new',
+  assigned_to: caseData.assignedTo || null,
+  reviewed_by: caseData.reviewedBy || null,
+  escalated_by: caseData.escalatedBy || null,
+  escalation_reason: caseData.escalationReason || null,
+  review_decision: caseData.reviewDecision || null,
+  review_notes: caseData.reviewNotes || null,
+  due_date: caseData.dueDate || null,
+  priority: caseData.priority || 'medium',
 });
 
 /**
@@ -248,6 +249,16 @@ const transformFromSupabase = (data) => ({
   monitoringAlerts: data.monitoring_alerts || [],
   emailDomain: data.email_domain || '',
   createdByEmail: data.created_by_email || '',
+  // Workflow fields
+  workflowStatus: data.workflow_status || 'new',
+  assignedTo: data.assigned_to || null,
+  reviewedBy: data.reviewed_by || null,
+  escalatedBy: data.escalated_by || null,
+  escalationReason: data.escalation_reason || null,
+  reviewDecision: data.review_decision || null,
+  reviewNotes: data.review_notes || null,
+  dueDate: data.due_date || null,
+  priority: data.priority || 'medium',
 });
 
 const casesService = {

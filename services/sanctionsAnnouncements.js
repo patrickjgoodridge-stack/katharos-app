@@ -2,31 +2,17 @@
 // Checks official government announcement pages for entity mentions
 // Catches designations BEFORE official lists update
 
+const { BoundedCache } = require('./boundedCache');
+
 class SanctionsAnnouncementService {
   constructor() {
-    this.cache = new Map(); // key: url -> { data, timestamp }
-    this.cacheTTL = {
-      rss: 30 * 60 * 1000,        // 30 min for RSS feeds
-      press: 0,                     // No cache for press releases
-      api: 12 * 60 * 60 * 1000,   // 12 hours for OpenSanctions
-      gdelt: 15 * 60 * 1000,      // 15 min for GDELT
-    };
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 30 * 60 * 1000 });
     this.sanctionsKeywords = [
       'sanctioned', 'designated', 'blocked', 'frozen', 'prohibited',
       'restricted', 'specially designated', 'SDN', 'OFAC', 'asset freeze',
       'travel ban', 'arms embargo', 'executive order', 'listed',
       'sanctions evasion', 'sectoral sanctions', 'secondary sanctions'
     ];
-  }
-
-  getCached(key, ttl) {
-    const entry = this.cache.get(key);
-    if (entry && Date.now() - entry.timestamp < ttl) return entry.data;
-    return null;
-  }
-
-  setCache(key, data) {
-    this.cache.set(key, { data, timestamp: Date.now() });
   }
 
   async screen(entityName, options = {}) {
@@ -97,7 +83,7 @@ class SanctionsAnnouncementService {
   // SOURCE: OpenSanctions API
   // ============================================
   async searchOpenSanctions(name, variants) {
-    const cached = this.getCached(`opensanctions:${name}`, this.cacheTTL.api);
+    const cached = this.cache.get(`opensanctions:${name}`);
     if (cached) return cached;
 
     const results = [];
@@ -150,7 +136,7 @@ class SanctionsAnnouncementService {
       console.error('[SanctionsAnnouncements] OpenSanctions error:', e.message);
     }
 
-    this.setCache(`opensanctions:${name}`, results);
+    this.cache.set(`opensanctions:${name}`, results);
     return results;
   }
 
@@ -158,7 +144,7 @@ class SanctionsAnnouncementService {
   // SOURCE: OFAC Recent Actions (RSS)
   // ============================================
   async searchOFACRecentActions(variants) {
-    const cached = this.getCached('ofac-rss', this.cacheTTL.rss);
+    const cached = this.cache.get('ofac-rss');
     let items = cached;
 
     if (!items) {
@@ -171,7 +157,7 @@ class SanctionsAnnouncementService {
         if (response.ok) {
           const xml = await response.text();
           items = this.parseRSSItems(xml);
-          this.setCache('ofac-rss', items);
+          this.cache.set('ofac-rss', items);
         }
       } catch (e) {
         console.error('[SanctionsAnnouncements] OFAC RSS error:', e.message);

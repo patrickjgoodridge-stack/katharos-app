@@ -168,10 +168,28 @@ function getServices() {
 
 const TIMEOUT = 15000;
 function race(promise, label) {
+  let timer;
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), TIMEOUT))
-  ]).catch(e => ({ _error: e.message }));
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} timeout`)), TIMEOUT); })
+  ]).then(v => { clearTimeout(timer); return v; }, e => { clearTimeout(timer); return { _error: e.message }; });
+}
+
+// Balanced-brace JSON extractor (handles nested objects and strings with braces)
+function extractJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0, inString = false, escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return text.substring(start, i + 1); }
+  }
+  return null;
 }
 
 function isOk(r) { return r && !r._error; }
@@ -195,17 +213,16 @@ export default async function handler(req, res) {
   try {
     // ── Step 1-3: All data gathering in parallel (single function, no cold starts) ──
     const [
-      ofacStep1Res, ownershipRes,
-      dataSourceRes, adverseMediaRes, courtRecordsRes, ofacStep3Res,
+      ofacRes, ownershipRes,
+      dataSourceRes, adverseMediaRes, courtRecordsRes,
       occrpRes, pepRes, regulatoryRes, openCorporatesRes,
-      blockchainRes, shippingRes, webIntelRes
+      blockchainRes, shippingRes, webIntelRes, walletRes
     ] = await Promise.all([
-      race(s.ofac.screenEntity({ name: isWallet ? undefined : kycQuery, type: screeningType, address: isWallet ? kycQuery : undefined }), 'ofac-step1'),
+      race(s.ofac.screenEntity({ name: isWallet ? undefined : kycQuery, type: screeningType, address: isWallet ? kycQuery : undefined }), 'ofac'),
       !isWallet ? Promise.resolve(analyzeOwnership(kycQuery, kycType)) : Promise.resolve({}),
       race(s.dataSources.screenEntity(kycQuery, screeningType), 'data-sources'),
       race(s.adverseMedia.screen(kycQuery, screeningType, country || null), 'adverse-media'),
       race(s.courtRecords.screenEntity({ name: kycQuery, type: kycType }), 'court-records'),
-      race(s.ofac.screenEntity({ name: isWallet ? undefined : kycQuery, type: screeningType, address: isWallet ? kycQuery : undefined }), 'ofac-step3'),
       race(s.occrp.screenEntity({ name: kycQuery, type: kycType }), 'occrp'),
       race(s.pep.screenEntity({ name: kycQuery, type: kycType, country: country || null }), 'pep'),
       race(s.regulatory.screenEntity({ name: kycQuery, type: screeningType }), 'regulatory'),
@@ -213,12 +230,13 @@ export default async function handler(req, res) {
       isWallet ? race(s.blockchain.screenAddress({ address: kycQuery }), 'blockchain') : Promise.resolve(null),
       kycType === 'entity' ? race(s.shipping.screenEntity({ name: kycQuery, type: 'entity' }), 'shipping') : Promise.resolve(null),
       race(s.webIntel.search(kycQuery), 'web-intelligence'),
+      isWallet ? race(s.wallet.screenWallet(kycQuery), 'wallet-screening') : Promise.resolve(null),
     ]);
 
-    // Parse OFAC Step 1 into sanctionsData
+    // Parse OFAC results into sanctionsData
     let sanctionsData = { status: 'NO_MATCH', totalEntries: 0 };
-    if (isOk(ofacStep1Res)) {
-      const liveOfac = ofacStep1Res;
+    if (isOk(ofacRes)) {
+      const liveOfac = ofacRes;
       const topMatch = liveOfac.matches?.[0];
       if (topMatch && topMatch.matchConfidence >= 0.95) {
         sanctionsData = {
@@ -233,10 +251,10 @@ export default async function handler(req, res) {
           },
           totalEntries: liveOfac.totalSDNEntries, confidence: topMatch.matchConfidence
         };
-      } else if (topMatch && topMatch.matchConfidence >= 0.95) {
+      } else if (topMatch && topMatch.matchConfidence >= 0.80) {
         sanctionsData = {
           status: 'POTENTIAL_MATCH',
-          potentialMatches: liveOfac.matches.filter(m => m.matchConfidence >= 0.95).map(m => ({
+          potentialMatches: liveOfac.matches.filter(m => m.matchConfidence >= 0.80).map(m => ({
             name: m.name, lists: ['OFAC SDN'], confidence: m.matchConfidence, programs: m.programs || []
           })),
           totalEntries: liveOfac.totalSDNEntries
@@ -251,13 +269,32 @@ export default async function handler(req, res) {
     const dataSourceResults = isOk(dataSourceRes) ? dataSourceRes : null;
     const adverseMediaResults = isOk(adverseMediaRes) ? adverseMediaRes : null;
     const courtRecordsResults = isOk(courtRecordsRes) ? courtRecordsRes : null;
-    const ofacResults = isOk(ofacStep3Res) ? ofacStep3Res : null;
+    const ofacResults = isOk(ofacRes) ? ofacRes : null;
     const occrpResults = isOk(occrpRes) ? occrpRes : null;
     const pepResults = isOk(pepRes) ? pepRes : null;
     const regulatoryResults = isOk(regulatoryRes) ? regulatoryRes : null;
     const openCorporatesResults = isOk(openCorporatesRes) ? openCorporatesRes : null;
     const blockchainResults = isOk(blockchainRes) ? blockchainRes : null;
     const shippingResults = isOk(shippingRes) ? shippingRes : null;
+    const walletResults = isOk(walletRes) ? walletRes : null;
+
+    // If wallet screening found a BLOCKED result, upgrade sanctionsData
+    if (walletResults && walletResults.status === 'BLOCKED') {
+      sanctionsData = {
+        status: 'MATCH',
+        match: {
+          name: walletResults.sdnEntry || kycQuery,
+          listingDate: walletResults.matches?.[0]?.designationDate || 'See SDN entry',
+          lists: ['OFAC SDN'],
+          programs: [walletResults.program || 'See SDN entry'],
+          details: `Wallet matched: ${walletResults.matchSource || 'OFAC sanctioned address'}`,
+          entities: [], ownership: null
+        },
+        blockchain: walletResults.chain,
+        totalEntries: walletResults.totalSanctionedAddresses || 0,
+        confidence: 1.0
+      };
+    }
 
     // ── Step 4: Build context ──
     const webIntelResults = isOk(webIntelRes) ? webIntelRes : null;
@@ -265,7 +302,7 @@ export default async function handler(req, res) {
       kycType, kycQuery, sanctionsData, ownershipData, ownershipNetwork,
       dataSourceResults, adverseMediaResults, courtRecordsResults, ofacResults,
       occrpResults, pepResults, regulatoryResults, openCorporatesResults,
-      blockchainResults, shippingResults, webIntelResults
+      blockchainResults, shippingResults, webIntelResults, walletResults
     });
 
     const systemPrompt = getSystemPrompt();
@@ -273,7 +310,7 @@ export default async function handler(req, res) {
       ? `${realDataContext}\n\nScreen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)\n\nUsing the sanctions screening data above, provide a complete compliance analysis including:\n- Who owns/controls this wallet (entity attribution)\n- OFAC sanctions status and specific designations\n- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations\n- DPRK/Lazarus Group nexus if applicable\n- Transaction risk patterns (cross-chain laundering, structured transfers)\n- Adverse media about the associated entity\n- Regulatory guidance for financial institutions encountering this address\n- Whether to block transactions involving this wallet\n\nSet subject.type to "WALLET" and include the wallet address and blockchain.`
       : `${realDataContext}\n\nBased on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${yearOfBirth ? ', Year of Birth: ' + yearOfBirth : ''}${country ? ', Country: ' + country : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})\n\nUse the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:\n- PEP (Politically Exposed Person) status\n- Adverse media findings (incorporate the real articles provided above with their source URLs)\n- Risk assessment incorporating ALL data sources\n- Regulatory guidance\n\n${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}`;
 
-    // ── Step 5: Claude AI analysis ──
+    // ── Step 5: Claude AI analysis (with 120s timeout) ──
     const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -281,6 +318,7 @@ export default async function handler(req, res) {
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
+      signal: AbortSignal.timeout(120000),
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 16000,
@@ -298,12 +336,18 @@ export default async function handler(req, res) {
     const text = aiData.content?.[0]?.text || '';
 
     // ── Step 6: Parse result ──
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const jsonStr = extractJsonObject(text);
+    if (!jsonStr) {
       return res.status(500).json({ error: 'No JSON in AI response', durationMs: Date.now() - startTime });
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error('JSON parse error:', parseErr.message, 'Raw text (first 500):', jsonStr.substring(0, 500));
+      return res.status(500).json({ error: 'Failed to parse AI response as JSON', durationMs: Date.now() - startTime });
+    }
 
     const isLowRisk = parsed.overallRisk === 'LOW' &&
       parsed.sanctions?.status === 'CLEAR' &&
@@ -343,7 +387,7 @@ function buildDataContext(d) {
   const { kycType, kycQuery, sanctionsData, ownershipData, ownershipNetwork,
     dataSourceResults, adverseMediaResults, courtRecordsResults, ofacResults,
     occrpResults, pepResults, regulatoryResults, openCorporatesResults,
-    blockchainResults, shippingResults, webIntelResults } = d;
+    blockchainResults, shippingResults, webIntelResults, walletResults } = d;
 
   let ctx = '';
 
@@ -463,6 +507,16 @@ function buildDataContext(d) {
     ctx += `\nSHIPPING & TRADE SCREENING:\nRisk Level: ${shippingResults.riskAssessment?.level || 'LOW'} (Score: ${shippingResults.riskAssessment?.score || 0}/100)\n`;
     if (shippingResults.findings?.vessels?.length > 0) {
       ctx += `Vessels:\n${shippingResults.findings.vessels.slice(0, 5).map(v => `- ${v.name} (IMO: ${v.imo || 'N/A'}) — Flag: ${v.flag || 'Unknown'}`).join('\n')}\n`;
+    }
+  }
+
+  if (walletResults) {
+    ctx += `\nWALLET SANCTIONS SCREENING (OFAC ADDRESS LISTS):\nStatus: ${walletResults.status}\nChain: ${walletResults.chain || 'Unknown'}\nRisk Score: ${walletResults.riskScore || 0}/100\n`;
+    if (walletResults.matches?.length > 0) {
+      ctx += `Matches:\n${walletResults.matches.map(m => `- ${m.source}: ${m.service || m.entity || 'OFAC listed'} (${m.chain}, confidence: ${m.confidence})`).join('\n')}\n`;
+    }
+    if (walletResults.status === 'BLOCKED') {
+      ctx += `ACTION: ${walletResults.action}\n`;
     }
   }
 

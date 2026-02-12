@@ -1,5 +1,5 @@
 // MarkdownRenderer.js - Custom markdown renderer with styled components
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -471,6 +471,9 @@ const preprocessMarkdown = (content) => {
   // Remove any JSON code blocks (in case AI outputs both)
   processed = processed.replace(/```json[\s\S]*?```/g, '');
 
+  // Remove all visualization HTML blocks (rendered as iframes in AppEnhanced.js)
+  processed = processed.replace(/```(?:networkgraph|timeline|riskassessment|screeningresult|comparisontable|datatable|dashboard|processflow|geomap|documentviewer)[\s\S]*?```/g, '');
+
   // Remove Keep Exploring section (rendered separately in AppEnhanced.js)
   processed = processed.replace(/##\s*KEEP EXPLORING[:\s]*([\s\S]*?)(?=##|$)/i, '');
 
@@ -495,12 +498,15 @@ const preprocessMarkdown = (content) => {
   return processed.trim();
 };
 
-// Main MarkdownRenderer component
-const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
-  const processedContent = preprocessMarkdown(content);
+// Stable remark plugins array (avoid re-creating on every render)
+const remarkPlugins = [remarkGfm];
 
-  // Custom components for react-markdown
-  const components = {
+// Main MarkdownRenderer component
+const MarkdownRenderer = React.memo(({ content, onExploreClick, darkMode = false }) => {
+  const processedContent = useMemo(() => preprocessMarkdown(content), [content]);
+
+  // Memoize components object so ReactMarkdown doesn't re-mount on every render
+  const components = useMemo(() => ({
     h1: (props) => <CustomHeading level={1} {...props} />,
     h2: (props) => <CustomHeading level={2} {...props} />,
     h3: (props) => <CustomHeading level={3} {...props} />,
@@ -518,7 +524,6 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
       if (inline) {
         return <CustomCode {...props}>{children}</CustomCode>;
       }
-      // For code blocks, just render as pre
       return (
         <pre className={`${darkMode ? 'bg-gray-800' : 'bg-slate-100'} p-4 rounded-lg overflow-x-auto my-3`}>
           <code className={`text-base font-mono ${darkMode ? 'text-gray-200' : 'text-slate-800'}`}>{children}</code>
@@ -542,14 +547,14 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
         {children}
       </a>
     ),
-  };
+  }), [darkMode]);
 
   return (
     <DarkModeContext.Provider value={darkMode}>
       <ExploreContext.Provider value={onExploreClick}>
         <div className={`markdown-content ${darkMode ? 'dark-mode' : ''}`}>
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={remarkPlugins}
             components={components}
           >
             {processedContent}
@@ -558,6 +563,6 @@ const MarkdownRenderer = ({ content, onExploreClick, darkMode = false }) => {
       </ExploreContext.Provider>
     </DarkModeContext.Provider>
   );
-};
+});
 
 export default MarkdownRenderer;

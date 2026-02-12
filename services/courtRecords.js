@@ -1,11 +1,13 @@
 // CourtRecordsService — Federal court records via CourtListener
 // Strategy: Search API (type=r, type=o) for discovery, Case Law API for enrichment
 
+const { BoundedCache } = require('./boundedCache');
+
 class CourtRecordsService {
   constructor() {
     this.baseUrl = 'https://www.courtlistener.com/api/rest/v4';
     this.token = process.env.COURTLISTENER_API_KEY || null;
-    this.cache = new Map();
+    this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
   async headers() {
@@ -191,9 +193,18 @@ class CourtRecordsService {
   }
 
   async enrichHighRiskCaselaw(caselaw, entityName) {
+    const ENRICHMENT_TIMEOUT = 30000; // 30s total budget for enrichment
+    const deadline = Date.now() + ENRICHMENT_TIMEOUT;
     const enriched = [];
 
-    for (const item of caselaw.slice(0, 10)) {
+    // Process up to 5 items (reduced from 10) with a hard deadline
+    for (const item of caselaw.slice(0, 5)) {
+      if (Date.now() > deadline) {
+        // Budget exhausted — return remaining items un-enriched
+        enriched.push(...caselaw.slice(enriched.length, caselaw.length > 5 ? 5 : caselaw.length).filter(i => !enriched.includes(i)));
+        break;
+      }
+
       const cluster = await this.getCluster(item.clusterId);
 
       if (!cluster) {
@@ -209,7 +220,7 @@ class CourtRecordsService {
           ? opinionUrl.match(/opinions\/(\d+)/)?.[1]
           : opinionUrl;
 
-        if (opinionId) {
+        if (opinionId && Date.now() < deadline) {
           const opinion = await this.getOpinion(opinionId);
           if (opinion) {
             const opinionText = opinion.html_with_citations || opinion.plain_text;

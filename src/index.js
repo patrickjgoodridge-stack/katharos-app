@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './AppEnhanced';
+import ErrorBoundary from './ErrorBoundary';
 import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from './AuthContext';
 import posthog from 'posthog-js';
@@ -18,9 +19,11 @@ if (process.env.REACT_APP_POSTHOG_KEY) {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-      <Analytics />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <App />
+        <Analytics />
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
