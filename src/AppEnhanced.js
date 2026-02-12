@@ -442,7 +442,7 @@ const samplesDropdownRef = useRef(null);
      if (conversationAbortRef.current) conversationAbortRef.current.abort();
      if (screeningAbortRef.current) screeningAbortRef.current.abort();
      // Flush streaming throttle timers
-     const buf = streamingBufferRef.current;
+     const buf = streamingBufferRef.current; // eslint-disable-line react-hooks/exhaustive-deps
      for (const key of Object.keys(buf)) {
        if (key.startsWith('_timer_')) clearTimeout(buf[key]);
      }
