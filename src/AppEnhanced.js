@@ -514,7 +514,20 @@ const samplesDropdownRef = useRef(null);
      .then(({ data }) => {
        if (data && data.length > 0) {
          console.log('[Screenings] Loaded', data.length, 'screenings from database');
-         setKycHistory(data);
+         // Transform DB format (snake_case) to app format (camelCase)
+         const transformed = data.map(d => ({
+           id: d.id,
+           query: d.query,
+           type: d.type,
+           result: d.result_summary || {},
+           timestamp: d.created_at,
+           clientRef: d.client_ref,
+           country: d.country,
+           yearOfBirth: d.year_of_birth,
+           caseId: d.case_id,
+           _fromDb: true, // flag to know this is a slim DB record
+         }));
+         setKycHistory(transformed);
        }
      })
      .catch(err => console.error('[Screenings] Error loading history:', err));
@@ -1607,15 +1620,15 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  setKycType(item.type);
  setKycPage('results');
  // If result is slim (loaded from DB summary), fetch full result
- if (item.result && !item.result.sanctions?.matches && isSupabaseConfigured()) {
-   setKycResults(item.result); // Show summary immediately
+ if (item._fromDb && isSupabaseConfigured()) {
+   setKycResults(item.result || {}); // Show summary immediately
    const { data } = await fetchScreeningById(item.id);
    if (data?.result) {
      setKycResults(data.result);
-     setSelectedHistoryItem(prev => ({ ...prev, result: data.result }));
+     setSelectedHistoryItem(prev => ({ ...prev, result: data.result, _fromDb: false }));
    }
  } else {
-   setKycResults(item.result);
+   setKycResults(item.result || {});
  }
  };
 
@@ -8432,26 +8445,26 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  >
  <div className="flex items-center gap-4">
  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
- item.result.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
- item.result.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
-item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' :
+ item.result?.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
+ item.result?.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
+ item.result?.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
+item.result?.overallRisk === 'LOW' || item.result?.overallRisk === 'CLEAR' ? 'bg-emerald-50 border border-emerald-200' :
 'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-6 h-6 ${
- item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
- item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
-item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+ item.result?.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result?.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result?.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result?.overallRisk === 'LOW' || item.result?.overallRisk === 'CLEAR' ? 'text-emerald-500' :
 'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-6 h-6 ${
- item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
- item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
-item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text-emerald-500' :
+ item.result?.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result?.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result?.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result?.overallRisk === 'LOW' || item.result?.overallRisk === 'CLEAR' ? 'text-emerald-500' :
 'text-gray-600'
  }`} />
  )}
@@ -8460,8 +8473,8 @@ item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 mb-1">
  <p className="font-semibold tracking-wide truncate">{item.query}</p>
- <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide shrink-0 ${getRiskColor(item.result.overallRisk)}`}>
- {item.result.overallRisk}
+ <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wide shrink-0 ${getRiskColor(item.result?.overallRisk)}`}>
+ {item.result?.overallRisk}
  </span>
  </div>
  <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -8656,26 +8669,26 @@ item.result.overallRisk === 'LOW' || item.result.overallRisk === 'CLEAR' ? 'text
  >
  <div className="flex items-center gap-4">
  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
- item.result.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
- item.result.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
- item.result.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
-item.result.overallRisk === 'LOW' ? 'bg-emerald-50 border border-emerald-200' :
+ item.result?.overallRisk === 'CRITICAL' ? 'bg-red-50 border border-red-200' :
+ item.result?.overallRisk === 'HIGH' ? 'bg-orange-50 border border-orange-200' :
+ item.result?.overallRisk === 'MEDIUM' ? 'bg-yellow-50 border border-yellow-200' :
+item.result?.overallRisk === 'LOW' ? 'bg-emerald-50 border border-emerald-200' :
 'bg-gray-100 border border-gray-300'
  }`}>
  {item.type === 'individual' ? (
  <UserSearch className={`w-5 h-5 ${
- item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
- item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
-item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+ item.result?.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result?.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result?.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 'text-gray-600'
  }`} />
  ) : (
  <Building2 className={`w-5 h-5 ${
- item.result.overallRisk === 'CRITICAL' ? 'text-red-500' :
- item.result.overallRisk === 'HIGH' ? 'text-orange-500' :
- item.result.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
-item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
+ item.result?.overallRisk === 'CRITICAL' ? 'text-red-500' :
+ item.result?.overallRisk === 'HIGH' ? 'text-orange-500' :
+ item.result?.overallRisk === 'MEDIUM' ? 'text-yellow-600' :
+item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 'text-gray-600'
  }`} />
  )}
@@ -8684,8 +8697,8 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
  <p className="font-medium tracking-wide">{item.query}</p>
  <p className="text-xs text-gray-500 mono tracking-wide">{new Date(item.timestamp).toLocaleString()}</p>
  </div>
- <span className={`px-2 py-1 rounded text-xs font-bold tracking-wide ${getRiskColor(item.result.overallRisk)}`}>
- {item.result.overallRisk}
+ <span className={`px-2 py-1 rounded text-xs font-bold tracking-wide ${getRiskColor(item.result?.overallRisk)}`}>
+ {item.result?.overallRisk}
  </span>
  <button
  onClick={() => removeFromProject(item.id, selectedProject.id)}
@@ -10067,6 +10080,9 @@ item.result.overallRisk === 'LOW' ? 'text-emerald-500' :
        <div style={{ padding: '16px 32px', borderBottom: '1px solid #3a3a3a' }}>
          <WorkflowControls
            caseData={viewingCase}
+           userEmail={user?.email}
+           userName={user?.name}
+           userPermission={hasPermission}
            teamUsers={teamUsers}
            onTransition={async (newStatus) => {
              const { data } = await transitionCase(viewingCase.id, newStatus, { userEmail: user?.email, userName: user?.name });

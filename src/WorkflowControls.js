@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, AlertTriangle, Check, X, UserCheck, ChevronDown } from 'lucide-react';
 import { WORKFLOW_STATUSES, PRIORITIES, getValidTransitions } from './workflowService';
 
-const WorkflowControls = ({ caseData, userEmail, userName, userPermission, teamUsers = [], onTransition, onAssign, onEscalate, onReview }) => {
+const WorkflowControls = ({ caseData, userEmail, userName, userPermission = () => true, teamUsers = [], onTransition, onAssign, onEscalate, onReview }) => {
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateReason, setEscalateReason] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
