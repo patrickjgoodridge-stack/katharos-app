@@ -8151,62 +8151,70 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 )}
 
 {currentPage === 'audit' && (
-  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
-    <div className="flex items-center gap-3 mb-6">
-      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
-        <ArrowLeft className="w-5 h-5 text-gray-600" />
-      </button>
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight leading-tight">Audit Trail</h2>
-        <p className="text-sm text-gray-500">Immutable log of all system activity</p>
+  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Audit Trail</h2>
+          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Immutable log of all system activity</p>
+        </div>
       </div>
+      <AuditTrailPanel />
     </div>
-    <AuditTrailPanel />
   </div>
 )}
 
 {currentPage === 'dataSources' && (
-  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
-    <div className="flex items-center gap-3 mb-6">
-      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
-        <ArrowLeft className="w-5 h-5 text-gray-600" />
-      </button>
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight leading-tight">Data Sources</h2>
-        <p className="text-sm text-gray-500">API health and connection status</p>
+  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Data Sources</h2>
+          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>API health and connection status</p>
+        </div>
       </div>
+      <DataSourcesPanel />
     </div>
-    <DataSourcesPanel />
   </div>
 )}
 
 {currentPage === 'admin' && (
-  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
-    <div className="flex items-center gap-3 mb-6">
-      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
-        <ArrowLeft className="w-5 h-5 text-gray-600" />
-      </button>
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight leading-tight">User Management</h2>
-        <p className="text-sm text-gray-500">Roles, permissions, and team access</p>
+  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>User Management</h2>
+          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Roles, permissions, and team access</p>
+        </div>
       </div>
+      <AdminPanel />
     </div>
-    <AdminPanel />
   </div>
 )}
 
 {currentPage === 'accuracy' && (
-  <div className="fade-in max-w-6xl mx-auto pt-16 px-8">
-    <div className="flex items-center gap-3 mb-6">
-      <button onClick={goToLanding} className="p-2 hover:bg-gray-100 rounded-lg">
-        <ArrowLeft className="w-5 h-5 text-gray-600" />
-      </button>
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight leading-tight">Accuracy Dashboard</h2>
-        <p className="text-sm text-gray-500">Screening precision and false positive rates</p>
+  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Accuracy Dashboard</h2>
+          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Screening precision and false positive rates</p>
+        </div>
       </div>
+      <AccuracyDashboard />
     </div>
-    <AccuracyDashboard />
   </div>
 )}
 
