@@ -35,6 +35,15 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 // API base URL - uses local server in development, relative paths in production
 const API_BASE = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
 
+// Generate a UUID v4 for case IDs (compatible with Supabase UUID columns)
+const generateUUID = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+
 // Parse vizdata JSON block from AI response
 const parseVizData = (content) => { // eslint-disable-line no-unused-vars
   if (!content) return null;
@@ -708,7 +717,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  // Pass caseNameOverride to avoid React state timing issues
  const saveCase = (analysisData, caseNameOverride = null) => {
  const newCase = {
- id: Math.random().toString(36).substr(2, 9),
+ id: generateUUID(),
  name: caseNameOverride || caseName || `Case ${cases.length + 1}`,
  createdAt: new Date().toISOString(),
  updatedAt: new Date().toISOString(),
@@ -855,7 +864,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  // Auto-create a case when the first message is sent
  const createCaseFromFirstMessage = (userInput, attachedFiles) => {
    const generatedName = generateCaseName(userInput, attachedFiles);
-   const newCaseId = Math.random().toString(36).substr(2, 9);
+   const newCaseId = generateUUID();
 
    const newCase = {
      id: newCaseId,
@@ -9825,6 +9834,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 </div>
 </div>
 
+{/* Spacer */}
+<div style={{ flex: 1 }} />
+
 {/* Enterprise: Audit Trail */}
 <div className="relative group">
 <button onClick={() => setCurrentPage('audit')} className="katharos-sidebar-icon" title="Audit Trail">
@@ -9857,8 +9869,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 </div>
 )}
 
-{/* Spacer */}
-<div style={{ flex: 1 }} />
 {/* Contact */}
 <div className="relative group mb-5">
 <a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
@@ -10326,13 +10336,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  )}
 
+{/* Spacer */}
+<div style={{ flex: 1 }} />
+
 {/* Enterprise: Audit Trail */}
 <div className="relative group">
-<button
-onClick={() => setCurrentPage('audit')}
-className="katharos-sidebar-icon"
-title="Audit Trail"
->
+<button onClick={() => setCurrentPage('audit')} className="katharos-sidebar-icon" title="Audit Trail">
 <Shield className="w-[18px] h-[18px]" />
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -10342,11 +10351,7 @@ title="Audit Trail"
 
 {/* Enterprise: Data Sources */}
 <div className="relative group">
-<button
-onClick={() => setCurrentPage('dataSources')}
-className="katharos-sidebar-icon"
-title="Data Sources"
->
+<button onClick={() => setCurrentPage('dataSources')} className="katharos-sidebar-icon" title="Data Sources">
 <Database className="w-[18px] h-[18px]" />
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -10357,11 +10362,7 @@ title="Data Sources"
 {/* Enterprise: Admin Panel - only for admins */}
 {hasPermission('manage_users') && (
 <div className="relative group">
-<button
-onClick={() => setCurrentPage('admin')}
-className="katharos-sidebar-icon"
-title="User Management"
->
+<button onClick={() => setCurrentPage('admin')} className="katharos-sidebar-icon" title="User Management">
 <Users className="w-[18px] h-[18px]" />
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
@@ -10370,8 +10371,6 @@ title="User Management"
 </div>
 )}
 
-{/* Spacer */}
-<div style={{ flex: 1 }} />
 {/* Contact */}
 <div className="relative group mb-5">
 <a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">

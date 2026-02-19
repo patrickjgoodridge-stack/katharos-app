@@ -63,7 +63,7 @@ export const createCase = async (caseData) => {
   try {
     const supabaseData = {
       ...transformToSupabase(caseData),
-      id: caseData.id, // Include the case ID
+      id: caseData.id,
     };
 
     console.log('[Cases] Creating case in database:', {
@@ -79,8 +79,25 @@ export const createCase = async (caseData) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // If columns are missing, retry without workflow fields
+      if (isMissingColumnError(error) && dbHasWorkflowColumns !== false) {
+        console.warn('[Cases] Workflow columns missing, retrying without them');
+        dbHasWorkflowColumns = false;
+        const baseData = { ...transformToSupabase(caseData, false), id: caseData.id };
+        const { data: retryData, error: retryError } = await supabase
+          .from('cases')
+          .insert([baseData])
+          .select()
+          .single();
+        if (retryError) throw retryError;
+        console.log('[Cases] Case created successfully (without workflow):', retryData.id);
+        return { data: transformFromSupabase(retryData), error: null };
+      }
+      throw error;
+    }
 
+    dbHasWorkflowColumns = true;
     console.log('[Cases] Case created successfully:', data.id);
     return { data: transformFromSupabase(data), error: null };
   } catch (error) {
@@ -103,13 +120,12 @@ export const updateCase = async (caseId, updates) => {
       description: updates.description,
       risk_level: updates.riskLevel,
       status: updates.status,
-      viewed: updates.viewed || false, // Track if case has been viewed
       chat_history: updates.chatHistory || [],
-      conversation_transcript: updates.conversationTranscript || [], // Full conversation
+      conversation_transcript: updates.conversationTranscript || [],
       documents: updates.documents || [],
-      files: updates.files || [], // Uploaded files
-      analysis_data: updates.analysis || updates.analysisData || {}, // Analysis results
-      screenings: updates.screenings || [], // KYC screenings
+      files: updates.files || [],
+      analysis_data: updates.analysis || updates.analysisData || {},
+      screenings: updates.screenings || [],
       pdf_reports: updates.pdfReports || [],
       network_artifacts: updates.networkArtifacts || [],
       monitoring_enabled: updates.monitoringEnabled || false,
@@ -117,7 +133,7 @@ export const updateCase = async (caseId, updates) => {
       monitoring_alerts: updates.monitoringAlerts || [],
       email_domain: updates.emailDomain || '',
       created_by_email: updates.createdByEmail || '',
-      updated_at: new Date().toISOString(), // Update timestamp
+      updated_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -180,48 +196,81 @@ export const syncCase = async (caseData) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingColumnError(error) && dbHasWorkflowColumns !== false) {
+        console.warn('[Cases] Workflow columns missing, retrying sync without them');
+        dbHasWorkflowColumns = false;
+        const baseData = { ...transformToSupabase(caseData, false), id: caseData.id, updated_at: new Date().toISOString() };
+        const { data: retryData, error: retryError } = await supabase
+          .from('cases')
+          .upsert([baseData], { onConflict: 'id' })
+          .select()
+          .single();
+        if (retryError) throw retryError;
+        return { data: transformFromSupabase(retryData), error: null };
+      }
+      throw error;
+    }
 
+    if (dbHasWorkflowColumns === null) dbHasWorkflowColumns = true;
     return { data: transformFromSupabase(data), error: null };
   } catch (error) {
-    console.error('Error syncing case:', error);
+    console.error('[Cases] Error syncing case:', error);
     return { data: null, error };
   }
 };
 
 /**
+ * Cache whether the DB has workflow columns (auto-detected on first write)
+ * null = unknown, true = columns exist, false = columns missing
+ */
+let dbHasWorkflowColumns = null;
+
+/**
  * Transform app case format to Supabase format
  */
-const transformToSupabase = (caseData) => ({
-  name: caseData.name,
-  description: caseData.description || '',
-  risk_level: caseData.riskLevel || 'UNKNOWN',
-  status: caseData.status || 'active',
-  viewed: caseData.viewed || false, // Track if case has been viewed
-  chat_history: caseData.chatHistory || [],
-  conversation_transcript: caseData.conversationTranscript || [], // Full conversation history
-  documents: caseData.documents || [],
-  files: caseData.files || [], // Uploaded files
-  analysis_data: caseData.analysis || caseData.analysisData || {}, // Analysis results
-  screenings: caseData.screenings || [], // KYC screening results
-  pdf_reports: caseData.pdfReports || [],
-  network_artifacts: caseData.networkArtifacts || [],
-  monitoring_enabled: caseData.monitoringEnabled || false,
-  monitoring_last_run: caseData.monitoringLastRun || null,
-  monitoring_alerts: caseData.monitoringAlerts || [],
-  email_domain: caseData.emailDomain || '',
-  created_by_email: caseData.createdByEmail || '',
-  // Workflow fields
-  workflow_status: caseData.workflowStatus || 'new',
-  assigned_to: caseData.assignedTo || null,
-  reviewed_by: caseData.reviewedBy || null,
-  escalated_by: caseData.escalatedBy || null,
-  escalation_reason: caseData.escalationReason || null,
-  review_decision: caseData.reviewDecision || null,
-  review_notes: caseData.reviewNotes || null,
-  due_date: caseData.dueDate || null,
-  priority: caseData.priority || 'medium',
-});
+const transformToSupabase = (caseData, includeWorkflow = true) => {
+  // Only include columns that exist in the actual DB schema
+  const base = {
+    name: caseData.name,
+    description: caseData.description || '',
+    risk_level: caseData.riskLevel || 'UNKNOWN',
+    status: caseData.status || 'active',
+    chat_history: caseData.chatHistory || [],
+    conversation_transcript: caseData.conversationTranscript || [],
+    documents: caseData.documents || [],
+    files: caseData.files || [],
+    analysis_data: caseData.analysis || caseData.analysisData || {},
+    screenings: caseData.screenings || [],
+    pdf_reports: caseData.pdfReports || [],
+    network_artifacts: caseData.networkArtifacts || [],
+    monitoring_enabled: caseData.monitoringEnabled || false,
+    monitoring_last_run: caseData.monitoringLastRun || null,
+    monitoring_alerts: caseData.monitoringAlerts || [],
+    email_domain: caseData.emailDomain || '',
+    created_by_email: caseData.createdByEmail || '',
+  };
+
+  if (includeWorkflow && dbHasWorkflowColumns !== false) {
+    base.workflow_status = caseData.workflowStatus || 'new';
+    base.assigned_to = caseData.assignedTo || null;
+    base.reviewed_by = caseData.reviewedBy || null;
+    base.escalated_by = caseData.escalatedBy || null;
+    base.escalation_reason = caseData.escalationReason || null;
+    base.review_decision = caseData.reviewDecision || null;
+    base.review_notes = caseData.reviewNotes || null;
+    base.due_date = caseData.dueDate || null;
+    base.priority = caseData.priority || 'medium';
+  }
+
+  return base;
+};
+
+/**
+ * Check if a Supabase error is due to missing columns
+ */
+const isMissingColumnError = (error) =>
+  error?.code === 'PGRST204' || (error?.message || '').includes('column');
 
 /**
  * Transform Supabase format to app case format
@@ -232,16 +281,16 @@ const transformFromSupabase = (data) => ({
   description: data.description,
   riskLevel: data.risk_level || 'UNKNOWN',
   status: data.status,
-  viewed: data.viewed || false, // Track if case has been viewed
+  viewed: data.viewed || false,
   createdAt: data.created_at,
   updatedAt: data.updated_at,
   chatHistory: data.chat_history || [],
-  conversationTranscript: data.conversation_transcript || [], // Full conversation history
+  conversationTranscript: data.conversation_transcript || [],
   documents: data.documents || [],
-  files: data.files || [], // Uploaded files
-  analysis: data.analysis_data || {}, // Analysis results
+  files: data.files || [],
+  analysis: data.analysis_data || {},
   analysisData: data.analysis_data || {},
-  screenings: data.screenings || [], // KYC screening results
+  screenings: data.screenings || [],
   pdfReports: data.pdf_reports || [],
   networkArtifacts: data.network_artifacts || [],
   monitoringEnabled: data.monitoring_enabled || false,
@@ -249,7 +298,7 @@ const transformFromSupabase = (data) => ({
   monitoringAlerts: data.monitoring_alerts || [],
   emailDomain: data.email_domain || '',
   createdByEmail: data.created_by_email || '',
-  // Workflow fields
+  // Workflow fields (safe - just returns defaults if columns don't exist in DB)
   workflowStatus: data.workflow_status || 'new',
   assignedTo: data.assigned_to || null,
   reviewedBy: data.reviewed_by || null,
