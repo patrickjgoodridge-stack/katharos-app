@@ -1,7 +1,7 @@
 // AuthPage.js - Full Auth: Password + Magic Link OTP + Google OAuth
 import { useState } from 'react';
 import { useAuth } from './AuthContext';
-import { Mail, ArrowRight, Loader2, User, Home, ArrowLeft, ShieldCheck, Lock, KeyRound } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, User, Building2, ArrowLeft, ShieldCheck, Lock, KeyRound } from 'lucide-react';
 
 // ---- Shared layout wrapper (outside component to preserve identity across renders) ----
 const PageShell = ({ children, footer }) => (
@@ -410,7 +410,7 @@ const AuthPage = ({ onSuccess }) => {
         {!isSignIn && (
           <div style={{ marginBottom: '16px' }}>
             <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
-              <Home style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+              <Building2 style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
               <input type="text" value={formData.company} onChange={handleChange('company')} placeholder="Company" autoComplete="organization" style={inputStyle} />
               <span style={{ fontSize: '11px', color: '#6b6b6b', flexShrink: 0 }}>Optional</span>
             </div>
