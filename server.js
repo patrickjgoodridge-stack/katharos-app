@@ -34,7 +34,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.raw({ type: 'application/pdf', limit: '50mb' }));
 
-const ANTHROPIC_API_KEY = process.env.REACT_APP_ANTHROPIC_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 // Real sanctions screening endpoint
 app.post('/api/screen-sanctions', (req, res) => {

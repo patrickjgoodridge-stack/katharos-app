@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -212,6 +212,7 @@ export default function Katharos() {
  const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
+ const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin', 'accuracy'
  const [cases, setCases] = useState(() => {
    try {
      const stored = localStorage.getItem('marlowe_cases');
@@ -8179,70 +8180,48 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
-{currentPage === 'audit' && (
+{currentPage === 'settings' && (
   <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
     <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
+        <button onClick={() => setCurrentPage('newCase')} className="p-2 hover:bg-gray-200 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Audit Trail</h2>
-          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Immutable log of all system activity</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Settings</h2>
+          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>System configuration and monitoring</p>
         </div>
       </div>
-      <AuditTrailPanel />
-    </div>
-  </div>
-)}
-
-{currentPage === 'dataSources' && (
-  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
-    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Data Sources</h2>
-          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>API health and connection status</p>
-        </div>
+      {/* Settings Tabs */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid #e5e7eb', paddingBottom: '0' }}>
+        {[
+          { id: 'audit', label: 'Audit Trail', icon: Shield },
+          { id: 'dataSources', label: 'Data Sources', icon: Database },
+          ...(hasPermission('manage_users') ? [{ id: 'admin', label: 'Users', icon: Users }] : []),
+          { id: 'accuracy', label: 'Accuracy', icon: Target },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setSettingsTab(tab.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '10px 16px', fontSize: '13px', fontWeight: settingsTab === tab.id ? 600 : 400,
+              color: settingsTab === tab.id ? '#1a1a1a' : '#888',
+              background: 'none', border: 'none', cursor: 'pointer',
+              borderBottom: settingsTab === tab.id ? '2px solid #1a1a1a' : '2px solid transparent',
+              marginBottom: '-1px', transition: 'all 0.15s'
+            }}
+          >
+            <tab.icon style={{ width: '14px', height: '14px' }} />
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <DataSourcesPanel />
-    </div>
-  </div>
-)}
-
-{currentPage === 'admin' && (
-  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
-    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>User Management</h2>
-          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Roles, permissions, and team access</p>
-        </div>
-      </div>
-      <AdminPanel />
-    </div>
-  </div>
-)}
-
-{currentPage === 'accuracy' && (
-  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
-    <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={goToLanding} className="p-2 hover:bg-gray-200 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Accuracy Dashboard</h2>
-          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>Screening precision and false positive rates</p>
-        </div>
-      </div>
-      <AccuracyDashboard />
+      {/* Tab Content */}
+      {settingsTab === 'audit' && <AuditTrailPanel />}
+      {settingsTab === 'dataSources' && <DataSourcesPanel />}
+      {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
+      {settingsTab === 'accuracy' && <AccuracyDashboard />}
     </div>
   </div>
 )}
@@ -9857,37 +9836,15 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 {/* Spacer */}
 <div style={{ flex: 1 }} />
 
-{/* Enterprise: Audit Trail */}
+{/* Settings */}
 <div className="relative group">
-<button onClick={() => setCurrentPage('audit')} className="katharos-sidebar-icon" title="Audit Trail">
-<Shield className="w-[18px] h-[18px]" />
+<button onClick={() => setCurrentPage('settings')} className="katharos-sidebar-icon" title="Settings">
+<Settings className="w-[18px] h-[18px]" />
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Audit Trail</div>
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Settings</div>
 </div>
 </div>
-
-{/* Enterprise: Data Sources */}
-<div className="relative group">
-<button onClick={() => setCurrentPage('dataSources')} className="katharos-sidebar-icon" title="Data Sources">
-<Database className="w-[18px] h-[18px]" />
-</button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Data Sources</div>
-</div>
-</div>
-
-{/* Enterprise: Admin - only for admins */}
-{hasPermission('manage_users') && (
-<div className="relative group">
-<button onClick={() => setCurrentPage('admin')} className="katharos-sidebar-icon" title="User Management">
-<Users className="w-[18px] h-[18px]" />
-</button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>User Management</div>
-</div>
-</div>
-)}
 
 {/* Contact */}
 <div className="relative group mb-5">
@@ -10359,37 +10316,15 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 {/* Spacer */}
 <div style={{ flex: 1 }} />
 
-{/* Enterprise: Audit Trail */}
+{/* Settings */}
 <div className="relative group">
-<button onClick={() => setCurrentPage('audit')} className="katharos-sidebar-icon" title="Audit Trail">
-<Shield className="w-[18px] h-[18px]" />
+<button onClick={() => setCurrentPage('settings')} className="katharos-sidebar-icon" title="Settings">
+<Settings className="w-[18px] h-[18px]" />
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Audit Trail</div>
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Settings</div>
 </div>
 </div>
-
-{/* Enterprise: Data Sources */}
-<div className="relative group">
-<button onClick={() => setCurrentPage('dataSources')} className="katharos-sidebar-icon" title="Data Sources">
-<Database className="w-[18px] h-[18px]" />
-</button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Data Sources</div>
-</div>
-</div>
-
-{/* Enterprise: Admin Panel - only for admins */}
-{hasPermission('manage_users') && (
-<div className="relative group">
-<button onClick={() => setCurrentPage('admin')} className="katharos-sidebar-icon" title="User Management">
-<Users className="w-[18px] h-[18px]" />
-</button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>User Management</div>
-</div>
-</div>
-)}
 
 {/* Contact */}
 <div className="relative group mb-5">
@@ -11391,46 +11326,18 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
 
- {/* Audit Trail with tooltip */}
+ {/* Settings with tooltip */}
  <div className="relative group">
  <button
- onClick={() => setCurrentPage('audit')}
+ onClick={() => setCurrentPage('settings')}
  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
  >
- <Shield className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ <Settings className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Audit Trail</div>
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Settings</div>
  </div>
  </div>
-
- {/* Data Sources with tooltip */}
- <div className="relative group">
- <button
- onClick={() => setCurrentPage('dataSources')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- >
- <Database className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
- </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Data Sources</div>
- </div>
- </div>
-
- {/* Admin Panel with tooltip - only for admins */}
- {hasPermission('manage_users') && (
- <div className="relative group">
- <button
- onClick={() => setCurrentPage('admin')}
- className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
- >
- <Users className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
- </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
- <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">User Management</div>
- </div>
- </div>
- )}
 
  {/* Dark Mode Toggle with tooltip */}
  <div className="relative group">

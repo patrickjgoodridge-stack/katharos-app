@@ -3,7 +3,7 @@
 
 class AdverseMediaService {
   constructor() {
-    this.anthropicKey = process.env.REACT_APP_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+    this.anthropicKey = process.env.ANTHROPIC_API_KEY;
     this.newsApiKey = process.env.NEWS_API_KEY || null;
     this.bingApiKey = process.env.BING_NEWS_API_KEY || null;
   }

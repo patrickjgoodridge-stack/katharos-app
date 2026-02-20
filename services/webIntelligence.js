@@ -6,7 +6,7 @@ const { BoundedCache } = require('./boundedCache');
 
 class WebIntelligenceService {
   constructor() {
-    this.apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+    this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 

@@ -148,7 +148,7 @@ const LandingPage = ({
             <button
               onClick={() => startNewCase()}
               className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
-              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px' }}
+              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px', cursor: 'pointer' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.opacity = '0.85';
                 e.currentTarget.style.transform = 'translateY(-1px)';
