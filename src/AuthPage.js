@@ -1,17 +1,19 @@
-// AuthPage.js - Get Started Page
+// AuthPage.js - Get Started Page with OTP Verification + Google OAuth
 import { useState } from 'react';
 import { useAuth } from './AuthContext';
-import { Mail, ArrowRight, Loader2, User, Home } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, User, Home, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 const AuthPage = ({ onSuccess }) => {
-  const { submitEmail } = useAuth();
+  const { submitEmail, verifyOtp, signInWithGoogle, awaitingOtp } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     company: '',
     email: '',
   });
+  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showOtp, setShowOtp] = useState(false);
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -31,7 +33,6 @@ const AuthPage = ({ onSuccess }) => {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email.trim())) {
       setError('Please enter a valid email address');
@@ -40,8 +41,12 @@ const AuthPage = ({ onSuccess }) => {
 
     setLoading(true);
     try {
-      await submitEmail(formData.email, formData.name, formData.company);
-      if (onSuccess) onSuccess();
+      const result = await submitEmail(formData.email, formData.name, formData.company);
+      if (result.success) {
+        setShowOtp(true);
+      } else {
+        setError(result.error || 'Something went wrong. Please try again.');
+      }
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -49,6 +54,271 @@ const AuthPage = ({ onSuccess }) => {
     }
   };
 
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!otpCode.trim() || otpCode.trim().length < 6) {
+      setError('Please enter the 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await verifyOtp(formData.email, otpCode);
+      if (result.success) {
+        if (onSuccess) onSuccess();
+      } else {
+        setError(result.error || 'Invalid code. Please try again.');
+      }
+    } catch (err) {
+      setError('Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await submitEmail(formData.email, formData.name, formData.company);
+      if (!result.success) {
+        setError(result.error || 'Failed to resend code.');
+      }
+    } catch {
+      setError('Failed to resend code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        setError(result.error || 'Google sign-in failed.');
+        setLoading(false);
+      }
+      // On success, page will redirect to Google OAuth
+    } catch {
+      setError('Google sign-in failed.');
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setShowOtp(false);
+    setOtpCode('');
+    setError('');
+  };
+
+  const inputStyle = {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    outline: 'none',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: '14px',
+    color: '#ffffff',
+    padding: '13px 0'
+  };
+
+  const inputWrapStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    background: '#242424',
+    border: '1px solid #3a3a3a',
+    borderRadius: '6px',
+    padding: '0 14px',
+    transition: 'border-color 0.2s'
+  };
+
+  // OTP Verification Screen
+  if (showOtp || awaitingOtp) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#1a1a1a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Inter', -apple-system, sans-serif"
+      }}>
+        <div style={{ width: '100%', maxWidth: '400px', padding: '0 24px' }}>
+          {/* Logo */}
+          <div style={{
+            fontFamily: "Georgia, 'Times New Roman', serif",
+            fontSize: '28px',
+            fontWeight: 400,
+            color: '#ffffff',
+            textAlign: 'center',
+            letterSpacing: '-0.5px',
+            marginBottom: '48px'
+          }}>
+            Katharos
+          </div>
+
+          {/* Card */}
+          <div style={{
+            background: '#2d2d2d',
+            border: '1px solid #3a3a3a',
+            borderRadius: '8px',
+            padding: '36px 32px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginBottom: '6px' }}>
+              <ShieldCheck style={{ width: '20px', height: '20px', color: '#4caf50' }} />
+              <h1 style={{
+                fontSize: '20px',
+                fontWeight: 600,
+                color: '#ffffff',
+                textAlign: 'center',
+                letterSpacing: '-0.3px',
+                margin: 0
+              }}>
+                Check your email
+              </h1>
+            </div>
+            <p style={{
+              fontSize: '13px',
+              color: '#6b6b6b',
+              textAlign: 'center',
+              marginBottom: '32px'
+            }}>
+              We sent a 6-digit code to <strong style={{ color: '#a1a1a1' }}>{formData.email}</strong>
+            </p>
+
+            {error && (
+              <div style={{
+                marginBottom: '20px',
+                padding: '12px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '6px'
+              }}>
+                <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyOtp}>
+              <div style={{ marginBottom: '16px' }}>
+                <div
+                  style={inputWrapStyle}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+                >
+                  <ShieldCheck style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    autoFocus
+                    maxLength={6}
+                    style={{
+                      ...inputStyle,
+                      letterSpacing: '4px',
+                      fontSize: '18px',
+                      textAlign: 'center',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.length < 6}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  marginTop: '8px',
+                  background: otpCode.length >= 6 ? '#ffffff' : '#3a3a3a',
+                  color: otpCode.length >= 6 ? '#1a1a1a' : '#6b6b6b',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: loading || otpCode.length < 6 ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: loading ? 0.7 : 1,
+                  transition: 'all 0.15s'
+                }}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    Verify
+                    <ArrowRight style={{ width: '16px', height: '16px' }} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={loading}
+                style={{
+                  color: '#6b6b6b',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif",
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                }}
+              >
+                Resend code
+              </button>
+            </div>
+
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={handleBack}
+                style={{
+                  color: '#6b6b6b',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif",
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <ArrowLeft style={{ width: '12px', height: '12px' }} />
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Main Sign-In Screen
   return (
     <div style={{
       minHeight: '100vh',
@@ -98,7 +368,6 @@ const AuthPage = ({ onSuccess }) => {
             Enter your details to access Katharos
           </p>
 
-          {/* Error Message */}
           {error && (
             <div style={{
               marginBottom: '20px',
@@ -107,7 +376,7 @@ const AuthPage = ({ onSuccess }) => {
               border: '1px solid rgba(239, 68, 68, 0.25)',
               borderRadius: '6px'
             }}>
-              <p style={{ fontSize: '13px', color: '#ef4444' }}>{error}</p>
+              <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
             </div>
           )}
 
@@ -115,18 +384,10 @@ const AuthPage = ({ onSuccess }) => {
           <form onSubmit={handleSubmit}>
             {/* Name */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                background: '#242424',
-                border: '1px solid #3a3a3a',
-                borderRadius: '6px',
-                padding: '0 14px',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+              <div
+                style={inputWrapStyle}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
               >
                 <User style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
                 <input
@@ -135,34 +396,17 @@ const AuthPage = ({ onSuccess }) => {
                   onChange={handleChange('name')}
                   placeholder="Your name"
                   autoFocus
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: '14px',
-                    color: '#ffffff',
-                    padding: '13px 0'
-                  }}
+                  style={inputStyle}
                 />
               </div>
             </div>
 
             {/* Company */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                background: '#242424',
-                border: '1px solid #3a3a3a',
-                borderRadius: '6px',
-                padding: '0 14px',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+              <div
+                style={inputWrapStyle}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
               >
                 <Home style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
                 <input
@@ -170,16 +414,7 @@ const AuthPage = ({ onSuccess }) => {
                   value={formData.company}
                   onChange={handleChange('company')}
                   placeholder="Company"
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: '14px',
-                    color: '#ffffff',
-                    padding: '13px 0'
-                  }}
+                  style={inputStyle}
                 />
                 <span style={{ fontSize: '11px', color: '#6b6b6b', flexShrink: 0 }}>Optional</span>
               </div>
@@ -187,18 +422,10 @@ const AuthPage = ({ onSuccess }) => {
 
             {/* Email */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                background: '#242424',
-                border: '1px solid #3a3a3a',
-                borderRadius: '6px',
-                padding: '0 14px',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+              <div
+                style={inputWrapStyle}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
               >
                 <Mail style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
                 <input
@@ -206,16 +433,7 @@ const AuthPage = ({ onSuccess }) => {
                   value={formData.email}
                   onChange={handleChange('email')}
                   placeholder="Email"
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: '14px',
-                    color: '#ffffff',
-                    padding: '13px 0'
-                  }}
+                  style={inputStyle}
                 />
               </div>
             </div>
@@ -249,7 +467,7 @@ const AuthPage = ({ onSuccess }) => {
               {loading ? (
                 <>
                   <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
-                  Loading...
+                  Sending code...
                 </>
               ) : (
                 <>
@@ -275,6 +493,8 @@ const AuthPage = ({ onSuccess }) => {
           {/* Google SSO Button */}
           <button
             type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
             style={{
               width: '100%',
               padding: '12px',
@@ -285,7 +505,7 @@ const AuthPage = ({ onSuccess }) => {
               fontSize: '13px',
               fontWeight: 500,
               color: '#a1a1a1',
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

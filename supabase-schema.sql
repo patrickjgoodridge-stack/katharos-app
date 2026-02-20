@@ -488,3 +488,214 @@ CREATE INDEX IF NOT EXISTS cases_priority_idx ON cases(priority);
 -- =====================================================================
 
 ALTER TABLE metrics_sanctions ADD COLUMN IF NOT EXISTS source_breakdown JSONB DEFAULT '{}'::jsonb;
+
+-- =====================================================================
+-- AUTH_ID COLUMN ON USERS TABLE - Links to Supabase Auth
+-- =====================================================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_id UUID;
+CREATE UNIQUE INDEX IF NOT EXISTS users_auth_id_idx ON users(auth_id);
+
+-- =====================================================================
+-- RLS MIGRATION - Replace open policies with workspace-scoped policies
+-- Run this AFTER enabling Supabase Auth (Email OTP + Google OAuth)
+-- =====================================================================
+
+-- Helper function: returns workspace ID (domain for work emails, full email for personal)
+CREATE OR REPLACE FUNCTION get_workspace_id()
+RETURNS TEXT AS $$
+DECLARE
+  user_email TEXT;
+  user_domain TEXT;
+  personal_domains TEXT[] := ARRAY[
+    'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
+    'aol.com','protonmail.com','mail.com','zoho.com','yandex.com',
+    'live.com','msn.com','me.com','mac.com'
+  ];
+BEGIN
+  user_email := lower(auth.jwt() ->> 'email');
+  IF user_email IS NULL THEN RETURN NULL; END IF;
+  user_domain := split_part(user_email, '@', 2);
+  IF user_domain = ANY(personal_domains) THEN
+    RETURN user_email;
+  ELSE
+    RETURN user_domain;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- =====================================================================
+-- CASES TABLE - Workspace-scoped RLS
+-- =====================================================================
+DROP POLICY IF EXISTS "Users can insert their own cases" ON cases;
+DROP POLICY IF EXISTS "Users can view their own cases" ON cases;
+DROP POLICY IF EXISTS "Users can update their own cases" ON cases;
+DROP POLICY IF EXISTS "Users can delete their own cases" ON cases;
+
+CREATE POLICY "cases_insert" ON cases FOR INSERT
+  WITH CHECK (auth.jwt() ->> 'email' IS NOT NULL);
+
+CREATE POLICY "cases_select" ON cases FOR SELECT
+  USING (
+    email_domain = get_workspace_id()
+    OR created_by_email = lower(auth.jwt() ->> 'email')
+  );
+
+CREATE POLICY "cases_update" ON cases FOR UPDATE
+  USING (
+    email_domain = get_workspace_id()
+    OR created_by_email = lower(auth.jwt() ->> 'email')
+  );
+
+CREATE POLICY "cases_delete" ON cases FOR DELETE
+  USING (created_by_email = lower(auth.jwt() ->> 'email'));
+
+-- =====================================================================
+-- SCREENINGS TABLE - Workspace-scoped RLS
+-- =====================================================================
+DROP POLICY IF EXISTS "Users can insert screenings" ON screenings;
+DROP POLICY IF EXISTS "Users can view screenings" ON screenings;
+DROP POLICY IF EXISTS "Users can update screenings" ON screenings;
+
+CREATE POLICY "screenings_insert" ON screenings FOR INSERT
+  WITH CHECK (user_email = lower(auth.jwt() ->> 'email'));
+
+CREATE POLICY "screenings_select" ON screenings FOR SELECT
+  USING (email_domain = get_workspace_id());
+
+CREATE POLICY "screenings_update" ON screenings FOR UPDATE
+  USING (user_email = lower(auth.jwt() ->> 'email'));
+
+-- =====================================================================
+-- AUDIT LOGS TABLE - Insert by authenticated, select by self or admin
+-- =====================================================================
+DROP POLICY IF EXISTS "Allow audit log inserts" ON audit_logs;
+DROP POLICY IF EXISTS "Allow audit log reads" ON audit_logs;
+
+CREATE POLICY "audit_insert" ON audit_logs FOR INSERT
+  WITH CHECK (user_email = lower(auth.jwt() ->> 'email'));
+
+CREATE POLICY "audit_select" ON audit_logs FOR SELECT
+  USING (
+    user_email = lower(auth.jwt() ->> 'email')
+    OR EXISTS (
+      SELECT 1 FROM users
+      WHERE users.email = lower(auth.jwt() ->> 'email')
+      AND users.email_domain = split_part(audit_logs.user_email, '@', 2)
+      AND users.role = 'admin'
+    )
+  );
+
+-- =====================================================================
+-- USERS TABLE - View team, insert self, admin can update team
+-- =====================================================================
+DROP POLICY IF EXISTS "Users can view users" ON users;
+DROP POLICY IF EXISTS "Users can insert" ON users;
+DROP POLICY IF EXISTS "Users can update" ON users;
+
+CREATE POLICY "users_select" ON users FOR SELECT
+  USING (email_domain = get_workspace_id());
+
+CREATE POLICY "users_insert" ON users FOR INSERT
+  WITH CHECK (email = lower(auth.jwt() ->> 'email'));
+
+CREATE POLICY "users_update" ON users FOR UPDATE
+  USING (
+    email = lower(auth.jwt() ->> 'email')
+    OR EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.email = lower(auth.jwt() ->> 'email')
+      AND u.email_domain = users.email_domain
+      AND u.role = 'admin'
+    )
+  );
+
+-- =====================================================================
+-- TEAMS TABLE - Workspace-scoped
+-- =====================================================================
+DROP POLICY IF EXISTS "Teams viewable" ON teams;
+DROP POLICY IF EXISTS "Teams insertable" ON teams;
+DROP POLICY IF EXISTS "Teams updatable" ON teams;
+
+CREATE POLICY "teams_select" ON teams FOR SELECT
+  USING (domain = get_workspace_id());
+
+CREATE POLICY "teams_insert" ON teams FOR INSERT
+  WITH CHECK (auth.jwt() ->> 'email' IS NOT NULL);
+
+CREATE POLICY "teams_update" ON teams FOR UPDATE
+  USING (domain = get_workspace_id());
+
+-- =====================================================================
+-- CASE ACTIVITIES TABLE - Workspace-scoped via case
+-- =====================================================================
+DROP POLICY IF EXISTS "Activities insertable" ON case_activities;
+DROP POLICY IF EXISTS "Activities viewable" ON case_activities;
+
+CREATE POLICY "activities_insert" ON case_activities FOR INSERT
+  WITH CHECK (user_email = lower(auth.jwt() ->> 'email'));
+
+CREATE POLICY "activities_select" ON case_activities FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM cases
+      WHERE cases.id = case_activities.case_id
+      AND (
+        cases.email_domain = get_workspace_id()
+        OR cases.created_by_email = lower(auth.jwt() ->> 'email')
+      )
+    )
+  );
+
+-- =====================================================================
+-- COLLECTED EMAILS - Keep insert open, restrict select to self
+-- =====================================================================
+DROP POLICY IF EXISTS "Anyone can insert emails" ON collected_emails;
+DROP POLICY IF EXISTS "Only admins can view emails" ON collected_emails;
+
+CREATE POLICY "collected_insert" ON collected_emails FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "collected_select" ON collected_emails FOR SELECT
+  USING (email = lower(auth.jwt() ->> 'email'));
+
+CREATE POLICY "collected_update" ON collected_emails FOR UPDATE
+  USING (email = lower(auth.jwt() ->> 'email'));
+
+-- =====================================================================
+-- CONTACT SUBMISSIONS - Keep insert open, restrict select
+-- =====================================================================
+DROP POLICY IF EXISTS "Anyone can submit contact forms" ON contact_submissions;
+DROP POLICY IF EXISTS "Only admins can view contact submissions" ON contact_submissions;
+
+CREATE POLICY "contact_insert" ON contact_submissions FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "contact_select" ON contact_submissions FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- =====================================================================
+-- METRICS TABLES - Keep insert open (server writes), select authenticated
+-- =====================================================================
+DROP POLICY IF EXISTS "Allow metrics inserts" ON metrics_investigations;
+DROP POLICY IF EXISTS "Allow metrics inserts" ON metrics_retrievals;
+DROP POLICY IF EXISTS "Allow metrics inserts" ON metrics_sanctions;
+DROP POLICY IF EXISTS "Allow metrics inserts" ON metrics_daily;
+DROP POLICY IF EXISTS "Allow metrics updates" ON metrics_retrievals;
+DROP POLICY IF EXISTS "Allow metrics updates" ON metrics_sanctions;
+DROP POLICY IF EXISTS "Allow metrics updates" ON metrics_daily;
+
+CREATE POLICY "metrics_inv_insert" ON metrics_investigations FOR INSERT WITH CHECK (true);
+CREATE POLICY "metrics_inv_select" ON metrics_investigations FOR SELECT USING (auth.jwt() ->> 'email' IS NOT NULL);
+
+CREATE POLICY "metrics_ret_insert" ON metrics_retrievals FOR INSERT WITH CHECK (true);
+CREATE POLICY "metrics_ret_select" ON metrics_retrievals FOR SELECT USING (auth.jwt() ->> 'email' IS NOT NULL);
+CREATE POLICY "metrics_ret_update" ON metrics_retrievals FOR UPDATE USING (auth.jwt() ->> 'email' IS NOT NULL);
+
+CREATE POLICY "metrics_sanc_insert" ON metrics_sanctions FOR INSERT WITH CHECK (true);
+CREATE POLICY "metrics_sanc_select" ON metrics_sanctions FOR SELECT USING (auth.jwt() ->> 'email' IS NOT NULL);
+CREATE POLICY "metrics_sanc_update" ON metrics_sanctions FOR UPDATE USING (auth.jwt() ->> 'email' IS NOT NULL);
+
+CREATE POLICY "metrics_daily_insert" ON metrics_daily FOR INSERT WITH CHECK (true);
+CREATE POLICY "metrics_daily_select" ON metrics_daily FOR SELECT USING (auth.jwt() ->> 'email' IS NOT NULL);
+CREATE POLICY "metrics_daily_update" ON metrics_daily FOR UPDATE USING (auth.jwt() ->> 'email' IS NOT NULL);

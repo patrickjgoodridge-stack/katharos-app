@@ -3,14 +3,16 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 export const logAudit = async (action, { entityType, entityId, details = {} } = {}) => {
   if (!isSupabaseConfigured()) return;
 
-  const userStr = localStorage.getItem('marlowe_user');
-  if (!userStr) return;
-
   try {
-    const user = JSON.parse(userStr);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    const email = session.user.email;
+    const name = session.user.user_metadata?.name || session.user.user_metadata?.full_name || null;
+
     await supabase.from('audit_logs').insert([{
-      user_email: user.email,
-      user_name: user.name || null,
+      user_email: email,
+      user_name: name,
       action,
       entity_type: entityType || null,
       entity_id: entityId || null,

@@ -13,7 +13,7 @@ export const hasPermission = (userRecord, permission) => {
   return ROLE_PERMISSIONS[userRecord.role]?.[permission] || false;
 };
 
-export const getOrCreateUser = async (email, name, company) => {
+export const getOrCreateUser = async (email, name, company, authId) => {
   if (!isSupabaseConfigured()) return null;
 
   const domain = email.split('@')[1]?.toLowerCase() || '';
@@ -27,10 +27,15 @@ export const getOrCreateUser = async (email, name, company) => {
       .single();
 
     if (existing) {
+      const updates = { last_login: new Date().toISOString() };
+      // Sync auth_id if provided and not yet set
+      if (authId && !existing.auth_id) {
+        updates.auth_id = authId;
+      }
       await supabase.from('users')
-        .update({ last_login: new Date().toISOString() })
+        .update(updates)
         .eq('email', email);
-      return { ...existing, last_login: new Date().toISOString() };
+      return { ...existing, ...updates };
     }
 
     // First user for a domain gets admin role
@@ -51,6 +56,7 @@ export const getOrCreateUser = async (email, name, company) => {
         role,
         status: 'active',
         email_domain: domain,
+        auth_id: authId || null,
         last_login: new Date().toISOString(),
       }])
       .select()

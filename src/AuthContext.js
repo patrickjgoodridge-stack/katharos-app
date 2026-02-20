@@ -1,5 +1,5 @@
-// AuthContext.js - Email Gate with Name & Company + Usage Limits + User Roles
-import { createContext, useContext, useState, useEffect } from 'react';
+// AuthContext.js - Supabase Auth with Magic Link OTP + Google OAuth + User Roles
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { getOrCreateUser, hasPermission as checkPermission } from './userService';
 import { logAudit } from './auditService';
@@ -17,14 +17,12 @@ const PERSONAL_DOMAINS = [
 const extractDomain = (email) => email?.split('@')[1]?.toLowerCase() || '';
 const isPersonalEmail = (domain) => PERSONAL_DOMAINS.includes(domain);
 
-// Get workspace ID: domain for work emails, full email for personal
 const getWorkspaceId = (email) => {
   if (!email) return null;
   const domain = extractDomain(email);
   return isPersonalEmail(domain) ? email.toLowerCase() : domain;
 };
 
-// Get display name for workspace
 const getWorkspaceName = (email) => {
   if (!email) return '';
   const domain = extractDomain(email);
@@ -40,7 +38,6 @@ export const useAuth = () => {
 // Store lead info in Supabase
 const storeLead = async (email, name, company) => {
   if (!isSupabaseConfigured()) return;
-
   try {
     await supabase
       .from('collected_emails')
@@ -49,11 +46,8 @@ const storeLead = async (email, name, company) => {
         name: name || null,
         company: company || null,
         created_at: new Date().toISOString()
-      }], {
-        onConflict: 'email',
-      });
+      }], { onConflict: 'email' });
   } catch (err) {
-    // Table might not exist yet - that's okay, we'll still let them in
     console.log('Lead storage note:', err.message);
   }
 };
@@ -61,17 +55,13 @@ const storeLead = async (email, name, company) => {
 // Increment query count for a user
 const incrementQueryCount = async (email) => {
   if (!isSupabaseConfigured() || !email) return;
-
   try {
-    // Get current count and increment
     const { data } = await supabase
       .from('collected_emails')
       .select('query_count')
       .eq('email', email)
       .single();
-
     const currentCount = data?.query_count || 0;
-
     await supabase
       .from('collected_emails')
       .update({ query_count: currentCount + 1 })
@@ -84,14 +74,12 @@ const incrementQueryCount = async (email) => {
 // Check if user is paid in Supabase
 const checkPaidStatus = async (email) => {
   if (!isSupabaseConfigured() || !email) return false;
-
   try {
     const { data } = await supabase
       .from('collected_emails')
       .select('is_paid')
       .eq('email', email)
       .single();
-
     return data?.is_paid === true;
   } catch (err) {
     console.log('Paid status check note:', err.message);
@@ -99,157 +87,231 @@ const checkPaidStatus = async (email) => {
   }
 };
 
-// Get today's date string for tracking daily usage
-const getTodayString = () => {
-  return new Date().toISOString().split('T')[0];
-};
+const getTodayString = () => new Date().toISOString().split('T')[0];
 
-// Get daily usage from localStorage
 const getDailyUsage = (email) => {
   const key = `marlowe_daily_${email}`;
   const stored = localStorage.getItem(key);
   if (!stored) return { date: getTodayString(), count: 0 };
-
   try {
     const data = JSON.parse(stored);
-    // Reset if it's a new day
-    if (data.date !== getTodayString()) {
-      return { date: getTodayString(), count: 0 };
-    }
+    if (data.date !== getTodayString()) return { date: getTodayString(), count: 0 };
     return data;
   } catch {
     return { date: getTodayString(), count: 0 };
   }
 };
 
-// Save daily usage to localStorage
 const saveDailyUsage = (email, count) => {
   const key = `marlowe_daily_${email}`;
-  localStorage.setItem(key, JSON.stringify({
-    date: getTodayString(),
-    count
-  }));
+  localStorage.setItem(key, JSON.stringify({ date: getTodayString(), count }));
 };
 
 export const AuthProvider = ({ children }) => {
-  const [userInfo, setUserInfo] = useState(null);
-  const [userRecord, setUserRecord] = useState(null); // DB user record with role
+  const [session, setSession] = useState(null);
+  const [userRecord, setUserRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
   const [dailyScreenings, setDailyScreenings] = useState(0);
+  const [awaitingOtp, setAwaitingOtp] = useState(false);
+  const [pendingUserInfo, setPendingUserInfo] = useState(null); // name/company stored during OTP flow
+  const initRef = useRef(false);
 
-  useEffect(() => {
-    // Check localStorage for existing user
-    const storedUser = localStorage.getItem('marlowe_user');
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        setUserInfo(userData);
+  // Load user record and related data when we have a session
+  const loadUserData = useCallback(async (authSession) => {
+    if (!authSession?.user?.email) return;
 
-        // Load daily usage
-        const usage = getDailyUsage(userData.email);
-        setDailyScreenings(usage.count);
+    const email = authSession.user.email;
+    const meta = authSession.user.user_metadata || {};
+    const name = meta.name || meta.full_name || pendingUserInfo?.name || '';
+    const company = meta.company || pendingUserInfo?.company || '';
 
-        // Check paid status from Supabase
-        checkPaidStatus(userData.email).then(paid => {
-          setIsPaid(paid);
-        });
+    // Load daily usage
+    const usage = getDailyUsage(email);
+    setDailyScreenings(usage.count);
 
-        // Load user record with role
-        getOrCreateUser(userData.email, userData.name, userData.company).then(record => {
-          if (record) setUserRecord(record);
-        });
-      } catch {
-        localStorage.removeItem('marlowe_user');
-      }
-    }
-    setLoading(false);
-  }, []);
+    // Check paid status
+    checkPaidStatus(email).then(paid => setIsPaid(paid));
 
-  // Submit email to get access
-  const submitEmail = async (email, name, company) => {
-    const userData = {
-      email: email.trim().toLowerCase(),
-      name: name?.trim() || '',
-      company: company?.trim() || '',
-    };
+    // Store lead
+    storeLead(email, name, company);
 
-    // Store in localStorage for persistence
-    localStorage.setItem('marlowe_user', JSON.stringify(userData));
-    setUserInfo(userData);
-
-    // Store in Supabase for collection
-    await storeLead(userData.email, userData.name, userData.company);
-
-    // Create/fetch user record with role
-    const record = await getOrCreateUser(userData.email, userData.name, userData.company);
+    // Get or create user record with role
+    const authId = authSession.user.id;
+    const record = await getOrCreateUser(email, name, company, authId);
     if (record) setUserRecord(record);
 
-    // Audit log
-    logAudit('user_login', { entityType: 'user', entityId: userData.email, details: { name: userData.name, company: userData.company } });
+    // Clear pending info
+    setPendingUserInfo(null);
+  }, [pendingUserInfo]);
 
+  // Initialize auth state
+  useEffect(() => {
+    if (!isSupabaseConfigured() || initRef.current) return;
+    initRef.current = true;
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      if (initialSession) {
+        loadUserData(initialSession);
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        setSession(newSession);
+
+        if (event === 'SIGNED_IN' && newSession) {
+          setAwaitingOtp(false);
+          await loadUserData(newSession);
+          logAudit('user_login', {
+            entityType: 'user',
+            entityId: newSession.user.email,
+            details: { provider: newSession.user.app_metadata?.provider || 'email' }
+          });
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setUserRecord(null);
+          setIsPaid(false);
+          setDailyScreenings(0);
+        }
+      }
+    );
+
+    return () => subscription?.unsubscribe();
+  }, [loadUserData]);
+
+  // Submit email — sends OTP magic link code
+  const submitEmail = async (email, name, company) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Store name/company to use after OTP verification
+    setPendingUserInfo({ name: name?.trim() || '', company: company?.trim() || '' });
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmedEmail,
+      options: {
+        data: {
+          name: name?.trim() || '',
+          company: company?.trim() || '',
+        }
+      }
+    });
+
+    if (error) {
+      setPendingUserInfo(null);
+      return { success: false, error: error.message };
+    }
+
+    setAwaitingOtp(true);
     return { success: true };
   };
 
-  // Sign out (clear user)
-  const signOut = () => {
-    logAudit('user_logout', { entityType: 'user', entityId: userInfo?.email });
-    localStorage.removeItem('marlowe_user');
-    setUserInfo(null);
+  // Verify OTP code
+  const verifyOtp = async (email, token) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: token.trim(),
+      type: 'email',
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Session is set via onAuthStateChange, which triggers loadUserData
+    setAwaitingOtp(false);
+    return { success: true, session: data.session };
+  };
+
+  // Google OAuth
+  const signInWithGoogle = async () => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      }
+    });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  };
+
+  // Sign out
+  const signOut = async () => {
+    if (session?.user?.email) {
+      logAudit('user_logout', { entityType: 'user', entityId: session.user.email });
+    }
+    if (isSupabaseConfigured()) {
+      await supabase.auth.signOut();
+    }
+    setSession(null);
     setUserRecord(null);
+    setAwaitingOtp(false);
+    setPendingUserInfo(null);
   };
 
   // Track a query for the current user
   const trackQuery = () => {
-    if (userInfo?.email) {
-      incrementQueryCount(userInfo.email);
+    if (session?.user?.email) {
+      incrementQueryCount(session.user.email);
     }
   };
 
-  // Check if user can perform a screening
   const canScreen = () => {
     if (isPaid) return true;
     return dailyScreenings < DAILY_FREE_LIMIT;
   };
 
-  // Get remaining screenings for free users
   const screeningsRemaining = isPaid ? Infinity : Math.max(0, DAILY_FREE_LIMIT - dailyScreenings);
 
-  // Increment daily screening count (call this when a screening is performed)
   const incrementScreening = () => {
-    if (userInfo?.email && !isPaid) {
+    if (session?.user?.email && !isPaid) {
       const newCount = dailyScreenings + 1;
       setDailyScreenings(newCount);
-      saveDailyUsage(userInfo.email, newCount);
+      saveDailyUsage(session.user.email, newCount);
     }
-    // Also track total queries
     trackQuery();
   };
 
-  // Refresh paid status (useful after payment)
   const refreshPaidStatus = async () => {
-    if (userInfo?.email) {
-      const paid = await checkPaidStatus(userInfo.email);
+    if (session?.user?.email) {
+      const paid = await checkPaidStatus(session.user.email);
       setIsPaid(paid);
       return paid;
     }
     return false;
   };
 
+  const email = session?.user?.email || null;
+  const userMeta = session?.user?.user_metadata || {};
+
   const value = {
-    user: userInfo,
-    email: userInfo?.email,
+    user: session ? { email, name: userRecord?.name || userMeta.name || userMeta.full_name || '', company: userRecord?.company || userMeta.company || '' } : null,
+    email,
     loading,
     submitEmail,
+    verifyOtp,
+    signInWithGoogle,
     signOut,
-    trackQuery,
-    isAuthenticated: !!userInfo,
-    isConfigured: true, // Email gate is always enabled
+    isAuthenticated: !!session,
+    isConfigured: isSupabaseConfigured(),
+    awaitingOtp,
     // Workspace features
-    domain: userInfo ? extractDomain(userInfo.email) : null,
-    workspaceId: userInfo ? getWorkspaceId(userInfo.email) : null,
-    workspaceName: userInfo ? getWorkspaceName(userInfo.email) : '',
-    isPersonalWorkspace: userInfo ? isPersonalEmail(extractDomain(userInfo.email)) : true,
+    domain: email ? extractDomain(email) : null,
+    workspaceId: email ? getWorkspaceId(email) : null,
+    workspaceName: email ? getWorkspaceName(email) : '',
+    isPersonalWorkspace: email ? isPersonalEmail(extractDomain(email)) : true,
     // Usage limit features
     isPaid,
     canScreen,

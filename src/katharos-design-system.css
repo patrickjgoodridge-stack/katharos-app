@@ -976,3 +976,137 @@ code {
 .animate-slide-up {
   animation: slide-up 0.3s ease;
 }
+
+
+/* ===========================================
+   SETTINGS DARK MODE OVERRIDES
+   Inverts the light-themed enterprise panels
+   =========================================== */
+
+.settings-dark-mode {
+  color: var(--text-primary);
+}
+
+/* Headings */
+.settings-dark-mode h2 {
+  color: var(--text-primary) !important;
+}
+
+/* Muted text */
+.settings-dark-mode span,
+.settings-dark-mode p,
+.settings-dark-mode label,
+.settings-dark-mode div {
+  color: inherit;
+}
+
+/* Tables */
+.settings-dark-mode table {
+  color: var(--text-secondary);
+}
+
+.settings-dark-mode thead tr {
+  background: var(--bg-card) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.settings-dark-mode th {
+  color: var(--text-muted) !important;
+  background: var(--bg-card) !important;
+}
+
+.settings-dark-mode tbody tr {
+  background: var(--bg) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.settings-dark-mode tbody tr:nth-child(even) {
+  background: var(--bg-card) !important;
+}
+
+.settings-dark-mode td {
+  color: var(--text-secondary) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+/* Bordered containers (tables, cards, panels) */
+.settings-dark-mode > div > div[style*="border"] {
+  border-color: var(--border) !important;
+}
+
+/* Inputs and selects */
+.settings-dark-mode input,
+.settings-dark-mode select {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.settings-dark-mode input::placeholder {
+  color: var(--text-dim) !important;
+}
+
+/* Buttons */
+.settings-dark-mode button[style*="border: 1px solid"] {
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+  background: var(--bg-card) !important;
+}
+
+.settings-dark-mode button[style*="border: 1px solid"]:hover {
+  border-color: var(--border-light) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Filter/summary bars with light backgrounds */
+.settings-dark-mode div[style*="background: #f8f9fa"],
+.settings-dark-mode div[style*="background: #f5f5f5"],
+.settings-dark-mode div[style*="background: rgb(248, 249, 250)"],
+.settings-dark-mode div[style*="background: rgb(245, 245, 245)"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* White background cards */
+.settings-dark-mode div[style*="background: white"],
+.settings-dark-mode div[style*="background: rgb(255, 255, 255)"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* Border override for all 1px solid borders */
+.settings-dark-mode div[style*="border: 1px solid #e0e0e0"],
+.settings-dark-mode div[style*="border: 1px solid rgb(224, 224, 224)"] {
+  border-color: var(--border) !important;
+}
+
+/* Dark text overrides */
+.settings-dark-mode *[style*="color: #1a1a1a"],
+.settings-dark-mode *[style*="color: rgb(26, 26, 26)"] {
+  color: var(--text-primary) !important;
+}
+
+.settings-dark-mode *[style*="color: #555"],
+.settings-dark-mode *[style*="color: #333"],
+.settings-dark-mode *[style*="color: rgb(85, 85, 85)"],
+.settings-dark-mode *[style*="color: rgb(51, 51, 51)"] {
+  color: var(--text-secondary) !important;
+}
+
+.settings-dark-mode *[style*="color: #888"],
+.settings-dark-mode *[style*="color: #999"],
+.settings-dark-mode *[style*="color: #777"],
+.settings-dark-mode *[style*="color: rgb(136, 136, 136)"],
+.settings-dark-mode *[style*="color: rgb(153, 153, 153)"] {
+  color: var(--text-muted) !important;
+}
+
+/* Error/info panels */
+.settings-dark-mode div[style*="background: #fff5f5"] {
+  background: var(--color-red-bg) !important;
+}
+
+/* Loading text */
+.settings-dark-mode div[style*="color: #999"][style*="text-align: center"] {
+  color: var(--text-dim) !important;
+}

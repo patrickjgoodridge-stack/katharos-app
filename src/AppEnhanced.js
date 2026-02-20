@@ -8181,19 +8181,19 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 )}
 
 {currentPage === 'settings' && (
-  <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+  <div style={{ background: '#1a1a1a', minHeight: '100vh' }}>
     <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => setCurrentPage('newCase')} className="p-2 hover:bg-gray-200 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={() => setCurrentPage('newCase')} className="p-2 hover:bg-neutral-800 rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-gray-400" />
         </button>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Settings</h2>
-          <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>System configuration and monitoring</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: 0 }}>Settings</h2>
+          <p style={{ fontSize: '14px', color: '#6b6b6b', margin: 0 }}>System configuration and monitoring</p>
         </div>
       </div>
       {/* Settings Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid #e5e7eb', paddingBottom: '0' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid #333', paddingBottom: '0' }}>
         {[
           { id: 'audit', label: 'Audit Trail', icon: Shield },
           { id: 'dataSources', label: 'Data Sources', icon: Database },
@@ -8206,9 +8206,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '10px 16px', fontSize: '13px', fontWeight: settingsTab === tab.id ? 600 : 400,
-              color: settingsTab === tab.id ? '#1a1a1a' : '#888',
+              color: settingsTab === tab.id ? '#ffffff' : '#6b6b6b',
               background: 'none', border: 'none', cursor: 'pointer',
-              borderBottom: settingsTab === tab.id ? '2px solid #1a1a1a' : '2px solid transparent',
+              borderBottom: settingsTab === tab.id ? '2px solid #ffffff' : '2px solid transparent',
               marginBottom: '-1px', transition: 'all 0.15s'
             }}
           >
@@ -8218,10 +8218,12 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         ))}
       </div>
       {/* Tab Content */}
-      {settingsTab === 'audit' && <AuditTrailPanel />}
-      {settingsTab === 'dataSources' && <DataSourcesPanel />}
-      {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
-      {settingsTab === 'accuracy' && <AccuracyDashboard />}
+      <div className="settings-dark-mode">
+        {settingsTab === 'audit' && <AuditTrailPanel />}
+        {settingsTab === 'dataSources' && <DataSourcesPanel />}
+        {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
+        {settingsTab === 'accuracy' && <AccuracyDashboard />}
+      </div>
     </div>
   </div>
 )}
