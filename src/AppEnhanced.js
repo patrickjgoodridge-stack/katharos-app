@@ -212,7 +212,12 @@ export default function Katharos() {
  const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
- const [cases, setCases] = useState([]);
+ const [cases, setCases] = useState(() => {
+   try {
+     const stored = localStorage.getItem('marlowe_cases');
+     return stored ? JSON.parse(stored) : [];
+   } catch { return []; }
+ });
  const [activeCase, setActiveCase] = useState(null);
  const [currentCaseId, setCurrentCaseId] = useState(null); // Track current case for auto-save
  const [files, setFiles] = useState([]);
@@ -465,6 +470,17 @@ const samplesDropdownRef = useRef(null);
    return () => clearInterval(t);
  }, [screeningCountdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
+ // Persist cases to localStorage whenever they change
+ useEffect(() => {
+   try {
+     if (cases.length > 0) {
+       localStorage.setItem('marlowe_cases', JSON.stringify(cases));
+     }
+   } catch (err) {
+     console.warn('[Cases] Failed to save to localStorage:', err);
+   }
+ }, [cases]);
+
  // Reset placeholder index when mode changes to avoid out-of-bounds
  useEffect(() => {
  setPlaceholderIndex(0);
@@ -501,12 +517,16 @@ const samplesDropdownRef = useRef(null);
        return;
      }
 
-     if (data) {
+     if (data && data.length > 0) {
        console.log('[Cases] Loaded', data.length, 'cases from database');
-       setCases(data);
+       // Merge with any localStorage cases that aren't in DB
+       setCases(prev => {
+         const dbIds = new Set(data.map(c => c.id));
+         const localOnly = prev.filter(c => !dbIds.has(c.id));
+         return [...data, ...localOnly];
+       });
      } else {
-       console.log('[Cases] No cases found in database');
-       setCases([]);
+       console.log('[Cases] No cases found in database, keeping local cases');
      }
    } catch (err) {
      console.error('[Cases] Unexpected error loading cases:', err);
@@ -800,7 +820,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  setAnalysis(showConversation ? null : caseData.analysis);
  setChatMessages(caseData.chatHistory || []);
  setConversationMessages(caseData.conversationTranscript || []);
- setCaseName(caseData.name);
+ setCaseName(caseData.name || '');
  setCurrentCaseId(caseData.id);
  setConversationStarted((caseData.conversationTranscript?.length || 0) > 0);
  // Load case screenings into history view
@@ -1569,8 +1589,8 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
    if (job?.result) {
      setKycResults(job.result);
      setSelectedHistoryItem(job.historyItem);
-     setKycQuery(job.query);
-     setKycType(job.type);
+     setKycQuery(job.query || '');
+     setKycType(job.type || 'individual');
      setKycPage('results');
      if (currentPage !== 'kycScreening') setCurrentPage('kycScreening');
    }
@@ -1600,7 +1620,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
 
  // Scout function — now non-blocking, redirects to history
  const runKycScreening = () => {
-   if (!kycQuery.trim()) return;
+   if (!(kycQuery || '').trim()) return;
    submitSearch(kycQuery, kycType, kycCountry, kycYearOfBirth, kycClientRef);
    setKycQuery('');
    setKycYearOfBirth('');
@@ -1622,11 +1642,11 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  // View a historical screening result
  const viewHistoryItem = async (item) => {
  setSelectedHistoryItem(item);
- setKycQuery(item.query);
+ setKycQuery(item.query || '');
  setKycClientRef(item.clientRef || '');
  setKycYearOfBirth(item.yearOfBirth || '');
  setKycCountry(item.country || '');
- setKycType(item.type);
+ setKycType(item.type || 'individual');
  setKycPage('results');
  // If result is slim (loaded from DB summary), fetch full result
  if (item._fromDb && isSupabaseConfigured()) {
@@ -1697,7 +1717,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  // Navigate to results view so kyc-results-content renders this screening
  setSelectedHistoryItem(screening);
  setKycResults(result);
- setKycQuery(screening.query);
+ setKycQuery(screening.query || '');
  setKycClientRef(screening.clientRef || '');
  setKycYearOfBirth(screening.yearOfBirth || '');
  setKycCountry(screening.country || '');
@@ -2718,9 +2738,9 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
 
  // KYC Chat function
  const sendKycChatMessage = async () => {
- if (!kycChatInput.trim() || isKycChatLoading || !kycResults) return;
+ if (!(kycChatInput || '').trim() || isKycChatLoading || !kycResults) return;
 
- const userMessage = kycChatInput.trim();
+ const userMessage = (kycChatInput || '').trim();
  setKycChatInput('');
  setKycChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
  setIsKycChatLoading(true);
@@ -3788,7 +3808,7 @@ Respond with JSON:
  // STEP 8: Synthesis
  updateProgress(8);
 
- const investigationContext = caseDescription.trim()
+ const investigationContext = (caseDescription || '').trim()
  ? `INVESTIGATION CONTEXT:\n${caseDescription}\n\n`
  : '';
 
@@ -6031,7 +6051,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
 
  const analyzeEvidence = async () => {
  console.log('analyzeEvidence called', { files: files.length, caseDescription: caseDescription.substring(0, 50) });
- if (files.length === 0 && !caseDescription.trim()) {
+ if (files.length === 0 && !(caseDescription || '').trim()) {
    console.log('No files or description, returning early');
    return;
  }
@@ -7005,7 +7025,7 @@ Red Flag Indicators to Watch:
 - PEP involvement
 - Complex corporate structures hiding ownership`;
 
- const investigationContext = caseDescription.trim() 
+ const investigationContext = (caseDescription || '').trim() 
  ? `INVESTIGATION CONTEXT:\n${caseDescription}\n\n`
  : '';
 
@@ -7812,9 +7832,9 @@ const getRiskBg = (level) => {
 
  // Chat with Katharos about the case
  const sendChatMessage = async () => {
- if (!chatInput.trim() || isChatLoading) return;
+ if (!(chatInput || '').trim() || isChatLoading) return;
 
- const userMessage = chatInput.trim();
+ const userMessage = (chatInput || '').trim();
  setChatInput('');
  setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
  setIsChatLoading(true);
@@ -8594,7 +8614,7 @@ item.result?.overallRisk === 'LOW' || item.result?.overallRisk === 'CLEAR' ? 'te
  />
  <button
  onClick={createProject}
- disabled={!newProjectName.trim()}
+ disabled={!(newProjectName || '').trim()}
  className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-white disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
  >
  <Plus className="w-4 h-4" />
@@ -8862,7 +8882,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim()}
+ disabled={!(kycQuery || '').trim()}
  className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
  <Search className="w-5 h-5" />
@@ -8881,7 +8901,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  />
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim()}
+ disabled={!(kycQuery || '').trim()}
  className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
  >
  <Search className="w-5 h-5" />
@@ -8903,20 +8923,20 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-gray-400 transition-colors placeholder-gray-400 font-mono text-sm"
  />
  </div>
- {kycQuery.trim() && (
+ {(kycQuery || '').trim() && (
  <div className="flex items-center gap-2 text-xs text-gray-500">
  <span className="px-2 py-1 rounded-md bg-gray-100 border border-gray-200 font-medium">
- {/^T[A-Za-z1-9]{33}$/.test(kycQuery.trim()) ? 'Tron' :
-  /^0x[a-fA-F0-9]{40}$/.test(kycQuery.trim()) ? 'Ethereum' :
-  /^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(kycQuery.trim()) ? 'Bitcoin' :
-  /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(kycQuery.trim()) ? 'Solana' : 'Unknown'}
+ {/^T[A-Za-z1-9]{33}$/.test((kycQuery || '').trim()) ? 'Tron' :
+  /^0x[a-fA-F0-9]{40}$/.test((kycQuery || '').trim()) ? 'Ethereum' :
+  /^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test((kycQuery || '').trim()) ? 'Bitcoin' :
+  /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((kycQuery || '').trim()) ? 'Solana' : 'Unknown'}
  </span>
  <span>blockchain detected</span>
  </div>
  )}
  <button
  onClick={runKycScreening}
- disabled={!kycQuery.trim()}
+ disabled={!(kycQuery || '').trim()}
  className="w-full bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 font-semibold tracking-wide px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
  >
  <Shield className="w-5 h-5" />
@@ -9642,7 +9662,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
            {job.status === 'error' && (
              <button onClick={() => {
                setSearchJobs(prev => prev.filter(j => j.id !== job.id));
-               setKycQuery(job.query); setKycType(job.type);
+               setKycQuery(job.query || ''); setKycType(job.type || 'individual');
              }} className="text-red-400 hover:text-red-300 text-xs">Retry</button>
            )}
          </div>
@@ -10420,7 +10440,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  value={conversationInput}
  onChange={(e) => setConversationInput(e.target.value)}
  onKeyDown={(e) => {
- if (e.key === 'Enter' && !e.shiftKey && (conversationInput.trim() || files.length > 0)) {
+ if (e.key === 'Enter' && !e.shiftKey && ((conversationInput || '').trim() || files.length > 0)) {
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
@@ -10446,13 +10466,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  <button
  onClick={() => {
- if (conversationInput.trim() || files.length > 0) {
+ if ((conversationInput || '').trim() || files.length > 0) {
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
  sendConversationMessage(newCaseId, conversationInput, files);
  }
  }}
- disabled={!conversationInput.trim() && files.length === 0}
+ disabled={!(conversationInput || '').trim() && files.length === 0}
  className="katharos-send-btn"
  >
  <Send className="w-4 h-4" />
@@ -10967,7 +10987,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  ) : (
  <button
  onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
- disabled={!currentCaseId || (!conversationInput.trim() && files.length === 0)}
+ disabled={!currentCaseId || (!(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"
  >
  <Send className="w-4 h-4" />
@@ -11050,7 +11070,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey) {
  e.preventDefault();
- if (caseDescription.trim()) {
+ if ((caseDescription || '').trim()) {
  analyzeEvidence();
  }
  }
@@ -11059,7 +11079,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
                 className="w-full bg-transparent text-gray-900 focus:outline-none resize-none text-base leading-relaxed min-h-[120px]"
  style={{ fontFamily: "'Inter', sans-serif" }}
  />
- {caseDescription.trim() === '' && (
+ {(caseDescription || '').trim() === '' && (
  <div
  key={placeholderIndex}
  className="absolute top-0 left-0 text-gray-500 text-base leading-relaxed pointer-events-none animate-fadeInOut"
@@ -11186,7 +11206,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="relative group">
  <button
  onClick={analyzeEvidence}
- disabled={isAnalyzing || backgroundAnalysis.isRunning || (!caseDescription.trim() && files.length === 0)}
+ disabled={isAnalyzing || backgroundAnalysis.isRunning || (!(caseDescription || '').trim() && files.length === 0)}
  className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
  >
  {(isAnalyzing || backgroundAnalysis.isRunning) ? (
@@ -11204,7 +11224,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  {/* Quick search suggestions */}
- {conversationInput.trim() === '' && files.length === 0 && (
+ {(conversationInput || '').trim() === '' && files.length === 0 && (
  <div className="flex flex-wrap justify-center gap-2 mt-4">
  <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
  {[
@@ -12596,7 +12616,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  />
  <button
  onClick={sendChatMessage}
- disabled={!chatInput.trim() || isChatLoading}
+ disabled={!(chatInput || '').trim() || isChatLoading}
  className="w-10 h-10 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-300 rounded-xl flex items-center justify-center transition-colors"
  >
  <Send className="w-4 h-4 text-gray-900" />
@@ -12719,7 +12739,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  />
  <button
  onClick={sendKycChatMessage}
- disabled={!kycChatInput.trim() || isKycChatLoading}
+ disabled={!(kycChatInput || '').trim() || isKycChatLoading}
  className="bg-white hover:bg-gray-100 disabled:bg-gray-300 text-gray-900 disabled:text-gray-500 p-2 rounded-xl transition-colors"
  >
  <Send className="w-5 h-5" />
