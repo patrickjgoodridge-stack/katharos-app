@@ -232,6 +232,68 @@ export const AuthProvider = ({ children }) => {
     return { success: true, session: data.session };
   };
 
+  // Sign up with email + password
+  const signUpWithPassword = async (email, password, name, company) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const trimmedEmail = email.trim().toLowerCase();
+    setPendingUserInfo({ name: name?.trim() || '', company: company?.trim() || '' });
+
+    const { data, error } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: {
+          name: name?.trim() || '',
+          company: company?.trim() || '',
+        }
+      }
+    });
+
+    if (error) {
+      setPendingUserInfo(null);
+      return { success: false, error: error.message };
+    }
+
+    // If email confirmation is required, user won't have a session yet
+    if (data.user && !data.session) {
+      return { success: true, needsConfirmation: true };
+    }
+
+    // If auto-confirmed (e.g. in dev), session is set via onAuthStateChange
+    return { success: true, needsConfirmation: false };
+  };
+
+  // Sign in with email + password
+  const signInWithPassword = async (email, password) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Session is set via onAuthStateChange, which triggers loadUserData
+    return { success: true };
+  };
+
+  // Reset password (send reset email)
+  const resetPassword = async (email) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: `${window.location.origin}` }
+    );
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  };
+
   // Google OAuth
   const signInWithGoogle = async () => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
@@ -302,6 +364,9 @@ export const AuthProvider = ({ children }) => {
     loading,
     submitEmail,
     verifyOtp,
+    signUpWithPassword,
+    signInWithPassword,
+    resetPassword,
     signInWithGoogle,
     signOut,
     isAuthenticated: !!session,
