@@ -114,6 +114,7 @@ export const AuthProvider = ({ children }) => {
   const [isPaid, setIsPaid] = useState(false);
   const [dailyScreenings, setDailyScreenings] = useState(0);
   const [awaitingOtp, setAwaitingOtp] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [pendingUserInfo, setPendingUserInfo] = useState(null); // name/company stored during OTP flow
   const initRef = useRef(false);
 
@@ -174,10 +175,15 @@ export const AuthProvider = ({ children }) => {
           });
         }
 
+        if (event === 'PASSWORD_RECOVERY' && newSession) {
+          setPasswordRecovery(true);
+        }
+
         if (event === 'SIGNED_OUT') {
           setUserRecord(null);
           setIsPaid(false);
           setDailyScreenings(0);
+          setPasswordRecovery(false);
         }
       }
     );
@@ -294,6 +300,17 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Update password (after clicking reset link)
+  const updatePassword = async (newPassword) => {
+    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) return { success: false, error: error.message };
+    setPasswordRecovery(false);
+    return { success: true };
+  };
+
   // Google OAuth
   const signInWithGoogle = async () => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
@@ -367,11 +384,13 @@ export const AuthProvider = ({ children }) => {
     signUpWithPassword,
     signInWithPassword,
     resetPassword,
+    updatePassword,
     signInWithGoogle,
     signOut,
     isAuthenticated: !!session,
     isConfigured: isSupabaseConfigured(),
     awaitingOtp,
+    passwordRecovery,
     // Workspace features
     domain: email ? extractDomain(email) : null,
     workspaceId: email ? getWorkspaceId(email) : null,

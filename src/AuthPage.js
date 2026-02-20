@@ -72,7 +72,7 @@ const friendlyError = (msg) => {
 const AuthPage = ({ onSuccess }) => {
   const {
     submitEmail, verifyOtp, signUpWithPassword, signInWithPassword,
-    resetPassword, signInWithGoogle, awaitingOtp
+    resetPassword, updatePassword, signInWithGoogle, awaitingOtp, passwordRecovery
   } = useAuth();
 
   const [mode, setMode] = useState('signin'); // 'signin' or 'signup'
@@ -90,6 +90,8 @@ const AuthPage = ({ onSuccess }) => {
   const [showOtp, setShowOtp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
@@ -274,6 +276,70 @@ const AuthPage = ({ onSuccess }) => {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
     opacity: loading ? 0.7 : 1, transition: 'all 0.15s'
   });
+
+  // ---- Set New Password screen (after clicking reset link) ----
+  if (passwordRecovery) {
+    const handleSetNewPassword = async (e) => {
+      e.preventDefault();
+      setError(''); setSuccess('');
+
+      if (!newPassword) { setError('Please enter a new password'); return; }
+      if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
+      if (newPassword !== confirmPassword) { setError('Passwords do not match'); return; }
+
+      setLoading(true);
+      try {
+        const result = await updatePassword(newPassword);
+        if (result.success) {
+          setSuccess('Password updated successfully.');
+          setNewPassword('');
+          setConfirmPassword('');
+          if (onSuccess) setTimeout(() => onSuccess(), 1500);
+        } else {
+          setError(friendlyError(result.error) || 'Failed to update password.');
+        }
+      } catch {
+        setError('Failed to update password.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <PageShell footer={null}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginBottom: '6px' }}>
+          <Lock style={{ width: '20px', height: '20px', color: '#4caf50' }} />
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.3px', margin: 0 }}>
+            Set New Password
+          </h1>
+        </div>
+        <p style={{ fontSize: '13px', color: '#6b6b6b', textAlign: 'center', marginBottom: '32px' }}>
+          Enter your new password below
+        </p>
+
+        <ErrorBanner message={error} />
+        <SuccessBanner message={success} />
+
+        <form onSubmit={handleSetNewPassword}>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+              <Lock style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min 6 characters)" autoComplete="new-password" autoFocus style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+              <Lock style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" autoComplete="new-password" style={inputStyle} />
+            </div>
+          </div>
+          <button type="submit" disabled={loading} style={primaryBtnStyle(true)}>
+            {loading ? <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Updating...</> : <>Update password <ArrowRight style={{ width: '16px', height: '16px' }} /></>}
+          </button>
+        </form>
+      </PageShell>
+    );
+  }
 
   // ---- Email confirmation screen (after password sign-up) ----
   if (showConfirmation) {
