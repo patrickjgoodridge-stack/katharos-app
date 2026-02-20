@@ -9878,7 +9878,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex items-start justify-between">
  <div>
  <h1 style={{ fontSize: '22px', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.3px' }}>Case Management</h1>
- <p style={{ color: '#6b6b6b', fontSize: '13px', marginTop: '4px' }}>{cases.length} investigation{cases.length !== 1 ? 's' : ''} on file</p>
+ <p style={{ color: '#ffffff', fontSize: '13px', marginTop: '4px' }}>{cases.length} Case{cases.length !== 1 ? 's' : ''} on File</p>
  </div>
  <button onClick={startNewCase} className="katharos-btn primary">
  <Plus className="w-[14px] h-[14px]" />
@@ -10028,7 +10028,18 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
  <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+ <button
+   onClick={(e) => deleteCase(caseItem.id, e)}
+   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+   onMouseEnter={(e) => e.currentTarget.style.background = '#3a3a3a'}
+   onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+   title="Delete case"
+ >
+   <Trash2 style={{ width: '14px', height: '14px', color: '#6b6b6b' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }} onMouseLeave={(e) => { e.currentTarget.style.color = '#6b6b6b'; }} />
+ </button>
  <ChevronRight style={{ width: '16px', height: '16px', color: '#6b6b6b' }} />
+ </div>
  </td>
  </tr>
  ))}
@@ -10882,20 +10893,130 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           return true;
         });
 
-        // === FALLBACK SUGGESTIONS when structured data yields nothing ===
-        if (validated.length === 0 && subjectName) {
+        // === SMART FALLBACK — mine the screening text for context-aware suggestions ===
+        if (validated.length < 5 && subjectName) {
+          const pool = [];
+
+          // Extract names mentioned in the report (CAPITALIZED multi-word sequences likely to be names/orgs)
+          const nameMatches = lastMsg.match(/(?:(?:[A-Z][a-z]+(?:\s+(?:al-|bin\s|von\s|de\s|van\s)?[A-Z][a-z]+){1,4}))/g) || [];
+          const mentionedNames = [...new Set(nameMatches)].filter(n => !isSubject(n) && n.length > 4 && n.length < 50);
+
+          // Extract organizations (words before Ltd, LLC, Inc, etc. or ALLCAPS acronyms)
+          const orgMatches = lastMsg.match(/(?:[A-Z][\w&\-.']+(?:\s+[A-Z][\w&\-.']+){0,5}\s+(?:Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited|Bank|Foundation|Fund|Trust))/g) || [];
+          const mentionedOrgs = [...new Set(orgMatches)].filter(o => !isSubject(o));
+
+          // Extract countries/jurisdictions mentioned
+          const countryPattern = /\b(Russia|China|Iran|North Korea|Syria|Venezuela|Cuba|Belarus|Myanmar|Ukraine|Panama|Cayman Islands|British Virgin Islands|Cyprus|Malta|Luxembourg|Liechtenstein|Switzerland|United Arab Emirates|UAE|Saudi Arabia|Turkey|India|Brazil|Nigeria|South Africa|United Kingdom|United States|Germany|France|Japan|Singapore|Hong Kong)\b/gi;
+          const mentionedCountries = [...new Set((lastMsg.match(countryPattern) || []).map(c => c.replace(/\b\w/g, l => l.toUpperCase())))];
+
+          // Extract specific sanctions lists/programs mentioned
+          const listPattern = /\b(OFAC SDN|SDN List|EU Sanctions|UN Security Council|Magnitsky|EO \d{5}|Executive Order \d{5}|CAATSA|CISADA|IEEPA|Global Magnitsky)\b/gi;
+          const mentionedLists = [...new Set((lastMsg.match(listPattern) || []))];
+
+          // Detect risk themes from the report text
+          const hasMoneyLaundering = /money launder|illicit financ|proceeds of crime|financial crime/i.test(lc);
+          const hasTerrorism = /terror|extremis|militant|jihad/i.test(lc);
+          const hasCorruption = /corrupt|brib|kickback|embezzl|misappropriat/i.test(lc);
+          const hasFraud = /fraud|ponzi|scam|deceiv|misrepresent/i.test(lc);
+          const hasTrafficking = /traffick|smuggl|cartel|narco|drug/i.test(lc);
+          const hasProliferation = /proliferat|nuclear|weapon|missile|WMD|dual.use/i.test(lc);
+          const hasEvasion = /evasion|circumvent|front compan|shell|layering/i.test(lc);
+          const hasPEP = /politically exposed|PEP|government official|state.owned/i.test(lc);
+          const hasAdverseMedia = /adverse media|negative news|investigation|indictment|lawsuit|charged|convicted/i.test(lc);
+
+          // --- Build a rich pool of context-specific suggestions ---
+
+          // Person-based suggestions from text mining
+          mentionedNames.slice(0, 3).forEach(name => {
+            pool.push(`Screen ${name} for independent sanctions and adverse media exposure`);
+            pool.push(`Investigate ${name}'s role in the network around ${subjectName}`);
+          });
+
+          // Org-based suggestions
+          mentionedOrgs.slice(0, 3).forEach(org => {
+            pool.push(`Investigate ${org} for beneficial ownership and regulatory filings`);
+            pool.push(`Trace the ownership structure and directors of ${org}`);
+          });
+
+          // Country-based investigative paths
+          mentionedCountries.slice(0, 2).forEach(country => {
+            pool.push(`Pull corporate registry filings and director networks in ${country}`);
+            pool.push(`Assess ${country}-specific sanctions exposure and compliance obligations`);
+          });
+
+          // Sanctions-specific deep dives
           if (hasSanctions) {
-            validated.push(`Trace the full sanctions designation history for ${subjectName}`);
-            validated.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
-            validated.push(`Map the corporate network and beneficial ownership around ${subjectName}`);
-          } else if (hasCorporate) {
-            validated.push(`Trace the beneficial ownership chain for ${subjectName}`);
-            validated.push(`Search for related shell companies or nominee structures`);
-            validated.push(`Check for regulatory filings and director histories`);
-          } else {
-            validated.push(`Deep dive into adverse media coverage for ${subjectName}`);
-            validated.push(`Map the corporate structure and beneficial ownership for ${subjectName}`);
-            validated.push(`Check for PEP connections and political exposure around ${subjectName}`);
+            pool.push(`Trace the full sanctions designation timeline and identify co-designated entities`);
+            pool.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
+            pool.push(`Map the network of blocked persons and entities linked to ${subjectName}`);
+            if (mentionedLists.length > 0) {
+              pool.push(`Cross-reference other designees under ${mentionedLists[0]} for shared networks`);
+            }
+          }
+
+          // Theme-specific suggestions
+          if (hasMoneyLaundering) {
+            pool.push(`Trace the financial flow patterns and identify correspondent banking relationships`);
+            pool.push(`Map the layering structure and identify potential money service businesses involved`);
+          }
+          if (hasTerrorism) {
+            pool.push(`Check for links to designated terrorist organizations and financing networks`);
+            pool.push(`Screen affiliated charities and NGOs for terrorism financing indicators`);
+          }
+          if (hasCorruption) {
+            pool.push(`Trace government contracts and procurement ties for evidence of corruption`);
+            pool.push(`Investigate asset holdings and unexplained wealth tied to public office`);
+          }
+          if (hasFraud) {
+            pool.push(`Review SEC filings, court records, and regulatory enforcement actions`);
+            pool.push(`Trace victim complaints and civil litigation history`);
+          }
+          if (hasTrafficking) {
+            pool.push(`Map the supply chain and logistics network for trafficking indicators`);
+            pool.push(`Cross-reference with DEA and Interpol watchlists for affiliated operatives`);
+          }
+          if (hasProliferation) {
+            pool.push(`Screen for dual-use technology exports and end-user verification gaps`);
+            pool.push(`Check for procurement networks linked to weapons programs`);
+          }
+          if (hasEvasion) {
+            pool.push(`Identify nominee directors, shelf companies, and front entities in the structure`);
+            pool.push(`Trace the layering of corporate shells back to ultimate beneficial owners`);
+          }
+          if (hasPEP) {
+            pool.push(`Map family members and close associates for hidden PEP connections`);
+            pool.push(`Trace state contracts and government-linked revenue streams`);
+          }
+          if (hasAdverseMedia) {
+            pool.push(`Compile a timeline of legal proceedings and regulatory actions`);
+            pool.push(`Cross-reference named co-defendants and unindicted co-conspirators`);
+          }
+
+          // General investigative paths (always relevant, randomized by subject hash)
+          pool.push(`Search for aircraft, vessel, and real estate registrations tied to ${subjectName}`);
+          pool.push(`Check for leaked document exposure (Panama Papers, Pandora Papers, FinCEN Files)`);
+          pool.push(`Assess secondary sanctions risk for counterparties transacting with ${subjectName}`);
+          pool.push(`Review the regulatory enforcement history and penalty record for ${subjectName}`);
+          pool.push(`Identify shared registered agents, addresses, or phone numbers across the network`);
+
+          // Use a simple hash of the subject name to pick different suggestions each time
+          const hash = subjectName.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+          const shuffled = pool
+            .filter(s => !isSubject(s.replace(/^(Screen|Investigate|Trace|Map|Check|Search|Identify|Assess|Review|Pull|Cross|Compile)\s+/i, '').split(/\s+(for|in|of|and|the|to|under|linked|around|tied|back)\b/i)[0]?.trim()))
+            .sort((a, b) => {
+              const ha = (hash + a.length * 31) % 997;
+              const hb = (hash + b.length * 31) % 997;
+              return ha - hb;
+            });
+
+          // Fill up to 5 from the pool, avoiding duplicates with existing validated suggestions
+          for (const s of shuffled) {
+            if (validated.length >= 5) break;
+            if (validated.some(v => v === s)) continue;
+            // Validate same rules as above
+            if (s.length > 120 || s.length < 10) continue;
+            if (/undefined|null|\[\]|\{\}/i.test(s)) continue;
+            validated.push(s);
           }
         }
 
