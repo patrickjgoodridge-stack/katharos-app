@@ -3,6 +3,55 @@ import { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Mail, ArrowRight, Loader2, User, Home, ArrowLeft, ShieldCheck, Lock, KeyRound } from 'lucide-react';
 
+// ---- Shared layout wrapper (outside component to preserve identity across renders) ----
+const PageShell = ({ children, footer }) => (
+  <div style={{ minHeight: '100vh', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ width: '100%', maxWidth: '400px', padding: '0 24px' }}>
+      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '28px', fontWeight: 400, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.5px', marginBottom: '48px' }}>
+        Katharos
+      </div>
+      <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '36px 32px' }}>
+        {children}
+      </div>
+      {footer}
+    </div>
+    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+  </div>
+);
+
+const ErrorBanner = ({ message }) => message ? (
+  <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px' }}>
+    <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{message}</p>
+  </div>
+) : null;
+
+const SuccessBanner = ({ message }) => message ? (
+  <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(74, 222, 128, 0.1)', border: '1px solid rgba(74, 222, 128, 0.25)', borderRadius: '6px' }}>
+    <p style={{ fontSize: '13px', color: '#4ade80', margin: 0 }}>{message}</p>
+  </div>
+) : null;
+
+const inputStyle = {
+  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+  fontFamily: "'Inter', sans-serif", fontSize: '14px', color: '#ffffff', padding: '13px 0'
+};
+
+const inputWrapStyle = {
+  display: 'flex', alignItems: 'center', gap: '12px',
+  background: '#242424', border: '1px solid #3a3a3a', borderRadius: '6px',
+  padding: '0 14px', transition: 'border-color 0.2s'
+};
+
+const linkBtnStyle = {
+  color: '#6b6b6b', background: 'none', border: 'none', fontSize: '13px',
+  cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+  textDecoration: 'underline', textUnderlineOffset: '2px',
+};
+
+const focusWrap = (e, focus) => {
+  e.currentTarget.style.borderColor = focus ? '#6b6b6b' : '#3a3a3a';
+};
+
 const AuthPage = ({ onSuccess }) => {
   const {
     submitEmail, verifyOtp, signUpWithPassword, signInWithPassword,
@@ -198,23 +247,6 @@ const AuthPage = ({ onSuccess }) => {
     setAuthMethod('password');
   };
 
-  const inputStyle = {
-    flex: 1, background: 'transparent', border: 'none', outline: 'none',
-    fontFamily: "'Inter', sans-serif", fontSize: '14px', color: '#ffffff', padding: '13px 0'
-  };
-
-  const inputWrapStyle = {
-    display: 'flex', alignItems: 'center', gap: '12px',
-    background: '#242424', border: '1px solid #3a3a3a', borderRadius: '6px',
-    padding: '0 14px', transition: 'border-color 0.2s'
-  };
-
-  const linkBtnStyle = {
-    color: '#6b6b6b', background: 'none', border: 'none', fontSize: '13px',
-    cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-    textDecoration: 'underline', textUnderlineOffset: '2px',
-  };
-
   const primaryBtnStyle = (enabled = true) => ({
     width: '100%', padding: '14px', marginTop: '8px',
     background: enabled ? '#ffffff' : '#3a3a3a',
@@ -225,38 +257,6 @@ const AuthPage = ({ onSuccess }) => {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
     opacity: loading ? 0.7 : 1, transition: 'all 0.15s'
   });
-
-  const focusWrap = (e, focus) => {
-    e.currentTarget.style.borderColor = focus ? '#6b6b6b' : '#3a3a3a';
-  };
-
-  // ---- Shared layout wrapper ----
-  const PageShell = ({ children, footer }) => (
-    <div style={{ minHeight: '100vh', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      <div style={{ width: '100%', maxWidth: '400px', padding: '0 24px' }}>
-        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '28px', fontWeight: 400, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.5px', marginBottom: '48px' }}>
-          Katharos
-        </div>
-        <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '36px 32px' }}>
-          {children}
-        </div>
-        {footer}
-      </div>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-
-  const ErrorBanner = () => error ? (
-    <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px' }}>
-      <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
-    </div>
-  ) : null;
-
-  const SuccessBanner = () => success ? (
-    <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(74, 222, 128, 0.1)', border: '1px solid rgba(74, 222, 128, 0.25)', borderRadius: '6px' }}>
-      <p style={{ fontSize: '13px', color: '#4ade80', margin: 0 }}>{success}</p>
-    </div>
-  ) : null;
 
   // ---- Email confirmation screen (after password sign-up) ----
   if (showConfirmation) {
@@ -294,8 +294,8 @@ const AuthPage = ({ onSuccess }) => {
           We sent a 6-digit verification code to <strong style={{ color: '#a1a1a1' }}>{formData.email}</strong>
         </p>
 
-        <ErrorBanner />
-        <SuccessBanner />
+        <ErrorBanner message={error} />
+        <SuccessBanner message={success} />
 
         <form onSubmit={handleVerifyOtp}>
           <div style={{ marginBottom: '16px' }}>
@@ -333,8 +333,8 @@ const AuthPage = ({ onSuccess }) => {
           Enter your email and we'll send you a reset link
         </p>
 
-        <ErrorBanner />
-        <SuccessBanner />
+        <ErrorBanner message={error} />
+        <SuccessBanner message={success} />
 
         <form onSubmit={handleForgotPassword}>
           <div style={{ marginBottom: '16px' }}>
@@ -392,8 +392,8 @@ const AuthPage = ({ onSuccess }) => {
           : (isPassword ? 'Create your account to get started' : 'Sign up with a magic link')}
       </p>
 
-      <ErrorBanner />
-      <SuccessBanner />
+      <ErrorBanner message={error} />
+      <SuccessBanner message={success} />
 
       <form onSubmit={handleSubmit} autoComplete="off">
         {/* Name — sign-up only */}
