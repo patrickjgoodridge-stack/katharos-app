@@ -52,6 +52,23 @@ const focusWrap = (e, focus) => {
   e.currentTarget.style.borderColor = focus ? '#6b6b6b' : '#3a3a3a';
 };
 
+// Map raw Supabase errors to user-friendly messages
+const friendlyError = (msg) => {
+  if (!msg) return 'Something went wrong. Please try again.';
+  const lower = msg.toLowerCase();
+  if (lower.includes('email rate limit exceeded') || lower.includes('rate limit'))
+    return 'Too many attempts. Please wait a few minutes before trying again.';
+  if (lower.includes('invalid login credentials'))
+    return 'Invalid email or password.';
+  if (lower.includes('user already registered'))
+    return 'An account with this email already exists. Try signing in instead.';
+  if (lower.includes('signup is not allowed') || lower.includes('signups not allowed'))
+    return 'Sign-ups are currently disabled. Please contact support.';
+  if (lower.includes('password') && lower.includes('least'))
+    return msg; // already descriptive (e.g. "Password should be at least 6 characters")
+  return msg;
+};
+
 const AuthPage = ({ onSuccess }) => {
   const {
     submitEmail, verifyOtp, signUpWithPassword, signInWithPassword,
@@ -93,7 +110,7 @@ const AuthPage = ({ onSuccess }) => {
       if (result.success) {
         if (onSuccess) onSuccess();
       } else {
-        setError(result.error || 'Invalid email or password.');
+        setError(friendlyError(result.error) || 'Invalid email or password.');
       }
     } catch {
       setError('Sign in failed. Please try again.');
@@ -126,7 +143,7 @@ const AuthPage = ({ onSuccess }) => {
           onSuccess();
         }
       } else {
-        setError(result.error || 'Sign up failed. Please try again.');
+        setError(friendlyError(result.error) || 'Sign up failed. Please try again.');
       }
     } catch {
       setError('Sign up failed. Please try again.');
@@ -155,7 +172,7 @@ const AuthPage = ({ onSuccess }) => {
       if (result.success) {
         setShowOtp(true);
       } else {
-        setError(result.error || 'Something went wrong.');
+        setError(friendlyError(result.error) || 'Something went wrong.');
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -177,7 +194,7 @@ const AuthPage = ({ onSuccess }) => {
       if (result.success) {
         if (onSuccess) onSuccess();
       } else {
-        setError(result.error || 'Invalid code. Please try again.');
+        setError(friendlyError(result.error) || 'Invalid code. Please try again.');
       }
     } catch {
       setError('Verification failed. Please try again.');
@@ -194,7 +211,7 @@ const AuthPage = ({ onSuccess }) => {
       if (result.success) {
         setSuccess('Code resent.');
       } else {
-        setError(result.error || 'Failed to resend code.');
+        setError(friendlyError(result.error) || 'Failed to resend code.');
       }
     } catch {
       setError('Failed to resend code.');
@@ -216,7 +233,7 @@ const AuthPage = ({ onSuccess }) => {
       if (result.success) {
         setSuccess('Password reset link sent to your email.');
       } else {
-        setError(result.error || 'Failed to send reset link.');
+        setError(friendlyError(result.error) || 'Failed to send reset link.');
       }
     } catch {
       setError('Failed to send reset link.');
@@ -231,7 +248,7 @@ const AuthPage = ({ onSuccess }) => {
     try {
       const result = await signInWithGoogle();
       if (!result.success) {
-        setError(result.error || 'Google sign-in failed.');
+        setError(friendlyError(result.error) || 'Google sign-in failed.');
         setLoading(false);
       }
     } catch {
