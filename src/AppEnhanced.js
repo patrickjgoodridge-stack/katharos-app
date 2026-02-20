@@ -464,6 +464,18 @@ const samplesDropdownRef = useRef(null);
    };
  }, []);
 
+ // Redirect authenticated users from public/landing pages to New Case
+ // Handles: magic link clicks, OTP completion, Google OAuth return, session restore
+ const prevAuthRef = useRef(isAuthenticated);
+ const publicPagesSet = useMemo(() => new Set(['noirLanding', 'landing', 'about', 'product', 'disclosures', 'contact']), []);
+ useEffect(() => {
+   const justSignedIn = isAuthenticated && !prevAuthRef.current;
+   prevAuthRef.current = isAuthenticated;
+   if (justSignedIn && publicPagesSet.has(currentPage)) {
+     setCurrentPage('newCase');
+   }
+ }, [isAuthenticated, currentPage, publicPagesSet]);
+
  // Auto-decrement countdown timer
  useEffect(() => {
    if (screeningCountdown <= 0) return;
