@@ -122,7 +122,7 @@ const ProductPage = ({
           </p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => startNewCase()}
+              onClick={() => setCurrentPage('contact')}
               className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
               style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px' }}
               onMouseEnter={(e) => {
@@ -354,7 +354,7 @@ const ProductPage = ({
         </p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => startNewCase()}
+            onClick={() => setCurrentPage('contact')}
             className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
             style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px' }}
             onMouseEnter={(e) => {
