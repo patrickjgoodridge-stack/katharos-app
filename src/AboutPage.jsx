@@ -100,7 +100,7 @@ const AboutPage = ({
                 e.currentTarget.style.borderColor = '#4a4a4a';
               }}
             >
-              Request Access
+              Log In / Sign Up
             </button>
           )}
         </div>
@@ -307,7 +307,7 @@ const AboutPage = ({
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Request Access
+            Log In / Sign Up
             <ArrowRight className="w-4 h-4" />
           </button>
           <button

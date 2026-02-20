@@ -10719,13 +10719,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         }
 
         // --- 3. Red flag deep dive ---
-        if (redFlags.length > 0 && suggestions.length < 3) {
+        if (redFlags.length > 0 && suggestions.length < 5) {
           const flag = redFlags[0];
           const flagText = flag.title || flag.category || flag.description || '';
           if (flagText && flagText.length > 5) {
             suggestions.push(`Deep dive into the ${flagText.toLowerCase().replace(/[.!?]+$/, '')} findings`);
           }
-        } else if (kycRiskFactors.length > 0 && suggestions.length < 3) {
+        } else if (kycRiskFactors.length > 0 && suggestions.length < 5) {
           const rf = kycRiskFactors[0];
           const rfText = rf.factor || rf.description || '';
           if (rfText && rfText.length > 5) {
@@ -10734,7 +10734,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         }
 
         // --- 4. Sanctions-specific: trace ownership (use a non-subject entity) ---
-        if ((hasSanctions || sanctionedEntities.length > 0 || kycOtherSanctioned.length > 0) && suggestions.length < 3) {
+        if ((hasSanctions || sanctionedEntities.length > 0 || kycOtherSanctioned.length > 0) && suggestions.length < 5) {
           const target = sanctionedEntities[0]?.name || kycOtherSanctioned[0]?.matchedName || kycOtherSanctioned[0]?.name;
           if (target && !isSubject(target)) {
             suggestions.push(`Trace entities owned 50%+ by ${target} under OFAC's 50% rule`);
@@ -10742,7 +10742,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         }
 
         // --- 5. Corporate structure: map ownership (use a non-subject entity) ---
-        if ((hasCorporate || kycOtherOrgs.length > 0) && suggestions.length < 3) {
+        if ((hasCorporate || kycOtherOrgs.length > 0) && suggestions.length < 5) {
           const target = corporateEntities[0]?.name || kycOtherOrgs[0]?.entity || kycOtherOrgs[0]?.company || kycOtherOrgs[0]?.name;
           if (target && !isSubject(target)) {
             suggestions.push(`Map the full beneficial ownership chain for ${target}`);
@@ -10750,7 +10750,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         }
 
         // --- 6. Relationship-based: screen connected entity ---
-        if (relationships.length > 0 && suggestions.length < 3) {
+        if (relationships.length > 0 && suggestions.length < 5) {
           const rel = relationships.find(r => {
             const other = r.target || r.to || r.entity2 || '';
             return other && !isSubject(other) && !suggestions.some(s => s.includes(other));
@@ -10761,15 +10761,123 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           }
         }
 
-        // --- 7. Outward fallbacks (never re-investigate the subject) ---
-        if (suggestions.length < 2 && subjectName) {
-          suggestions.push(`Search for corporate entities linked to ${subjectName} in global registries`);
+        // --- 7. Second person or org if available ---
+        if (suggestions.length < 5 && otherPeople.length > 1 && !suggestions.some(s => s.includes(otherPeople[1].name))) {
+          const p2 = otherPeople[1];
+          const r2 = p2.role ? ` — ${p2.role.replace(/[.!]+$/, '')}` : '';
+          suggestions.push(`Screen ${p2.name}${r2}`);
         }
-        if (suggestions.length < 2 && subjectName) {
-          suggestions.push(`Check for family members and close associates in PEP databases`);
+        if (suggestions.length < 5 && otherOrgs.length > 1 && !suggestions.some(s => s.includes(otherOrgs[1].name))) {
+          const o2 = otherOrgs[1];
+          suggestions.push(`Investigate ${o2.name} for layered ownership or nominee structures`);
         }
-        if (suggestions.length < 3 && subjectName) {
-          suggestions.push(`Review recent enforcement actions mentioning ${subjectName}'s associates`);
+
+        // --- 8. Data-driven investigative paths ---
+        // Every suggestion below is built from actual screening data — never generic.
+        const alreadyUsed = (text) => suggestions.some(s => s.toLowerCase().includes(text.toLowerCase().slice(0, 25)));
+
+        // Adverse media categories → dig into the specific category found
+        const amCategories = kycResults?.adverseMedia?.categories || {};
+        const amArticles = kycResults?.adverseMedia?.articles || [];
+        if (suggestions.length < 5 && Object.keys(amCategories).length > 0) {
+          const topCat = Object.entries(amCategories).sort((a, b) => b[1] - a[1])[0];
+          if (topCat && !alreadyUsed(topCat[0])) {
+            const catLabel = topCat[0].replace(/_/g, ' ').toLowerCase();
+            suggestions.push(`Analyze the ${catLabel} coverage and trace it to named co-conspirators`);
+          }
+        }
+        // Specific adverse media article → follow the thread
+        if (suggestions.length < 5 && amArticles.length > 0) {
+          const article = amArticles.find(a => a.title && a.title.length > 10);
+          if (article && !alreadyUsed(article.title.slice(0, 20))) {
+            const shortTitle = article.title.length > 60 ? article.title.slice(0, 57) + '...' : article.title;
+            suggestions.push(`Follow the thread from "${shortTitle}"`);
+          }
+        }
+
+        // Jurisdiction-based → trace activity in the specific country found
+        const subjectJurisdiction = kycResults?.subject?.jurisdiction || '';
+        const kycCorpJurisdictions = kycOtherOrgs
+          .map(c => c.jurisdiction || c.country || '').filter(Boolean);
+        const offshoreJurisdictions = [...kycCorpJurisdictions, subjectJurisdiction]
+          .filter(j => /panama|bvi|cayman|cyprus|seychelles|mauritius|bahamas|bermuda|isle of man|jersey|guernsey|liechtenstein|luxembourg|malta|vanuatu|samoa|marshall/i.test(j));
+        if (suggestions.length < 5 && offshoreJurisdictions.length > 0) {
+          const j = offshoreJurisdictions[0];
+          suggestions.push(`Trace the ${j} incorporation chain for nominee directors or shelf companies`);
+        } else if (suggestions.length < 5 && kycCorpJurisdictions.length > 0) {
+          const j = kycCorpJurisdictions[0];
+          if (!alreadyUsed(j)) {
+            suggestions.push(`Pull corporate filings and director histories from ${j}`);
+          }
+        }
+
+        // PEP-specific → investigate the political connection found
+        if (suggestions.length < 5 && kycOtherPeps.length > 0) {
+          const pep = kycOtherPeps.find(p => !alreadyUsed(p.name));
+          if (pep) {
+            const pos = pep.position ? `as ${pep.position}` : '';
+            suggestions.push(`Trace government contracts and procurement ties through ${pep.name} ${pos}`.trim());
+          }
+        }
+
+        // Ownership percentage anomalies → investigate specific thresholds
+        const ownersAbove25 = kycBeneficialOwners.filter(o => o.ownershipPercent >= 25 && !isSubject(o.name));
+        const ownersBelow25 = kycBeneficialOwners.filter(o => o.ownershipPercent > 0 && o.ownershipPercent < 25 && !isSubject(o.name));
+        if (suggestions.length < 5 && ownersBelow25.length >= 2) {
+          suggestions.push(`Investigate whether split ownership stakes are designed to stay below reporting thresholds`);
+        } else if (suggestions.length < 5 && ownersAbove25.length > 0 && !alreadyUsed(ownersAbove25[0].name)) {
+          const bo = ownersAbove25[0];
+          suggestions.push(`Map ${bo.name}'s other holdings for shared directors or registered agents`);
+        }
+
+        // Sanctions program-specific → follow the designation trail
+        const sanctionPrograms = kycSanctionMatches
+          .flatMap(m => [m.program, m.listName, m.source].filter(Boolean));
+        if (suggestions.length < 5 && sanctionPrograms.length > 0) {
+          const prog = sanctionPrograms[0];
+          if (!alreadyUsed(prog)) {
+            suggestions.push(`Cross-reference other entities designated under ${prog} for shared networks`);
+          }
+        }
+
+        // Leaks exposure → follow the leak data
+        const leaks = kycResults?.ownershipAnalysis?.leaksExposure || [];
+        if (suggestions.length < 5 && leaks.length > 0) {
+          const leak = leaks[0];
+          const leakName = leak.source || leak.name || 'leaked documents';
+          suggestions.push(`Trace all entities linked through ${leakName} to identify parallel structures`);
+        }
+
+        // 50% rule triggered → investigate downstream entities
+        if (suggestions.length < 5 && kycResults?.ownershipAnalysis?.fiftyPercentRuleTriggered) {
+          suggestions.push(`Identify downstream entities that inherit blocked status under the 50% rule`);
+        }
+
+        // Regulatory guidance → follow filing requirements
+        const filingReqs = kycResults?.regulatoryGuidance?.filingRequirements || [];
+        if (suggestions.length < 5 && filingReqs.length > 0) {
+          const req = filingReqs[0];
+          if (typeof req === 'string' && req.length > 5) {
+            suggestions.push(`Assess whether prior transactions trigger ${req.replace(/[.!]+$/, '')} obligations`);
+          }
+        }
+
+        // Owned companies with high ownership → trace the network
+        const highOwnership = kycOwnedCompanies.filter(c => c.ownershipPercent >= 50 && !isSubject(c.company || c.name));
+        if (suggestions.length < 5 && highOwnership.length > 1) {
+          suggestions.push(`Map shared directors and registered agents across the ${highOwnership.length} majority-owned subsidiaries`);
+        }
+
+        // Subject type-specific paths
+        const subjectType = (kycResults?.subject?.type || '').toLowerCase();
+        if (suggestions.length < 5 && subjectType.includes('vessel')) {
+          suggestions.push(`Check for AIS gaps, flag changes, or ship-to-ship transfers in recent port calls`);
+        }
+        if (suggestions.length < 5 && subjectType.includes('individual') && kycOtherOrgs.length === 0) {
+          suggestions.push(`Search for aircraft, vessel, or real estate registrations tied to ${subjectName}`);
+        }
+        if (suggestions.length < 5 && (subjectType.includes('company') || subjectType.includes('organization')) && kycBeneficialOwners.length === 0) {
+          suggestions.push(`Trace ${subjectName} back to its ultimate beneficial owners through corporate filings`);
         }
 
         // === FINAL VALIDATION ===
@@ -10787,7 +10895,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           return true;
         });
 
-        return validated.slice(0, 3);
+        return validated.slice(0, 5);
       })().map((suggestion, idx) => (
         <button
           key={idx}

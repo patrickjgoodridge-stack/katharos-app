@@ -1,10 +1,11 @@
-// AuthPage.js - Get Started Page with OTP Verification + Google OAuth
+// AuthPage.js - Sign In / Create Account with OTP Verification + Google OAuth
 import { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Mail, ArrowRight, Loader2, User, Home, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 const AuthPage = ({ onSuccess }) => {
   const { submitEmail, verifyOtp, signInWithGoogle, awaitingOtp } = useAuth();
+  const [mode, setMode] = useState('signin'); // 'signin' or 'signup'
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -23,7 +24,7 @@ const AuthPage = ({ onSuccess }) => {
     e.preventDefault();
     setError('');
 
-    if (!formData.name.trim()) {
+    if (mode === 'signup' && !formData.name.trim()) {
       setError('Please enter your name');
       return;
     }
@@ -41,7 +42,11 @@ const AuthPage = ({ onSuccess }) => {
 
     setLoading(true);
     try {
-      const result = await submitEmail(formData.email, formData.name, formData.company);
+      const result = await submitEmail(
+        formData.email,
+        mode === 'signup' ? formData.name : '',
+        mode === 'signup' ? formData.company : ''
+      );
       if (result.success) {
         setShowOtp(true);
       } else {
@@ -112,6 +117,11 @@ const AuthPage = ({ onSuccess }) => {
   const handleBack = () => {
     setShowOtp(false);
     setOtpCode('');
+    setError('');
+  };
+
+  const toggleMode = () => {
+    setMode(m => m === 'signin' ? 'signup' : 'signin');
     setError('');
   };
 
@@ -188,7 +198,7 @@ const AuthPage = ({ onSuccess }) => {
               textAlign: 'center',
               marginBottom: '32px'
             }}>
-              We sent a 6-digit code to <strong style={{ color: '#a1a1a1' }}>{formData.email}</strong>
+              We sent a 6-digit verification code to <strong style={{ color: '#a1a1a1' }}>{formData.email}</strong>
             </p>
 
             {error && (
@@ -318,7 +328,7 @@ const AuthPage = ({ onSuccess }) => {
     );
   }
 
-  // Main Sign-In Screen
+  // Main Sign-In / Sign-Up Screen
   return (
     <div style={{
       minHeight: '100vh',
@@ -357,7 +367,7 @@ const AuthPage = ({ onSuccess }) => {
             letterSpacing: '-0.3px',
             marginBottom: '6px'
           }}>
-            Get Started
+            {mode === 'signin' ? 'Sign In' : 'Create Account'}
           </h1>
           <p style={{
             fontSize: '13px',
@@ -365,7 +375,9 @@ const AuthPage = ({ onSuccess }) => {
             textAlign: 'center',
             marginBottom: '32px'
           }}>
-            Enter your details to access Katharos
+            {mode === 'signin'
+              ? "We'll email you a verification code"
+              : 'Sign up with your email to get started'}
           </p>
 
           {error && (
@@ -382,43 +394,46 @@ const AuthPage = ({ onSuccess }) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit}>
-            {/* Name */}
-            <div style={{ marginBottom: '16px' }}>
-              <div
-                style={inputWrapStyle}
-                onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
-                onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
-              >
-                <User style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={handleChange('name')}
-                  placeholder="Your name"
-                  autoFocus
-                  style={inputStyle}
-                />
+            {/* Name — only on sign-up */}
+            {mode === 'signup' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div
+                  style={inputWrapStyle}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+                >
+                  <User style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange('name')}
+                    placeholder="Your name"
+                    style={inputStyle}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Company */}
-            <div style={{ marginBottom: '16px' }}>
-              <div
-                style={inputWrapStyle}
-                onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
-                onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
-              >
-                <Home style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={handleChange('company')}
-                  placeholder="Company"
-                  style={inputStyle}
-                />
-                <span style={{ fontSize: '11px', color: '#6b6b6b', flexShrink: 0 }}>Optional</span>
+            {/* Company — only on sign-up */}
+            {mode === 'signup' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div
+                  style={inputWrapStyle}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#6b6b6b'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#3a3a3a'}
+                >
+                  <Home style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={handleChange('company')}
+                    placeholder="Company"
+                    style={inputStyle}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6b6b6b', flexShrink: 0 }}>Optional</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Email */}
             <div style={{ marginBottom: '16px' }}>
@@ -432,7 +447,8 @@ const AuthPage = ({ onSuccess }) => {
                   type="email"
                   value={formData.email}
                   onChange={handleChange('email')}
-                  placeholder="Email"
+                  placeholder="Email address"
+                  autoFocus
                   style={inputStyle}
                 />
               </div>
@@ -471,7 +487,7 @@ const AuthPage = ({ onSuccess }) => {
                 </>
               ) : (
                 <>
-                  Continue
+                  {mode === 'signin' ? 'Send verification code' : 'Create account'}
                   <ArrowRight style={{ width: '16px', height: '16px' }} />
                 </>
               )}
@@ -525,16 +541,17 @@ const AuthPage = ({ onSuccess }) => {
           </button>
         </div>
 
-        {/* Footer */}
+        {/* Footer toggle */}
         <p style={{
           textAlign: 'center',
           marginTop: '24px',
           fontSize: '13px',
           color: '#6b6b6b'
         }}>
-          Already have an account?{' '}
+          {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
           <button
             type="button"
+            onClick={toggleMode}
             style={{
               color: '#ffffff',
               background: 'none',
@@ -545,7 +562,7 @@ const AuthPage = ({ onSuccess }) => {
               fontSize: '13px'
             }}
           >
-            Sign in
+            {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>
         </p>
 
