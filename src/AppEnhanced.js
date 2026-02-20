@@ -4159,28 +4159,142 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
    // Full screening pipeline — runs all 7 layers (sanctions, regulatory, PEP, adverse media, litigation, corporate, crypto/trade)
    let liveSanctionsContext = '';
-   try {
-     const trimmed = userMessage.trim();
+   const trimmed = userMessage.trim();
 
-     // Detect wallet addresses
-     const walletPatterns = [
-       { re: /0x[a-fA-F0-9]{40}/, chain: 'ETH' },
-       { re: /(bc1)[a-zA-HJ-NP-Z0-9]{25,90}/, chain: 'BTC' },
-       { re: /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/, chain: 'BTC' },
-       { re: /T[a-zA-Z0-9]{33}/, chain: 'TRX' },
-       { re: /r[0-9a-zA-Z]{24,34}/, chain: 'XRP' },
-       { re: /[1-9A-HJ-NP-Za-km-z]{32,44}/, chain: 'SOL' },
-     ];
-     let detectedWallet = null;
-     for (const { re } of walletPatterns) {
-       const m = trimmed.match(re);
-       if (m) { detectedWallet = m[0]; break; }
+   // Detect wallet addresses — needed for intent classification
+   const walletPatterns = [
+     { re: /0x[a-fA-F0-9]{40}/, chain: 'ETH' },
+     { re: /(bc1)[a-zA-HJ-NP-Z0-9]{25,90}/, chain: 'BTC' },
+     { re: /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/, chain: 'BTC' },
+     { re: /T[a-zA-Z0-9]{33}/, chain: 'TRX' },
+     { re: /r[0-9a-zA-Z]{24,34}/, chain: 'XRP' },
+     { re: /[1-9A-HJ-NP-Za-km-z]{32,44}/, chain: 'SOL' },
+   ];
+   let detectedWallet = null;
+   for (const { re } of walletPatterns) {
+     const m = trimmed.match(re);
+     if (m) { detectedWallet = m[0]; break; }
+   }
+
+   // ═══════════════════════════════════════════════════════════════
+   // INTENT CLASSIFICATION ENGINE
+   // Classifies user input into: SCREEN, INVESTIGATE, FOLLOW_UP,
+   // COMPARE, QUESTION, SUMMARIZE, GENERATE, COMMAND, HYPOTHETICAL, VALIDATE
+   // Only SCREEN triggers the screening pipeline.
+   // Everything else goes to the LLM with full conversation context.
+   // ═══════════════════════════════════════════════════════════════
+
+   const existingCase = cases.find(c => c.id === caseId);
+   const priorMessages = existingCase?.conversationTranscript || [];
+   const hasExistingResults = priorMessages.some(msg => msg.role === 'assistant' && msg.content?.length > 200);
+   const wordCount = trimmed.split(/\s+/).length;
+
+   // Sentence-structure words that don't appear in entity names
+   const sentenceWords = /\b(the|this|that|these|those|they|their|them|me|you|your|our|my|his|her|its|it|is|are|was|were|has|have|do|does|did|be|been|can|could|would|should|will|shall|just|also|only|even|very|too|still|here|there|now|about|into|please|not|no)\b/i;
+
+   // QUESTION: asking for information, definitions, context
+   const isQuestion = trimmed.endsWith('?')
+     || /^(what|why|how|explain|define|when did|where did|where is|where are)\b/i.test(trimmed);
+
+   // HYPOTHETICAL: exploring scenarios
+   const isHypothetical = /^(what if|would|could|hypothetically|assuming|suppose|imagine)\b/i.test(trimmed)
+     || /\b(what if|would that|could that)\b/i.test(trimmed);
+
+   // SUMMARIZE: condense findings or get status
+   const isSummarize = /^(summarize|recap|overview|sum up|give me a summary|what have we found|what do we know|status|so far)\b/i.test(trimmed)
+     || /\b(summarize|recap|overview|so far|what we know|what we.ve found)\b/i.test(trimmed);
+
+   // GENERATE: create outputs or artifacts
+   const isGenerate = /^(export|draft|create|generate|write|produce|build|prepare|format)\b/i.test(trimmed)
+     || /\b(as a pdf|as pdf|sar narrative|write up|create a report|compliance report|generate report)\b/i.test(trimmed);
+
+   // COMMAND: system-level instructions
+   const isCommand = /^(start a new|save|clear|switch|reset|open|close|new investigation|new case|go back|undo)\b/i.test(trimmed);
+
+   // COMPARE: evaluate multiple entities or findings
+   const isCompare = /^(compare|are these|are they|which of|which one|what.s the difference|how do they differ)\b/i.test(trimmed)
+     || /\b(compare|related to each|connection between|side by side|versus|vs\.?)\b/i.test(trimmed);
+
+   // VALIDATE: confirm or verify a specific fact
+   const isValidate = /^(confirm|verify|double.?check|is it true|is this|are they still|check if|validate)\b/i.test(trimmed)
+     || /\b(still on the|still listed|still sanctioned|still active|confirm that|verify that)\b/i.test(trimmed);
+
+   // INVESTIGATE: research, map, dig deeper into a subject
+   const isInvestigate = /^(map|trace|find|analyze|look into|look at|look for|check for|check on the|dig into|research|uncover|identify|assess|evaluate|review|examine|explore|investigate the|investigate whether|investigate how|search for|search the)\b/i.test(trimmed)
+     || /\b(ownership network|ownership structure|source of funds|supply chain|procurement network|beneficial owner|connected to|linked to|associated with|shell compan|front compan)\b/i.test(trimmed);
+
+   // FOLLOW_UP: continuing from previous results
+   const isFollowUpIntent = hasExistingResults && (
+     /^(tell me more|expand on|elaborate|go deeper|what about the|what.s the connection|why is that|why was|and what about|what else|how about)\b/i.test(trimmed)
+     || /\b(the vessel|the entity|the second|the first|the third|that flagged|that one|previous|mentioned earlier|you said|you mentioned|above|prior result)\b/i.test(trimmed)
+     || /^(and |but |also |so )/i.test(trimmed)
+   );
+
+   // Classify intent — order matters (most specific first)
+   let classifiedIntent = 'SCREEN'; // default
+   if (detectedWallet) {
+     classifiedIntent = 'SCREEN';
+   } else if (isCommand) {
+     classifiedIntent = 'COMMAND';
+   } else if (isGenerate) {
+     classifiedIntent = 'GENERATE';
+   } else if (isSummarize) {
+     classifiedIntent = 'SUMMARIZE';
+   } else if (isHypothetical) {
+     classifiedIntent = 'HYPOTHETICAL';
+   } else if (isCompare) {
+     classifiedIntent = 'COMPARE';
+   } else if (isValidate) {
+     classifiedIntent = 'VALIDATE';
+   } else if (isQuestion) {
+     classifiedIntent = 'QUESTION';
+   } else if (isFollowUpIntent) {
+     classifiedIntent = 'FOLLOW_UP';
+   } else if (isInvestigate) {
+     classifiedIntent = 'INVESTIGATE';
+   } else {
+     // Check if it's a bare entity name (no sentence words, short, alphabetic)
+     const isCommandWord = /^(screen|check|search|investigate|look up|who is|find|help|tell|show|map|trace|analyze|export|compare|summarize|confirm|verify)\b/i.test(trimmed);
+     const looksLikeName = !isCommandWord && !sentenceWords.test(trimmed)
+       && /^[A-Za-z\s,.\-']{3,80}$/.test(trimmed) && wordCount <= 6;
+
+     if (looksLikeName) {
+       classifiedIntent = 'SCREEN';
+     } else {
+       // Check for explicit "screen [name]" / "who is [name]" / "check [name]" commands
+       const cmdMatch = trimmed.match(/^(?:screen|who is|look up|check|search|investigate)\s+(.+)/i);
+       if (cmdMatch) {
+         const target = cmdMatch[1].trim();
+         const targetIsName = /^[A-Za-z\s,.\-']{2,80}$/.test(target)
+           && target.split(/\s+/).length <= 6
+           && !sentenceWords.test(target);
+         classifiedIntent = targetIsName ? 'SCREEN' : (hasExistingResults ? 'INVESTIGATE' : 'SCREEN');
+       } else if (wordCount > 8) {
+         // Long phrases without clear intent → conversation
+         classifiedIntent = hasExistingResults ? 'INVESTIGATE' : 'QUESTION';
+       } else if (hasExistingResults) {
+         // Ambiguous short input in follow-up context → treat as follow-up, not screening
+         classifiedIntent = 'FOLLOW_UP';
+       }
+       // else: remains SCREEN (short ambiguous first message)
      }
+   }
 
-     const looksLikeName = !detectedWallet && /^[A-Za-z\s,.\-']{3,80}$/.test(trimmed) && trimmed.split(/\s+/).length <= 6;
-     const hasScreeningIntent = !detectedWallet && /screen|check|look up|search|investigate|who is|kyc|sanctions|pep|compliance/i.test(trimmed);
-     const queryToScreen = detectedWallet || (looksLikeName ? trimmed : null) || (hasScreeningIntent ? trimmed.replace(/^(screen|check|look up|search|investigate|who is)\s+/i, '').trim() : null);
+   console.log(`[Katharos] Intent: ${classifiedIntent} | Follow-up: ${hasExistingResults} | Input: "${trimmed.substring(0, 60)}"`);
 
+   // Extract screening target — only for SCREEN intent
+   let queryToScreen = null;
+   if (classifiedIntent === 'SCREEN') {
+     if (detectedWallet) {
+       queryToScreen = detectedWallet;
+     } else {
+       // Strip command prefix to get the entity name
+       const stripped = trimmed.replace(/^(?:screen|check|look up|search|investigate|who is)\s+/i, '').trim();
+       queryToScreen = stripped;
+     }
+   }
+
+   try {
      if (queryToScreen && queryToScreen.length > 2 && queryToScreen.length < 80) {
        console.log('[Katharos] Full screening pipeline for:', queryToScreen);
 
@@ -4460,6 +4574,9 @@ You are in a multi-turn conversation. The full conversation history is included 
 - When the user says a name without context — check if it relates to entities already discussed
 - NEVER say "I don't see any names" or "Could you provide more context" when names were given in previous messages
 - Always maintain awareness of: entities discussed, relationships mentioned, documents uploaded, screening results returned
+
+USER INTENT FOR THIS MESSAGE: ${classifiedIntent}
+${classifiedIntent === 'SCREEN' ? `→ The user wants to SCREEN an entity. Provide a full structured risk assessment with risk score.` : ''}${classifiedIntent === 'INVESTIGATE' ? `→ The user wants to INVESTIGATE or dig deeper. Use the conversation context and your knowledge to research the topic. Do NOT produce a new full screening report — provide focused investigative analysis.` : ''}${classifiedIntent === 'FOLLOW_UP' ? `→ The user is following up on previous results. Reference the prior conversation, answer their specific question, and go deeper on the topic. Do NOT produce a new screening report.` : ''}${classifiedIntent === 'QUESTION' ? `→ The user is asking a knowledge question. Provide a clear, informative answer. Do NOT produce a screening report or risk score.` : ''}${classifiedIntent === 'COMPARE' ? `→ The user wants to compare entities or findings. Provide a structured comparison. Consider using a comparison table visualization.` : ''}${classifiedIntent === 'SUMMARIZE' ? `→ The user wants a summary of findings so far. Condense the conversation results into a clear overview.` : ''}${classifiedIntent === 'GENERATE' ? `→ The user wants to create an output or artifact (report, PDF, SAR narrative, etc.). Generate the requested document format.` : ''}${classifiedIntent === 'HYPOTHETICAL' ? `→ The user is exploring a hypothetical scenario. Analyze the scenario using your compliance expertise. Do NOT produce a risk score.` : ''}${classifiedIntent === 'VALIDATE' ? `→ The user wants to verify or confirm a specific fact. Provide a direct, factual answer with sources.` : ''}${classifiedIntent === 'COMMAND' ? `→ The user is giving a system instruction. Acknowledge and respond appropriately.` : ''}
 
 NETWORK GRAPH VISUALIZATION:
 When the user asks to visualize, graph, or map entities/ownership/networks/relationships/connections:
