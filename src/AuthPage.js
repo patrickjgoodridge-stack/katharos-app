@@ -395,13 +395,13 @@ const AuthPage = ({ onSuccess }) => {
       <ErrorBanner />
       <SuccessBanner />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} autoComplete="off">
         {/* Name — sign-up only */}
         {!isSignIn && (
           <div style={{ marginBottom: '16px' }}>
             <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
               <User style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-              <input type="text" value={formData.name} onChange={handleChange('name')} placeholder="Your name" style={inputStyle} />
+              <input type="text" value={formData.name} onChange={handleChange('name')} placeholder="Your name" autoComplete="name" style={inputStyle} />
             </div>
           </div>
         )}
@@ -411,7 +411,7 @@ const AuthPage = ({ onSuccess }) => {
           <div style={{ marginBottom: '16px' }}>
             <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
               <Home style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-              <input type="text" value={formData.company} onChange={handleChange('company')} placeholder="Company" style={inputStyle} />
+              <input type="text" value={formData.company} onChange={handleChange('company')} placeholder="Company" autoComplete="organization" style={inputStyle} />
               <span style={{ fontSize: '11px', color: '#6b6b6b', flexShrink: 0 }}>Optional</span>
             </div>
           </div>
@@ -421,7 +421,7 @@ const AuthPage = ({ onSuccess }) => {
         <div style={{ marginBottom: '16px' }}>
           <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
             <Mail style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-            <input type="email" value={formData.email} onChange={handleChange('email')} placeholder="Email address" autoFocus style={inputStyle} />
+            <input type="email" value={formData.email} onChange={handleChange('email')} placeholder="Email address" autoComplete="email" style={inputStyle} />
           </div>
         </div>
 
@@ -430,7 +430,7 @@ const AuthPage = ({ onSuccess }) => {
           <div style={{ marginBottom: '8px' }}>
             <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
               <Lock style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
-              <input type="password" value={formData.password} onChange={handleChange('password')} placeholder={isSignIn ? 'Password' : 'Create password (min 6 characters)'} style={inputStyle} />
+              <input type="password" value={formData.password} onChange={handleChange('password')} placeholder={isSignIn ? 'Password' : 'Create password (min 6 characters)'} autoComplete={isSignIn ? 'current-password' : 'new-password'} style={inputStyle} />
             </div>
           </div>
         )}
