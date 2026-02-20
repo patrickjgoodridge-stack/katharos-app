@@ -10601,34 +10601,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 })()}
 
 {/* Keep Exploring Panel - shows after last message when not streaming */}
-{currentCaseId && !getCaseStreamingState(currentCaseId).isStreaming && conversationMessages?.length > 0 && (
-  <div style={{
-    marginTop: '32px',
-    padding: '20px 24px',
-    background: '#1a1a1a',
-    borderRadius: '12px',
-    border: '1px solid #2d2d2d'
-  }}>
-    {/* Header */}
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-      marginBottom: '16px'
-    }}>
-      <Search style={{ width: '18px', height: '18px', color: '#858585' }} />
-      <span style={{
-        fontSize: '14px',
-        fontWeight: 600,
-        color: '#ffffff',
-        letterSpacing: '-0.2px'
-      }}>Keep Exploring</span>
-    </div>
-
-    {/* Suggestion Items */}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {(() => {
-        // === TEMPLATE-BASED SUGGESTION SYSTEM ===
+{currentCaseId && !getCaseStreamingState(currentCaseId).isStreaming && conversationMessages?.length > 0 && (() => {
+  // === COMPUTE SUGGESTIONS FIRST, ONLY RENDER IF NON-EMPTY ===
+        const keepExploringSuggestions = (() => {
         // Pull structured data from case analysis OR kycResults — never generic
         const activeCase = cases.find(c => c.id === currentCaseId);
         const subjectName = kycResults?.subject?.name || kycQuery || activeCase?.name?.split(' - ')[0]?.trim() || '';
@@ -10907,8 +10882,56 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           return true;
         });
 
+        // === FALLBACK SUGGESTIONS when structured data yields nothing ===
+        if (validated.length === 0 && subjectName) {
+          if (hasSanctions) {
+            validated.push(`Trace the full sanctions designation history for ${subjectName}`);
+            validated.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
+            validated.push(`Map the corporate network and beneficial ownership around ${subjectName}`);
+          } else if (hasCorporate) {
+            validated.push(`Trace the beneficial ownership chain for ${subjectName}`);
+            validated.push(`Search for related shell companies or nominee structures`);
+            validated.push(`Check for regulatory filings and director histories`);
+          } else {
+            validated.push(`Deep dive into adverse media coverage for ${subjectName}`);
+            validated.push(`Map the corporate structure and beneficial ownership for ${subjectName}`);
+            validated.push(`Check for PEP connections and political exposure around ${subjectName}`);
+          }
+        }
+
         return validated.slice(0, 5);
-      })().map((suggestion, idx) => (
+      })();
+
+  // Only render the panel if there are actual suggestions
+  if (keepExploringSuggestions.length === 0) return null;
+
+  return (
+  <div style={{
+    marginTop: '32px',
+    padding: '20px 24px',
+    background: '#1a1a1a',
+    borderRadius: '12px',
+    border: '1px solid #2d2d2d'
+  }}>
+    {/* Header */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      marginBottom: '16px'
+    }}>
+      <Search style={{ width: '18px', height: '18px', color: '#858585' }} />
+      <span style={{
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#ffffff',
+        letterSpacing: '-0.2px'
+      }}>Keep Exploring</span>
+    </div>
+
+    {/* Suggestion Items */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {keepExploringSuggestions.map((suggestion, idx) => (
         <button
           key={idx}
           onClick={() => {
@@ -10956,7 +10979,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
       ))}
     </div>
   </div>
-)}
+  );
+})()}
 
  {/* Show streaming indicator for current case */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
