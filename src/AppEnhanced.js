@@ -23,7 +23,6 @@ import { logAudit } from './auditService';
 import AuditTrailPanel from './AuditTrailPanel';
 import AdminPanel from './AdminPanel';
 import DataSourcesPanel from './DataSourcesPanel';
-import AccuracyDashboard from './AccuracyDashboard';
 import WorkflowControls from './WorkflowControls';
 import ActivityFeed from './ActivityFeed';
 import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
@@ -212,7 +211,7 @@ export default function Katharos() {
  const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
- const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin', 'accuracy'
+ const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
  const [cases, setCases] = useState(() => {
    try {
      const stored = localStorage.getItem('marlowe_cases');
@@ -8327,7 +8326,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           { id: 'audit', label: 'Audit Trail', icon: Shield },
           { id: 'dataSources', label: 'Data Sources', icon: Database },
           ...(hasPermission('manage_users') ? [{ id: 'admin', label: 'Users', icon: Users }] : []),
-          { id: 'accuracy', label: 'Accuracy', icon: Target },
         ].map(tab => (
           <button
             key={tab.id}
@@ -8351,7 +8349,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         {settingsTab === 'audit' && <AuditTrailPanel />}
         {settingsTab === 'dataSources' && <DataSourcesPanel />}
         {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
-        {settingsTab === 'accuracy' && <AccuracyDashboard />}
       </div>
     </div>
   </div>
@@ -8446,21 +8443,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
      <p className="text-xs text-gray-500">API health</p>
    </div>
  </button>
- {hasPermission('view_audit_logs') && (
- <button
-   onClick={() => setKycPage('accuracy')}
-   className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
- >
-   <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center group-hover:bg-gray-100">
-     <Target className="w-4 h-4 text-gray-500" />
-   </div>
-   <div>
-     <p className="text-sm font-semibold leading-tight">Accuracy</p>
-     <p className="text-xs text-gray-500">Precision metrics</p>
-   </div>
- </button>
- )}
- {hasPermission('manage_users') && (
+  {hasPermission('manage_users') && (
  <button
    onClick={() => setKycPage('admin')}
    className="group bg-white border border-gray-200 hover:border-gray-400 rounded-xl p-4 text-left transition-all flex items-center gap-3"
@@ -8522,18 +8505,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  </div>
  )}
 
- {/* Accuracy Dashboard Page */}
- {kycPage === 'accuracy' && (
- <div>
- <div className="flex items-center gap-3 mb-6">
-   <button onClick={() => setKycPage('landing')} className="p-2 hover:bg-gray-100 rounded-lg">
-     <ArrowLeft className="w-5 h-5 text-gray-600" />
-   </button>
-   <h2 className="text-2xl font-bold tracking-tight leading-tight">Accuracy Dashboard</h2>
- </div>
- <AccuracyDashboard />
- </div>
- )}
 
  {/* Admin Panel Page */}
  {kycPage === 'admin' && (

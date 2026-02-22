@@ -158,6 +158,9 @@ export const AuthProvider = ({ children }) => {
         loadUserData(initialSession);
       }
       setLoading(false);
+    }).catch((err) => {
+      console.error('[Auth] getSession error:', err);
+      setLoading(false);
     });
 
     // Listen for auth state changes
