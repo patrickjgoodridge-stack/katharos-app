@@ -10685,7 +10685,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    "Vladimir Putin",
    "Sinaloa Cartel",
    "What are best practices for asset recovery?",
-   "What are the main Iranian sanctions evasion methods?",
+   "What are the primary Iranian sanctions evasion methods?",
    "Screen for sanctions",
    "Analyze this document",
    "Identify red flags",
