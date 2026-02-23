@@ -227,7 +227,7 @@ function friendlyError(error) {
 // Main Katharos Component
 export default function Katharos() {
  // Auth state - must be called before any conditional returns
- const { user, loading: authLoading, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
+ const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
