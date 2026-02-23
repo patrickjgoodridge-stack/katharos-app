@@ -10684,8 +10684,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    {[
    "Vladimir Putin",
    "Sinaloa Cartel",
-   "Summarize entity risks",
-   "Create AML/KYC report for:",
+   "What are best practices for asset recovery?",
+   "What are the main Iranian sanctions evasion methods?",
    "Screen for sanctions",
    "Analyze this document",
    "Identify red flags",
