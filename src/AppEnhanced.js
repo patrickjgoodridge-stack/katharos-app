@@ -10686,7 +10686,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    "Sinaloa Cartel",
    "What are best practices for asset recovery?",
    "What are the primary Iranian sanctions evasion methods?",
-   "Screen for sanctions",
+   "What are the primary AML risks of PE transactions?",
    "Analyze this document",
    "Identify red flags",
    "Map ownership"
