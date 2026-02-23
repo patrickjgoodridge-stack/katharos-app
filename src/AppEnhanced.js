@@ -122,9 +122,9 @@ const SCREENING_STEPS = [
 ];
 
 // Real-time screening progress bar with step simulation
-function ScreeningProgressBar({ startedAt }) {
+function ScreeningProgressBar({ startedAt, compact, label }) {
   const [progress, setProgress] = useState(0);
-  const [stepName, setStepName] = useState('Initializing...');
+  const [stepIndex, setStepIndex] = useState(-1);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -132,19 +132,12 @@ function ScreeningProgressBar({ startedAt }) {
       const secs = (Date.now() - new Date(startedAt).getTime()) / 1000;
       setElapsed(Math.floor(secs));
 
-      // Find the current step based on elapsed time
       let currentPct = 5;
-      let currentName = 'Initializing...';
+      let currentIdx = -1;
       for (let i = SCREENING_STEPS.length - 1; i >= 0; i--) {
         if (secs >= SCREENING_STEPS[i].at) {
           currentPct = SCREENING_STEPS[i].pct;
-          // Show the *next* step name as what's currently running, or last step if done
-          if (i < SCREENING_STEPS.length - 1) {
-            currentName = SCREENING_STEPS[i + 1].name + '...';
-          } else {
-            currentName = 'Finalizing...';
-          }
-          // Add smooth interpolation toward next step
+          currentIdx = i;
           if (i < SCREENING_STEPS.length - 1) {
             const nextStep = SCREENING_STEPS[i + 1];
             const stepDuration = nextStep.at - SCREENING_STEPS[i].at;
@@ -155,36 +148,62 @@ function ScreeningProgressBar({ startedAt }) {
           break;
         }
       }
-      // First step hasn't been reached yet — interpolate from 5% toward first step
       if (secs < SCREENING_STEPS[0].at) {
         const fraction = secs / SCREENING_STEPS[0].at;
         currentPct = 5 + (SCREENING_STEPS[0].pct - 5) * fraction;
-        currentName = SCREENING_STEPS[0].name + '...';
       }
 
-      // Cap at 95% — actual completion will jump to 100%
       setProgress(Math.min(Math.round(currentPct), 95));
-      setStepName(currentName);
+      setStepIndex(currentIdx);
     }, 400);
 
     return () => clearInterval(interval);
   }, [startedAt]);
 
+  // Compact version for batch screening queue
+  if (compact) {
+    const currentName = stepIndex >= 0 && stepIndex < SCREENING_STEPS.length - 1
+      ? SCREENING_STEPS[stepIndex + 1].name + '...'
+      : stepIndex >= SCREENING_STEPS.length - 1 ? 'Finalizing...'
+      : SCREENING_STEPS[0].name + '...';
+    return (
+      <div className="w-full mt-1.5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-gray-400 text-[10px] truncate mr-2">{currentName}</span>
+          <span className="text-gray-500 text-[10px] shrink-0">{elapsed}s</span>
+        </div>
+        <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-full bg-gray-400 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.4s ease-out' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Full version for main chat screening
+  const remaining = Math.max(0, 45 - elapsed);
+  const currentName = stepIndex >= 0 && stepIndex < SCREENING_STEPS.length - 1
+    ? SCREENING_STEPS[stepIndex + 1].name
+    : stepIndex >= SCREENING_STEPS.length - 1 ? 'Finalizing'
+    : SCREENING_STEPS[0].name;
+
   return (
-    <div className="w-full mt-1.5">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-gray-400 text-[10px] truncate mr-2">{stepName}</span>
-        <span className="text-gray-500 text-[10px] shrink-0">{elapsed}s</span>
+    <div style={{ width: '300px', padding: '14px 18px', background: '#242424', borderRadius: '12px', border: '1px solid #333' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: '#e0e0e0', letterSpacing: '-0.2px' }}>{label || 'Screening in progress'}</span>
+        <span style={{ fontSize: '11px', color: '#888', fontVariantNumeric: 'tabular-nums' }}>
+          {remaining > 0 ? `~${remaining}s` : 'Wrapping up'}
+        </span>
       </div>
-      <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gray-400 rounded-full"
-          style={{ width: `${progress}%`, transition: 'width 0.4s ease-out' }}
-        />
+
+      <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+        <div style={{
+          height: '100%', borderRadius: '4px',
+          background: 'linear-gradient(90deg, #b8860b, #d4a017)',
+          width: `${progress}%`, transition: 'width 0.4s ease-out',
+        }} />
       </div>
-      <div className="text-right mt-0.5">
-        <span className="text-gray-600 text-[10px] font-mono">{progress}%</span>
-      </div>
+
+      <span style={{ fontSize: '11px', color: '#888' }}>{currentName}...</span>
     </div>
   );
 }
@@ -291,6 +310,8 @@ export default function Katharos() {
  const [screeningProgress, setScreeningProgress] = useState(0); // eslint-disable-line no-unused-vars
  const [screeningCountdown, setScreeningCountdown] = useState(0);
  const countdownTotalRef = useRef(0);
+ const screeningStartRef = useRef(null);
+ const activeIntentRef = useRef('SCREEN');
  // Concurrent search queue
  const [searchJobs, setSearchJobs] = useState([]);
  const [searchToasts, setSearchToasts] = useState([]);
@@ -2849,10 +2870,22 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  const processedFiles = await Promise.all(
  Array.from(newFiles).map(async (file) => {
  let text = '';
+ let imageData = null;
+ let mediaType = null;
  const fileName = file.name.toLowerCase();
- 
+
  try {
- if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+ if (/\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(fileName)) {
+ // Handle image files — read as base64 for Claude vision
+ imageData = await new Promise((resolve, reject) => {
+   const reader = new FileReader();
+   reader.onload = () => resolve(reader.result.split(',')[1]);
+   reader.onerror = reject;
+   reader.readAsDataURL(file);
+ });
+ mediaType = file.type || 'image/png';
+ text = `[Image: ${file.name}]`;
+ } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
  // Handle Word documents with mammoth
  const arrayBuffer = await file.arrayBuffer();
  const result = await mammoth.extractRawText({ arrayBuffer });
@@ -2900,6 +2933,8 @@ If this is a scanned document, please use OCR software to convert it to searchab
  type: file.type || 'text/plain',
  size: file.size,
  content: text,
+ imageData,
+ mediaType,
  uploadedAt: new Date().toISOString()
  };
  })
@@ -4113,7 +4148,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    // Set per-case streaming state
    setCaseStreamingState(caseId, { isStreaming: true, streamingText: '' });
    setActiveAnalysisCount(prev => prev + 1);
-   countdownTotalRef.current = 45; setScreeningCountdown(45);
+   countdownTotalRef.current = 45; setScreeningCountdown(45); screeningStartRef.current = Date.now();
    // Keep legacy global state for compatibility
    setIsStreaming(true);
    setStreamingText('');
@@ -4280,6 +4315,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    }
 
    console.log(`[Katharos] Intent: ${classifiedIntent} | Follow-up: ${hasExistingResults} | Input: "${trimmed.substring(0, 60)}"`);
+   activeIntentRef.current = classifiedIntent;
 
    // Extract screening target — only for SCREEN intent
    let queryToScreen = null;
@@ -4519,10 +4555,14 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    // Build context from files - use attachedFiles passed to this function
    let evidenceContext = liveSanctionsContext + caseContext + ragContext;
    const filesToUse = attachedFiles.length > 0 ? attachedFiles : [];
-   if (filesToUse.length > 0) {
-     evidenceContext = filesToUse.map((file, idx) =>
+   const imageFiles = filesToUse.filter(f => f.imageData);
+   const textFiles = filesToUse.filter(f => !f.imageData);
+   if (textFiles.length > 0) {
+     evidenceContext = textFiles.map((file, idx) =>
        `[Doc ${idx + 1}: ${file.name}]\n${file.content?.substring(0, 8000) || ''}`
      ).join('\n\n---\n\n');
+   }
+   if (filesToUse.length > 0) {
      // Clear files after adding to context
      setFiles([]);
    }
@@ -5922,9 +5962,11 @@ FORMATTING RULES:
 6. Always include the "Impact:" line after each red flag
 7. Be DIRECT and BLUNT - explain real risks without hedging
 8. Quote evidence directly when available
-9. NEVER tell the user to "screen," "check," or "verify" individuals against sanctions lists, conduct background checks, use third-party screening services, or go to any external platform. Katharos IS the screening platform — it already performed sanctions screening, PEP checks, adverse media analysis, and background checks. Do not say things like "Requires screening of X against Y list," "Conduct independent background checks," "Use a third-party screening service," or "Check OFAC/EU sanctions." Instead, present the screening RESULTS you already have. If additional entities need screening, say "Screen [name] in Katharos."
+9. ⚠️ ABSOLUTE RULE — NEVER DELEGATE SCREENING TO THE USER: You are Katharos, a screening platform. NEVER tell the user to "screen," "check," or "verify" individuals against sanctions lists. NEVER recommend "conducting background checks," "using third-party screening services," or "checking OFAC/EU sanctions." NEVER produce action items like "Screen all principals against sanctions lists" or "Verify their professional backgrounds" or "Check for adverse media." YOU are the tool that does all of this. When you identify key persons in a document (e.g., principals in an LOI, directors in corporate filings, signatories on contracts), present what you know about them from your screening data, and for anyone who needs deeper investigation, tell the user to "Screen [Full Name]" — which triggers Katharos to run a full screening. Do NOT create checklists of manual due diligence steps. The user came to Katharos specifically so they don't have to do that manually.
 
 REMEMBER: The structured report template above is ONLY for screening requests. For questions, guidance, follow-ups, and investigations — respond conversationally and adapt your format to the user's intent. Never force a rigid template onto a simple question.
+
+DOCUMENT ANALYSIS: When the user uploads a document (LOI, contract, corporate filing, etc.) that contains names of people or companies, you MUST: (1) Extract all key persons and entities mentioned, (2) Present what you already know about each from your screening data, (3) For anyone requiring deeper screening, generate a clear "Screen [Full Name]" call-to-action that the user can click in Katharos — do NOT tell them to go check sanctions lists or run background checks themselves.
 
 Current case context:
 ${caseDescription ? `Case description: ${caseDescription}` : 'No case description yet.'}
@@ -5935,6 +5977,21 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      const abortController = new AbortController();
      conversationAbortRef.current = abortController;
 
+     // Build user content — include images as vision content blocks if present
+     const textContent = userMessage.trim() || 'Please analyze the attached documents.';
+     let userContent;
+     if (imageFiles && imageFiles.length > 0) {
+       userContent = [
+         ...imageFiles.map(img => ({
+           type: 'image',
+           source: { type: 'base64', media_type: img.mediaType, data: img.imageData }
+         })),
+         { type: 'text', text: textContent }
+       ];
+     } else {
+       userContent = textContent;
+     }
+
      // Use streaming endpoint for real-time text display
      const response = await fetch(`${API_BASE}/api/stream`, {
        method: 'POST',
@@ -5944,7 +6001,7 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
          model: 'claude-sonnet-4-20250514',
          max_tokens: 8192,
          system: systemPrompt,
-         messages: [...history, { role: 'user', content: userMessage.trim() || 'Please analyze the attached documents.' }]
+         messages: [...history, { role: 'user', content: userContent }]
        })
      });
 
@@ -8071,22 +8128,87 @@ ${analysisContext}`;
  }
  };
 
- // Show loading state while checking auth
- if (isConfigured && authLoading) {
-   return (
-     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-       <div className="text-center">
-         <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-600 rounded-2xl mb-4 animate-pulse">
-           <span className="text-3xl font-bold text-white">M</span>
-         </div>
-         <p className="text-gray-400">Loading...</p>
-       </div>
-     </div>
-   );
- }
-
-// Public pages that don't require authentication
+ // Public pages that don't require authentication
 const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures', 'contact'];
+
+// Show loading state while checking auth — but only for protected pages
+if (isConfigured && authLoading && !publicPages.includes(currentPage)) {
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#1a1a1a', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontFamily: "'Inter', -apple-system, sans-serif",
+    }}>
+      <style>{`
+        @keyframes k-sweep {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+        @keyframes k-fade-up {
+          0% { opacity: 0; transform: translateY(8px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes k-pulse-ring {
+          0% { transform: scale(0.85); opacity: 0.5; }
+          50% { transform: scale(1); opacity: 0.15; }
+          100% { transform: scale(0.85); opacity: 0.5; }
+        }
+        @keyframes k-dot-pulse {
+          0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+          40% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+      <div style={{ textAlign: 'center', animation: 'k-fade-up 0.6s ease-out both' }}>
+        {/* Animated ring + wordmark */}
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '32px' }}>
+          <div style={{
+            position: 'absolute', width: '80px', height: '80px', borderRadius: '50%',
+            border: '1px solid rgba(184, 134, 11, 0.25)',
+            animation: 'k-pulse-ring 2.4s ease-in-out infinite',
+          }} />
+          <div style={{
+            width: '56px', height: '56px', borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.15), rgba(212, 160, 23, 0.08))',
+            border: '1px solid rgba(184, 134, 11, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{
+              fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '24px',
+              fontWeight: 400, color: '#d4a017', letterSpacing: '-0.5px',
+            }}>K</span>
+          </div>
+        </div>
+
+        {/* Wordmark */}
+        <div style={{
+          fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '22px',
+          fontWeight: 400, color: '#ffffff', letterSpacing: '-0.3px', marginBottom: '24px',
+        }}>Katharos</div>
+
+        {/* Sweep bar */}
+        <div style={{
+          width: '120px', height: '2px', background: 'rgba(255,255,255,0.06)',
+          borderRadius: '2px', overflow: 'hidden', margin: '0 auto 16px',
+        }}>
+          <div style={{
+            width: '50%', height: '100%', borderRadius: '2px',
+            background: 'linear-gradient(90deg, transparent, #b8860b, transparent)',
+            animation: 'k-sweep 1.6s ease-in-out infinite',
+          }} />
+        </div>
+
+        {/* Animated dots */}
+        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              width: '4px', height: '4px', borderRadius: '50%', background: '#b8860b',
+              animation: `k-dot-pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
+            }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Show AuthPage only if user is trying to access a protected page
 if (!isAuthenticated && !publicPages.includes(currentPage)) {
@@ -8168,6 +8290,11 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  @keyframes scan {
  0%, 100% { transform: translateY(-100%); opacity: 0; }
  50% { transform: translateY(100%); opacity: 1; }
+ }
+
+ @keyframes pulse {
+ 0%, 100% { opacity: 1; transform: scale(1); }
+ 50% { opacity: 0.4; transform: scale(0.8); }
  }
  
  .pulse-ring {
@@ -9748,7 +9875,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
            )}
          </div>
        </div>
-       {job.status === 'running' && <ScreeningProgressBar startedAt={job.startedAt} />}
+       {job.status === 'running' && <ScreeningProgressBar startedAt={job.startedAt} compact />}
      </div>
    ))}
  </div>
@@ -10502,7 +10629,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  />
  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #3a3a3a' }}>
  <div className="flex items-center gap-2">
- <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
+ <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.heic" className="hidden" />
  <div className="relative group">
  <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
  <Plus className="w-4 h-4" />
@@ -10705,7 +10832,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         const keepExploringSuggestions = (() => {
         // Pull structured data from case analysis OR kycResults — never generic
         const activeCase = cases.find(c => c.id === currentCaseId);
-        const subjectName = kycResults?.subject?.name || kycQuery || activeCase?.name?.split(' - ')[0]?.trim() || '';
+        const rawCaseName = activeCase?.name?.split(' - ')[0]?.trim() || '';
+        // Use structured subject name from screening results, or the case name — NEVER the raw search input (kycQuery)
+        // kycQuery can contain conversational text like "should I be aware of here" which isn't an entity name
+        const subjectName = kycResults?.subject?.name || (rawCaseName && rawCaseName !== 'New Investigation' ? rawCaseName : '') || '';
         const caseAnalysis = analysis || activeCase?.analysis || null;
         const lastMsg = conversationMessages?.[conversationMessages.length - 1]?.content || '';
         const lc = lastMsg.toLowerCase();
@@ -10959,19 +11089,21 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         if (suggestions.length < 5 && subjectType.includes('vessel')) {
           suggestions.push(`Check for AIS gaps, flag changes, or ship-to-ship transfers in recent port calls`);
         }
-        if (suggestions.length < 5 && subjectType.includes('individual') && kycOtherOrgs.length === 0) {
+        if (suggestions.length < 5 && subjectType.includes('individual') && kycOtherOrgs.length === 0 && subjectName) {
           suggestions.push(`Search for aircraft, vessel, or real estate registrations tied to ${subjectName}`);
         }
-        if (suggestions.length < 5 && (subjectType.includes('company') || subjectType.includes('organization')) && kycBeneficialOwners.length === 0) {
+        if (suggestions.length < 5 && (subjectType.includes('company') || subjectType.includes('organization')) && kycBeneficialOwners.length === 0 && subjectName) {
           suggestions.push(`Trace ${subjectName} back to its ultimate beneficial owners through corporate filings`);
         }
 
         // === FINAL VALIDATION ===
-        // Remove any suggestion that is essentially "screen/investigate [subject]"
+        // Remove any suggestion that is essentially "screen/investigate [subject]" or contains conversational junk
         const validated = suggestions.filter(s => {
           if (s.length > 120 || s.length < 10) return false;
           if (/undefined|null|\[\]|\{\}/i.test(s)) return false;
           if (!/^[A-Z""]/.test(s)) return false;
+          // Block suggestions containing conversational fragments
+          if (/\b(should I|what about|tell me|how do|can you|please|aware of here|I be)\b/i.test(s)) return false;
           // Block suggestions that just re-screen the subject
           const sLower = s.toLowerCase();
           if (sLower.startsWith('screen ') || sLower.startsWith('investigate ')) {
@@ -10987,7 +11119,26 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
           // Extract names mentioned in the report (CAPITALIZED multi-word sequences likely to be names/orgs)
           const nameMatches = lastMsg.match(/(?:(?:[A-Z][a-z]+(?:\s+(?:al-|bin\s|von\s|de\s|van\s)?[A-Z][a-z]+){1,4}))/g) || [];
-          const mentionedNames = [...new Set(nameMatches)].filter(n => !isSubject(n) && n.length > 4 && n.length < 50);
+          // Filter out common English words that happen to be capitalized (e.g. "Search Mexican", "Tell About")
+          const commonWords = new Set([
+            'search','screen','check','find','look','investigate','trace','map','review','assess',
+            'analyze','identify','pull','cross','compile','deep','dive','tell','show','help',
+            'give','make','take','about','should','could','would','aware','know','here','there',
+            'this','that','these','those','what','when','where','which','how','why','who',
+            'high','low','medium','critical','risk','level','overall','new','more','most',
+            'also','some','many','very','just','been','have','will','with','from','into',
+            'mexican','american','british','chinese','russian','iranian','french','german',
+            'canadian','australian','indian','japanese','korean','turkish','saudi','israeli',
+            'african','european','asian','western','eastern','northern','southern','central',
+            'north','south','east','west','united','states','kingdom','please','need',
+          ]);
+          const mentionedNames = [...new Set(nameMatches)].filter(n => {
+            if (isSubject(n) || n.length <= 4 || n.length >= 50) return false;
+            // Reject if ALL words are common English words / nationalities
+            const words = n.toLowerCase().split(/\s+/);
+            if (words.every(w => commonWords.has(w))) return false;
+            return true;
+          });
 
           // Extract organizations (words before Ltd, LLC, Inc, etc. or ALLCAPS acronyms)
           const orgMatches = lastMsg.match(/(?:[A-Z][\w&\-.']+(?:\s+[A-Z][\w&\-.']+){0,5}\s+(?:Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited|Bank|Foundation|Fund|Trust))/g) || [];
@@ -11017,7 +11168,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           // Person-based suggestions from text mining
           mentionedNames.slice(0, 3).forEach(name => {
             pool.push(`Screen ${name} for independent sanctions and adverse media exposure`);
-            pool.push(`Investigate ${name}'s role in the network around ${subjectName}`);
+            if (subjectName) pool.push(`Investigate ${name}'s role in the network around ${subjectName}`);
           });
 
           // Org-based suggestions
@@ -11035,8 +11186,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           // Sanctions-specific deep dives
           if (hasSanctions) {
             pool.push(`Trace the full sanctions designation timeline and identify co-designated entities`);
-            pool.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
-            pool.push(`Map the network of blocked persons and entities linked to ${subjectName}`);
+            if (subjectName) {
+              pool.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
+              pool.push(`Map the network of blocked persons and entities linked to ${subjectName}`);
+            }
             if (mentionedLists.length > 0) {
               pool.push(`Cross-reference other designees under ${mentionedLists[0]} for shared networks`);
             }
@@ -11081,10 +11234,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           }
 
           // General investigative paths (always relevant, randomized by subject hash)
-          pool.push(`Search for aircraft, vessel, and real estate registrations tied to ${subjectName}`);
+          if (subjectName) {
+            pool.push(`Search for aircraft, vessel, and real estate registrations tied to ${subjectName}`);
+            pool.push(`Assess secondary sanctions risk for counterparties transacting with ${subjectName}`);
+            pool.push(`Review the regulatory enforcement history and penalty record for ${subjectName}`);
+          }
           pool.push(`Check for leaked document exposure (Panama Papers, Pandora Papers, FinCEN Files)`);
-          pool.push(`Assess secondary sanctions risk for counterparties transacting with ${subjectName}`);
-          pool.push(`Review the regulatory enforcement history and penalty record for ${subjectName}`);
           pool.push(`Identify shared registered agents, addresses, or phone numbers across the network`);
 
           // Use a simple hash of the subject name to pick different suggestions each time
@@ -11197,18 +11352,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="max-w-2xl">
  {/* Show "Analyzing..." initially, then stream the markdown */}
  {!getCaseStreamingState(currentCaseId).streamingText?.trim() ? (
-   <div className="flex items-center gap-3 py-4">
-     <div className="flex gap-1">
-       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-       <span className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-     </div>
-     <div className="flex flex-col gap-2 w-48">
-       <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-         <div className="h-full bg-gradient-to-r from-gray-500 to-gray-700 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${countdownTotalRef.current > 0 ? Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100) : 5}%` }} />
-       </div>
-       <span className={`${darkMode ? 'text-gray-500' : 'text-gray-400'} text-xs`}>{screeningCountdown > 0 ? `~${screeningCountdown}s remaining` : 'Almost done...'}</span>
-     </div>
+   <div className="py-3">
+     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} />
    </div>
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
@@ -11238,7 +11383,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  )}
  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '10px', padding: '8px' }}>
- <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx" className="hidden" />
+ <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.heic" className="hidden" />
  <div className="relative group">
  <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
  <Plus className="w-4 h-4" />
@@ -11395,7 +11540,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  ref={fileInputRef}
  type="file"
  multiple
- accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml"
+ accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml,.png,.jpg,.jpeg,.gif,.webp,.heic"
  onChange={handleFileInput}
  className="hidden"
  />
@@ -11554,7 +11699,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex-1 min-w-0">
  <p className="font-medium text-sm leading-tight truncate">{file.name}</p>
  <p className="text-xs text-gray-600 mono tracking-wide mt-1">
- {(file.size / 1024).toFixed(1)} KB • {file.content.split(/\s+/).length} words
+ {(file.size / 1024).toFixed(1)} KB • {file.imageData ? 'image' : `${file.content.split(/\s+/).length} words`}
  </p>
  </div>
  <button
@@ -12691,7 +12836,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  multiple
  onChange={handleFileInput}
  className="hidden"
- accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml"
+ accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml,.png,.jpg,.jpeg,.gif,.webp,.heic"
  />
  <Upload className={`w-10 h-10 mx-auto mb-3 ${dragActive ? 'text-gray-600' : 'text-gray-400'}`} />
  <p className="text-base text-gray-600 leading-relaxed mb-1">

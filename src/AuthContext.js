@@ -124,8 +124,8 @@ export const AuthProvider = ({ children }) => {
 
     const email = authSession.user.email;
     const meta = authSession.user.user_metadata || {};
-    const name = meta.name || meta.full_name || pendingUserInfo?.name || '';
-    const company = meta.company || pendingUserInfo?.company || '';
+    const name = String(meta.name || meta.full_name || pendingUserInfo?.name || '');
+    const company = String(meta.company || pendingUserInfo?.company || '');
 
     // Load daily usage
     const usage = getDailyUsage(email);
@@ -148,7 +148,11 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize auth state
   useEffect(() => {
-    if (!isSupabaseConfigured() || initRef.current) return;
+    if (!isSupabaseConfigured()) {
+      setLoading(false);
+      return;
+    }
+    if (initRef.current) return;
     initRef.current = true;
 
     // Get initial session
@@ -198,17 +202,20 @@ export const AuthProvider = ({ children }) => {
   const submitEmail = async (email, name, company) => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
 
-    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const trimmedName = String(name || '').trim();
+    const trimmedCompany = String(company || '').trim();
 
     // Store name/company to use after OTP verification
-    setPendingUserInfo({ name: name?.trim() || '', company: company?.trim() || '' });
+    setPendingUserInfo({ name: trimmedName, company: trimmedCompany });
 
     const { error } = await supabase.auth.signInWithOtp({
       email: trimmedEmail,
       options: {
+        emailRedirectTo: window.location.origin,
         data: {
-          name: name?.trim() || '',
-          company: company?.trim() || '',
+          name: trimmedName,
+          company: trimmedCompany,
         }
       }
     });
@@ -227,8 +234,8 @@ export const AuthProvider = ({ children }) => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
 
     const { data, error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: token.trim(),
+      email: String(email || '').trim().toLowerCase(),
+      token: String(token || '').trim(),
       type: 'email',
     });
 
@@ -245,16 +252,19 @@ export const AuthProvider = ({ children }) => {
   const signUpWithPassword = async (email, password, name, company) => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
 
-    const trimmedEmail = email.trim().toLowerCase();
-    setPendingUserInfo({ name: name?.trim() || '', company: company?.trim() || '' });
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const trimmedName = String(name || '').trim();
+    const trimmedCompany = String(company || '').trim();
+    setPendingUserInfo({ name: trimmedName, company: trimmedCompany });
 
     const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
       options: {
+        emailRedirectTo: window.location.origin,
         data: {
-          name: name?.trim() || '',
-          company: company?.trim() || '',
+          name: trimmedName,
+          company: trimmedCompany,
         }
       }
     });
@@ -278,7 +288,7 @@ export const AuthProvider = ({ children }) => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: String(email || '').trim().toLowerCase(),
       password,
     });
 
@@ -295,8 +305,8 @@ export const AuthProvider = ({ children }) => {
     if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
 
     const { error } = await supabase.auth.resetPasswordForEmail(
-      email.trim().toLowerCase(),
-      { redirectTo: `${window.location.origin}` }
+      String(email || '').trim().toLowerCase(),
+      { redirectTo: window.location.origin }
     );
 
     if (error) return { success: false, error: error.message };
@@ -379,7 +389,7 @@ export const AuthProvider = ({ children }) => {
   const userMeta = session?.user?.user_metadata || {};
 
   const value = {
-    user: session ? { email, name: userRecord?.name || userMeta.name || userMeta.full_name || '', company: userRecord?.company || userMeta.company || '' } : null,
+    user: session ? { email, name: String(userRecord?.name || userMeta.name || userMeta.full_name || ''), company: String(userRecord?.company || userMeta.company || '') } : null,
     email,
     loading,
     submitEmail,

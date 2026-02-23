@@ -36,6 +36,8 @@
     { "source": "/api/screen-sanctions", "destination": "/api/screen-sanctions" },
     { "source": "/api/ownership-network", "destination": "/api/ownership-network" },
     { "source": "/api/screening/:path*", "destination": "/api/screening/:path*" },
-    { "source": "/api/rag", "destination": "/api/rag" }
+    { "source": "/api/rag", "destination": "/api/rag" },
+    { "source": "/api/health-check", "destination": "/api/health-check" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
