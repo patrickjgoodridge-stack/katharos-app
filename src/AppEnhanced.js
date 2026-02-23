@@ -8315,7 +8315,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
     workspaceName={workspaceName}
     signOut={signOut}
     startNewCase={(searchTerm) => {
-      if (searchTerm) {
+      if (searchTerm && typeof searchTerm === 'string') {
         setConversationInput(searchTerm);
       }
       startNewCase();
@@ -8330,7 +8330,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
     user={user}
     signOut={signOut}
     startNewCase={(searchTerm) => {
-      if (searchTerm) {
+      if (searchTerm && typeof searchTerm === 'string') {
         setConversationInput(searchTerm);
       }
       startNewCase();
@@ -8345,7 +8345,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
     user={user}
     signOut={signOut}
     startNewCase={(searchTerm) => {
-      if (searchTerm) {
+      if (searchTerm && typeof searchTerm === 'string') {
         setConversationInput(searchTerm);
       }
       startNewCase();

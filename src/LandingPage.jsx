@@ -102,7 +102,7 @@ const LandingPage = ({
             </div>
           ) : (
             <button
-              onClick={startNewCase}
+              onClick={() => startNewCase()}
               className="px-5 py-2 rounded text-[13px] font-normal uppercase transition-all"
               style={{ color: '#ffffff', border: '1px solid #4a4a4a', letterSpacing: '0.5px' }}
               onMouseEnter={(e) => {
