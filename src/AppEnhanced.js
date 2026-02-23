@@ -422,6 +422,85 @@ export default function Katharos() {
  const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
 
+ // Keep Exploring — LLM-generated suggestions per case
+ const [exploreSuggestions, setExploreSuggestions] = useState({}); // { [caseId]: string[] }
+ const exploreSuggestionsInFlight = useRef(new Set()); // Prevent duplicate requests
+
+ const generateExploreSuggestions = useCallback(async (caseId, caseMessages, screeningResults, caseAnalysis) => {
+   // Skip if already generated or in-flight
+   if (exploreSuggestions[caseId] || exploreSuggestionsInFlight.current.has(caseId)) return;
+   exploreSuggestionsInFlight.current.add(caseId);
+
+   // Build a compact context summary from the actual results
+   const lastAiMsg = [...(caseMessages || [])].reverse().find(m => m.role === 'assistant');
+   const aiText = (lastAiMsg?.content || '').slice(0, 3000); // Trim to keep prompt small
+
+   const entityName = screeningResults?.subject?.name || caseAnalysis?.subjectName || '';
+   const sanctions = (screeningResults?.sanctions?.matches || []).slice(0, 5).map(m => m.matchedName || m.name || '').filter(Boolean);
+   const pep = (screeningResults?.pep?.matches || []).slice(0, 5).map(m => `${m.name || ''}${m.position ? ' (' + m.position + ')' : ''}`).filter(Boolean);
+   const adverseMedia = (screeningResults?.adverseMedia?.articles || []).slice(0, 3).map(a => a.title || '').filter(Boolean);
+   const entities = (caseAnalysis?.entities || []).slice(0, 8).map(e => `${e.name} (${e.type || 'unknown'}${e.role ? ', ' + e.role : ''})`);
+   const corps = (screeningResults?.ownershipAnalysis?.corporateStructure || []).slice(0, 5).map(c => c.entity || c.name || '').filter(Boolean);
+   const owners = (screeningResults?.ownershipAnalysis?.beneficialOwners || []).slice(0, 5).map(o => `${o.name || ''}${o.ownershipPercent ? ' (' + o.ownershipPercent + '%)' : ''}`).filter(Boolean);
+   const redFlags = (caseAnalysis?.redFlags || []).slice(0, 5).map(f => f.title || f.description || '').filter(Boolean);
+   const jurisdictions = (screeningResults?.ownershipAnalysis?.corporateStructure || []).map(c => c.jurisdiction || c.country || '').filter(Boolean);
+
+   const contextParts = [];
+   if (entityName) contextParts.push(`Entity searched: ${entityName}`);
+   if (sanctions.length) contextParts.push(`Sanctions matches: ${sanctions.join(', ')}`);
+   if (pep.length) contextParts.push(`PEP matches: ${pep.join('; ')}`);
+   if (adverseMedia.length) contextParts.push(`Adverse media: ${adverseMedia.join('; ')}`);
+   if (entities.length) contextParts.push(`Related entities: ${entities.join('; ')}`);
+   if (corps.length) contextParts.push(`Corporate structure: ${corps.join(', ')}`);
+   if (owners.length) contextParts.push(`Beneficial owners: ${owners.join('; ')}`);
+   if (jurisdictions.length) contextParts.push(`Jurisdictions: ${[...new Set(jurisdictions)].join(', ')}`);
+   if (redFlags.length) contextParts.push(`Red flags: ${redFlags.join('; ')}`);
+
+   const prompt = `You are helping a user investigate "${entityName || 'a subject'}" on a financial crime and compliance platform. They just ran a search and got results. Based on the results below, suggest exactly 5 natural follow-up actions they'd want to take next.
+
+RESULTS CONTEXT:
+${contextParts.join('\n')}
+
+LAST AI RESPONSE (excerpt):
+${aiText}
+
+RULES:
+- Write each suggestion as a short, natural sentence (under 80 chars) that a real person would say
+- Start with outcome-driven language: "Show me...", "Who is...", "What's the connection between...", "Walk me through...", "Are there...", "Check if...", "Run a background check on..."
+- Reference SPECIFIC names, companies, or findings from the results — not generic placeholders
+- Each suggestion should lead to a different type of follow-up (e.g. person check, corporate lookup, risk explanation, timeline, compliance question)
+- Do NOT repeat the original search or use jargon the user wouldn't naturally say
+- Do NOT include numbering, bullets, or prefixes — just the raw suggestion text
+
+Return ONLY a JSON array of 5 strings. No explanation, no markdown.`;
+
+   try {
+     const response = await fetch(`${API_BASE}/api/messages`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         model: 'claude-haiku-4-5-20251001',
+         max_tokens: 512,
+         messages: [{ role: 'user', content: prompt }],
+       }),
+     });
+
+     if (!response.ok) throw new Error('API error');
+     const data = await response.json();
+     const text = data.content?.[0]?.text || '[]';
+     // Parse JSON array from response (handle markdown wrapping)
+     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+     const parsed = JSON.parse(cleaned);
+     if (Array.isArray(parsed) && parsed.length > 0) {
+       setExploreSuggestions(prev => ({ ...prev, [caseId]: parsed.slice(0, 5).map(s => String(s)) }));
+     }
+   } catch (err) {
+     console.log('[KeepExploring] Generation error:', err.message);
+   } finally {
+     exploreSuggestionsInFlight.current.delete(caseId);
+   }
+ }, [exploreSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
+
  // Landing page state
  const [showLandingCards, setShowLandingCards] = useState(false); // eslint-disable-line no-unused-vars
  const [hoveredCard, setHoveredCard] = useState(null); // eslint-disable-line no-unused-vars
@@ -4113,6 +4192,9 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      return;
    }
    sendingLockRef.current.add(caseId);
+
+   // Clear cached suggestions so new ones generate after this response
+   setExploreSuggestions(prev => { const next = { ...prev }; delete next[caseId]; return next; });
 
    // Check usage limits before proceeding
    if (!canScreen()) {
@@ -10749,449 +10831,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  ));
 })()}
 
-{/* Keep Exploring Panel - shows after last message when not streaming */}
+{/* Keep Exploring Panel - LLM-generated suggestions */}
 {currentCaseId && !getCaseStreamingState(currentCaseId).isStreaming && conversationMessages?.length > 0 && (() => {
-  // === COMPUTE SUGGESTIONS FIRST, ONLY RENDER IF NON-EMPTY ===
-        const keepExploringSuggestions = (() => {
-        // Pull structured data from case analysis OR kycResults — never generic
-        const activeCase = cases.find(c => c.id === currentCaseId);
-        const rawCaseName = activeCase?.name?.split(' - ')[0]?.trim() || '';
-        // Use structured subject name from screening results, or the case name — NEVER the raw search input (kycQuery)
-        // kycQuery can contain conversational text like "should I be aware of here" which isn't an entity name
-        const subjectName = kycResults?.subject?.name || (rawCaseName && rawCaseName !== 'New Investigation' ? rawCaseName : '') || '';
-        const caseAnalysis = analysis || activeCase?.analysis || null;
-        const lastMsg = conversationMessages?.[conversationMessages.length - 1]?.content || '';
-        const lc = lastMsg.toLowerCase();
-
-        // Robust subject matching — never suggest screening the subject again
-        const subjectLower = subjectName.toLowerCase();
-        const subjectParts = subjectLower.split(/[\s,]+/).filter(p => p.length > 2);
-        const isSubject = (name) => {
-          if (!name || !subjectName) return false;
-          const nl = name.toLowerCase();
-          if (nl === subjectLower) return true;
-          if (subjectLower.includes(nl) || nl.includes(subjectLower)) return true;
-          // Check if most name parts match (handles "PUTIN, Vladimir" vs "Vladimir Putin")
-          const nameParts = nl.split(/[\s,]+/).filter(p => p.length > 2);
-          const overlap = nameParts.filter(p => subjectParts.some(sp => sp.includes(p) || p.includes(sp)));
-          return overlap.length >= Math.min(nameParts.length, subjectParts.length) && overlap.length > 0;
-        };
-
-        // Extract structured facts — from case analysis OR kycResults
-        const entities = caseAnalysis?.entities || [];
-        const redFlags = caseAnalysis?.redFlags || [];
-        const relationships = caseAnalysis?.relationships || [];
-
-        // Also pull from kycResults when case analysis is empty
-        const kycBeneficialOwners = kycResults?.ownershipAnalysis?.beneficialOwners || [];
-        const kycCorporateStructure = kycResults?.ownershipAnalysis?.corporateStructure || [];
-        const kycOwnedCompanies = kycResults?.ownedCompanies || [];
-        const kycPepMatches = kycResults?.pep?.matches || [];
-        const kycSanctionMatches = kycResults?.sanctions?.matches || [];
-        const kycRiskFactors = kycResults?.riskFactors || [];
-
-        // Categorize entities by type
-        const sanctionedEntities = entities.filter(e =>
-          !isSubject(e.name) && (e.sanctionStatus === 'MATCH' || e.riskLevel === 'CRITICAL' ||
-          (e.role && /sanctioned|designated|blocked/i.test(e.role)))
-        );
-        const corporateEntities = entities.filter(e =>
-          !isSubject(e.name) && (e.type === 'ORGANIZATION' || e.type === 'COMPANY' ||
-          (e.name && /Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited/i.test(e.name)))
-        );
-
-        // Detect topics from last message
-        const hasSanctions = lc.includes('sanction') || lc.includes('ofac') || lc.includes('sdn') || lc.includes('designated');
-        const hasCorporate = lc.includes('shell') || lc.includes('beneficial owner') || lc.includes('corporate structure') || lc.includes('subsidiary');
-
-        // Build suggestions — specific, investigative, always outward from subject
-        const suggestions = [];
-
-        // Collect all named people and orgs (EXCLUDING the subject)
-        const otherPeople = entities.filter(e => e.type === 'PERSON' && !isSubject(e.name));
-        const otherOrgs = corporateEntities.filter(e => !isSubject(e.name));
-
-        // Also collect from kycResults
-        const kycOtherPeople = kycBeneficialOwners.filter(o => o.name && !isSubject(o.name));
-        const kycOtherOrgs = [
-          ...kycCorporateStructure.filter(c => (c.entity || c.name) && !isSubject(c.entity || c.name)),
-          ...kycOwnedCompanies.filter(c => (c.company || c.name) && !isSubject(c.company || c.name)),
-        ];
-        const kycOtherPeps = kycPepMatches.filter(p => p.name && !isSubject(p.name));
-        const kycOtherSanctioned = kycSanctionMatches.filter(m => {
-          const n = m.matchedName || m.name || '';
-          return n && !isSubject(n);
-        });
-
-        // --- 1. Screen a specific related person ---
-        if (otherPeople.length > 0) {
-          const person = otherPeople[0];
-          const role = person.role ? ` — ${person.role.replace(/[.!]+$/, '')}` : '';
-          suggestions.push(`Screen ${person.name}${role}`);
-        } else if (kycOtherPeople.length > 0) {
-          const owner = kycOtherPeople[0];
-          const pct = owner.ownershipPercent ? ` — ${owner.ownershipPercent}% beneficial owner` : ' — beneficial owner';
-          suggestions.push(`Screen ${owner.name}${pct}`);
-        } else if (kycOtherPeps.length > 0) {
-          const pep = kycOtherPeps[0];
-          const pos = pep.position ? ` — ${pep.position}` : '';
-          suggestions.push(`Screen ${pep.name}${pos}`);
-        }
-
-        // --- 2. Investigate a specific related entity/company ---
-        if (otherOrgs.length > 0) {
-          const org = otherOrgs[0];
-          const detail = org.role ? ` (${org.role.replace(/[.!]+$/, '')})` : '';
-          suggestions.push(`Investigate ${org.name}${detail}`);
-        } else if (kycOtherOrgs.length > 0) {
-          const corp = kycOtherOrgs[0];
-          const name = corp.entity || corp.company || corp.name;
-          const rel = corp.relationship ? ` — ${corp.relationship}` : '';
-          suggestions.push(`Investigate ${name}${rel}`);
-        } else if (otherPeople.length > 1) {
-          const person2 = otherPeople[1];
-          const role2 = person2.role ? ` — ${person2.role.replace(/[.!]+$/, '')}` : '';
-          suggestions.push(`Screen ${person2.name}${role2}`);
-        } else if (kycOtherPeople.length > 1) {
-          const owner2 = kycOtherPeople[1];
-          suggestions.push(`Screen ${owner2.name} for independent risk assessment`);
-        }
-
-        // --- 3. Red flag deep dive ---
-        if (redFlags.length > 0 && suggestions.length < 5) {
-          const flag = redFlags[0];
-          const flagText = flag.title || flag.category || flag.description || '';
-          if (flagText && flagText.length > 5) {
-            suggestions.push(`Deep dive into the ${flagText.toLowerCase().replace(/[.!?]+$/, '')} findings`);
-          }
-        } else if (kycRiskFactors.length > 0 && suggestions.length < 5) {
-          const rf = kycRiskFactors[0];
-          const rfText = rf.factor || rf.description || '';
-          if (rfText && rfText.length > 5) {
-            suggestions.push(`Deep dive into the ${rfText.toLowerCase().replace(/[.!?]+$/, '')} findings`);
-          }
-        }
-
-        // --- 4. Sanctions-specific: trace ownership (use a non-subject entity) ---
-        if ((hasSanctions || sanctionedEntities.length > 0 || kycOtherSanctioned.length > 0) && suggestions.length < 5) {
-          const target = sanctionedEntities[0]?.name || kycOtherSanctioned[0]?.matchedName || kycOtherSanctioned[0]?.name;
-          if (target && !isSubject(target)) {
-            suggestions.push(`Trace entities owned 50%+ by ${target} under OFAC's 50% rule`);
-          }
-        }
-
-        // --- 5. Corporate structure: map ownership (use a non-subject entity) ---
-        if ((hasCorporate || kycOtherOrgs.length > 0) && suggestions.length < 5) {
-          const target = corporateEntities[0]?.name || kycOtherOrgs[0]?.entity || kycOtherOrgs[0]?.company || kycOtherOrgs[0]?.name;
-          if (target && !isSubject(target)) {
-            suggestions.push(`Map the full beneficial ownership chain for ${target}`);
-          }
-        }
-
-        // --- 6. Relationship-based: screen connected entity ---
-        if (relationships.length > 0 && suggestions.length < 5) {
-          const rel = relationships.find(r => {
-            const other = r.target || r.to || r.entity2 || '';
-            return other && !isSubject(other) && !suggestions.some(s => s.includes(other));
-          });
-          if (rel) {
-            const other = rel.target || rel.to || rel.entity2;
-            suggestions.push(`Screen ${other} for independent risk assessment`);
-          }
-        }
-
-        // --- 7. Second person or org if available ---
-        if (suggestions.length < 5 && otherPeople.length > 1 && !suggestions.some(s => s.includes(otherPeople[1].name))) {
-          const p2 = otherPeople[1];
-          const r2 = p2.role ? ` — ${p2.role.replace(/[.!]+$/, '')}` : '';
-          suggestions.push(`Screen ${p2.name}${r2}`);
-        }
-        if (suggestions.length < 5 && otherOrgs.length > 1 && !suggestions.some(s => s.includes(otherOrgs[1].name))) {
-          const o2 = otherOrgs[1];
-          suggestions.push(`Investigate ${o2.name} for layered ownership or nominee structures`);
-        }
-
-        // --- 8. Data-driven investigative paths ---
-        // Every suggestion below is built from actual screening data — never generic.
-        const alreadyUsed = (text) => suggestions.some(s => s.toLowerCase().includes(text.toLowerCase().slice(0, 25)));
-
-        // Adverse media categories → dig into the specific category found
-        const amCategories = kycResults?.adverseMedia?.categories || {};
-        const amArticles = kycResults?.adverseMedia?.articles || [];
-        if (suggestions.length < 5 && Object.keys(amCategories).length > 0) {
-          const topCat = Object.entries(amCategories).sort((a, b) => b[1] - a[1])[0];
-          if (topCat && !alreadyUsed(topCat[0])) {
-            const catLabel = topCat[0].replace(/_/g, ' ').toLowerCase();
-            suggestions.push(`Analyze the ${catLabel} coverage and trace it to named co-conspirators`);
-          }
-        }
-        // Specific adverse media article → follow the thread
-        if (suggestions.length < 5 && amArticles.length > 0) {
-          const article = amArticles.find(a => a.title && a.title.length > 10);
-          if (article && !alreadyUsed(article.title.slice(0, 20))) {
-            const shortTitle = article.title.length > 60 ? article.title.slice(0, 57) + '...' : article.title;
-            suggestions.push(`Follow the thread from "${shortTitle}"`);
-          }
-        }
-
-        // Jurisdiction-based → trace activity in the specific country found
-        const subjectJurisdiction = kycResults?.subject?.jurisdiction || '';
-        const kycCorpJurisdictions = kycOtherOrgs
-          .map(c => c.jurisdiction || c.country || '').filter(Boolean);
-        const offshoreJurisdictions = [...kycCorpJurisdictions, subjectJurisdiction]
-          .filter(j => /panama|bvi|cayman|cyprus|seychelles|mauritius|bahamas|bermuda|isle of man|jersey|guernsey|liechtenstein|luxembourg|malta|vanuatu|samoa|marshall/i.test(j));
-        if (suggestions.length < 5 && offshoreJurisdictions.length > 0) {
-          const j = offshoreJurisdictions[0];
-          suggestions.push(`Trace the ${j} incorporation chain for nominee directors or shelf companies`);
-        } else if (suggestions.length < 5 && kycCorpJurisdictions.length > 0) {
-          const j = kycCorpJurisdictions[0];
-          if (!alreadyUsed(j)) {
-            suggestions.push(`Pull corporate filings and director histories from ${j}`);
-          }
-        }
-
-        // PEP-specific → investigate the political connection found
-        if (suggestions.length < 5 && kycOtherPeps.length > 0) {
-          const pep = kycOtherPeps.find(p => !alreadyUsed(p.name));
-          if (pep) {
-            const pos = pep.position ? `as ${pep.position}` : '';
-            suggestions.push(`Trace government contracts and procurement ties through ${pep.name} ${pos}`.trim());
-          }
-        }
-
-        // Ownership percentage anomalies → investigate specific thresholds
-        const ownersAbove25 = kycBeneficialOwners.filter(o => o.ownershipPercent >= 25 && !isSubject(o.name));
-        const ownersBelow25 = kycBeneficialOwners.filter(o => o.ownershipPercent > 0 && o.ownershipPercent < 25 && !isSubject(o.name));
-        if (suggestions.length < 5 && ownersBelow25.length >= 2) {
-          suggestions.push(`Investigate whether split ownership stakes are designed to stay below reporting thresholds`);
-        } else if (suggestions.length < 5 && ownersAbove25.length > 0 && !alreadyUsed(ownersAbove25[0].name)) {
-          const bo = ownersAbove25[0];
-          suggestions.push(`Map ${bo.name}'s other holdings for shared directors or registered agents`);
-        }
-
-        // Sanctions program-specific → follow the designation trail
-        const sanctionPrograms = kycSanctionMatches
-          .flatMap(m => [m.program, m.listName, m.source].filter(Boolean));
-        if (suggestions.length < 5 && sanctionPrograms.length > 0) {
-          const prog = sanctionPrograms[0];
-          if (!alreadyUsed(prog)) {
-            suggestions.push(`Cross-reference other entities designated under ${prog} for shared networks`);
-          }
-        }
-
-        // Leaks exposure → follow the leak data
-        const leaks = kycResults?.ownershipAnalysis?.leaksExposure || [];
-        if (suggestions.length < 5 && leaks.length > 0) {
-          const leak = leaks[0];
-          const leakName = leak.source || leak.name || 'leaked documents';
-          suggestions.push(`Trace all entities linked through ${leakName} to identify parallel structures`);
-        }
-
-        // 50% rule triggered → investigate downstream entities
-        if (suggestions.length < 5 && kycResults?.ownershipAnalysis?.fiftyPercentRuleTriggered) {
-          suggestions.push(`Identify downstream entities that inherit blocked status under the 50% rule`);
-        }
-
-        // Regulatory guidance → follow filing requirements
-        const filingReqs = kycResults?.regulatoryGuidance?.filingRequirements || [];
-        if (suggestions.length < 5 && filingReqs.length > 0) {
-          const req = filingReqs[0];
-          if (typeof req === 'string' && req.length > 5) {
-            suggestions.push(`Assess whether prior transactions trigger ${req.replace(/[.!]+$/, '')} obligations`);
-          }
-        }
-
-        // Owned companies with high ownership → trace the network
-        const highOwnership = kycOwnedCompanies.filter(c => c.ownershipPercent >= 50 && !isSubject(c.company || c.name));
-        if (suggestions.length < 5 && highOwnership.length > 1) {
-          suggestions.push(`Map shared directors and registered agents across the ${highOwnership.length} majority-owned subsidiaries`);
-        }
-
-        // Subject type-specific paths
-        const subjectType = (kycResults?.subject?.type || '').toLowerCase();
-        if (suggestions.length < 5 && subjectType.includes('vessel')) {
-          suggestions.push(`Check for AIS gaps, flag changes, or ship-to-ship transfers in recent port calls`);
-        }
-        if (suggestions.length < 5 && subjectType.includes('individual') && kycOtherOrgs.length === 0 && subjectName) {
-          suggestions.push(`Search for aircraft, vessel, or real estate registrations tied to ${subjectName}`);
-        }
-        if (suggestions.length < 5 && (subjectType.includes('company') || subjectType.includes('organization')) && kycBeneficialOwners.length === 0 && subjectName) {
-          suggestions.push(`Trace ${subjectName} back to its ultimate beneficial owners through corporate filings`);
-        }
-
-        // === FINAL VALIDATION ===
-        // Remove any suggestion that is essentially "screen/investigate [subject]" or contains conversational junk
-        const validated = suggestions.filter(s => {
-          if (s.length > 120 || s.length < 10) return false;
-          if (/undefined|null|\[\]|\{\}/i.test(s)) return false;
-          if (!/^[A-Z""]/.test(s)) return false;
-          // Block suggestions containing conversational fragments
-          if (/\b(should I|what about|tell me|how do|can you|please|aware of here|I be)\b/i.test(s)) return false;
-          // Block suggestions that just re-screen the subject
-          const sLower = s.toLowerCase();
-          if (sLower.startsWith('screen ') || sLower.startsWith('investigate ')) {
-            const target = s.replace(/^(Screen|Investigate)\s+/i, '').split(/\s*[—\-(]/)[0].trim();
-            if (isSubject(target)) return false;
-          }
-          return true;
-        });
-
-        // === SMART FALLBACK — mine the screening text for context-aware suggestions ===
-        if (validated.length < 5 && subjectName) {
-          const pool = [];
-
-          // Extract names mentioned in the report (CAPITALIZED multi-word sequences likely to be names/orgs)
-          const nameMatches = lastMsg.match(/(?:(?:[A-Z][a-z]+(?:\s+(?:al-|bin\s|von\s|de\s|van\s)?[A-Z][a-z]+){1,4}))/g) || [];
-          // Filter out common English words that happen to be capitalized (e.g. "Search Mexican", "Tell About")
-          const commonWords = new Set([
-            'search','screen','check','find','look','investigate','trace','map','review','assess',
-            'analyze','identify','pull','cross','compile','deep','dive','tell','show','help',
-            'give','make','take','about','should','could','would','aware','know','here','there',
-            'this','that','these','those','what','when','where','which','how','why','who',
-            'high','low','medium','critical','risk','level','overall','new','more','most',
-            'also','some','many','very','just','been','have','will','with','from','into',
-            'mexican','american','british','chinese','russian','iranian','french','german',
-            'canadian','australian','indian','japanese','korean','turkish','saudi','israeli',
-            'african','european','asian','western','eastern','northern','southern','central',
-            'north','south','east','west','united','states','kingdom','please','need',
-          ]);
-          const mentionedNames = [...new Set(nameMatches)].filter(n => {
-            if (isSubject(n) || n.length <= 4 || n.length >= 50) return false;
-            // Reject if ALL words are common English words / nationalities
-            const words = n.toLowerCase().split(/\s+/);
-            if (words.every(w => commonWords.has(w))) return false;
-            return true;
-          });
-
-          // Extract organizations (words before Ltd, LLC, Inc, etc. or ALLCAPS acronyms)
-          const orgMatches = lastMsg.match(/(?:[A-Z][\w&\-.']+(?:\s+[A-Z][\w&\-.']+){0,5}\s+(?:Ltd|LLC|Inc|Corp|GmbH|SA|BV|Holdings|Group|Limited|Bank|Foundation|Fund|Trust))/g) || [];
-          const mentionedOrgs = [...new Set(orgMatches)].filter(o => !isSubject(o));
-
-          // Extract countries/jurisdictions mentioned
-          const countryPattern = /\b(Russia|China|Iran|North Korea|Syria|Venezuela|Cuba|Belarus|Myanmar|Ukraine|Panama|Cayman Islands|British Virgin Islands|Cyprus|Malta|Luxembourg|Liechtenstein|Switzerland|United Arab Emirates|UAE|Saudi Arabia|Turkey|India|Brazil|Nigeria|South Africa|United Kingdom|United States|Germany|France|Japan|Singapore|Hong Kong)\b/gi;
-          const mentionedCountries = [...new Set((lastMsg.match(countryPattern) || []).map(c => c.replace(/\b\w/g, l => l.toUpperCase())))];
-
-          // Extract specific sanctions lists/programs mentioned
-          const listPattern = /\b(OFAC SDN|SDN List|EU Sanctions|UN Security Council|Magnitsky|EO \d{5}|Executive Order \d{5}|CAATSA|CISADA|IEEPA|Global Magnitsky)\b/gi;
-          const mentionedLists = [...new Set((lastMsg.match(listPattern) || []))];
-
-          // Detect risk themes from the report text
-          const hasMoneyLaundering = /money launder|illicit financ|proceeds of crime|financial crime/i.test(lc);
-          const hasTerrorism = /terror|extremis|militant|jihad/i.test(lc);
-          const hasCorruption = /corrupt|brib|kickback|embezzl|misappropriat/i.test(lc);
-          const hasFraud = /fraud|ponzi|scam|deceiv|misrepresent/i.test(lc);
-          const hasTrafficking = /traffick|smuggl|cartel|narco|drug/i.test(lc);
-          const hasProliferation = /proliferat|nuclear|weapon|missile|WMD|dual.use/i.test(lc);
-          const hasEvasion = /evasion|circumvent|front compan|shell|layering/i.test(lc);
-          const hasPEP = /politically exposed|PEP|government official|state.owned/i.test(lc);
-          const hasAdverseMedia = /adverse media|negative news|investigation|indictment|lawsuit|charged|convicted/i.test(lc);
-
-          // --- Build a rich pool of context-specific suggestions ---
-
-          // Person-based suggestions from text mining
-          mentionedNames.slice(0, 3).forEach(name => {
-            pool.push(`Screen ${name} for independent sanctions and adverse media exposure`);
-            if (subjectName) pool.push(`Investigate ${name}'s role in the network around ${subjectName}`);
-          });
-
-          // Org-based suggestions
-          mentionedOrgs.slice(0, 3).forEach(org => {
-            pool.push(`Investigate ${org} for beneficial ownership and regulatory filings`);
-            pool.push(`Trace the ownership structure and directors of ${org}`);
-          });
-
-          // Country-based investigative paths
-          mentionedCountries.slice(0, 2).forEach(country => {
-            pool.push(`Pull corporate registry filings and director networks in ${country}`);
-            pool.push(`Assess ${country}-specific sanctions exposure and compliance obligations`);
-          });
-
-          // Sanctions-specific deep dives
-          if (hasSanctions) {
-            pool.push(`Trace the full sanctions designation timeline and identify co-designated entities`);
-            if (subjectName) {
-              pool.push(`Identify entities owned 50%+ by ${subjectName} under OFAC's 50% rule`);
-              pool.push(`Map the network of blocked persons and entities linked to ${subjectName}`);
-            }
-            if (mentionedLists.length > 0) {
-              pool.push(`Cross-reference other designees under ${mentionedLists[0]} for shared networks`);
-            }
-          }
-
-          // Theme-specific suggestions
-          if (hasMoneyLaundering) {
-            pool.push(`Trace the financial flow patterns and identify correspondent banking relationships`);
-            pool.push(`Map the layering structure and identify potential money service businesses involved`);
-          }
-          if (hasTerrorism) {
-            pool.push(`Check for links to designated terrorist organizations and financing networks`);
-            pool.push(`Screen affiliated charities and NGOs for terrorism financing indicators`);
-          }
-          if (hasCorruption) {
-            pool.push(`Trace government contracts and procurement ties for evidence of corruption`);
-            pool.push(`Investigate asset holdings and unexplained wealth tied to public office`);
-          }
-          if (hasFraud) {
-            pool.push(`Review SEC filings, court records, and regulatory enforcement actions`);
-            pool.push(`Trace victim complaints and civil litigation history`);
-          }
-          if (hasTrafficking) {
-            pool.push(`Map the supply chain and logistics network for trafficking indicators`);
-            pool.push(`Cross-reference with DEA and Interpol watchlists for affiliated operatives`);
-          }
-          if (hasProliferation) {
-            pool.push(`Screen for dual-use technology exports and end-user verification gaps`);
-            pool.push(`Check for procurement networks linked to weapons programs`);
-          }
-          if (hasEvasion) {
-            pool.push(`Identify nominee directors, shelf companies, and front entities in the structure`);
-            pool.push(`Trace the layering of corporate shells back to ultimate beneficial owners`);
-          }
-          if (hasPEP) {
-            pool.push(`Map family members and close associates for hidden PEP connections`);
-            pool.push(`Trace state contracts and government-linked revenue streams`);
-          }
-          if (hasAdverseMedia) {
-            pool.push(`Compile a timeline of legal proceedings and regulatory actions`);
-            pool.push(`Cross-reference named co-defendants and unindicted co-conspirators`);
-          }
-
-          // General investigative paths (always relevant, randomized by subject hash)
-          if (subjectName) {
-            pool.push(`Search for aircraft, vessel, and real estate registrations tied to ${subjectName}`);
-            pool.push(`Assess secondary sanctions risk for counterparties transacting with ${subjectName}`);
-            pool.push(`Review the regulatory enforcement history and penalty record for ${subjectName}`);
-          }
-          pool.push(`Check for leaked document exposure (Panama Papers, Pandora Papers, FinCEN Files)`);
-          pool.push(`Identify shared registered agents, addresses, or phone numbers across the network`);
-
-          // Use a simple hash of the subject name to pick different suggestions each time
-          const hash = subjectName.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
-          const shuffled = pool
-            .filter(s => !isSubject(s.replace(/^(Screen|Investigate|Trace|Map|Check|Search|Identify|Assess|Review|Pull|Cross|Compile)\s+/i, '').split(/\s+(for|in|of|and|the|to|under|linked|around|tied|back)\b/i)[0]?.trim()))
-            .sort((a, b) => {
-              const ha = (hash + a.length * 31) % 997;
-              const hb = (hash + b.length * 31) % 997;
-              return ha - hb;
-            });
-
-          // Fill up to 5 from the pool, avoiding duplicates with existing validated suggestions
-          for (const s of shuffled) {
-            if (validated.length >= 5) break;
-            if (validated.some(v => v === s)) continue;
-            // Validate same rules as above
-            if (s.length > 120 || s.length < 10) continue;
-            if (/undefined|null|\[\]|\{\}/i.test(s)) continue;
-            validated.push(s);
-          }
-        }
-
-        return validated.slice(0, 5);
-      })();
-
-  // Only render the panel if there are actual suggestions
-  if (keepExploringSuggestions.length === 0) return null;
-
+  // Trigger LLM generation if not yet cached for this case
+  if (!exploreSuggestions[currentCaseId] && !exploreSuggestionsInFlight.current.has(currentCaseId)) {
+    // Fire async — don't block render
+    setTimeout(() => generateExploreSuggestions(currentCaseId, conversationMessages, kycResults, analysis), 0);
+  }
+  const keepExploringSuggestions = exploreSuggestions[currentCaseId] || [];
+  const isGenerating = exploreSuggestionsInFlight.current.has(currentCaseId) && keepExploringSuggestions.length === 0;
+  if (!isGenerating && keepExploringSuggestions.length === 0) return null;
   return (
   <div style={{
     marginTop: '32px',
@@ -11218,6 +10867,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
     {/* Suggestion Items */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      {isGenerating && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', color: '#858585', fontSize: '13px' }}>
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#858585' }} />
+          <span>Thinking of follow-ups...</span>
+        </div>
+      )}
       {keepExploringSuggestions.map((suggestion, idx) => (
         <button
           key={idx}
