@@ -10697,7 +10697,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      setConversationInput(suggestion);
      setSuggestionsExpanded(false);
    }}
-   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap`}
+   className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-500 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center`}
    >
    {suggestion}
    </button>
