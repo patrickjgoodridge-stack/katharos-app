@@ -10687,7 +10687,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    "What are best practices for asset recovery?",
    "What are the primary Iranian sanctions evasion methods?",
    "What are the primary AML risks of PE transactions?",
-   "Analyze this document",
+   "Walk me through a few notable startup-related fraud cases",
    "Identify red flags",
    "Map ownership"
    ].map((suggestion, idx) => (
