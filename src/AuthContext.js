@@ -1,4 +1,5 @@
-// AuthContext.js - Supabase Auth with Magic Link OTP + Google OAuth + User Roles
+// AuthContext.js - Simple email gate (no passwords, no OAuth, no verification)
+// Full Supabase Auth version preserved in AuthContext.supabase-auth.js
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { getOrCreateUser, hasPermission as checkPermission } from './userService';
@@ -107,25 +108,19 @@ const saveDailyUsage = (email, count) => {
   localStorage.setItem(key, JSON.stringify({ date: getTodayString(), count }));
 };
 
+const STORAGE_KEY = 'katharos_user';
+
 export const AuthProvider = ({ children }) => {
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null); // { email, name, company }
   const [userRecord, setUserRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
   const [dailyScreenings, setDailyScreenings] = useState(0);
-  const [awaitingOtp, setAwaitingOtp] = useState(false);
-  const [passwordRecovery, setPasswordRecovery] = useState(false);
-  const [pendingUserInfo, setPendingUserInfo] = useState(null); // name/company stored during OTP flow
   const initRef = useRef(false);
 
-  // Load user record and related data when we have a session
-  const loadUserData = useCallback(async (authSession) => {
-    if (!authSession?.user?.email) return;
-
-    const email = authSession.user.email;
-    const meta = authSession.user.user_metadata || {};
-    const name = String(meta.name || meta.full_name || pendingUserInfo?.name || '');
-    const company = String(meta.company || pendingUserInfo?.company || '');
+  // Load user data from Supabase (user record, paid status, usage)
+  const loadUserData = useCallback(async (email, name, company) => {
+    if (!email) return;
 
     // Load daily usage
     const usage = getDailyUsage(email);
@@ -137,226 +132,77 @@ export const AuthProvider = ({ children }) => {
     // Store lead
     storeLead(email, name, company);
 
-    // Get or create user record with role
-    const authId = authSession.user.id;
-    const record = await getOrCreateUser(email, name, company, authId);
+    // Get or create user record (no authId — simple email gate)
+    const record = await getOrCreateUser(email, name, company, null);
     if (record) setUserRecord(record);
+  }, []);
 
-    // Clear pending info
-    setPendingUserInfo(null);
-  }, [pendingUserInfo]);
-
-  // Initialize auth state
+  // Initialize — check localStorage for existing user
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setLoading(false);
-      return;
-    }
     if (initRef.current) return;
     initRef.current = true;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      if (initialSession) {
-        loadUserData(initialSession);
-      }
-      setLoading(false);
-    }).catch((err) => {
-      console.error('[Auth] getSession error:', err);
-      setLoading(false);
-    });
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        setSession(newSession);
-
-        if (event === 'SIGNED_IN' && newSession) {
-          setAwaitingOtp(false);
-          await loadUserData(newSession);
-          logAudit('user_login', {
-            entityType: 'user',
-            entityId: newSession.user.email,
-            details: { provider: newSession.user.app_metadata?.provider || 'email' }
-          });
-        }
-
-        if (event === 'PASSWORD_RECOVERY' && newSession) {
-          setPasswordRecovery(true);
-        }
-
-        if (event === 'SIGNED_OUT') {
-          setUserRecord(null);
-          setIsPaid(false);
-          setDailyScreenings(0);
-          setPasswordRecovery(false);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.email) {
+          setUser(parsed);
+          loadUserData(parsed.email, parsed.name || '', parsed.company || '');
         }
       }
-    );
-
-    return () => subscription?.unsubscribe();
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setLoading(false);
   }, [loadUserData]);
 
-  // Submit email — sends OTP magic link code
+  // Submit email — instant access, no verification
   const submitEmail = async (email, name, company) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
     const trimmedEmail = String(email || '').trim().toLowerCase();
     const trimmedName = String(name || '').trim();
     const trimmedCompany = String(company || '').trim();
 
-    // Store name/company to use after OTP verification
-    setPendingUserInfo({ name: trimmedName, company: trimmedCompany });
+    if (!trimmedEmail) return { success: false, error: 'Please enter your email' };
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: trimmedEmail,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: {
-          name: trimmedName,
-          company: trimmedCompany,
-        }
-      }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) return { success: false, error: 'Please enter a valid email' };
+
+    const userData = { email: trimmedEmail, name: trimmedName, company: trimmedCompany };
+
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    setUser(userData);
+
+    // Load/create user data in Supabase
+    await loadUserData(trimmedEmail, trimmedName, trimmedCompany);
+
+    // Audit log
+    logAudit('user_login', {
+      entityType: 'user',
+      entityId: trimmedEmail,
+      details: { provider: 'email_gate' }
     });
 
-    if (error) {
-      setPendingUserInfo(null);
-      return { success: false, error: error.message };
-    }
-
-    setAwaitingOtp(true);
     return { success: true };
   };
 
-  // Verify OTP code
-  const verifyOtp = async (email, token) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: String(email || '').trim().toLowerCase(),
-      token: String(token || '').trim(),
-      type: 'email',
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    // Session is set via onAuthStateChange, which triggers loadUserData
-    setAwaitingOtp(false);
-    return { success: true, session: data.session };
-  };
-
-  // Sign up with email + password
-  const signUpWithPassword = async (email, password, name, company) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const trimmedEmail = String(email || '').trim().toLowerCase();
-    const trimmedName = String(name || '').trim();
-    const trimmedCompany = String(company || '').trim();
-    setPendingUserInfo({ name: trimmedName, company: trimmedCompany });
-
-    const { data, error } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: {
-          name: trimmedName,
-          company: trimmedCompany,
-        }
-      }
-    });
-
-    if (error) {
-      setPendingUserInfo(null);
-      return { success: false, error: error.message };
-    }
-
-    // If email confirmation is required, user won't have a session yet
-    if (data.user && !data.session) {
-      return { success: true, needsConfirmation: true };
-    }
-
-    // If auto-confirmed (e.g. in dev), session is set via onAuthStateChange
-    return { success: true, needsConfirmation: false };
-  };
-
-  // Sign in with email + password
-  const signInWithPassword = async (email, password) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: String(email || '').trim().toLowerCase(),
-      password,
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    // Session is set via onAuthStateChange, which triggers loadUserData
-    return { success: true };
-  };
-
-  // Reset password (send reset email)
-  const resetPassword = async (email) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      String(email || '').trim().toLowerCase(),
-      { redirectTo: window.location.origin }
-    );
-
-    if (error) return { success: false, error: error.message };
-    return { success: true };
-  };
-
-  // Update password (after clicking reset link)
-  const updatePassword = async (newPassword) => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-    if (error) return { success: false, error: error.message };
-    setPasswordRecovery(false);
-    return { success: true };
-  };
-
-  // Google OAuth
-  const signInWithGoogle = async () => {
-    if (!isSupabaseConfigured()) return { success: false, error: 'Auth not configured' };
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      }
-    });
-
-    if (error) return { success: false, error: error.message };
-    return { success: true };
-  };
-
-  // Sign out
+  // Sign out — clear localStorage + state
   const signOut = async () => {
-    if (session?.user?.email) {
-      logAudit('user_logout', { entityType: 'user', entityId: session.user.email });
+    if (user?.email) {
+      logAudit('user_logout', { entityType: 'user', entityId: user.email });
     }
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signOut();
-    }
-    setSession(null);
+    localStorage.removeItem(STORAGE_KEY);
+    setUser(null);
     setUserRecord(null);
-    setAwaitingOtp(false);
-    setPendingUserInfo(null);
+    setIsPaid(false);
+    setDailyScreenings(0);
   };
 
   // Track a query for the current user
   const trackQuery = () => {
-    if (session?.user?.email) {
-      incrementQueryCount(session.user.email);
+    if (user?.email) {
+      incrementQueryCount(user.email);
     }
   };
 
@@ -368,42 +214,42 @@ export const AuthProvider = ({ children }) => {
   const screeningsRemaining = isPaid ? Infinity : Math.max(0, DAILY_FREE_LIMIT - dailyScreenings);
 
   const incrementScreening = () => {
-    if (session?.user?.email && !isPaid) {
+    if (user?.email && !isPaid) {
       const newCount = dailyScreenings + 1;
       setDailyScreenings(newCount);
-      saveDailyUsage(session.user.email, newCount);
+      saveDailyUsage(user.email, newCount);
     }
     trackQuery();
   };
 
   const refreshPaidStatus = async () => {
-    if (session?.user?.email) {
-      const paid = await checkPaidStatus(session.user.email);
+    if (user?.email) {
+      const paid = await checkPaidStatus(user.email);
       setIsPaid(paid);
       return paid;
     }
     return false;
   };
 
-  const email = session?.user?.email || null;
-  const userMeta = session?.user?.user_metadata || {};
+  const email = user?.email || null;
 
   const value = {
-    user: session ? { email, name: String(userRecord?.name || userMeta.name || userMeta.full_name || ''), company: String(userRecord?.company || userMeta.company || '') } : null,
+    user,
     email,
     loading,
     submitEmail,
-    verifyOtp,
-    signUpWithPassword,
-    signInWithPassword,
-    resetPassword,
-    updatePassword,
-    signInWithGoogle,
     signOut,
-    isAuthenticated: !!session,
+    isAuthenticated: !!user,
     isConfigured: isSupabaseConfigured(),
-    awaitingOtp,
-    passwordRecovery,
+    // Stubs for auth methods (no-ops so nothing crashes if called)
+    verifyOtp: async () => ({ success: false, error: 'Auth disabled' }),
+    signUpWithPassword: async () => ({ success: false, error: 'Auth disabled' }),
+    signInWithPassword: async () => ({ success: false, error: 'Auth disabled' }),
+    resetPassword: async () => ({ success: false, error: 'Auth disabled' }),
+    updatePassword: async () => ({ success: false, error: 'Auth disabled' }),
+    signInWithGoogle: async () => ({ success: false, error: 'Auth disabled' }),
+    awaitingOtp: false,
+    passwordRecovery: false,
     // Workspace features
     domain: email ? extractDomain(email) : null,
     workspaceId: email ? getWorkspaceId(email) : null,

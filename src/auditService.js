@@ -4,11 +4,24 @@ export const logAudit = async (action, { entityType, entityId, details = {} } = 
   if (!isSupabaseConfigured()) return;
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
-
-    const email = session.user.email;
-    const name = session.user.user_metadata?.name || session.user.user_metadata?.full_name || null;
+    // Try Supabase auth session first, fall back to localStorage email gate
+    let email = null;
+    let name = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        email = session.user.email;
+        name = session.user.user_metadata?.name || session.user.user_metadata?.full_name || null;
+      }
+    } catch { /* auth not available */ }
+    if (!email) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('katharos_user') || '{}');
+        email = stored.email || null;
+        name = stored.name || null;
+      } catch { /* no stored user */ }
+    }
+    if (!email) return;
 
     await supabase.from('audit_logs').insert([{
       user_email: email,
