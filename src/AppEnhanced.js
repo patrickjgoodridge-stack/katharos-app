@@ -10688,7 +10688,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    "What are the primary Iranian sanctions evasion methods?",
    "What are the primary AML risks of PE transactions?",
    "Walk me through a few notable startup-related fraud cases",
-   "Identify red flags",
+   "What are red flags indicating possible embezzlement?",
    "Map ownership"
    ].map((suggestion, idx) => (
    <button
