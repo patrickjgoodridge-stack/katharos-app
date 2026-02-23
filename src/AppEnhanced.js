@@ -11271,7 +11271,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
  {/* Show streaming indicator for current case */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
- <div className="flex justify-start">
+ <div className="flex justify-center">
  <div className="max-w-2xl">
  {/* Show "Analyzing..." initially, then stream the markdown */}
  {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
