@@ -8440,6 +8440,92 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
+ {/* Disclosures Page */}
+ {currentPage === 'disclosures' && (
+ <div className="fade-in min-h-screen -mt-24 pt-24 bg-gray-950">
+   <div className="max-w-4xl mx-auto px-6 py-16">
+     <button
+       onClick={() => setCurrentPage('noirLanding')}
+       className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors mb-10"
+     >
+       <ArrowLeft className="w-4 h-4" />
+       <span>Back to Home</span>
+     </button>
+
+     <h1 className="text-4xl font-bold text-white mb-2">Disclosures</h1>
+     <p className="text-sm text-gray-500 mb-12">Last updated: February 2, 2026</p>
+
+     <div className="space-y-10 text-gray-300 leading-relaxed">
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">About Katharos</h2>
+         <p>Katharos is an AI-powered financial crimes investigation and screening tool. Katharos is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Not Legal or Compliance Advice</h2>
+         <p className="mb-3">The information, reports, and screening results provided by Katharos are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Katharos's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
+         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Katharos's outputs.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">No Guarantee of Accuracy or Completeness</h2>
+         <p className="mb-3">Katharos aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Katharos strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
+         <p className="mb-2">Specifically:</p>
+         <ul className="list-disc list-inside space-y-1 text-gray-400">
+           <li>Sanctions lists may not reflect designations announced within the prior 24-48 hours.</li>
+           <li>Name matching may produce false positives (incorrectly flagging an entity) or false negatives (failing to identify a match).</li>
+           <li>Adverse media results depend on the coverage and availability of third-party news sources.</li>
+           <li>Corporate ownership and beneficial ownership data may be outdated or incomplete.</li>
+           <li>AI-generated analysis may contain errors, omissions, or inaccuracies.</li>
+         </ul>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">AI-Generated Content</h2>
+         <p className="mb-3">Katharos uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
+         <p>Katharos does not make compliance decisions. Katharos provides information and analysis to support human decision-making.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Data Sources and Freshness</h2>
+         <p>Katharos screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Katharos indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Not a Substitute for a Compliance Program</h2>
+         <p>Katharos is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">No Liability</h2>
+         <p className="mb-2">To the fullest extent permitted by law, Katharos and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Katharos's services, including but not limited to:</p>
+         <ul className="list-disc list-inside space-y-1 text-gray-400">
+           <li>Regulatory fines or penalties resulting from reliance on Katharos's outputs</li>
+           <li>Losses from transactions approved or declined based on Katharos's screening results</li>
+           <li>Reputational harm from false positive or false negative screening results</li>
+           <li>Any errors, omissions, or inaccuracies in AI-generated content</li>
+         </ul>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Privacy</h2>
+         <p>Katharos processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Katharos does not sell user data.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Changes to This Page</h2>
+         <p>We may update these disclosures from time to time. Continued use of Katharos after changes are posted constitutes acceptance of the updated disclosures.</p>
+       </section>
+
+       <section>
+         <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
+         <p>Questions about these disclosures can be directed to: <a href="mailto:patrick@katharos.co" className="text-gray-600 hover:text-gray-500 transition-colors">patrick@katharos.co</a></p>
+       </section>
+     </div>
+   </div>
+ </div>
+ )}
+
 {currentPage === 'settings' && (
   <div style={{ background: '#1a1a1a', minHeight: '100vh' }}>
     <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
@@ -9951,91 +10037,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
 {/* Landing pages now rendered outside main - see above */}
 
- {/* Disclosures Page */}
- {currentPage === 'disclosures' && (
- <div className="fade-in min-h-screen -mt-24 pt-24 bg-gray-950">
-   <div className="max-w-4xl mx-auto px-6 py-16">
-     <button
-       onClick={() => setCurrentPage('noirLanding')}
-       className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors mb-10"
-     >
-       <ArrowLeft className="w-4 h-4" />
-       <span>Back to Home</span>
-     </button>
-
-     <h1 className="text-4xl font-bold text-white mb-2">Disclosures</h1>
-     <p className="text-sm text-gray-500 mb-12">Last updated: February 2, 2026</p>
-
-     <div className="space-y-10 text-gray-300 leading-relaxed">
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">About Katharos</h2>
-         <p>Katharos is an AI-powered financial crimes investigation and screening tool. Katharos is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Not Legal or Compliance Advice</h2>
-         <p className="mb-3">The information, reports, and screening results provided by Katharos are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Katharos's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
-         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Katharos's outputs.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">No Guarantee of Accuracy or Completeness</h2>
-         <p className="mb-3">Katharos aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Katharos strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
-         <p className="mb-2">Specifically:</p>
-         <ul className="list-disc list-inside space-y-1 text-gray-400">
-           <li>Sanctions lists may not reflect designations announced within the prior 24-48 hours.</li>
-           <li>Name matching may produce false positives (incorrectly flagging an entity) or false negatives (failing to identify a match).</li>
-           <li>Adverse media results depend on the coverage and availability of third-party news sources.</li>
-           <li>Corporate ownership and beneficial ownership data may be outdated or incomplete.</li>
-           <li>AI-generated analysis may contain errors, omissions, or inaccuracies.</li>
-         </ul>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">AI-Generated Content</h2>
-         <p className="mb-3">Katharos uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
-         <p>Katharos does not make compliance decisions. Katharos provides information and analysis to support human decision-making.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Data Sources and Freshness</h2>
-         <p>Katharos screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Katharos indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Not a Substitute for a Compliance Program</h2>
-         <p>Katharos is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">No Liability</h2>
-         <p className="mb-2">To the fullest extent permitted by law, Katharos and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Katharos's services, including but not limited to:</p>
-         <ul className="list-disc list-inside space-y-1 text-gray-400">
-           <li>Regulatory fines or penalties resulting from reliance on Katharos's outputs</li>
-           <li>Losses from transactions approved or declined based on Katharos's screening results</li>
-           <li>Reputational harm from false positive or false negative screening results</li>
-           <li>Any errors, omissions, or inaccuracies in AI-generated content</li>
-         </ul>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Privacy</h2>
-         <p>Katharos processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Katharos does not sell user data.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Changes to This Page</h2>
-         <p>We may update these disclosures from time to time. Continued use of Katharos after changes are posted constitutes acceptance of the updated disclosures.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
-         <p>Questions about these disclosures can be directed to: <a href="mailto:patrick@katharos.co" className="text-gray-600 hover:text-gray-500 transition-colors">patrick@katharos.co</a></p>
-       </section>
-     </div>
-   </div>
- </div>
- )}
 
  {/* Case Management Page */}
  {currentPage === 'existingCases' && (
@@ -10295,9 +10296,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
              textTransform: 'uppercase',
              padding: '6px 14px',
              borderRadius: '4px',
-             background: viewingCase.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.1)' : 'rgba(133,133,133,0.1)',
-             color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : '#858585',
-             border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(133,133,133,0.25)'
+             background: viewingCase.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.1)' : viewingCase.riskLevel === 'HIGH' ? 'rgba(249,115,22,0.1)' : viewingCase.riskLevel === 'MEDIUM' ? 'rgba(234,179,8,0.1)' : viewingCase.riskLevel === 'LOW' ? 'rgba(16,185,129,0.1)' : 'rgba(133,133,133,0.1)',
+             color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : viewingCase.riskLevel === 'HIGH' ? '#f97316' : viewingCase.riskLevel === 'MEDIUM' ? '#eab308' : viewingCase.riskLevel === 'LOW' ? '#10b981' : '#858585',
+             border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : viewingCase.riskLevel === 'HIGH' ? '1px solid rgba(249,115,22,0.25)' : viewingCase.riskLevel === 'MEDIUM' ? '1px solid rgba(234,179,8,0.25)' : viewingCase.riskLevel === 'LOW' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(133,133,133,0.25)'
            }}>
              {viewingCase.riskLevel || 'UNKNOWN'} RISK
            </span>
@@ -10684,12 +10685,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    {[
    "Vladimir Putin",
    "Sinaloa Cartel",
-   "What are best practices for asset recovery?",
-   "What are the primary Iranian sanctions evasion methods?",
+   "Give me an analysis of the top 5 sanctions enforcement actions",
    "What are the primary AML risks of PE transactions?",
+   "What are the primary Iranian sanctions evasion methods?",
    "Walk me through a few notable startup-related fraud cases",
    "What are red flags indicating possible embezzlement?",
-   "Map ownership"
+   "What are best practices for asset recovery?"
    ].map((suggestion, idx) => (
    <button
    key={idx}
