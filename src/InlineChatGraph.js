@@ -73,7 +73,7 @@ const InlineChatGraph = ({ html, label = 'Network Graph', type = 'network', file
       </div>
       <iframe
         srcDoc={html}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         style={{
           width: '100%',
           height: isExpanded ? 700 : 500,
