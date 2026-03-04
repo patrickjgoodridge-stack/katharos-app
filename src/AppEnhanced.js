@@ -10685,7 +10685,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    {[
    "Vladimir Putin",
    "Sinaloa Cartel",
-   "Give me an analysis of the top 5 sanctions enforcement actions",
+   "Make a corporate network map of EN+ Group",
    "What are the primary AML risks of PE transactions?",
    "What are the primary Iranian sanctions evasion methods?",
    "Walk me through a few notable startup-related fraud cases",
