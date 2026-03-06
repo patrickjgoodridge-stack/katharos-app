@@ -2867,7 +2867,7 @@ INTERACTIVE VISUALIZATIONS:
 You can generate interactive HTML visualizations inside fenced code blocks. Each block must be a COMPLETE self-contained HTML document with dark theme (#0d0d0d background, #e0e0e0 text). Use REAL data from the screening — never placeholder data. Only generate when sufficient data exists (3+ data points).
 
 Available visualization types:
-- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
+- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from /d3.v7.min.js — NOT CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
 - \`\`\`timeline — Vertical timeline with status-colored dots (critical=#e53935, warning=#ff9800, success=#4caf50, info=#2196f3). For chronology, event sequences. Filter buttons, expandable details.
 - \`\`\`riskassessment — Risk score gauge (SVG circle 0-100) with category breakdown cards. For risk profiles, risk matrices.
 - \`\`\`screeningresult — Entity profile card with status grid (sanctions, PEP, media, jurisdiction). For screening summaries, KYC overviews.
@@ -4702,7 +4702,7 @@ When the user asks to visualize, graph, or map entities/ownership/networks/relat
 2. ALSO output a self-contained HTML network graph inside a \`\`\`networkgraph fenced code block
 
 The networkgraph block must contain a COMPLETE self-contained HTML document that:
-- Loads D3.js v7 from CDN: https://d3js.org/d3.v7.min.js
+- Loads D3.js v7 from local path: /d3.v7.min.js (NOT from CDN — use exactly this path: <script src="/d3.v7.min.js"></script>)
 - Uses dark theme (body background: #1a1a1a, text color: #d4d4d4, font-family: Georgia, serif)
 - Creates a force-directed graph with zoom (d3.zoom) and drag (d3.drag)
 - Defines nodes array: [{id, type, status}] where type is "entity"|"individual"|"vessel"|"country" and status is "sanctioned"|"pep"|"high_risk"|"clear"|"unknown"
@@ -4718,7 +4718,7 @@ The networkgraph block must contain a COMPLETE self-contained HTML document that
 - Force simulation: forceLink distance 120, forceManyBody strength -400, forceCenter, forceCollide
 
 CRITICAL: Populate nodes and links with REAL data extracted from your analysis. Never use placeholder or sample data.
-CRITICAL: The HTML must be completely self-contained — no external files except the D3 CDN script.
+CRITICAL: The HTML must be completely self-contained — no external files except D3 loaded from /d3.v7.min.js (local, NOT CDN).
 CRITICAL: Output the networkgraph block AFTER your textual analysis, not before.
 Only generate a network graph when there are 3 or more entities to visualize. For simple single-entity lookups, just provide text.
 
@@ -8123,7 +8123,7 @@ INTERACTIVE VISUALIZATIONS:
 You can generate interactive HTML visualizations inside fenced code blocks. Each block must be a COMPLETE self-contained HTML document with dark theme (#0d0d0d background, #e0e0e0 text). Use REAL data from the analysis — never placeholder data. Only generate when sufficient data exists (3+ data points).
 
 Available visualization types:
-- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
+- \`\`\`networkgraph — D3.js force-directed network graph (loads D3 v7 from /d3.v7.min.js — NOT CDN). For entity relationships, ownership networks. Node colors: entity=#ef4444, individual=#f59e0b, vessel=#3b82f6, country=#22c55e. Zoom, drag, tooltips, legend.
 - \`\`\`timeline — Vertical timeline with status-colored dots (critical=#e53935, warning=#ff9800, success=#4caf50, info=#2196f3). For chronology, event sequences. Filter buttons, expandable details.
 - \`\`\`riskassessment — Risk score gauge (SVG circle 0-100) with category breakdown cards. For risk profiles, risk matrices.
 - \`\`\`screeningresult — Entity profile card with status grid (sanctions, PEP, media, jurisdiction). For screening summaries, KYC overviews.
