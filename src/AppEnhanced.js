@@ -456,23 +456,20 @@ export default function Katharos() {
    if (jurisdictions.length) contextParts.push(`Jurisdictions: ${[...new Set(jurisdictions)].join(', ')}`);
    if (redFlags.length) contextParts.push(`Red flags: ${redFlags.join('; ')}`);
 
-   const prompt = `You are helping a user investigate "${entityName || 'a subject'}" on a financial crime and compliance platform. They just ran a search and got results. Based on the results below, suggest exactly 5 natural follow-up actions they'd want to take next.
+   const prompt = `Based on these screening results, suggest 5 short follow-up queries.
 
-RESULTS CONTEXT:
+CONTEXT:
 ${contextParts.join('\n')}
 
-LAST AI RESPONSE (excerpt):
-${aiText}
-
 RULES:
-- Write each suggestion as a short, natural sentence (under 80 chars) that a real person would say
-- Start with outcome-driven language: "Show me...", "Who is...", "What's the connection between...", "Walk me through...", "Are there...", "Check if...", "Run a background check on..."
-- Reference SPECIFIC names, companies, or findings from the results — not generic placeholders
-- Each suggestion should lead to a different type of follow-up (e.g. person check, corporate lookup, risk explanation, timeline, compliance question)
-- Do NOT repeat the original search or use jargon the user wouldn't naturally say
-- Do NOT include numbering, bullets, or prefixes — just the raw suggestion text
+- MAX 8 WORDS per suggestion. Be blunt and direct.
+- Reference SPECIFIC names or entities from the results above
+- Good examples: "Who owns Rusal?", "Screen Oleg Deripaska", "EN+ Group sanctions timeline", "Map Deripaska's corporate network", "Check VTB Bank connections"
+- Bad examples (too long): "Show me all shell companies connected to the subject across the Baltic banking cases mentioned in the results."
+- Each suggestion should be a different type: person, company, relationship, timeline, risk
+- No numbering, no bullets, no prefixes
 
-Return ONLY a JSON array of 5 strings. No explanation, no markdown.`;
+Return ONLY a JSON array of 5 strings.`;
 
    try {
      const response = await fetch(`${API_BASE}/api/messages`, {
