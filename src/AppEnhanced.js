@@ -432,9 +432,6 @@ export default function Katharos() {
    exploreSuggestionsInFlight.current.add(caseId);
 
    // Build a compact context summary from the actual results
-   const lastAiMsg = [...(caseMessages || [])].reverse().find(m => m.role === 'assistant');
-   const aiText = (lastAiMsg?.content || '').slice(0, 3000); // Trim to keep prompt small
-
    const entityName = screeningResults?.subject?.name || caseAnalysis?.subjectName || '';
    const sanctions = (screeningResults?.sanctions?.matches || []).slice(0, 5).map(m => m.matchedName || m.name || '').filter(Boolean);
    const pep = (screeningResults?.pep?.matches || []).slice(0, 5).map(m => `${m.name || ''}${m.position ? ' (' + m.position + ')' : ''}`).filter(Boolean);
