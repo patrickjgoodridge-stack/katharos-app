@@ -49,7 +49,7 @@ const DATA_SOURCES = [
   { id: 'ofacCrypto', name: 'OFAC Sanctioned Addresses', url: 'https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ETH.txt', category: 'Blockchain' },
 
   // Shipping & Trade Intelligence
-  { id: 'ituMars', name: 'ITU MARS Ship Registry', url: 'https://webapp.itu.int/MARS/api/ship?shipName=test', category: 'Shipping' },
+  { id: 'ituMars', name: 'ITU MARS Ship Registry', url: 'https://www.itu.int/en/ITU-R/terrestrial/mars/Pages/default.aspx', category: 'Shipping' },
   { id: 'marineTraffic', name: 'MarineTraffic', url: 'https://services.marinetraffic.com/api/exportvessel/v:5', category: 'Shipping' },
 
   // Media & Adverse News
@@ -155,8 +155,8 @@ export default async function handler(req, res) {
         const responseTime = Date.now() - start;
 
         // Any HTTP response means the API is reachable (even 401/403 = server is up)
-        // Only mark as degraded if response is very slow (>3s)
-        const status = responseTime < 3000 ? 'connected' : 'degraded';
+        // Only mark as degraded if response is very slow (>8s)
+        const status = responseTime < 8000 ? 'connected' : 'degraded';
 
         return {
           id: source.id,
