@@ -49,7 +49,6 @@ const DATA_SOURCES = [
   { id: 'ofacCrypto', name: 'OFAC Sanctioned Addresses', url: 'https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ETH.txt', category: 'Blockchain' },
 
   // Shipping & Trade Intelligence
-  { id: 'ituMars', name: 'ITU MARS Ship Registry', url: 'https://www.itu.int/en/ITU-R/terrestrial/mars/Pages/default.aspx', category: 'Shipping' },
   { id: 'marineTraffic', name: 'MarineTraffic', url: 'https://services.marinetraffic.com/api/exportvessel/v:5', category: 'Shipping' },
 
   // Media & Adverse News
