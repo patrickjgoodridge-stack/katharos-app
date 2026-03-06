@@ -9,6 +9,7 @@ const RISK_COLORS = {
   MEDIUM: '#374151',
   LOW: '#10b981',
   UNKNOWN: '#6b7280',
+  'N/A': '#6b7280',
   SUBJECT: '#374151',
 };
 

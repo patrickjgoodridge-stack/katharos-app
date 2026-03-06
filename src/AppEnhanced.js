@@ -857,7 +857,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  pdfReports: [],
  networkArtifacts: [],
  screenings: [],
- riskLevel: analysisData?.executiveSummary?.riskLevel || 'UNKNOWN',
+ riskLevel: analysisData?.executiveSummary?.riskLevel || 'N/A',
  viewed: false,
  description: '',
  emailDomain: workspaceId || '',
@@ -1007,7 +1007,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      pdfReports: [], // Store generated PDF reports
      networkArtifacts: [], // Store network graph snapshots
      screenings: [], // Store KYC screening results
-     riskLevel: 'UNKNOWN',
+     riskLevel: 'N/A',
      viewed: false, // Track if case has been viewed
      emailDomain: workspaceId || '',
      createdByEmail: user?.email || '',
@@ -1098,7 +1098,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
 
  // Count unviewed cases
  const unviewedCaseCount = useMemo(() => {
-   return cases.filter(c => !c.viewed && c.riskLevel !== 'UNKNOWN').length;
+   return cases.filter(c => !c.viewed && c.riskLevel !== 'N/A').length;
  }, [cases]);
 
  // Aggregated monitoring alerts across all cases
@@ -1821,7 +1821,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  try {
  const result = screening.result;
  const subjectName = result.subject?.name || screening.query || 'Unknown Entity';
- const riskLevel = (result.overallRisk || 'UNKNOWN').toUpperCase();
+ const riskLevel = (result.overallRisk || 'N/A').toUpperCase();
 
  // Navigate to results view so kyc-results-content renders this screening
  setSelectedHistoryItem(screening);
@@ -2062,7 +2062,7 @@ Format the report professionally with clear headers, bullet points where appropr
  default: return [148, 163, 184]; // slate
  }
  };
- const riskLevel = analysis.executiveSummary?.riskLevel || 'UNKNOWN';
+ const riskLevel = analysis.executiveSummary?.riskLevel || 'N/A';
  pdf.setFillColor(...getRiskColor(riskLevel));
  pdf.roundedRect(pageWidth / 2 - 20, 35, 40, 8, 2, 2, 'F');
  pdf.setTextColor(0, 0, 0);
@@ -2505,12 +2505,12 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
 
   try {
     let subjectName = caseName || '';
-    subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
+    subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|N\/A|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
     if (!subjectName || subjectName === 'New Investigation') subjectName = 'Compliance Report';
 
     const content = markdownContent || sourceEl.textContent || '';
     const riskMatch = content.match(/OVERALL RISK[:\s]*\*?\*?\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
-    const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : 'UNKNOWN';
+    const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : 'N/A';
 
     const { pdfBlob } = await captureDomToPdf(sourceEl, { subjectName, riskLevel });
 
@@ -2586,7 +2586,7 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
      caseTitleEl.style.cssText = 'font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 8px;';
      caseTitleEl.textContent = caseData.name || 'Untitled Case';
      const riskBadge = document.createElement('div');
-     const rl = caseData.riskLevel || 'UNKNOWN';
+     const rl = caseData.riskLevel || 'N/A';
      riskBadge.style.cssText = 'display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; ' + (
        rl === 'CRITICAL' ? 'background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;' :
        rl === 'HIGH' ? 'background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;' :
@@ -6485,7 +6485,7 @@ NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
 
  // Auto-generate case name based on analysis
  const primaryEntities = parsed.entities?.slice(0, 2).map(e => e.name).join(', ') || 'Unknown';
- const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
+ const riskLevel = parsed.executiveSummary?.riskLevel || 'N/A';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
  const autoName = `${primaryEntities} - ${riskLevel} - ${dateStr}`;
  setCaseName(autoName);
@@ -6824,12 +6824,12 @@ Respond with JSON:
      const step4Parsed = JSON.parse(step4Match[0]);
      scoutPipelineData.entityRiskAssessments = step4Parsed.entityRiskAssessments || [];
      scoutPipelineData.typologies = step4Parsed.typologies || [];
-     scoutPipelineData.overallRiskLevel = step4Parsed.overallRiskLevel || 'UNKNOWN';
+     scoutPipelineData.overallRiskLevel = step4Parsed.overallRiskLevel || 'N/A';
      scoutPipelineData.overallRiskRationale = step4Parsed.overallRiskRationale || '';
    } catch (e) {
      scoutPipelineData.entityRiskAssessments = [];
      scoutPipelineData.typologies = [];
-     scoutPipelineData.overallRiskLevel = 'UNKNOWN';
+     scoutPipelineData.overallRiskLevel = 'N/A';
    }
  }
 
@@ -6905,7 +6905,7 @@ Respond with JSON:
    const sanctionResult = scoutPipelineData.screeningResults?.find(r => r.entityId === entity.id) || {};
    return {
      ...entity,
-     riskLevel: riskAssessment.riskLevel || entity.riskLevel || 'UNKNOWN',
+     riskLevel: riskAssessment.riskLevel || entity.riskLevel || 'N/A',
      riskIndicators: riskAssessment.riskIndicators || entity.initialRiskIndicators || [],
      sanctionStatus: sanctionResult.sanctionStatus || 'CLEAR',
      sanctionDetails: sanctionResult.sanctionDetails || null,
@@ -6934,7 +6934,7 @@ Respond with JSON:
  const finalAnalysis = {
    executiveSummary: {
      ...scoutPipelineData.executiveSummary,
-     riskLevel: scoutPipelineData.overallRiskLevel || 'UNKNOWN'
+     riskLevel: scoutPipelineData.overallRiskLevel || 'N/A'
    },
    entities: finalEntities,
    typologies: scoutPipelineData.typologies || [],
@@ -6951,7 +6951,7 @@ Respond with JSON:
    const primaryEntity = finalAnalysis.entities?.[0]?.name || displayCaseName;
    finalCaseName = primaryEntity;
  }
- const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
+ const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'N/A';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
  finalCaseName = `${finalCaseName} - ${riskLevel} - ${dateStr}`;
  setCaseName(finalCaseName);
@@ -7041,7 +7041,7 @@ let cipherContextName = displayCaseName;
 if (cipherEntityCount > 1) {
   cipherContextName = generateCaseName(caseDescription, files, cipherEntityCount);
 }
-const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'UNKNOWN';
+const riskLevel = enhancedAnalysis.executiveSummary?.riskLevel || 'N/A';
 const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 let finalCaseName = `${cipherContextName} - ${riskLevel} - ${dateStr}`;
 setCaseName(finalCaseName);
@@ -7950,7 +7950,7 @@ Respond with a JSON object in this exact structure:
  if (entityCount > 1) {
    contextName = generateCaseName(caseDescription, files, entityCount);
  }
- const riskLevel = parsed.executiveSummary?.riskLevel || 'UNKNOWN';
+ const riskLevel = parsed.executiveSummary?.riskLevel || 'N/A';
  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
  let finalCaseName = `${contextName} - ${riskLevel} - ${dateStr}`;
  setCaseName(finalCaseName);
@@ -10178,7 +10178,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
       const assistantMsgs = msgs.filter(m => m.role === 'assistant');
       const completedChars = assistantMsgs.reduce((sum, m) => sum + (m.content || '').length, 0);
       const totalChars = completedChars + streamLen;
-      const hasRisk = !!caseItem.riskLevel && caseItem.riskLevel !== 'UNKNOWN';
+      const hasRisk = !!caseItem.riskLevel && caseItem.riskLevel !== 'N/A';
       const hasReports = (caseItem.pdfReports || []).length > 0;
       const userMsgCount = msgs.filter(m => m.role === 'user').length;
     
@@ -10244,7 +10244,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
- <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{caseItem.riskLevel || 'UNKNOWN'}</td>
+ <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{caseItem.riskLevel || 'N/A'}</td>
  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
  <button
@@ -10297,7 +10297,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
              color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : viewingCase.riskLevel === 'HIGH' ? '#f97316' : viewingCase.riskLevel === 'MEDIUM' ? '#eab308' : viewingCase.riskLevel === 'LOW' ? '#10b981' : '#858585',
              border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : viewingCase.riskLevel === 'HIGH' ? '1px solid rgba(249,115,22,0.25)' : viewingCase.riskLevel === 'MEDIUM' ? '1px solid rgba(234,179,8,0.25)' : viewingCase.riskLevel === 'LOW' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(133,133,133,0.25)'
            }}>
-             {viewingCase.riskLevel || 'UNKNOWN'} RISK
+             {viewingCase.riskLevel || 'N/A'} RISK
            </span>
            <button
              onClick={() => exportCaseAsPdf(viewingCase)}
@@ -11554,7 +11554,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className={`bg-white rounded-xl border-l-4 ${getRiskBorder(analysis.executiveSummary?.riskLevel)} p-8`}>
  <div className="flex items-center gap-3 mb-6">
  <span className={`px-4 py-2 rounded-lg text-sm font-bold tracking-wide mono ${getRiskColor(analysis.executiveSummary?.riskLevel)}`}>
- OVERALL RISK: {analysis.executiveSummary?.riskLevel || 'UNKNOWN'}
+ OVERALL RISK: {analysis.executiveSummary?.riskLevel || 'N/A'}
  </span>
  <button
  onClick={generateCaseReportPdf}
