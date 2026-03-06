@@ -193,7 +193,7 @@ const CustomHeading = ({ level, children }) => {
     // All other H2 section labels - exact mockup: .report-label
     // font-size: 11px, font-weight: 600, letter-spacing: 2px, uppercase, color: #6b6b6b, margin-bottom: 12px
     return (
-      <div style={{ marginBottom: '28px' }}>
+      <div style={{ marginTop: '32px', marginBottom: '16px' }}>
         <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff', marginBottom: '12px' }}>
           {children}
         </div>
@@ -204,7 +204,7 @@ const CustomHeading = ({ level, children }) => {
   // H3 - Sub-section headers
   if (level === 3) {
     return (
-      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginTop: '16px', marginBottom: '8px' }}>
+      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginTop: '24px', marginBottom: '8px' }}>
         {children}
       </h3>
     );
@@ -282,7 +282,7 @@ const CustomParagraph = ({ children }) => {
   if (text.toLowerCase().startsWith('bottom line:')) {
     const content = text.replace(/^bottom line:\s*/i, '');
     return (
-      <div style={{ borderLeft: '2px solid #ffffff', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '28px' }}>
+      <div style={{ borderLeft: '2px solid #ffffff', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '28px', marginBottom: '24px' }}>
         <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#858585', marginBottom: '8px' }}>
           Bottom Line
         </div>
@@ -297,7 +297,7 @@ const CustomParagraph = ({ children }) => {
       text.toLowerCase().startsWith('compliance impact:')) {
     const content = text.replace(/^(impact|translation|compliance impact):\s*/i, '');
     return (
-      <div style={{ borderLeft: '2px solid #858585', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '16px' }}>
+      <div style={{ borderLeft: '2px solid #858585', padding: '16px 20px', background: '#2d2d2d', borderRadius: '0 6px 6px 0', marginTop: '16px', marginBottom: '24px' }}>
         <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#858585', marginBottom: '8px' }}>
           Impact
         </div>
@@ -309,7 +309,7 @@ const CustomParagraph = ({ children }) => {
   // Default paragraph - exact mockup: .report-text
   // font-size: 15px, line-height: 1.75, color: #d4d4d4, font-weight: 300
   return (
-    <p style={{ fontSize: '15px', lineHeight: 1.75, color: '#d4d4d4', fontWeight: 300, margin: '0 0 8px 0' }}>
+    <p style={{ fontSize: '15px', lineHeight: 1.75, color: '#d4d4d4', fontWeight: 300, margin: '0 0 14px 0' }}>
       {children}
     </p>
   );
