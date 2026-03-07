@@ -48,6 +48,23 @@ const sectionIcons = {
   'KEY ASSOCIATES': Users,
   'RELATED ENTITIES': Network,
   'RECOMMENDED ACTIONS': Lightbulb,
+  'IDENTITY': Users,
+  'PEP STATUS': Shield,
+  'CORPORATE AFFILIATIONS': Building2,
+  'LEGAL / ENFORCEMENT': Gavel,
+  'EXPORT CONTROLS': Shield,
+  'CORPORATE REGISTRY': Building2,
+  'PROTOCOL EXPOSURE': AlertCircle,
+  'TRANSACTION SUMMARY': FileText,
+  'COUNTERPARTY ANALYSIS': Network,
+  'SOURCE OF FUNDS': FileText,
+  'ACTIVITY DETAIL': FileText,
+  'PRIOR HISTORY': FileText,
+  'RECOMMENDATION': Gavel,
+  'SUMMARY': FileText,
+  'INVESTIGATION NOTES': Search,
+  'MATCH CONFIDENCE': AlertTriangle,
+  'ONBOARDING RECOMMENDATION': Gavel,
 };
 
 // Get risk level styling - Katharos dark theme (from screen-3-investigation.html)
@@ -190,12 +207,37 @@ const CustomHeading = ({ level, children }) => {
       );
     }
 
-    // All other H2 section labels - exact mockup: .report-label
-    // font-size: 11px, font-weight: 600, letter-spacing: 2px, uppercase, color: #6b6b6b, margin-bottom: 12px
+    // All other H2 section labels — parse optional status badge (e.g., "SANCTIONS CLEAR")
+    const upperText = text.toUpperCase().trim();
+    let displayName = text;
+    let statusBadge = null;
+
+    for (const section of KNOWN_SECTIONS) {
+      if (upperText === section) {
+        displayName = section;
+        break;
+      }
+      if (upperText.startsWith(section) && upperText.length > section.length) {
+        const rest = upperText.substring(section.length).trim();
+        if (rest.length > 0 && rest.length <= 20) {
+          displayName = section;
+          statusBadge = rest;
+        }
+        break;
+      }
+    }
+
     return (
       <div style={{ marginTop: '32px', marginBottom: '16px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff', marginBottom: '12px' }}>
-          {children}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff' }}>
+            {displayName}
+          </span>
+          {statusBadge && (
+            <span style={{ fontSize: '11px', fontWeight: 600, color: getStatusColor(statusBadge), letterSpacing: '1px' }}>
+              {statusBadge}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -462,11 +504,109 @@ const CustomHr = () => {
   return <hr className="my-6 border-slate-200" />;
 };
 
+// Known section headers for terminal-style format detection (sorted longest first)
+const KNOWN_SECTIONS = [
+  'SUSPICIOUS ACTIVITY REPORT', 'ONBOARDING RECOMMENDATION', 'ADVERSE MEDIA SUMMARY',
+  'CORPORATE AFFILIATIONS', 'COUNTERPARTY ANALYSIS', 'LEGAL / ENFORCEMENT',
+  'ONBOARDING DECISION', 'CORPORATE STRUCTURE', 'BENEFICIAL OWNERSHIP',
+  'INVESTIGATION NOTES', 'CORPORATE REGISTRY', 'RECOMMENDED ACTIONS',
+  'CRITICAL RED FLAGS', 'TRANSACTION SUMMARY', 'PROTOCOL EXPOSURE',
+  'POLITICAL EXPOSURE', 'SANCTIONS EXPOSURE', 'TYPOLOGIES PRESENT',
+  'MATCH CONFIDENCE', 'DOCUMENTS TO REQUEST', 'RELATED ENTITIES',
+  'EXPORT CONTROLS', 'SOURCE OF FUNDS', 'ACTIVITY DETAIL',
+  'ENTITY SUMMARY', 'KEY ASSOCIATES', 'ADVERSE MEDIA',
+  'KEEP EXPLORING', 'PRIOR HISTORY', 'OVERALL RISK',
+  'PEP STATUS', 'TYPOLOGIES', 'RED FLAGS',
+  'THE MEMO', 'SANCTIONS', 'IDENTITY',
+  'RECOMMENDATION', 'JURISDICTION', 'ENTITY',
+  'SUBJECT', 'SUMMARY', 'MEMO',
+];
+
+// Get color for right-aligned status badges in section headers
+const getStatusColor = (status) => {
+  const upper = (status || '').toUpperCase();
+  if (upper.includes('CLEAR') || upper.includes('✓') || upper.includes('VERIFIED')) return '#10b981';
+  if (upper.includes('MATCH') || upper.includes('✗') || upper.includes('BLOCKED')) return '#ef4444';
+  if (upper.includes('FLAG') || upper.includes('⚠')) return '#eab308';
+  return '#858585';
+};
+
+// Convert terminal-style format (ALL CAPS headers, ─── dividers, → items) to markdown
+const convertTerminalFormat = (content) => {
+  if (!content) return content;
+
+  // Quick check: if content already has ## headers, it's already markdown — skip conversion
+  if (/^#{1,6}\s/m.test(content)) return content;
+
+  const lines = content.split('\n');
+  const result = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines (pass through)
+    if (!trimmed) {
+      result.push(line);
+      continue;
+    }
+
+    // Convert divider lines (───, ━━━, ═══) to markdown hr
+    if (/^[─━═]{3,}$/.test(trimmed)) {
+      result.push('---');
+      continue;
+    }
+
+    // Convert "Risk Level: HIGH" to "## OVERALL RISK: HIGH"
+    const riskMatch = trimmed.match(/^Risk\s+Level\s*:\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);
+    if (riskMatch) {
+      result.push(`## OVERALL RISK: ${riskMatch[1].toUpperCase()}`);
+      continue;
+    }
+
+    // Convert arrow items (→) to markdown list items
+    if (trimmed.startsWith('→')) {
+      result.push(`- ${trimmed.substring(1).trim()}`);
+      continue;
+    }
+
+    // Convert warning items (⚠) at start of line to list items
+    if (trimmed.startsWith('⚠') && trimmed.length > 2) {
+      result.push(`- ${trimmed}`);
+      continue;
+    }
+
+    // Check if this line matches a known section header
+    let matched = false;
+    for (const section of KNOWN_SECTIONS) {
+      if (trimmed === section || (trimmed.startsWith(section) && trimmed.length > section.length && /\s/.test(trimmed[section.length]))) {
+        const status = trimmed.length > section.length ? trimmed.substring(section.length).trim() : '';
+        if (status && status.length <= 30) {
+          result.push(`## ${section} ${status}`);
+        } else {
+          result.push(`## ${section}`);
+        }
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    // Everything else passes through unchanged
+    result.push(line);
+  }
+
+  return result.join('\n');
+};
+
 // Pre-process markdown to fix common issues
 const preprocessMarkdown = (content) => {
   if (!content) return '';
 
   let processed = content;
+
+  // Convert terminal-style format (ALL CAPS headers, ─── dividers, → items) to markdown
+  processed = convertTerminalFormat(processed);
 
   // Remove any JSON code blocks (in case AI outputs both)
   processed = processed.replace(/```json[\s\S]*?```/g, '');
