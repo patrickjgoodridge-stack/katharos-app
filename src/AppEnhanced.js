@@ -231,6 +231,7 @@ export default function Katharos() {
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
+ const [docsTab, setDocsTab] = useState('privacy'); // 'privacy', 'terms', 'acceptable-use', 'security', 'dpa'
  const [cases, setCases] = useState(() => {
    try {
      const stored = localStorage.getItem('marlowe_cases');
@@ -561,7 +562,7 @@ const samplesDropdownRef = useRef(null);
  // Redirect authenticated users from public/landing pages to New Case
  // Handles: magic link clicks, OTP completion, Google OAuth return, session restore
  const prevAuthRef = useRef(isAuthenticated);
- const publicPagesSet = useMemo(() => new Set(['noirLanding', 'landing', 'about', 'product', 'disclosures', 'contact']), []);
+ const publicPagesSet = useMemo(() => new Set(['noirLanding', 'landing', 'about', 'product', 'contact']), []);
  useEffect(() => {
    const justSignedIn = isAuthenticated && !prevAuthRef.current;
    prevAuthRef.current = isAuthenticated;
@@ -8251,7 +8252,7 @@ ${analysisContext}`;
  };
 
  // Public pages that don't require authentication
-const publicPages = ['noirLanding', 'landing', 'about', 'product', 'disclosures', 'contact'];
+const publicPages = ['noirLanding', 'landing', 'about', 'product', 'contact'];
 
 // No loading screen — landing page renders instantly, AuthPage handles protected pages
 
@@ -8260,7 +8261,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   return <AuthPage onSuccess={handleEmailSubmitted} />;
 }
  // Use dark background for landing pages, light for app pages
- const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'disclosures', 'contact'].includes(currentPage);
+ const isLandingStyle = ['noirLanding', 'landing', 'product', 'about', 'contact'].includes(currentPage);
 
  return (
  <div className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-gray-900 text-gray-100" : "text-gray-900"}`} style={{ fontFamily: "'Inter', -apple-system, sans-serif", backgroundColor: '#1a1a1a', margin: 0, padding: 0, width: '100%', border: 'none', outline: 'none', boxShadow: 'none' }}>
@@ -8480,91 +8481,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   <ContactPage setCurrentPage={setCurrentPage} />
 )}
 
- {/* Disclosures Page */}
- {currentPage === 'disclosures' && (
- <div className="fade-in min-h-screen -mt-24 pt-24 bg-gray-950">
-   <div className="max-w-4xl mx-auto px-6 py-16">
-     <button
-       onClick={() => setCurrentPage('noirLanding')}
-       className="flex items-center gap-2 text-gray-400 hover:text-gray-600 transition-colors mb-10"
-     >
-       <ArrowLeft className="w-4 h-4" />
-       <span>Back to Home</span>
-     </button>
-
-     <h1 className="text-4xl font-bold text-white mb-2">Disclosures</h1>
-     <p className="text-sm text-gray-500 mb-12">Last updated: February 2, 2026</p>
-
-     <div className="space-y-10 text-gray-300 leading-relaxed">
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">About Katharos</h2>
-         <p>Katharos is an AI-powered financial crimes investigation and screening tool. Katharos is not a law firm, not a licensed compliance provider, and not a substitute for qualified legal or compliance counsel.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Not Legal or Compliance Advice</h2>
-         <p className="mb-3">The information, reports, and screening results provided by Katharos are for informational purposes only and do not constitute legal advice, compliance advice, or regulatory guidance. Katharos's outputs should not be relied upon as the sole basis for any compliance decision, filing, or regulatory obligation.</p>
-         <p>Users are responsible for independently verifying all information and making their own compliance determinations. Always consult qualified legal and compliance professionals before making decisions based on Katharos's outputs.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">No Guarantee of Accuracy or Completeness</h2>
-         <p className="mb-3">Katharos aggregates data from publicly available sources including but not limited to OFAC, OpenSanctions, ICIJ Offshore Leaks, SEC EDGAR, FINRA BrokerCheck, UK Companies House, CourtListener, GDELT, and other government and open-source databases. While Katharos strives for accuracy, we do not guarantee that screening results are complete, current, or error-free.</p>
-         <p className="mb-2">Specifically:</p>
-         <ul className="list-disc list-inside space-y-1 text-gray-400">
-           <li>Sanctions lists may not reflect designations announced within the prior 24-48 hours.</li>
-           <li>Name matching may produce false positives (incorrectly flagging an entity) or false negatives (failing to identify a match).</li>
-           <li>Adverse media results depend on the coverage and availability of third-party news sources.</li>
-           <li>Corporate ownership and beneficial ownership data may be outdated or incomplete.</li>
-           <li>AI-generated analysis may contain errors, omissions, or inaccuracies.</li>
-         </ul>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">AI-Generated Content</h2>
-         <p className="mb-3">Katharos uses artificial intelligence, including large language models, to analyze data and generate investigation reports. AI-generated content may contain inaccuracies or hallucinations. All AI-generated findings are presented alongside their source data so users can independently verify conclusions.</p>
-         <p>Katharos does not make compliance decisions. Katharos provides information and analysis to support human decision-making.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Data Sources and Freshness</h2>
-         <p>Katharos screens against multiple data sources that update on different schedules. Some data may be hours, days, or weeks old depending on the source. Katharos indicates the date of last update for each source when available. Users should not assume that a clear screening result means an entity is not subject to sanctions, enforcement actions, or other restrictions that may have been announced after the most recent data update.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Not a Substitute for a Compliance Program</h2>
-         <p>Katharos is a screening and investigation tool. It is not a comprehensive compliance program and does not fulfill all regulatory obligations under the Bank Secrecy Act, USA PATRIOT Act, OFAC regulations, or any other applicable law or regulation. Organizations are responsible for maintaining their own compliance programs, policies, procedures, and internal controls as required by applicable law and regulation.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">No Liability</h2>
-         <p className="mb-2">To the fullest extent permitted by law, Katharos and its operators shall not be liable for any direct, indirect, incidental, consequential, or special damages arising from or related to the use of Katharos's services, including but not limited to:</p>
-         <ul className="list-disc list-inside space-y-1 text-gray-400">
-           <li>Regulatory fines or penalties resulting from reliance on Katharos's outputs</li>
-           <li>Losses from transactions approved or declined based on Katharos's screening results</li>
-           <li>Reputational harm from false positive or false negative screening results</li>
-           <li>Any errors, omissions, or inaccuracies in AI-generated content</li>
-         </ul>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Privacy</h2>
-         <p>Katharos processes entity names, identifiers, and other information submitted by users for the purpose of screening and investigation. Katharos does not sell user data.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Changes to This Page</h2>
-         <p>We may update these disclosures from time to time. Continued use of Katharos after changes are posted constitutes acceptance of the updated disclosures.</p>
-       </section>
-
-       <section>
-         <h2 className="text-xl font-semibold text-white mb-3">Contact</h2>
-         <p>Questions about these disclosures can be directed to: <a href="mailto:patrick@katharos.co" className="text-gray-600 hover:text-gray-500 transition-colors">patrick@katharos.co</a></p>
-       </section>
-     </div>
-   </div>
- </div>
- )}
 
 {currentPage === 'settings' && (
   <div style={{ background: '#1a1a1a', minHeight: '100vh' }}>
@@ -8611,6 +8527,1911 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
     </div>
   </div>
 )}
+
+{currentPage === 'docs' && (() => {
+  const docsNav = [
+    { id: 'privacy', label: 'Privacy Policy' },
+    { id: 'terms', label: 'Terms of Service' },
+    { id: 'acceptable-use', label: 'Acceptable Use' },
+    { id: 'security', label: 'Security' },
+    { id: 'dpa', label: 'Data Processing Agreement' },
+    { id: 'disclaimer', label: 'Disclaimer' },
+  ];
+
+  const renderMd = (md) => {
+    const lines = md.split('\n');
+    const elements = [];
+    let i = 0;
+    let key = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Horizontal rule
+      if (/^---+\s*$/.test(line)) {
+        elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #333', margin: '32px 0' }} />);
+        i++;
+        continue;
+      }
+
+      // Headings
+      if (line.startsWith('# ') && !line.startsWith('## ')) {
+        elements.push(<h1 key={key++} style={{ fontSize: '28px', fontWeight: 700, color: '#fff', margin: '40px 0 16px', lineHeight: 1.3 }}>{formatInline(line.slice(2))}</h1>);
+        i++;
+        continue;
+      }
+      if (line.startsWith('## ') && !line.startsWith('### ')) {
+        elements.push(<h2 key={key++} style={{ fontSize: '22px', fontWeight: 600, color: '#fff', margin: '36px 0 12px', lineHeight: 1.3 }}>{formatInline(line.slice(3))}</h2>);
+        i++;
+        continue;
+      }
+      if (line.startsWith('### ') && !line.startsWith('#### ')) {
+        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#e0e0e0', margin: '28px 0 10px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
+        i++;
+        continue;
+      }
+      if (line.startsWith('#### ')) {
+        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#ccc', margin: '24px 0 8px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
+        i++;
+        continue;
+      }
+
+      // Table
+      if (line.includes('|') && line.trim().startsWith('|')) {
+        const tableRows = [];
+        while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) {
+          const cells = lines[i].split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+          tableRows.push(cells);
+          i++;
+        }
+        // Skip separator row
+        const headerRow = tableRows[0];
+        const dataRows = tableRows.filter((_, idx) => idx !== 1);
+        const bodyRows = dataRows.slice(1);
+        elements.push(
+          <div key={key++} style={{ overflowX: 'auto', margin: '16px 0' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #444', color: '#ccc', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, ri) => (
+                  <tr key={ri} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '10px 14px', color: '#999', fontSize: '13px' }}>{formatInline(cell)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+
+      // Unordered list
+      if (/^[-•✓✗â] /.test(line.trim())) {
+        const items = [];
+        while (i < lines.length && /^[-•✓✗â] /.test(lines[i].trim())) {
+          const text = lines[i].trim().replace(/^[-•✓✗â] /, '');
+          const isCheck = lines[i].trim().startsWith('✓') || lines[i].trim().startsWith('â');
+          const isCross = lines[i].trim().startsWith('✗') || lines[i].trim().startsWith('â');
+          items.push({ text, isCheck, isCross });
+          i++;
+        }
+        elements.push(
+          <ul key={key++} style={{ margin: '12px 0', paddingLeft: '24px', listStyle: 'none' }}>
+            {items.map((item, li) => (
+              <li key={li} style={{ padding: '4px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#999', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
+                <span style={{ position: 'absolute', left: 0 }}>{item.isCheck ? '✓' : item.isCross ? '✗' : '•'}</span>
+                {formatInline(item.text)}
+              </li>
+            ))}
+          </ul>
+        );
+        continue;
+      }
+
+      // Numbered list
+      if (/^\d+\.\s/.test(line.trim())) {
+        const items = [];
+        while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^\d+\.\s/, ''));
+          i++;
+        }
+        elements.push(
+          <ol key={key++} style={{ margin: '12px 0', paddingLeft: '24px', color: '#999', fontSize: '14px', lineHeight: 1.8 }}>
+            {items.map((item, li) => <li key={li} style={{ padding: '2px 0' }}>{formatInline(item)}</li>)}
+          </ol>
+        );
+        continue;
+      }
+
+      // Empty line
+      if (line.trim() === '') {
+        i++;
+        continue;
+      }
+
+      // Regular paragraph
+      const paraLines = [];
+      while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('#') && !lines[i].startsWith('---') && !(lines[i].includes('|') && lines[i].trim().startsWith('|')) && !/^[-•✓✗â] /.test(lines[i].trim()) && !/^\d+\.\s/.test(lines[i].trim())) {
+        paraLines.push(lines[i]);
+        i++;
+      }
+      if (paraLines.length > 0) {
+        elements.push(<p key={key++} style={{ margin: '12px 0', color: '#999', fontSize: '14px', lineHeight: 1.7 }}>{formatInline(paraLines.join(' '))}</p>);
+      }
+    }
+    return elements;
+  };
+
+  const formatInline = (text) => {
+    if (!text) return text;
+    const parts = [];
+    let remaining = text;
+    let k = 0;
+    const regex = /(\*\*(.+?)\*\*)|(\[(.+?)\]\((.+?)\))/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(<span key={k++}>{text.slice(lastIndex, match.index)}</span>);
+      }
+      if (match[1]) {
+        parts.push(<strong key={k++} style={{ color: '#e0e0e0', fontWeight: 600 }}>{match[2]}</strong>);
+      } else if (match[3]) {
+        parts.push(<a key={k++} href={match[5]} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>{match[4]}</a>);
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push(<span key={k++}>{text.slice(lastIndex)}</span>);
+    }
+    return parts.length > 0 ? parts : text;
+  };
+
+  const docsContent = {
+    'privacy': `# Privacy Policy
+
+**Katharos, Inc.**
+
+**Last Updated: March 6, 2026**
+
+**Effective Date: March 6, 2026**
+
+---
+
+## Introduction
+
+Katharos, Inc. ("Katharos," "we," "us," or "our") provides an AI-powered anti-money laundering (AML), know-your-customer (KYC), and sanctions compliance screening platform (the "Service"). This Privacy Policy explains how we collect, use, disclose, and protect information when you use our Service.
+
+By accessing or using Katharos, you agree to this Privacy Policy. If you do not agree, please do not use our Service.
+
+---
+
+## 1. Information We Collect
+
+### 1.1 Information You Provide
+
+**Account Information**
+- Email address (required)
+- Name (optional)
+- Company name (optional)
+
+**Case and Screening Data**
+- Entity names, individuals, companies, and vessels you screen
+- Documents you upload for analysis
+- Chat messages and queries you submit
+- Investigation notes and case files you create
+
+**Payment Information**
+- Payment processing is handled by Stripe. We do not store your credit card numbers or banking information directly. Please see Stripe's privacy policy at [https://stripe.com/privacy](https://stripe.com/privacy).
+
+### 1.2 Information Collected Automatically
+
+**Usage Data**
+- Pages viewed and features used
+- Screening events (entity type, risk level, timestamp)
+- PDF exports and report generation
+- Session duration and frequency of use
+
+**Device and Technical Data**
+- Browser type and version
+- IP address
+- Device identifiers
+- User agent string
+
+**Cookies and Local Storage**
+- Session identifiers
+- User preferences
+- Daily screening counts
+
+### 1.3 Information from Third-Party Sources
+
+When you conduct screenings, we query external databases on your behalf and store the results. These sources include sanctions lists, corporate registries, news sources, and public records. See Section 4 for a complete list of data sources.
+
+---
+
+## 2. How We Use Your Information
+
+We use the information we collect to:
+
+**Provide and Operate the Service**
+- Process your screening requests against sanctions lists and other data sources
+- Generate risk assessments using AI-powered analysis
+- Store your cases, screenings, and investigation history
+- Generate reports and export documents
+
+**Improve and Develop the Service**
+- Analyze usage patterns to improve features
+- Debug issues and monitor performance
+- Develop new capabilities
+
+**Communicate with You**
+- Respond to your inquiries and support requests
+- Send service-related notifications
+- Provide updates about the Service (with your consent for marketing)
+
+**Security and Compliance**
+- Maintain audit logs for compliance and security purposes
+- Detect and prevent fraud, abuse, and security incidents
+- Comply with legal obligations
+
+---
+
+## 3. AI Processing and Anthropic
+
+### 3.1 How We Use AI
+
+Katharos uses Claude, an AI assistant developed by Anthropic, to analyze screening data, assess risk, and generate reports. When you use our Service:
+
+- Your queries, entity names, document contents, and screening results are sent to Anthropic's API for processing
+- Claude may access web search capabilities to retrieve current information
+- Claude queries our regulatory knowledge base (stored in Pinecone) for relevant guidance
+
+### 3.2 Anthropic's Data Practices
+
+**Anthropic does not train its AI models on data submitted through its commercial API.** Per Anthropic's API Terms of Service, customer inputs and outputs are not used to train or improve Anthropic's models.
+
+For more information, see Anthropic's privacy policy at [https://www.anthropic.com/privacy](https://www.anthropic.com/privacy) and usage policy at [https://www.anthropic.com/policies](https://www.anthropic.com/policies).
+
+### 3.3 AI Limitations
+
+AI-generated analysis may contain errors. Katharos outputs are not legal advice and should be reviewed by qualified compliance professionals before use in official decisions or client deliverables.
+
+---
+
+## 4. Third-Party Data Sources and Services
+
+### 4.1 Sanctions and Watchlist Providers
+
+When you screen an entity, we query the following sources on your behalf:
+
+| Source | Data Sent | Purpose |
+|--------|-----------|---------|
+| OFAC SDN List (U.S. Treasury) | Entity name, type | Sanctions screening |
+| OpenSanctions API | Name, country, date of birth | Global sanctions/PEP screening |
+| World Bank Debarred Firms | Entity name | Debarment screening |
+| ICIJ Offshore Leaks | Entity name | Offshore entity screening |
+| Wikidata/SPARQL | Entity name | PEP identification |
+
+### 4.2 Corporate Registries
+
+| Source | Data Sent | Purpose |
+|--------|-----------|---------|
+| SEC EDGAR | Entity name | U.S. corporate filings |
+| UK Companies House | Company name/number | UK corporate records |
+| OpenCorporates | Company name | Global corporate records |
+| OCCRP Aleph | Name, type, DOB, nationality, registration number | Investigative records |
+
+### 4.3 News and Media
+
+| Source | Data Sent | Purpose |
+|--------|-----------|---------|
+| NewsAPI | Entity name + keywords | Adverse media screening |
+| GDELT Project | Entity name | Global news coverage |
+| Google News RSS | Entity name | News monitoring |
+| Bing News | Entity name | News monitoring |
+
+### 4.4 Blockchain Analytics
+
+| Source | Data Sent | Purpose |
+|--------|-----------|---------|
+| Etherscan | Wallet address | Ethereum blockchain analysis |
+| BSCScan | Wallet address | BNB Chain analysis |
+| PolygonScan | Wallet address | Polygon analysis |
+| Blockchain.info | Wallet address | Bitcoin analysis |
+| TronScan | Wallet address | Tron analysis |
+| Solscan | Wallet address | Solana analysis |
+| Blockchair | Wallet address | Multi-chain analysis |
+
+### 4.5 Other Data Sources
+
+| Source | Data Sent | Purpose |
+|--------|-----------|---------|
+| CourtListener | Entity name | U.S. legal records |
+| MarineTraffic | Vessel identifiers | Vessel tracking |
+| UN Comtrade | Trade parameters | Trade data analysis |
+
+### 4.6 Service Providers
+
+| Provider | Purpose | Data Shared |
+|----------|---------|-------------|
+| Anthropic | AI analysis | Queries, documents, screening data |
+| Supabase | Database hosting | All account and case data |
+| Pinecone | Vector database | Regulatory documents, screening embeddings |
+| Vercel | Application hosting | Application logs, performance data |
+| PostHog | Product analytics | Page views, feature usage (anonymized) |
+| Stripe | Payment processing | Payment information (handled by Stripe) |
+
+---
+
+## 5. Data Retention
+
+### 5.1 Retention Periods
+
+| Data Type | Retention Period |
+|-----------|------------------|
+| Account information | Duration of account + 30 days after deletion |
+| Cases and screenings | Duration of account or until deleted by user |
+| Audit logs | 7 years (for compliance purposes) |
+| Analytics data | 2 years |
+| Cached OFAC data | 6 hours (in-memory only) |
+
+### 5.2 Deletion
+
+You may delete individual cases within the Service. Deleted cases are removed from our primary database. Audit log entries referencing deleted cases are retained for compliance purposes but are anonymized.
+
+To request deletion of your entire account and associated data, contact privacy@katharos.co.
+
+---
+
+## 6. Data Security
+
+We implement technical and organizational measures to protect your information:
+
+**In Transit**
+- All data transmitted between your browser and our servers uses TLS 1.2+ encryption (HTTPS)
+- All API calls to third-party services use encrypted connections
+
+**At Rest**
+- Primary database (Supabase/PostgreSQL): Encrypted at rest using AES-256
+- Vector database (Pinecone): Encrypted at rest (vendor-managed)
+- Backups: Encrypted using industry-standard methods
+
+**Access Controls**
+- Role-based access control (admin, analyst, reviewer, viewer)
+- API keys stored as server-side environment variables
+- Only anonymized public keys exposed client-side
+
+**Monitoring**
+- Comprehensive audit logging of user actions
+- Security event monitoring
+
+**Local Storage Notice**
+- Some session data is stored in your browser's localStorage in plaintext for performance. This includes your current session identifier and cached case data. Clear your browser data to remove this information.
+
+For more details, see our Security page at [https://katharos.co/security](https://katharos.co/security).
+
+---
+
+## 7. Your Rights and Choices
+
+### 7.1 Access and Portability
+
+You may access your data at any time through the Service. To request a machine-readable export of your data, contact privacy@katharos.co.
+
+### 7.2 Correction
+
+You may update your account information within the Service. To request correction of other data, contact privacy@katharos.co.
+
+### 7.3 Deletion
+
+You may delete cases and screenings within the Service. To request deletion of your account and all associated data, contact privacy@katharos.co. We will process deletion requests within 30 days.
+
+### 7.4 Restriction and Objection
+
+You may request that we restrict processing of your data or object to certain processing activities by contacting privacy@katharos.co.
+
+### 7.5 Withdrawal of Consent
+
+Where processing is based on consent, you may withdraw consent at any time by contacting us or adjusting your settings.
+
+### 7.6 Regulatory Complaints
+
+If you believe we have violated your privacy rights, you may file a complaint with your local data protection authority.
+
+---
+
+## 8. International Data Transfers
+
+Katharos is based in the United States. If you access our Service from outside the United States, your information will be transferred to and processed in the United States.
+
+Our service providers may process data in various locations. We ensure appropriate safeguards are in place for international transfers, including standard contractual clauses where required.
+
+---
+
+## 9. Children's Privacy
+
+The Service is not intended for individuals under 18 years of age. We do not knowingly collect personal information from children. If we learn we have collected information from a child under 18, we will delete it promptly.
+
+---
+
+## 10. California Privacy Rights (CCPA)
+
+If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA):
+
+- **Right to Know**: You may request information about the categories and specific pieces of personal information we have collected about you.
+- **Right to Delete**: You may request deletion of your personal information, subject to certain exceptions.
+- **Right to Opt-Out**: We do not sell personal information as defined by the CCPA.
+- **Non-Discrimination**: We will not discriminate against you for exercising your privacy rights.
+
+To exercise these rights, contact privacy@katharos.co.
+
+---
+
+## 11. European Privacy Rights (GDPR)
+
+If you are in the European Economic Area (EEA), United Kingdom, or Switzerland, you have rights under the General Data Protection Regulation (GDPR):
+
+**Legal Bases for Processing**
+- **Contract**: Processing necessary to provide the Service you requested
+- **Legitimate Interests**: Analytics, security, and service improvement
+- **Consent**: Marketing communications (where applicable)
+- **Legal Obligation**: Compliance with applicable laws
+
+**Your Rights**
+- Access, rectification, erasure, and portability (as described in Section 7)
+- Restriction of processing and objection to processing
+- Withdrawal of consent
+- Complaint to a supervisory authority
+
+**Data Controller**
+
+Katharos, Inc. is the data controller for information collected through the Service.
+
+**Contact**
+
+For GDPR-related inquiries, contact privacy@katharos.co.
+
+---
+
+## 12. Cookies and Tracking Technologies
+
+### 12.1 Cookies We Use
+
+| Cookie/Technology | Purpose | Duration |
+|-------------------|---------|----------|
+| Session identifier | Maintain your login session | Session |
+| localStorage | Cache user preferences and session data | Persistent |
+| PostHog | Product analytics | 1 year |
+| Vercel Analytics | Performance monitoring | Session |
+
+### 12.2 Managing Cookies
+
+You can control cookies through your browser settings. Disabling cookies may affect the functionality of the Service.
+
+### 12.3 Do Not Track
+
+We do not currently respond to "Do Not Track" browser signals.
+
+---
+
+## 13. Changes to This Privacy Policy
+
+We may update this Privacy Policy from time to time. We will notify you of material changes by:
+- Posting the updated policy on our website
+- Updating the "Last Updated" date
+- Sending an email notification for significant changes
+
+Your continued use of the Service after changes take effect constitutes acceptance of the updated policy.
+
+---
+
+## 14. Contact Us
+
+If you have questions about this Privacy Policy or our data practices, contact us:
+
+**Katharos, Inc.**
+
+Email: privacy@katharos.co
+
+For security-related concerns: security@katharos.co`,
+
+    'terms': `# Terms of Service
+
+**Katharos, Inc.**
+
+**Last Updated: March 6, 2026**
+
+**Effective Date: March 6, 2026**
+
+---
+
+## Agreement to Terms
+
+These Terms of Service ("Terms") constitute a legally binding agreement between you ("User," "you," or "your") and Katharos, Inc. ("Katharos," "we," "us," or "our") governing your access to and use of the Katharos platform, website, and related services (collectively, the "Service").
+
+**By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the Service.**
+
+If you are using the Service on behalf of an organization, you represent and warrant that you have authority to bind that organization to these Terms, and "you" refers to both you individually and the organization.
+
+---
+
+## 1. Description of Service
+
+### 1.1 What Katharos Does
+
+Katharos is an AI-powered compliance screening and investigation platform that helps users conduct:
+- Sanctions screening (OFAC, EU, UN, UK, and other lists)
+- Know Your Customer (KYC) due diligence
+- Anti-Money Laundering (AML) research
+- Politically Exposed Person (PEP) identification
+- Adverse media screening
+- Beneficial ownership analysis
+- Risk assessment and reporting
+
+### 1.2 How It Works
+
+The Service aggregates data from 30+ global sources, including sanctions lists, corporate registries, news outlets, and public records. The Service uses artificial intelligence (Claude, developed by Anthropic) to analyze data, assess risk, and generate reports.
+
+### 1.3 What Katharos Is NOT
+
+**THE SERVICE DOES NOT PROVIDE LEGAL ADVICE.** Katharos is a research and screening tool. Outputs generated by the Service, including risk assessments and reports, are informational only and should not be construed as legal advice or a legal opinion.
+
+You are solely responsible for:
+- Verifying the accuracy of information before relying on it
+- Making compliance decisions based on your own judgment and applicable law
+- Consulting with qualified legal counsel as needed
+- Ensuring your use of screening results complies with all applicable laws
+
+---
+
+## 2. Eligibility and Account Registration
+
+### 2.1 Eligibility
+
+To use the Service, you must:
+- Be at least 18 years of age
+- Have the legal capacity to enter into binding contracts
+- Not be prohibited from using the Service under applicable law
+- Not be located in, or a resident of, a comprehensively sanctioned jurisdiction (including Cuba, Iran, North Korea, Syria, and the Crimea, Donetsk, and Luhansk regions of Ukraine)
+
+### 2.2 Account Registration
+
+To access certain features, you must create an account by providing your email address. You agree to:
+- Provide accurate, current, and complete information
+- Maintain the security of your account credentials
+- Promptly notify us of any unauthorized access or security breach
+- Accept responsibility for all activities that occur under your account
+
+### 2.3 Workspace and Roles
+
+Accounts are organized by email domain into workspaces. The first user from a domain is designated as the workspace administrator. Administrators may assign roles (admin, analyst, reviewer, viewer) to other users in their workspace.
+
+---
+
+## 3. Acceptable Use
+
+### 3.1 Permitted Uses
+
+You may use the Service for lawful compliance, due diligence, investigation, and research purposes, including:
+- Screening customers, counterparties, and business partners
+- Conducting investigations and due diligence
+- Generating compliance reports
+- Researching entities and individuals for legitimate business purposes
+
+### 3.2 Prohibited Uses
+
+You agree NOT to use the Service to:
+
+**Illegal Activities**
+- Violate any applicable law, regulation, or third-party rights
+- Evade, circumvent, or facilitate evasion of sanctions or export controls
+- Launder money or facilitate money laundering
+- Finance terrorism or facilitate terrorist activities
+- Engage in fraud, identity theft, or other criminal activities
+
+**Harmful Activities**
+- Stalk, harass, or harm any individual
+- Discriminate against any individual or group in violation of law
+- Conduct screening for purposes unrelated to legitimate compliance or business needs
+- Screen individuals for personal, non-business purposes without their consent
+
+**Security Violations**
+- Attempt to gain unauthorized access to the Service or related systems
+- Interfere with or disrupt the Service or servers
+- Transmit viruses, malware, or other harmful code
+- Reverse engineer, decompile, or disassemble any part of the Service
+- Circumvent any security or access controls
+
+**Abuse of Service**
+- Use automated means (bots, scrapers) to access the Service without authorization
+- Resell, sublicense, or redistribute the Service without our consent
+- Use the Service in a manner that exceeds reasonable use or burdens our infrastructure
+- Misrepresent your identity or affiliation
+
+### 3.3 Compliance with Law
+
+You are solely responsible for ensuring your use of the Service complies with all applicable laws, including:
+- Sanctions laws and regulations (OFAC, EU, UN, etc.)
+- Anti-money laundering laws (BSA, AML directives)
+- Data protection laws (GDPR, CCPA, etc.)
+- Fair Credit Reporting Act (FCRA) if applicable
+- Export control laws
+
+**FCRA Notice**: Katharos is not a consumer reporting agency and the Service does not constitute a consumer report under the Fair Credit Reporting Act (FCRA). You may not use the Service to make decisions about consumer credit, employment, insurance, tenant screening, or any other purpose regulated by the FCRA.
+
+---
+
+## 4. Intellectual Property
+
+### 4.1 Katharos Intellectual Property
+
+The Service, including its software, design, features, and content (excluding User Content), is owned by Katharos and protected by copyright, trademark, and other intellectual property laws.
+
+We grant you a limited, non-exclusive, non-transferable, revocable license to access and use the Service for your internal business purposes in accordance with these Terms.
+
+You may not:
+- Copy, modify, or create derivative works of the Service
+- Sell, resell, license, or sublicense the Service
+- Use Katharos trademarks without written permission
+
+### 4.2 User Content
+
+"User Content" means any data, documents, or information you upload, submit, or create through the Service, including entity names, queries, uploaded documents, and case notes.
+
+**You retain ownership of your User Content.** By submitting User Content, you grant Katharos a limited license to use, process, and store your User Content solely to provide and improve the Service.
+
+### 4.3 Feedback
+
+If you provide suggestions, ideas, or feedback about the Service ("Feedback"), you grant us a perpetual, irrevocable, royalty-free license to use the Feedback for any purpose without compensation or attribution.
+
+---
+
+## 5. Third-Party Services and Data
+
+### 5.1 Third-Party Data Sources
+
+The Service queries third-party data sources (sanctions lists, corporate registries, news sources, etc.) to provide screening results. We do not control these sources and are not responsible for their accuracy, completeness, or availability.
+
+Third-party data is provided "as is." You acknowledge that:
+- Data may be incomplete, outdated, or inaccurate
+- Sources may become unavailable without notice
+- You are responsible for verifying information before relying on it
+
+### 5.2 AI Services
+
+The Service uses Claude, an AI assistant developed by Anthropic, to analyze data and generate outputs. You acknowledge that:
+- AI-generated outputs may contain errors
+- AI analysis is not a substitute for human judgment
+- You are responsible for reviewing AI outputs before use
+
+### 5.3 Links to Third-Party Websites
+
+The Service may contain links to third-party websites or resources. We are not responsible for the content, products, or services offered by third parties.
+
+---
+
+## 6. Fees and Payment
+
+### 6.1 Pricing
+
+Access to certain features of the Service may require payment. Current pricing is available at [https://katharos.co/pricing](https://katharos.co/pricing) or upon request.
+
+### 6.2 Payment Processing
+
+Payments are processed by Stripe. By making a payment, you agree to Stripe's terms of service at [https://stripe.com/legal](https://stripe.com/legal).
+
+### 6.3 Refunds
+
+Fees are generally non-refundable. We may, at our discretion, provide refunds or credits in certain circumstances.
+
+### 6.4 Taxes
+
+You are responsible for any applicable taxes. If we are required to collect taxes, they will be added to your invoice.
+
+---
+
+## 7. Confidentiality
+
+### 7.1 Your Confidential Information
+
+We treat your User Content, account information, and screening activities as confidential. We will not disclose your confidential information to third parties except:
+- To provide the Service (including to our service providers)
+- With your consent
+- As required by law or legal process
+- To protect our rights or safety, or the rights or safety of others
+
+### 7.2 Our Confidential Information
+
+Any non-public information about the Service, including technical specifications, business practices, and pricing, is our confidential information. You agree not to disclose our confidential information without our written consent.
+
+### 7.3 Exceptions
+
+Confidentiality obligations do not apply to information that:
+- Is or becomes publicly available without breach of these Terms
+- Was rightfully known to you before disclosure
+- Is independently developed by you without use of confidential information
+- Is rightfully received from a third party without restriction
+
+---
+
+## 8. Data Protection and Privacy
+
+Your use of the Service is subject to our Privacy Policy at [https://katharos.co/privacy](https://katharos.co/privacy), which is incorporated into these Terms by reference.
+
+For enterprise customers requiring a Data Processing Agreement (DPA), please contact legal@katharos.co.
+
+---
+
+## 9. Disclaimers
+
+### 9.1 "As Is" Basis
+
+**THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.**
+
+### 9.2 No Guarantee of Accuracy
+
+**WE DO NOT WARRANT THAT:**
+- The Service will meet your requirements
+- The Service will be uninterrupted, timely, secure, or error-free
+- Results obtained from the Service will be accurate or reliable
+- Any errors in the Service will be corrected
+
+### 9.3 Third-Party Data
+
+**WE DO NOT WARRANT THE ACCURACY, COMPLETENESS, OR RELIABILITY OF ANY THIRD-PARTY DATA, INCLUDING SANCTIONS LISTS, CORPORATE RECORDS, NEWS SOURCES, OR OTHER DATA SOURCES.**
+
+### 9.4 AI Limitations
+
+**AI-GENERATED OUTPUTS MAY CONTAIN ERRORS, OMISSIONS, OR INACCURACIES. YOU ARE SOLELY RESPONSIBLE FOR VERIFYING AI OUTPUTS BEFORE RELYING ON THEM FOR ANY PURPOSE.**
+
+### 9.5 No Legal Advice
+
+**THE SERVICE DOES NOT PROVIDE LEGAL ADVICE. NOTHING IN THE SERVICE CONSTITUTES A LEGAL OPINION OR RECOMMENDATION. YOU SHOULD CONSULT WITH QUALIFIED LEGAL COUNSEL FOR ADVICE ON COMPLIANCE MATTERS.**
+
+---
+
+## 10. Limitation of Liability
+
+### 10.1 Exclusion of Damages
+
+**TO THE MAXIMUM EXTENT PERMITTED BY LAW, KATHAROS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO:**
+- Loss of profits, revenue, or business
+- Loss of data or data breach
+- Loss of goodwill or reputation
+- Cost of substitute services
+- Regulatory fines or penalties
+
+**EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.**
+
+### 10.2 Cap on Liability
+
+**TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR TOTAL LIABILITY TO YOU FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE GREATER OF:**
+- The amounts paid by you to Katharos in the twelve (12) months preceding the claim, or
+- One hundred U.S. dollars ($100)
+
+### 10.3 Basis of the Bargain
+
+The disclaimers and limitations in Sections 9 and 10 are fundamental elements of the basis of the bargain between you and Katharos. We would not provide the Service without these limitations.
+
+### 10.4 Exceptions
+
+Some jurisdictions do not allow the exclusion of certain warranties or limitations on liability. In such jurisdictions, our liability is limited to the maximum extent permitted by law.
+
+---
+
+## 11. Indemnification
+
+You agree to indemnify, defend, and hold harmless Katharos and its officers, directors, employees, agents, and affiliates from and against any claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of or relating to:
+- Your use of the Service
+- Your violation of these Terms
+- Your violation of any applicable law or third-party rights
+- Your User Content
+- Any decision or action taken based on information obtained through the Service
+
+---
+
+## 12. Term and Termination
+
+### 12.1 Term
+
+These Terms are effective when you first access the Service and remain in effect until terminated.
+
+### 12.2 Termination by You
+
+You may terminate your account at any time by contacting us at support@katharos.co or using the account deletion feature (if available).
+
+### 12.3 Termination by Us
+
+We may suspend or terminate your access to the Service at any time, with or without cause, with or without notice, including if:
+- You breach these Terms
+- We are required to do so by law
+- We discontinue the Service
+
+### 12.4 Effect of Termination
+
+Upon termination:
+- Your right to access the Service immediately ceases
+- We may delete your account and User Content (subject to our data retention policies)
+- Provisions that by their nature should survive termination will survive, including Sections 4, 7, 9, 10, 11, 13, and 14
+
+---
+
+## 13. Dispute Resolution
+
+### 13.1 Governing Law
+
+These Terms are governed by the laws of the State of Delaware, United States, without regard to conflict of law principles.
+
+### 13.2 Informal Resolution
+
+Before filing a formal dispute, you agree to contact us at legal@katharos.co and attempt to resolve the dispute informally for at least thirty (30) days.
+
+### 13.3 Arbitration
+
+**Any dispute arising out of or relating to these Terms or the Service shall be resolved by binding arbitration** administered by the American Arbitration Association (AAA) under its Commercial Arbitration Rules. The arbitration will be conducted in English, and the seat of arbitration will be Wilmington, Delaware.
+
+**YOU AND KATHAROS AGREE TO WAIVE THE RIGHT TO A JURY TRIAL AND THE RIGHT TO PARTICIPATE IN A CLASS ACTION.**
+
+### 13.4 Exceptions
+
+The following disputes are not subject to arbitration:
+- Claims for injunctive or equitable relief
+- Disputes relating to intellectual property rights
+- Small claims court matters (if eligible)
+
+### 13.5 Opt-Out
+
+You may opt out of the arbitration provision by sending written notice to legal@katharos.co within thirty (30) days of first accepting these Terms.
+
+---
+
+## 14. General Provisions
+
+### 14.1 Entire Agreement
+
+These Terms, together with the Privacy Policy and any other agreements referenced herein, constitute the entire agreement between you and Katharos regarding the Service.
+
+### 14.2 Amendments
+
+We may modify these Terms at any time. Material changes will be communicated by posting the updated Terms on our website and updating the "Last Updated" date. Your continued use of the Service after changes take effect constitutes acceptance.
+
+### 14.3 Waiver
+
+Our failure to enforce any provision of these Terms does not constitute a waiver of that provision or any other provision.
+
+### 14.4 Severability
+
+If any provision of these Terms is found to be unenforceable, that provision will be modified to the minimum extent necessary, and the remaining provisions will remain in full force and effect.
+
+### 14.5 Assignment
+
+You may not assign or transfer these Terms or your rights under them without our written consent. We may assign these Terms without restriction.
+
+### 14.6 Notices
+
+We may provide notices to you by email or by posting on the Service. You may provide notices to us at legal@katharos.co.
+
+### 14.7 Force Majeure
+
+We are not liable for any failure or delay in performance due to circumstances beyond our reasonable control, including natural disasters, war, terrorism, pandemics, or internet outages.
+
+### 14.8 Independent Contractors
+
+The relationship between you and Katharos is that of independent contractors. Nothing in these Terms creates a partnership, joint venture, employment, or agency relationship.
+
+---
+
+## 15. Contact Us
+
+If you have questions about these Terms, please contact us:
+
+**Katharos, Inc.**
+
+Email: legal@katharos.co
+
+For support inquiries: support@katharos.co`,
+
+    'acceptable-use': `# Acceptable Use Policy
+
+**Katharos, Inc.**
+
+**Last Updated: March 6, 2026**
+
+---
+
+This Acceptable Use Policy ("AUP") governs your use of the Katharos platform and services ("Service"). This AUP is incorporated into and forms part of our Terms of Service.
+
+By using the Service, you agree to comply with this AUP. Violation of this AUP may result in suspension or termination of your access to the Service.
+
+---
+
+## Permitted Uses
+
+The Service is designed for legitimate compliance, due diligence, and investigation purposes. You may use the Service to:
+
+- Screen customers, counterparties, and business partners for sanctions and AML compliance
+- Conduct know-your-customer (KYC) and customer due diligence (CDD)
+- Investigate entities and individuals for legitimate business or legal purposes
+- Generate compliance reports and documentation
+- Monitor sanctions lists and regulatory changes
+- Research beneficial ownership structures
+- Conduct enhanced due diligence on high-risk relationships
+
+---
+
+## Prohibited Uses
+
+You may NOT use the Service for any of the following purposes:
+
+### Illegal Activities
+
+- **Sanctions Evasion**: Using the Service to evade, circumvent, or facilitate evasion of sanctions or export controls
+- **Money Laundering**: Using the Service to launder money or facilitate money laundering
+- **Terrorist Financing**: Using the Service to finance terrorism or support terrorist organizations
+- **Fraud**: Using the Service to commit or facilitate fraud, identity theft, or financial crimes
+- **Other Crimes**: Using the Service to violate any applicable law or regulation
+
+### Harmful Activities
+
+- **Harassment**: Using screening results to stalk, harass, threaten, or harm any individual
+- **Discrimination**: Using the Service to discriminate against any individual or group in violation of law
+- **Doxxing**: Using the Service to expose private information about individuals for malicious purposes
+- **Personal Vendettas**: Screening individuals for personal, non-business purposes without legitimate basis
+
+### Consumer Reporting Violations
+
+- **FCRA Violations**: Using the Service as a "consumer report" under the Fair Credit Reporting Act
+- **Employment Screening**: Using the Service to make employment decisions without proper compliance
+- **Credit Decisions**: Using the Service to make consumer credit decisions
+- **Tenant Screening**: Using the Service for tenant screening without proper procedures
+- **Insurance Decisions**: Using the Service for insurance underwriting decisions on consumers
+
+**IMPORTANT**: Katharos is NOT a consumer reporting agency. If you need to conduct background checks on individuals for employment, credit, housing, or insurance purposes, you must use a compliant consumer reporting agency and follow all FCRA requirements.
+
+### Security Violations
+
+- **Unauthorized Access**: Attempting to access accounts, systems, or data without authorization
+- **Interference**: Interfering with or disrupting the Service or related infrastructure
+- **Malware**: Transmitting viruses, malware, or other harmful code
+- **Reverse Engineering**: Reverse engineering, decompiling, or disassembling the Service
+- **Circumvention**: Circumventing security controls or access restrictions
+
+### Abuse of Service
+
+- **Automated Abuse**: Using bots, scrapers, or automated tools to access the Service without authorization
+- **Excessive Use**: Using the Service in a manner that burdens infrastructure or degrades performance for others
+- **Reselling**: Reselling, sublicensing, or redistributing the Service without authorization
+- **Misrepresentation**: Misrepresenting your identity, affiliation, or purpose for using the Service
+- **Data Harvesting**: Systematically collecting data from the Service for unauthorized purposes
+
+### Misuse of AI Features
+
+- **Prompt Injection**: Attempting to manipulate AI features through prompt injection or similar techniques
+- **Jailbreaking**: Attempting to bypass AI safety measures or content policies
+- **Generating Harmful Content**: Using AI features to generate illegal, harmful, or misleading content
+- **Misrepresenting AI Output**: Presenting AI-generated content as human-generated without disclosure
+
+---
+
+## Your Responsibilities
+
+When using the Service, you are responsible for:
+
+### Compliance
+
+- Ensuring your use complies with all applicable laws and regulations
+- Maintaining any required licenses, registrations, or authorizations
+- Following your organization's internal compliance policies
+- Consulting with legal counsel as needed
+
+### Verification
+
+- Verifying the accuracy of screening results before relying on them
+- Not treating AI-generated analysis as a substitute for human judgment
+- Conducting additional due diligence when warranted
+- Documenting your compliance decisions appropriately
+
+### Data Protection
+
+- Processing personal data in compliance with privacy laws
+- Providing required notices and obtaining necessary consents
+- Implementing appropriate security measures for data you export
+- Reporting any suspected data breaches promptly
+
+### Account Security
+
+- Keeping your login credentials confidential
+- Using strong, unique passwords
+- Enabling multi-factor authentication when available
+- Reporting any unauthorized access immediately
+
+---
+
+## Reporting Violations
+
+If you become aware of any violation of this AUP, please report it to:
+
+**Email**: abuse@katharos.co
+
+Please include:
+- Description of the violation
+- Any relevant evidence or screenshots
+- Your contact information
+
+We will investigate reports promptly and take appropriate action.
+
+---
+
+## Enforcement
+
+### Investigation
+
+We reserve the right to investigate suspected violations of this AUP. We may:
+- Review usage patterns and logs
+- Suspend access pending investigation
+- Cooperate with law enforcement as required
+
+### Consequences
+
+Violations of this AUP may result in:
+- Warning and request for corrective action
+- Temporary suspension of access
+- Permanent termination of access
+- Reporting to law enforcement
+- Legal action to recover damages
+
+### Appeals
+
+If you believe enforcement action was taken in error, you may appeal by contacting legal@katharos.co within 30 days.
+
+---
+
+## Changes to This Policy
+
+We may update this AUP from time to time. We will notify you of material changes by posting the updated policy and updating the "Last Updated" date. Your continued use of the Service after changes take effect constitutes acceptance.
+
+---
+
+## Contact
+
+**Abuse Reports**: abuse@katharos.co
+
+**General Inquiries**: support@katharos.co
+
+**Legal Inquiries**: legal@katharos.co`,
+
+    'security': `# Security
+
+**Katharos, Inc.**
+
+**Last Updated: March 6, 2026**
+
+---
+
+At Katharos, security is foundational to everything we build. Our customers trust us with sensitive compliance data, and we take that responsibility seriously.
+
+This page describes our security practices, certifications, and commitments.
+
+---
+
+## Our Security Principles
+
+- **Defense in Depth**: Multiple layers of security controls
+- **Least Privilege**: Access limited to what's necessary
+- **Encryption Everywhere**: Data protected in transit and at rest
+- **Transparency**: Clear communication about our practices
+- **Continuous Improvement**: Regular assessments and updates
+
+---
+
+## Infrastructure Security
+
+### Cloud Platform
+
+Katharos is hosted on enterprise-grade cloud infrastructure:
+
+| Component | Provider | Certifications |
+|-----------|----------|----------------|
+| Application Hosting | Vercel | SOC 2 Type II, ISO 27001 |
+| Primary Database | Supabase (AWS) | SOC 2 Type II, HIPAA eligible |
+| Vector Database | Pinecone (AWS) | SOC 2 Type II |
+| AI Processing | Anthropic | SOC 2 Type II |
+
+All infrastructure is hosted in the United States.
+
+### Network Security
+
+- All traffic encrypted using TLS 1.2 or higher (HTTPS)
+- Regular vulnerability scanning and penetration testing
+- DDoS protection through cloud provider
+- Web Application Firewall (WAF) protection
+
+---
+
+## Data Protection
+
+### Encryption
+
+| Data State | Method |
+|------------|--------|
+| In Transit | TLS 1.2+ (HTTPS) for all connections |
+| At Rest (Database) | AES-256 encryption |
+| At Rest (Vectors) | Vendor-managed encryption |
+| Backups | Encrypted using AES-256 |
+
+### Data Isolation
+
+- Each customer's data is logically isolated
+- Access controls enforced at the application and database level
+- API keys stored securely as server-side environment variables
+
+### Data Residency
+
+All data is processed and stored in the United States. For customers with specific data residency requirements, please contact us to discuss options.
+
+---
+
+## AI and Anthropic
+
+### How We Use AI
+
+Katharos uses Claude, developed by Anthropic, for intelligent risk analysis. When you use our screening features:
+
+- Your queries and data are sent to Anthropic's API for processing
+- Claude analyzes the data and returns results to Katharos
+- Results are stored in your Katharos account
+
+### Anthropic's Security Commitments
+
+**Anthropic does not train on your data.** Per Anthropic's commercial API terms:
+
+- Customer inputs and outputs are not used to train or improve models
+- Data is not shared with third parties
+- Anthropic maintains SOC 2 Type II certification
+
+For more information, see [Anthropic's Security Practices](https://www.anthropic.com/security).
+
+### Our Prompt Security
+
+- System prompts are designed to prevent prompt injection attacks
+- Outputs are validated and sanitized before display
+- We monitor for anomalous AI behavior
+
+---
+
+## Access Control
+
+### Authentication
+
+- Email-based authentication with secure session management
+- Role-based access control (RBAC) with four permission levels:
+- **Admin**: Full access, user management, workspace settings
+- **Analyst**: Create cases, run screenings, generate reports
+- **Reviewer**: View and comment on cases
+- **Viewer**: Read-only access
+- Session timeout and automatic logout
+- Future: SSO integration (SAML 2.0, OIDC) available for enterprise
+
+### Authorization
+
+- Workspace isolation: Users only see data in their workspace
+- Case-level permissions (coming soon)
+- API access controlled by scoped tokens
+
+---
+
+## Audit Logging
+
+### What We Log
+
+Every significant action is logged for security and compliance:
+
+| Event Type | Data Captured |
+|------------|---------------|
+| Authentication | User email, timestamp, IP address, user agent |
+| Case Activity | User, action, case ID, timestamp |
+| Screening | User, entity screened, timestamp, results summary |
+| Report Generation | User, report ID, timestamp |
+| Data Export | User, data type, timestamp |
+| Administrative Actions | User, action, target, timestamp |
+
+### Retention
+
+- Audit logs retained for 7 years
+- Logs are immutable and tamper-evident
+- Available for export upon request
+
+---
+
+## Application Security
+
+### Secure Development
+
+- Security-focused code review process
+- Dependency scanning for known vulnerabilities
+- Regular security assessments
+- Secure coding guidelines followed
+
+### Vulnerability Management
+
+- Automated vulnerability scanning
+- Responsible disclosure program (see below)
+- Timely patching of identified vulnerabilities
+
+### API Security
+
+- All API endpoints require authentication
+- Rate limiting to prevent abuse
+- Input validation and sanitization
+- CORS restrictions
+
+---
+
+## Compliance
+
+### Current Status
+
+| Framework | Status |
+|-----------|--------|
+| SOC 2 Type II | In Progress (Target: Q3 2026) |
+| GDPR | Compliant |
+| CCPA | Compliant |
+| HIPAA | Not applicable (no PHI processed) |
+
+### Data Processing Agreement
+
+Enterprise customers requiring a Data Processing Agreement (DPA) can request one by contacting legal@katharos.co.
+
+### Security Questionnaires
+
+We can provide responses to:
+- SIG (Standardized Information Gathering) Questionnaire
+- CAIQ (Cloud Assessment Initiative Questionnaire)
+- Custom security questionnaires
+
+Contact security@katharos.co for security documentation.
+
+---
+
+## Incident Response
+
+### Our Commitment
+
+In the event of a security incident affecting your data:
+
+- **Identification**: We monitor for security events 24/7
+- **Containment**: Immediate action to limit impact
+- **Investigation**: Thorough root cause analysis
+- **Notification**: Affected customers notified within 72 hours
+- **Remediation**: Vulnerabilities patched and controls strengthened
+- **Review**: Post-incident analysis and improvement
+
+### Reporting an Incident
+
+If you believe your account has been compromised or you've identified a security issue:
+
+**Email**: security@katharos.co
+
+Include:
+- Description of the issue
+- Steps to reproduce (if applicable)
+- Your contact information
+
+---
+
+## Responsible Disclosure
+
+We value the security research community and welcome responsible disclosure of vulnerabilities.
+
+### Scope
+
+- katharos.co and associated subdomains
+- Katharos web application
+- Katharos APIs
+
+### Out of Scope
+
+- Social engineering attacks
+- Physical attacks
+- Denial of service attacks
+- Third-party applications or services
+
+### How to Report
+
+**Email**: security@katharos.co
+
+**Subject**: [Vulnerability Report] - Brief Description
+
+Please include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Any suggested remediation
+
+### Our Promise
+
+- We will acknowledge receipt within 48 hours
+- We will keep you informed of our progress
+- We will not pursue legal action against good-faith researchers
+- We will credit you (if desired) when the issue is resolved
+
+---
+
+## Security FAQs
+
+### Does Anthropic train on my data?
+
+**No.** Anthropic's commercial API terms explicitly state that customer inputs and outputs are not used to train models.
+
+### Where is my data stored?
+
+All data is stored in the United States using enterprise-grade cloud providers (Supabase/AWS for database, Pinecone/AWS for vectors, Vercel for application hosting).
+
+### Can I export my data?
+
+Yes. You can export your cases and reports within the application. For a complete data export, contact support@katharos.co.
+
+### Can I delete my data?
+
+Yes. You can delete individual cases within the application. To delete your entire account and all associated data, contact privacy@katharos.co.
+
+### Do you support SSO?
+
+SSO integration (SAML 2.0, OIDC with Okta, Azure AD, etc.) is available for enterprise customers. Contact sales@katharos.co.
+
+### Do you have a SOC 2 report?
+
+SOC 2 Type II certification is in progress with target completion in Q3 2026. Contact security@katharos.co for current security documentation.
+
+---
+
+## Contact
+
+**Security Team**: security@katharos.co
+
+**Privacy Inquiries**: privacy@katharos.co
+
+**General Support**: support@katharos.co`,
+
+    'dpa': `# Data Processing Agreement
+
+**Katharos, Inc.**
+
+**Last Updated: March 6, 2026**
+
+---
+
+This Data Processing Agreement ("DPA") forms part of the agreement between Katharos, Inc. ("Katharos," "Processor," "we," or "us") and the entity agreeing to these terms ("Customer," "Controller," or "you") for the provision of the Katharos platform and services (the "Agreement").
+
+This DPA applies to the extent Katharos processes Personal Data on behalf of Customer in connection with the Services.
+
+---
+
+## 1. Definitions
+
+**"Data Protection Laws"** means all applicable laws relating to data protection and privacy, including but not limited to the General Data Protection Regulation (EU) 2016/679 ("GDPR"), the UK GDPR, the California Consumer Privacy Act ("CCPA"), and any implementing or supplementary legislation.
+
+**"Personal Data"** means any information relating to an identified or identifiable natural person that Katharos processes on behalf of Customer in connection with the Services.
+
+**"Processing"** means any operation performed on Personal Data, including collection, recording, organization, storage, adaptation, retrieval, consultation, use, disclosure, combination, restriction, erasure, or destruction.
+
+**"Data Subject"** means an identified or identifiable natural person whose Personal Data is processed.
+
+**"Sub-processor"** means any third party engaged by Katharos to process Personal Data on behalf of Customer.
+
+**"Security Incident"** means any unauthorized access to, or acquisition, use, or disclosure of, Personal Data.
+
+**"Services"** means the Katharos platform and any related services provided under the Agreement.
+
+**"Standard Contractual Clauses" or "SCCs"** means the standard contractual clauses for the transfer of personal data to third countries approved by the European Commission.
+
+---
+
+## 2. Scope and Roles
+
+### 2.1 Roles of the Parties
+
+- **Customer** is the Controller of Personal Data and determines the purposes and means of Processing.
+- **Katharos** is the Processor and processes Personal Data on behalf of Customer in accordance with Customer's documented instructions.
+
+### 2.2 Scope of Processing
+
+Katharos will process Personal Data solely:
+- To provide the Services as described in the Agreement
+- In accordance with Customer's documented instructions
+- As required by applicable law
+
+### 2.3 Categories of Data
+
+| Category | Examples |
+|----------|----------|
+| Account Data | Customer user email addresses, names, company names |
+| Screening Data | Entity names, individual names, addresses, dates of birth, nationality, identification numbers |
+| Document Data | Contents of documents uploaded by Customer |
+| Query Data | Search queries, chat messages, investigation notes |
+
+### 2.4 Data Subjects
+
+Data Subjects may include:
+- Customer's employees and users
+- Individuals screened by Customer through the Services
+- Individuals mentioned in documents uploaded by Customer
+
+### 2.5 Duration
+
+Processing will continue for the duration of the Agreement plus any retention period specified herein or required by law.
+
+---
+
+## 3. Customer Obligations
+
+### 3.1 Lawful Basis
+
+Customer represents and warrants that:
+- It has a lawful basis for Processing Personal Data through the Services
+- It has provided all required notices and obtained all required consents
+- The Personal Data was collected in compliance with Data Protection Laws
+
+### 3.2 Instructions
+
+Customer will provide documented instructions for Processing. The Agreement, this DPA, and Customer's use of the Services constitute Customer's complete instructions, unless Customer provides additional written instructions.
+
+### 3.3 Compliance
+
+Customer is responsible for ensuring that its use of the Services complies with Data Protection Laws and does not cause Katharos to violate any applicable law.
+
+---
+
+## 4. Katharos Obligations
+
+### 4.1 Processing Limitations
+
+Katharos will:
+- Process Personal Data only in accordance with Customer's documented instructions
+- Not process Personal Data for any purpose other than providing the Services
+- Inform Customer if, in Katharos's opinion, an instruction violates Data Protection Laws
+
+### 4.2 Confidentiality
+
+Katharos will:
+- Ensure that persons authorized to process Personal Data are bound by confidentiality obligations
+- Not disclose Personal Data to third parties except as permitted by this DPA or required by law
+
+### 4.3 Security Measures
+
+Katharos will implement and maintain appropriate technical and organizational measures to protect Personal Data, including:
+
+**Technical Measures**
+- Encryption of Personal Data in transit (TLS 1.2+) and at rest (AES-256)
+- Access controls and authentication mechanisms
+- Regular security testing and vulnerability assessments
+- Logging and monitoring of access to Personal Data
+
+**Organizational Measures**
+- Security policies and procedures
+- Employee training on data protection
+- Incident response procedures
+- Regular security reviews
+
+A detailed description of security measures is available at [https://katharos.co/security](https://katharos.co/security).
+
+### 4.4 Sub-processors
+
+#### 4.4.1 Authorization
+
+Customer grants Katharos general authorization to engage Sub-processors to process Personal Data, subject to the requirements of this Section 4.4.
+
+#### 4.4.2 Current Sub-processors
+
+The following Sub-processors are authorized as of the Effective Date:
+
+| Sub-processor | Purpose | Location |
+|---------------|---------|----------|
+| Anthropic, PBC | AI processing (Claude) | United States |
+| Supabase, Inc. | Database hosting | United States |
+| Pinecone Systems, Inc. | Vector database | United States |
+| Vercel, Inc. | Application hosting | United States |
+| Stripe, Inc. | Payment processing | United States |
+| PostHog, Inc. | Product analytics | United States |
+
+#### 4.4.3 New Sub-processors
+
+Katharos will:
+- Maintain a list of Sub-processors at [https://katharos.co/subprocessors](https://katharos.co/subprocessors)
+- Notify Customer of any intended changes to Sub-processors at least 14 days in advance
+- Provide Customer an opportunity to object to new Sub-processors
+
+If Customer objects on reasonable data protection grounds, the parties will discuss the concerns in good faith. If the parties cannot reach resolution, Customer may terminate the affected Services.
+
+#### 4.4.4 Sub-processor Obligations
+
+Katharos will:
+- Enter into written agreements with Sub-processors imposing data protection obligations no less protective than this DPA
+- Remain liable for Sub-processors' compliance with this DPA
+
+### 4.5 Data Subject Rights
+
+Katharos will:
+- Promptly notify Customer of any Data Subject request received directly
+- Assist Customer in responding to Data Subject requests, to the extent legally permitted and technically feasible
+- Not respond directly to Data Subject requests except to direct them to Customer, unless legally required
+
+### 4.6 Data Protection Impact Assessments
+
+Upon Customer's request, Katharos will provide reasonable assistance with data protection impact assessments and prior consultations with supervisory authorities, to the extent required by Data Protection Laws and relating to the Services.
+
+### 4.7 Audit Rights
+
+Katharos will:
+- Make available information necessary to demonstrate compliance with this DPA
+- Allow for and contribute to audits and inspections conducted by Customer or a third-party auditor mandated by Customer, subject to:
+- Reasonable advance notice (at least 30 days)
+- Confidentiality obligations
+- Reasonable scope and timing
+- Customer bearing audit costs
+
+Katharos may satisfy audit requirements by providing:
+- Third-party audit reports (e.g., SOC 2 Type II)
+- Responses to security questionnaires
+- Other documentation demonstrating compliance
+
+---
+
+## 5. Security Incidents
+
+### 5.1 Notification
+
+Katharos will notify Customer without undue delay (and in any event within 72 hours) after becoming aware of a Security Incident affecting Personal Data.
+
+### 5.2 Notification Contents
+
+Notification will include, to the extent known:
+- Nature of the Security Incident
+- Categories and approximate number of Data Subjects affected
+- Categories and approximate number of Personal Data records affected
+- Likely consequences of the Security Incident
+- Measures taken or proposed to address the Security Incident
+
+### 5.3 Cooperation
+
+Katharos will:
+- Cooperate with Customer's investigation of the Security Incident
+- Take reasonable steps to mitigate the effects
+- Assist Customer in meeting its notification obligations under Data Protection Laws
+
+### 5.4 Limitations
+
+Notification of a Security Incident does not constitute acknowledgment of fault or liability.
+
+---
+
+## 6. International Transfers
+
+### 6.1 Transfer Mechanisms
+
+To the extent Personal Data is transferred from the EEA, UK, or Switzerland to countries not recognized as providing adequate protection:
+
+- **Standard Contractual Clauses**: The SCCs (Commission Implementing Decision (EU) 2021/914) are incorporated by reference and apply to such transfers.
+- **UK Addendum**: For UK transfers, the UK Addendum to the SCCs applies.
+- **Swiss Addendum**: For Swiss transfers, the Swiss modifications to the SCCs apply.
+
+### 6.2 SCC Module Selection
+
+For purposes of the SCCs:
+- **Module Two** (Controller to Processor) applies when Customer is a Controller and Katharos is a Processor
+- **Module Three** (Processor to Processor) applies when Customer is a Processor and Katharos is a Sub-processor
+
+### 6.3 SCC Details
+
+| Clause | Selection |
+|--------|-----------|
+| Clause 7 (Docking clause) | Does not apply |
+| Clause 9 (Use of sub-processors) | Option 2 (General authorization) |
+| Clause 11 (Redress) | Optional language does not apply |
+| Clause 17 (Governing law) | Laws of Ireland |
+| Clause 18 (Forum) | Courts of Ireland |
+
+### 6.4 Supplementary Measures
+
+Katharos implements the following supplementary measures to protect transferred data:
+- Encryption in transit and at rest
+- Access controls and authentication
+- Data minimization
+- Regular security assessments
+
+---
+
+## 7. Data Retention and Deletion
+
+### 7.1 Retention
+
+Katharos will retain Personal Data for the duration of the Agreement, unless:
+- Customer instructs earlier deletion
+- Longer retention is required by applicable law
+
+### 7.2 Deletion
+
+Upon termination of the Agreement or upon Customer's request, Katharos will:
+- Delete or return Personal Data to Customer within 30 days
+- Delete existing copies, unless retention is required by law
+
+### 7.3 Certification
+
+Upon Customer's request, Katharos will certify in writing that it has complied with deletion obligations.
+
+### 7.4 Exceptions
+
+Katharos may retain Personal Data to the extent required by applicable law, provided that:
+- Retention is limited to what is legally required
+- Personal Data remains protected in accordance with this DPA
+- Customer is informed of the retention requirement (to the extent permitted by law)
+
+---
+
+## 8. CCPA Provisions
+
+To the extent the CCPA applies to Processing:
+
+### 8.1 Katharos as Service Provider
+
+Katharos is a "Service Provider" as defined in the CCPA. Katharos will:
+- Process Personal Information only for the business purposes specified in the Agreement
+- Not sell Personal Information
+- Not retain, use, or disclose Personal Information for purposes other than providing the Services
+- Not retain, use, or disclose Personal Information outside the direct business relationship with Customer
+
+### 8.2 Certification
+
+Katharos certifies that it understands the restrictions in this Section 8 and will comply with them.
+
+### 8.3 Consumer Rights
+
+Katharos will assist Customer in responding to verifiable consumer requests under the CCPA, including requests to know, delete, and opt-out.
+
+---
+
+## 9. Liability
+
+### 9.1 Liability Cap
+
+The total liability of each party arising out of or related to this DPA is subject to the limitations of liability set forth in the Agreement.
+
+### 9.2 Indemnification
+
+Each party will indemnify the other for damages arising from its breach of this DPA, subject to the limitations in the Agreement.
+
+---
+
+## 10. General Provisions
+
+### 10.1 Conflict
+
+In the event of a conflict between this DPA and the Agreement, this DPA will prevail with respect to data protection matters.
+
+### 10.2 Amendments
+
+This DPA may be amended only by written agreement signed by both parties, except that Katharos may update the list of Sub-processors as provided in Section 4.4.
+
+### 10.3 Severability
+
+If any provision of this DPA is found to be unenforceable, the remaining provisions will remain in full force and effect.
+
+### 10.4 Governing Law
+
+This DPA is governed by the laws specified in the Agreement, except that the SCCs are governed as specified therein.
+
+---
+
+## 11. Contact
+
+**Data Protection Inquiries**: privacy@katharos.co
+
+**Legal Inquiries**: legal@katharos.co
+
+**Security Inquiries**: security@katharos.co`,
+
+    'disclaimer': `# Disclaimer
+
+**Katharos Technologies Inc.**
+
+**Last Updated: March 6, 2026**
+
+---
+
+## Important Notice
+
+Please read this disclaimer carefully before using the Katharos platform ("Service"). By using the Service, you acknowledge that you have read, understood, and agree to this disclaimer.
+
+---
+
+## Not Legal Advice
+
+**THE SERVICE DOES NOT PROVIDE LEGAL ADVICE.**
+
+Katharos is a compliance screening and research tool. Nothing in the Service—including screening results, risk assessments, AI-generated analysis, reports, or any other output—constitutes legal advice, a legal opinion, or a recommendation to take or refrain from taking any action.
+
+The Service is designed to assist compliance professionals, attorneys, and investigators in their work. It is not a substitute for the judgment of qualified professionals or legal counsel.
+
+**You should consult with qualified legal counsel before making compliance decisions, filing regulatory reports, or taking action based on information obtained through the Service.**
+
+---
+
+## No Guarantee of Accuracy
+
+**SCREENING RESULTS AND AI OUTPUTS MAY CONTAIN ERRORS.**
+
+The Service aggregates data from third-party sources and uses artificial intelligence to analyze information. We do not guarantee that:
+
+- Screening results are complete, accurate, or current
+- All relevant matches or risks have been identified
+- AI-generated analysis is free from errors or omissions
+- Third-party data sources are accurate or up-to-date
+
+**You are solely responsible for verifying information before relying on it.**
+
+A "no match" or "low risk" result does not guarantee that an entity is not sanctioned, a PEP, or otherwise high-risk. Data sources may be incomplete, have delays in updates, or contain errors. Always conduct additional due diligence as warranted by the circumstances.
+
+---
+
+## Third-Party Data Sources
+
+The Service queries numerous third-party data sources, including:
+
+- Government sanctions lists (OFAC, EU, UN, UK, etc.)
+- Corporate registries (SEC, Companies House, OpenCorporates, etc.)
+- News and media sources
+- Public records and databases
+
+**We do not control these sources and are not responsible for their accuracy, completeness, timeliness, or availability.**
+
+Third-party sources may:
+- Contain errors or outdated information
+- Have delays between official updates and database availability
+- Become unavailable without notice
+- Change their data formats or coverage
+
+---
+
+## Artificial Intelligence Limitations
+
+The Service uses Claude, an AI assistant developed by Anthropic, to analyze data and generate outputs.
+
+**AI-generated content has inherent limitations:**
+
+- AI may misinterpret information or context
+- AI may "hallucinate" information that appears plausible but is incorrect
+- AI analysis reflects patterns in training data, which may contain biases
+- AI cannot replace human judgment, expertise, or legal analysis
+- AI outputs should be reviewed and verified by qualified professionals
+
+**All AI-generated analysis should be treated as a starting point for human review, not a final determination.**
+
+---
+
+## Regulatory and Compliance Matters
+
+Compliance requirements vary by:
+- Jurisdiction
+- Industry
+- Entity type
+- Transaction type
+- Risk profile
+
+**The Service provides general information and screening capabilities. It does not account for your specific regulatory obligations, risk appetite, or compliance program requirements.**
+
+You are responsible for:
+- Understanding your regulatory obligations
+- Designing and implementing appropriate compliance policies
+- Making risk-based decisions appropriate to your circumstances
+- Documenting your compliance decisions and rationale
+- Filing required reports with regulators
+- Maintaining appropriate records
+
+---
+
+## No Warranties
+
+**THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND.**
+
+To the maximum extent permitted by law, we disclaim all warranties, express or implied, including but not limited to:
+
+- Implied warranties of merchantability
+- Fitness for a particular purpose
+- Accuracy or reliability of results
+- Non-infringement
+- Uninterrupted or error-free operation
+
+---
+
+## Limitation of Liability
+
+**TO THE MAXIMUM EXTENT PERMITTED BY LAW, KATHAROS SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM YOUR USE OF OR RELIANCE ON THE SERVICE.**
+
+This includes, without limitation:
+
+- Regulatory fines or penalties
+- Failed transactions or business opportunities
+- Reputational harm
+- Legal fees or costs
+- Any indirect, incidental, special, consequential, or punitive damages
+
+See our Terms of Service for complete liability limitations.
+
+---
+
+## Your Responsibility
+
+By using the Service, you acknowledge and agree that:
+
+- **You are responsible for your compliance decisions.** The Service is a tool to assist you, not a substitute for your judgment.
+- **You will verify information.** You will not rely solely on the Service without independent verification as appropriate.
+- **You will use qualified professionals.** You will consult with legal counsel and compliance professionals as needed.
+- **You understand the limitations.** You have read and understood the limitations described in this disclaimer.
+- **You accept the risks.** You accept the risks inherent in using automated screening and AI-powered analysis tools.
+
+---
+
+## Report Output Disclaimer
+
+The following disclaimer appears on all reports generated by the Service:
+
+**DISCLAIMER**: This report is generated by Katharos, an AI-powered compliance screening platform. It is provided for informational purposes only and does not constitute legal advice. Screening results are based on third-party data sources that may be incomplete or contain errors. AI-generated analysis may contain inaccuracies. This report should be reviewed by qualified compliance professionals before use. Verify all information independently before making compliance decisions. A "no match" result does not guarantee an entity is not sanctioned or high-risk. Katharos is not responsible for decisions made based on this report.
+
+---
+
+## Questions
+
+If you have questions about this disclaimer or the limitations of the Service, please contact us:
+
+**Email**: legal@katharos.co`,
+  };
+
+  return (
+  <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex' }}>
+    {/* Docs Sidebar */}
+    <div style={{ width: '260px', minWidth: '260px', borderRight: '1px solid #2a2a2a', padding: '32px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+      <div style={{ padding: '0 24px', marginBottom: '24px' }}>
+        <button onClick={() => setCurrentPage('newCase')} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#6b6b6b', cursor: 'pointer', fontSize: '13px', padding: '4px 0', marginBottom: '16px' }}>
+          <ArrowLeft style={{ width: '14px', height: '14px' }} /> Back
+        </button>
+        <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BookOpen style={{ width: '18px', height: '18px' }} /> Documentation
+        </h2>
+        <p style={{ fontSize: '12px', color: '#6b6b6b', margin: '4px 0 0' }}>Legal & Security</p>
+      </div>
+      <nav>
+        {docsNav.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setDocsTab(item.id)}
+            style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              padding: '10px 24px', fontSize: '14px', border: 'none', cursor: 'pointer',
+              background: docsTab === item.id ? 'rgba(255,255,255,0.05)' : 'transparent',
+              color: docsTab === item.id ? '#fff' : '#858585',
+              fontWeight: docsTab === item.id ? 500 : 400,
+              borderLeft: docsTab === item.id ? '2px solid #fff' : '2px solid transparent',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { if (docsTab !== item.id) e.currentTarget.style.color = '#ccc'; }}
+            onMouseLeave={(e) => { if (docsTab !== item.id) e.currentTarget.style.color = '#858585'; }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+    </div>
+    {/* Docs Content */}
+    <div style={{ flex: 1, overflowY: 'auto', height: '100vh' }}>
+      <div className="fade-in" style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 48px 80px' }}>
+        {renderMd(docsContent[docsTab] || '')}
+      </div>
+    </div>
+  </div>
+  );
+})()}
 
 <main className="max-w-full mx-auto relative z-10" style={{ backgroundColor: 'transparent', padding: 0, display: isLandingStyle ? 'none' : 'block', minHeight: isLandingStyle ? 0 : '100vh' }}>
 
@@ -10121,6 +11942,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 </div>
 </div>
 
+{/* Docs */}
+<div className="relative group">
+<button onClick={() => setCurrentPage('docs')} className="katharos-sidebar-icon" title="Docs">
+<BookOpen className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Docs</div>
+</div>
+</div>
+
 {/* Contact */}
 <div className="relative group mb-5">
 <a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
@@ -10611,6 +12442,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 </button>
 <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Settings</div>
+</div>
+</div>
+
+{/* Docs */}
+<div className="relative group">
+<button onClick={() => setCurrentPage('docs')} className="katharos-sidebar-icon" title="Docs">
+<BookOpen className="w-[18px] h-[18px]" />
+</button>
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Docs</div>
 </div>
 </div>
 
@@ -11469,6 +13310,19 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </button>
  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Settings</div>
+ </div>
+ </div>
+
+ {/* Docs with tooltip */}
+ <div className="relative group">
+ <button
+ onClick={() => setCurrentPage('docs')}
+ className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+ >
+ <BookOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
+ </button>
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Docs</div>
  </div>
  </div>
 
