@@ -37,6 +37,10 @@ CREATE INDEX IF NOT EXISTS idx_entity_nodes_canonical ON entity_nodes(canonical_
 CREATE INDEX IF NOT EXISTS idx_entity_nodes_sanctioned ON entity_nodes(is_sanctioned) WHERE is_sanctioned = TRUE;
 
 ALTER TABLE entity_nodes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "entity_nodes_select" ON entity_nodes;
+DROP POLICY IF EXISTS "entity_nodes_insert" ON entity_nodes;
+DROP POLICY IF EXISTS "entity_nodes_update" ON entity_nodes;
+DROP POLICY IF EXISTS "entity_nodes_delete" ON entity_nodes;
 CREATE POLICY "entity_nodes_select" ON entity_nodes FOR SELECT USING (true);
 CREATE POLICY "entity_nodes_insert" ON entity_nodes FOR INSERT WITH CHECK (true);
 CREATE POLICY "entity_nodes_update" ON entity_nodes FOR UPDATE USING (true);
@@ -67,6 +71,10 @@ CREATE INDEX IF NOT EXISTS idx_entity_variants_name ON entity_variants(variant_n
 CREATE INDEX IF NOT EXISTS idx_entity_variants_node ON entity_variants(entity_node_id);
 
 ALTER TABLE entity_variants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "entity_variants_select" ON entity_variants;
+DROP POLICY IF EXISTS "entity_variants_insert" ON entity_variants;
+DROP POLICY IF EXISTS "entity_variants_update" ON entity_variants;
+DROP POLICY IF EXISTS "entity_variants_delete" ON entity_variants;
 CREATE POLICY "entity_variants_select" ON entity_variants FOR SELECT USING (true);
 CREATE POLICY "entity_variants_insert" ON entity_variants FOR INSERT WITH CHECK (true);
 CREATE POLICY "entity_variants_update" ON entity_variants FOR UPDATE USING (true);
@@ -97,6 +105,9 @@ CREATE INDEX IF NOT EXISTS idx_entity_edges_source ON entity_edges(source_entity
 CREATE INDEX IF NOT EXISTS idx_entity_edges_target ON entity_edges(target_entity_id);
 
 ALTER TABLE entity_edges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "entity_edges_select" ON entity_edges;
+DROP POLICY IF EXISTS "entity_edges_insert" ON entity_edges;
+DROP POLICY IF EXISTS "entity_edges_update" ON entity_edges;
 CREATE POLICY "entity_edges_select" ON entity_edges FOR SELECT USING (true);
 CREATE POLICY "entity_edges_insert" ON entity_edges FOR INSERT WITH CHECK (true);
 CREATE POLICY "entity_edges_update" ON entity_edges FOR UPDATE USING (true);
@@ -135,6 +146,8 @@ CREATE INDEX IF NOT EXISTS idx_enforcement_jurisdiction ON enforcement_actions(j
 CREATE INDEX IF NOT EXISTS idx_enforcement_sector ON enforcement_actions(sector);
 
 ALTER TABLE enforcement_actions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "enforcement_select" ON enforcement_actions;
+DROP POLICY IF EXISTS "enforcement_insert" ON enforcement_actions;
 CREATE POLICY "enforcement_select" ON enforcement_actions FOR SELECT USING (true);
 CREATE POLICY "enforcement_insert" ON enforcement_actions FOR INSERT WITH CHECK (true);
 
@@ -168,6 +181,9 @@ CREATE INDEX IF NOT EXISTS idx_screening_outcomes_entity ON screening_outcomes(e
 CREATE INDEX IF NOT EXISTS idx_screening_outcomes_screening ON screening_outcomes(screening_id);
 
 ALTER TABLE screening_outcomes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "screening_outcomes_select" ON screening_outcomes;
+DROP POLICY IF EXISTS "screening_outcomes_insert" ON screening_outcomes;
+DROP POLICY IF EXISTS "screening_outcomes_update" ON screening_outcomes;
 CREATE POLICY "screening_outcomes_select" ON screening_outcomes FOR SELECT USING (true);
 CREATE POLICY "screening_outcomes_insert" ON screening_outcomes FOR INSERT WITH CHECK (true);
 CREATE POLICY "screening_outcomes_update" ON screening_outcomes FOR UPDATE USING (true);
@@ -190,6 +206,9 @@ CREATE INDEX IF NOT EXISTS idx_platform_alerts_type ON platform_alerts(alert_typ
 CREATE INDEX IF NOT EXISTS idx_platform_alerts_created ON platform_alerts(created_at DESC);
 
 ALTER TABLE platform_alerts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "platform_alerts_select" ON platform_alerts;
+DROP POLICY IF EXISTS "platform_alerts_insert" ON platform_alerts;
+DROP POLICY IF EXISTS "platform_alerts_update" ON platform_alerts;
 CREATE POLICY "platform_alerts_select" ON platform_alerts FOR SELECT USING (true);
 CREATE POLICY "platform_alerts_insert" ON platform_alerts FOR INSERT WITH CHECK (true);
 CREATE POLICY "platform_alerts_update" ON platform_alerts FOR UPDATE USING (true);

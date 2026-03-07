@@ -47,6 +47,8 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
 -- Append-only: INSERT only, no UPDATE or DELETE
 -- Select restricted to own workspace for analytics
+DROP POLICY IF EXISTS "events_insert" ON events;
+DROP POLICY IF EXISTS "events_select" ON events;
 CREATE POLICY "events_insert" ON events FOR INSERT WITH CHECK (true);
 CREATE POLICY "events_select" ON events FOR SELECT
   USING (email_domain = get_workspace_id());

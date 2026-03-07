@@ -733,6 +733,8 @@ CREATE INDEX IF NOT EXISTS events_domain_type_idx ON events(email_domain, event_
 
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "events_insert" ON events;
+DROP POLICY IF EXISTS "events_select" ON events;
 CREATE POLICY "events_insert" ON events FOR INSERT WITH CHECK (true);
 CREATE POLICY "events_select" ON events FOR SELECT
   USING (email_domain = get_workspace_id());
