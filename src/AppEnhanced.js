@@ -123,7 +123,7 @@ const SCREENING_STEPS = [
 ];
 
 // Real-time screening progress bar with step simulation
-function ScreeningProgressBar({ startedAt, compact, label }) {
+function ScreeningProgressBar({ startedAt, compact, label, isScreening }) {
   const [progress, setProgress] = useState(0);
   const [stepIndex, setStepIndex] = useState(-1);
   const [elapsed, setElapsed] = useState(0);
@@ -204,7 +204,7 @@ function ScreeningProgressBar({ startedAt, compact, label }) {
         }} />
       </div>
 
-      <span style={{ fontSize: '11px', color: '#888' }}>{currentName}...</span>
+      {isScreening !== false && <span style={{ fontSize: '11px', color: '#888' }}>{currentName}...</span>}
     </div>
   );
 }
@@ -12422,7 +12422,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {/* Show "Analyzing..." initially, then stream the markdown */}
  {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
    <div className="py-3">
-     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} />
+     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
    </div>
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
