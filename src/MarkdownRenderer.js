@@ -535,9 +535,6 @@ const getStatusColor = (status) => {
 const convertTerminalFormat = (content) => {
   if (!content) return content;
 
-  // Quick check: if content already has ## headers, it's already markdown — skip conversion
-  if (/^#{1,6}\s/m.test(content)) return content;
-
   const lines = content.split('\n');
   const result = [];
 
