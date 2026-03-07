@@ -232,6 +232,8 @@ export default function Katharos() {
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
  const [docsTab, setDocsTab] = useState('privacy'); // 'privacy', 'terms', 'acceptable-use', 'security', 'dpa'
+ const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+ const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
  const [cases, setCases] = useState(() => {
    try {
      const stored = localStorage.getItem('marlowe_cases');
@@ -8523,6 +8525,77 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         {settingsTab === 'audit' && <AuditTrailPanel />}
         {settingsTab === 'dataSources' && <DataSourcesPanel />}
         {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
+      </div>
+
+      {/* Delete Account */}
+      <div style={{ marginTop: '48px', borderTop: '1px solid #333', paddingTop: '32px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ef4444', margin: '0 0 8px' }}>Danger Zone</h3>
+        <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
+          Permanently delete your account and all associated data including cases, screenings, and audit logs. This action cannot be undone.
+        </p>
+        {deleteAccountConfirm ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '13px', color: '#ef4444' }}>Are you sure? This is permanent.</span>
+            <button
+              onClick={async () => {
+                setDeleteAccountLoading(true);
+                try {
+                  if (isSupabaseConfigured() && user?.email) {
+                    const { supabase } = await import('./supabaseClient');
+                    const email = user.email;
+                    const wsId = workspaceId;
+                    await supabase.from('cases').delete().or(`created_by_email.eq.${email},email_domain.eq.${wsId}`);
+                    await supabase.from('screenings').delete().or(`user_email.eq.${email},email_domain.eq.${wsId}`);
+                    await supabase.from('audit_logs').delete().eq('user_email', email);
+                    await supabase.from('case_activities').delete().eq('user_email', email);
+                    await supabase.from('collected_emails').delete().eq('email', email);
+                    await supabase.from('users').delete().eq('email', email);
+                  }
+                  localStorage.clear();
+                  setCases([]);
+                  setKycHistory([]);
+                  await signOut();
+                  setCurrentPage('noirLanding');
+                } catch (err) {
+                  console.error('[DeleteAccount] Error:', err);
+                  alert('There was an error deleting your account. Please contact patrick@katharos.co for assistance.');
+                } finally {
+                  setDeleteAccountLoading(false);
+                  setDeleteAccountConfirm(false);
+                }
+              }}
+              disabled={deleteAccountLoading}
+              style={{
+                padding: '8px 20px', fontSize: '13px', fontWeight: 600,
+                background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px',
+                cursor: deleteAccountLoading ? 'not-allowed' : 'pointer', opacity: deleteAccountLoading ? 0.6 : 1,
+              }}
+            >
+              {deleteAccountLoading ? 'Deleting...' : 'Yes, delete my account'}
+            </button>
+            <button
+              onClick={() => setDeleteAccountConfirm(false)}
+              style={{
+                padding: '8px 20px', fontSize: '13px', fontWeight: 500,
+                background: 'none', color: '#858585', border: '1px solid #3a3a3a', borderRadius: '6px', cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setDeleteAccountConfirm(true)}
+            style={{
+              padding: '8px 20px', fontSize: '13px', fontWeight: 600,
+              background: 'none', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+          >
+            Delete Account
+          </button>
+        )}
       </div>
     </div>
   </div>
