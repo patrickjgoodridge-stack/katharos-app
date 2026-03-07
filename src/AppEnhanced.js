@@ -11909,7 +11909,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button onClick={goToLanding} className="katharos-sidebar-icon" title="Home">
  <Home className="w-[18px] h-[18px]" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Home</div>
  </div>
  </div>
@@ -11924,7 +11924,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <button onClick={startNewCase} className="katharos-sidebar-icon" title="New Case">
 <Plus className="w-[18px] h-[18px]" />
 </button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>New Case</div>
 </div>
 </div>
@@ -11937,7 +11937,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <button onClick={() => setCurrentPage('settings')} className="katharos-sidebar-icon" title="Settings">
 <Settings className="w-[18px] h-[18px]" />
 </button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Settings</div>
 </div>
 </div>
@@ -11947,7 +11947,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <button onClick={() => setCurrentPage('docs')} className="katharos-sidebar-icon" title="Docs">
 <BookOpen className="w-[18px] h-[18px]" />
 </button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Docs</div>
 </div>
 </div>
@@ -11957,7 +11957,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
 <Mail className="w-[18px] h-[18px]" />
 </a>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Contact</div>
 </div>
 </div>
@@ -12384,7 +12384,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Home className="w-[18px] h-[18px]" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Home</div>
  </div>
  </div>
@@ -12402,7 +12402,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </span>
  )}
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Case Management</div>
  </div>
  </div>
@@ -12426,7 +12426,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Plus className="w-[18px] h-[18px]" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>New Case</div>
  </div>
  </div>
@@ -12440,7 +12440,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <button onClick={() => setCurrentPage('settings')} className="katharos-sidebar-icon" title="Settings">
 <Settings className="w-[18px] h-[18px]" />
 </button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Settings</div>
 </div>
 </div>
@@ -12450,7 +12450,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <button onClick={() => setCurrentPage('docs')} className="katharos-sidebar-icon" title="Docs">
 <BookOpen className="w-[18px] h-[18px]" />
 </button>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Docs</div>
 </div>
 </div>
@@ -12460,7 +12460,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 <a href="mailto:patrick@katharos.co" className="katharos-sidebar-icon" title="Contact">
 <Mail className="w-[18px] h-[18px]" />
 </a>
-<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+<div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
 <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a' }}>Contact</div>
 </div>
 </div>
@@ -12529,7 +12529,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
  <Plus className="w-4 h-4" />
  </button>
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
    <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Upload Materials</div>
  </div>
  </div>
@@ -12561,7 +12561,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    <ChevronDown className={`w-4 h-4 transition-transform ${suggestionsExpanded ? 'rotate-180' : ''}`} />
  </button>
  {/* Tooltip */}
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
    <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>
      Suggestions
    </div>
@@ -12606,7 +12606,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    <FileText className="w-4 h-4" />
    <ChevronDown className={`w-4 h-4 transition-transform ${samplesExpanded ? 'rotate-180' : ''}`} />
  </button>
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
    <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-800 text-white'} text-xs px-2 py-1 rounded whitespace-nowrap`}>
      Sample Cases
    </div>
@@ -12862,7 +12862,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button onClick={() => fileInputRef.current?.click()} className="katharos-action-btn" title="Upload Materials">
  <Plus className="w-4 h-4" />
  </button>
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
  <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Upload Materials</div>
  </div>
  </div>
@@ -12924,7 +12924,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Home className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
  </div>
  </div>
@@ -12943,7 +12943,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </span>
  )}
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management{unviewedCaseCount > 0 ? ` (${unviewedCaseCount} new)` : ""}</div>
  </div>
  </div>
@@ -12961,7 +12961,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
                 <Moon className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
               )}
             </button>
-            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap">
               <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">{darkMode ? 'Light Mode' : 'Dark Mode'}</div>
             </div>
           </div>
@@ -13124,7 +13124,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <ArrowRight className="w-4 h-4" />
  )}
  </button>
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+ <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
  {isAnalyzing ? 'Analyzing...' : 'Begin Analysis'}
  </div>
@@ -13276,7 +13276,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Home className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Home</div>
  </div>
  </div>
@@ -13295,7 +13295,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </span>
  )}
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Case Management</div>
  </div>
  </div>
@@ -13308,7 +13308,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Settings className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Settings</div>
  </div>
  </div>
@@ -13321,7 +13321,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <BookOpen className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap z-50">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">Docs</div>
  </div>
  </div>
@@ -13338,7 +13338,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <Moon className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
  )}
  </button>
- <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+ <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block pointer-events-none whitespace-nowrap">
  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded">{darkMode ? 'Light Mode' : 'Dark Mode'}</div>
  </div>
  </div>
