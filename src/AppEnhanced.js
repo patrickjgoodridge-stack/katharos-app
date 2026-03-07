@@ -240,6 +240,7 @@ export default function Katharos() {
  const [activeCase, setActiveCase] = useState(null);
  const [currentCaseId, setCurrentCaseId] = useState(null); // Track current case for auto-save
  const [files, setFiles] = useState([]);
+ const [ocrProgress, setOcrProgress] = useState(null);
  const [analysis, setAnalysis] = useState(null);
  const [isAnalyzing, setIsAnalyzing] = useState(false);
  const [activeTab, setActiveTab] = useState('overview');
@@ -2979,17 +2980,62 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  text = textParts.join('\n\n');
  console.log(`PDF extracted (${pdf.numPages} pages, ${text.length} chars):`, text.substring(0, 500));
 
- // Check if extraction yielded minimal text (likely scanned image PDF)
+ // Check if extraction yielded minimal text (likely scanned image PDF) — run OCR
  if (!text || text.trim().length < 50) {
- text = `[PDF Processing Warning: ${file.name}]
+ console.log(`[OCR] Scanned PDF detected: ${file.name} (${text.trim().length} chars). Starting OCR...`);
+ try {
+ const Tesseract = await import('tesseract.js');
+ const worker = await Tesseract.createWorker('eng');
+ const ocrParts = [];
+ const maxOcrPages = Math.min(pdf.numPages, 10);
 
-This PDF appears to contain scanned images without a text layer, or the text extraction yielded minimal content.
+ for (let ocrPage = 1; ocrPage <= maxOcrPages; ocrPage++) {
+ setOcrProgress({ fileName: file.name, page: ocrPage, totalPages: maxOcrPages });
+ const page = await pdf.getPage(ocrPage);
+ const viewport = page.getViewport({ scale: 2.0 });
+ let canvas;
+ if (typeof OffscreenCanvas !== 'undefined') {
+ canvas = new OffscreenCanvas(viewport.width, viewport.height);
+ } else {
+ canvas = document.createElement('canvas');
+ canvas.width = viewport.width;
+ canvas.height = viewport.height;
+ }
+ const ctx = canvas.getContext('2d');
+ await page.render({ canvasContext: ctx, viewport }).promise;
 
-File: ${file.name}
-Size: ${(file.size / 1024).toFixed(1)} KB
-Pages: ${pdf.numPages}
+ let imageData;
+ if (canvas instanceof OffscreenCanvas) {
+ const blob = await canvas.convertToBlob({ type: 'image/png' });
+ const arrayBuf = await blob.arrayBuffer();
+ imageData = new Uint8Array(arrayBuf);
+ } else {
+ imageData = canvas.toDataURL('image/png');
+ }
 
-If this is a scanned document, please use OCR software to convert it to searchable PDF or text format.`;
+ const { data } = await worker.recognize(imageData);
+ ocrParts.push(data.text);
+ console.log(`[OCR] Page ${ocrPage}/${maxOcrPages}: ${data.text.length} chars`);
+ }
+
+ await worker.terminate();
+ setOcrProgress(null);
+ const ocrText = ocrParts.join('\n\n');
+
+ if (ocrText.trim().length > 50) {
+ text = ocrText;
+ console.log(`[OCR] Success: ${ocrText.length} chars from ${maxOcrPages} pages`);
+ if (pdf.numPages > maxOcrPages) {
+ text += `\n\n[Note: OCR applied to first ${maxOcrPages} of ${pdf.numPages} pages]`;
+ }
+ } else {
+ text = `[PDF Processing Warning: ${file.name}]\n\nThis PDF contains scanned images. OCR was attempted but could not extract meaningful text.\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\nPages: ${pdf.numPages}\n\nPlease try a higher-quality scan or a different format.`;
+ }
+ } catch (ocrErr) {
+ console.error('[OCR] Error:', ocrErr);
+ setOcrProgress(null);
+ text = `[PDF Processing Warning: ${file.name}]\n\nThis PDF appears to contain scanned images. OCR processing failed: ${ocrErr.message}\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\nPages: ${pdf.numPages}`;
+ }
  }
  } else {
  // Plain text files (txt, csv, json, xml, etc.)
@@ -10610,6 +10656,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  ))}
  </div>
  )}
+ {ocrProgress && (
+ <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', marginBottom: '8px', background: '#1a2332', border: '1px solid #2a4a6b', borderRadius: '6px', fontSize: '13px', color: '#7eb8e0' }}>
+ <Loader2 className="w-3.5 h-3.5 animate-spin" />
+ <span>OCR processing {ocrProgress.fileName}: page {ocrProgress.page}/{ocrProgress.totalPages}</span>
+ </div>
+ )}
  <textarea
  ref={mainInputRef}
  value={conversationInput}
@@ -10953,6 +11005,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button onClick={() => setFiles(files.filter((_, i) => i !== idx))} style={{ color: '#858585' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = '#858585'}><X className="w-3 h-3" /></button>
  </div>
  ))}
+ </div>
+ )}
+ {ocrProgress && (
+ <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', marginBottom: '8px', background: '#1a2332', border: '1px solid #2a4a6b', borderRadius: '6px', fontSize: '13px', color: '#7eb8e0' }}>
+ <Loader2 className="w-3.5 h-3.5 animate-spin" />
+ <span>OCR processing {ocrProgress.fileName}: page {ocrProgress.page}/{ocrProgress.totalPages}</span>
  </div>
  )}
  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '10px', padding: '8px' }}>

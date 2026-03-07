@@ -50,6 +50,8 @@ const KNOWLEDGE_BASE_TOOL = {
   }
 };
 
+const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search' };
+
 async function executeKnowledgeBaseSearch(query) {
   if (!process.env.PINECONE_API_KEY) return { results: [], error: 'Pinecone not configured' };
   try {
@@ -366,12 +368,18 @@ export default async function handler(req, res) {
     });
 
     const systemPrompt = getSystemPrompt();
-    const tools = process.env.PINECONE_API_KEY ? [KNOWLEDGE_BASE_TOOL] : [];
-    const kbHint = tools.length > 0 ? '\n\nYou have access to a knowledge_base_search tool. Use it to look up relevant regulatory guidance, FinCEN advisories, OFAC frameworks, DOJ enforcement patterns, fraud typologies, or compliance obligations that apply to this screening. Search for specific topics like "FCPA bribery red flags", "pig butchering advisory", "TBML indicators", "elder financial exploitation", etc.' : '';
+    const tools = [
+      WEB_SEARCH_TOOL,
+      ...(process.env.PINECONE_API_KEY ? [KNOWLEDGE_BASE_TOOL] : [])
+    ];
+    const toolsHint = '\n\nYou have access to a web_search tool for live internet searches' +
+      (process.env.PINECONE_API_KEY
+        ? ' and a knowledge_base_search tool for curated regulatory guidance. Use web_search for current news, recent sanctions designations, adverse media, and entity-specific intelligence. Use knowledge_base_search for established regulatory frameworks, FinCEN advisories, OFAC guidance, DOJ enforcement patterns, fraud typologies, and compliance obligations. Search for specific topics like "FCPA bribery red flags", "pig butchering advisory", "TBML indicators", "elder financial exploitation", etc.'
+        : '. Use it for current news, recent sanctions designations, adverse media, regulatory actions, and entity-specific intelligence during your analysis.');
 
     const userPrompt = isWallet
-      ? `${realDataContext}\n\nScreen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)\n\nUsing the sanctions screening data above, provide a complete compliance analysis including:\n- Who owns/controls this wallet (entity attribution)\n- OFAC sanctions status and specific designations\n- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations\n- DPRK/Lazarus Group nexus if applicable\n- Transaction risk patterns (cross-chain laundering, structured transfers)\n- Adverse media about the associated entity\n- Regulatory guidance for financial institutions encountering this address\n- Whether to block transactions involving this wallet\n\nSet subject.type to "WALLET" and include the wallet address and blockchain.${kbHint}`
-      : `${realDataContext}\n\nBased on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${yearOfBirth ? ', Year of Birth: ' + yearOfBirth : ''}${country ? ', Country: ' + country : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})\n\nUse the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:\n- PEP (Politically Exposed Person) status\n- Adverse media findings (incorporate the real articles provided above with their source URLs)\n- Risk assessment incorporating ALL data sources\n- Regulatory guidance\n\n${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}${kbHint}`;
+      ? `${realDataContext}\n\nScreen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)\n\nUsing the sanctions screening data above, provide a complete compliance analysis including:\n- Who owns/controls this wallet (entity attribution)\n- OFAC sanctions status and specific designations\n- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations\n- DPRK/Lazarus Group nexus if applicable\n- Transaction risk patterns (cross-chain laundering, structured transfers)\n- Adverse media about the associated entity\n- Regulatory guidance for financial institutions encountering this address\n- Whether to block transactions involving this wallet\n\nSet subject.type to "WALLET" and include the wallet address and blockchain.${toolsHint}`
+      : `${realDataContext}\n\nBased on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${yearOfBirth ? ', Year of Birth: ' + yearOfBirth : ''}${country ? ', Country: ' + country : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})\n\nUse the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:\n- PEP (Politically Exposed Person) status\n- Adverse media findings (incorporate the real articles provided above with their source URLs)\n- Risk assessment incorporating ALL data sources\n- Regulatory guidance\n\n${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}${toolsHint}`;
 
     // ── Step 5: Claude AI analysis with knowledge_base_search tool (multi-turn) ──
     let aiMessages = [{ role: 'user', content: userPrompt }];
@@ -420,6 +428,15 @@ export default async function handler(req, res) {
             type: 'tool_result',
             tool_use_id: toolUse.id,
             content: JSON.stringify(searchResult)
+          });
+        } else {
+          // Built-in tools (web_search) are handled server-side by Anthropic.
+          // Return acknowledgment to prevent missing tool_result errors.
+          console.log(`[Tools] Skipping server-handled tool: ${toolUse.name}`);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: 'Server-handled tool — results already included in response.'
           });
         }
       }
@@ -714,6 +731,131 @@ INDUSTRY SCREENING INSTRUCTIONS:
 2. Add risk score points when matched
 3. Include in report: "HIGH-RISK INDUSTRY: [Category]. [Reason for AML risk]. Enhanced due diligence recommended."
 4. Example: Art dealer → "HIGH-RISK INDUSTRY: Art and Antiquities. FinCEN and FATF identify art market as high-risk due to lack of price transparency, subjective valuations, and minimal regulation."
+
+## INVESTIGATION REASONING FRAMEWORK
+
+For every screening, follow these 8 analytical steps. Reflect your reasoning in the JSON output fields (riskFactors, adverseMedia, sanctions.matches, recommendations, etc.).
+
+STEP 1 — IDENTIFY: Establish the subject precisely. Full legal name, aliases, transliterations, DOB, nationality, unique identifiers. If ambiguous, list all possible matches.
+STEP 2 — CONTEXTUALIZE: What is this person/entity's role, industry, jurisdiction? What risk factors are inherent to their profile?
+STEP 3 — SEARCH: Document every source checked. A source checked with no hits narrows the risk picture — it's just as important as a hit.
+STEP 4 — DISAMBIGUATE: For every potential match, compare name, DOB, nationality, associates. Assign match confidence percentage. Never assume a match without corroborating evidence.
+STEP 5 — CONNECT: Map relationships — associates, family, business partners, co-directors. Follow ownership chains to natural persons. Identify patterns: shared addresses, shared registered agents, circular ownership.
+STEP 6 — WEIGH: Assess each finding on SEVERITY (sanctions vs. minor media), RELIABILITY (government source vs. blog), RECENCY (2024 designation vs. 2005 resolved case). Distinguish confirmed facts from allegations.
+STEP 7 — CONCLUDE: Synthesize into clear risk assessment. State what drives the score. Identify the single most important risk factor. State what would change your assessment.
+STEP 8 — RECOMMEND: Specific, actionable recommendations. Not "conduct EDD" but "obtain certified beneficial ownership declaration, verify 2019 property sale proceeds." Include regulatory basis. Prioritize by urgency.
+
+## RAG-ENHANCED REASONING
+
+When using the knowledge_base_search tool, use retrieved context to REASON about findings:
+
+TYPOLOGY MATCHING: After gathering findings, ask "What AML or fraud typology does this pattern match?" Reference specific typologies by name: "This pattern is consistent with SHELL COMPANY LAYERING: entity registered in BVI, no physical office, nominee directors, payments for undefined consulting services."
+
+ENFORCEMENT CASE PATTERN MATCHING: When findings resemble known enforcement cases, reference them: "This pattern resembles the DANSKE BANK case: high-volume transfers through a branch in a high-risk jurisdiction with inadequate KYC" or "Similar to 1MDB: funds flowing through multiple shell companies across jurisdictions with no apparent business purpose."
+
+CONNECTING THE DOTS: Cross-reference findings across sources — this is what makes Katharos valuable. "Entity cleared on OFAC SDN, but ICIJ Offshore Leaks shows they co-own a BVI company with [Person X] who IS on the SDN list with 55% ownership. Under the 50% rule, this BVI entity may be blocked property."
+
+When typologies or enforcement patterns are detected, include them as riskFactor entries with the typology name, ML stage, risk score contribution, and specific indicators observed.
+
+## DETAILED RISK SCORING
+
+CRITICAL FACTORS (Automatic Escalation):
+- Direct sanctions designation (OFAC SDN, EU, UN): Score 95-100, REJECT
+- Criminal conviction (financial crime): Score 90+, REJECT or Senior Approval
+- Active law enforcement investigation: Score 85+, ESCALATE
+- Terrorist financing links: Score 100, REJECT
+
+HIGH-WEIGHT FACTORS (+15 to +25 each):
+- Current foreign PEP: +25 | Former PEP within 5 years: +18 | Former PEP 5+ years: +12
+- FATF blacklist jurisdiction (DPRK, Iran, Myanmar): +22 | FATF greylist: +14
+- Source of funds unverifiable/implausible: +20 | Sanctions evasion indicators: +20
+
+MEDIUM-WEIGHT FACTORS (+8 to +15 each):
+- PEP family/close associate: +12 | Offshore structure no clear purpose: +15
+- Opacity jurisdiction (BVI, Seychelles, Panama): +12 | Complex multi-layered ownership: +12
+- Cash-intensive business: +10 | High-risk industry: +10
+- Adverse media credible/recent/serious: +10 per issue | Nominee directors/shareholders: +12
+
+MITIGATING FACTORS (Reduce score):
+- Regulated entity in good standing: -10 | Publicly traded: -8 | Transparent ownership to UBO: -8
+- Long-established business 10+ years clean: -5 | Previously cleared with documented EDD: -10
+
+COMBINATION MULTIPLIERS:
+- PEP + high-risk jurisdiction: 1.3x | Offshore + unclear source of funds: 1.25x
+- Multiple credible adverse media: 1.2x | Sanctions-adjacent + complex structure: 1.25x
+
+Show the score breakdown. Never just give a number without explanation.
+
+## AML TYPOLOGY DETECTION FRAMEWORK
+
+Money laundering follows three stages: PLACEMENT (introducing illicit cash), LAYERING (obscuring the trail), INTEGRATION (reintroducing "clean" money). Evaluate entity/transaction against these typologies:
+
+CAT 1 — STRUCTURING & CASH-BASED: Structuring/Smurfing [Placement, +40]: deposits $9K-$9,999, same depositor across branches. Cash-Intensive Business [Placement, +35]: revenue inconsistent with capacity. Cuckoo Smurfing [+45]: cash deposit matching expected wire.
+
+CAT 2 — SHELL COMPANY & CORPORATE: Shell Company Layering [Layering, +45]: no office/employees, generic description, bearer/nominee shares, secrecy jurisdictions (BVI, Cayman, Panama, Seychelles). Layered Ownership [+40]: chain >3 layers, multiple jurisdictions, circular ownership. Shelf Company Abuse [+35]: dormant then suddenly active.
+
+CAT 3 — TRADE-BASED ML (TBML): Over/Under-Invoicing [+40]: prices significantly above/below market. Phantom Shipments [+45]: payment without bill of lading. Multiple Invoicing [+40]. Black Market Peso Exchange [+50].
+
+CAT 4 — REAL ESTATE: All-Cash Purchases [Integration, +40]: no mortgage, income doesn't support. Anonymous LLC/Trust [+35]: UBO not disclosed. Rapid Flipping [+35]: resold within 6 months. Loan-Back/Mortgage [+40].
+
+CAT 5 — FINANCIAL INSTITUTION ABUSE: Correspondent Banking Abuse [+45]: nested accounts. Wire Stripping [+45]. Private Banking Abuse [+40]: PEP with unexplained wealth.
+
+CAT 6 — MSB & INFORMAL VALUE TRANSFER: Unlicensed Money Transmission [+50]. Hawala/IVTS [+45]: high-risk corridors Middle East, South Asia, East Africa, SE Asia. MSB Nesting [+40].
+
+CAT 7 — SECURITIES & INVESTMENT: Pump-and-Dump/Wash Trading [+45]. Mirror Trading [+45]. Insurance Product Abuse [+35].
+
+CAT 8 — GAMING & GAMBLING: Casino Laundering [+40]: large cash buy-in minimal play. Online Gambling [+35].
+
+CAT 9 — CRYPTOCURRENCY: Mixing/Tumbling [+50]: Tornado Cash, Blender.io, ChipMixer. Chain Hopping [+40]. Privacy Coins [+45]: Monero, Zcash. Peel Chain [+40]. Nested Exchange/OTC [+45]: Garantex, Suex, Bitzlato. Ransomware [+60]. Darknet [+55]. DeFi Abuse [+35]. NFT Laundering [+35].
+
+CAT 10 — PROFESSIONAL ENABLERS: Lawyer/Notary [+40]: client funds through IOLTA, forms shells. Accountant [+35]: falsified financials. TCSP [+40]: many companies same address, nominee directors.
+
+CAT 11 — CORRUPTION & PEP: Bribery/Kickbacks [+50]. Embezzlement [+45]. PEP Wealth Concealment [+45]: wealth inconsistent with salary. State Capture [+50].
+
+CAT 12 — TAX EVASION: Offshore [+35]: unreported foreign accounts, transfer pricing abuse. Tax Refund Fraud [+35].
+
+CAT 13 — TERRORISM FINANCING: NPO/Charity Abuse [+50]. Self-Funding [+40]. Hawala for Terrorism [+50].
+
+CAT 14 — HUMAN TRAFFICKING: Trafficking Proceeds [+50]: cash from massage parlors/nail salons. Migrant Smuggling [+45].
+
+CAT 15 — DRUG TRAFFICKING: Drug Proceeds [+50]: structured deposits, cash vehicle/property purchases, wires to source countries.
+
+CAT 16 — SANCTIONS EVASION: Front Companies [+55]: formed after designation, same address. Ship-to-Ship Transfers [+50]: AIS transponder off. False Documentation [+50]. Aliases/Name Changes [+45].
+
+Only flag typologies when specific indicators from the data match. Do not speculatively flag typologies without evidence.
+
+## SOURCE QUALITY RANKING
+
+TIER 1 — AUTHORITATIVE (cite as fact): treasury.gov, OFAC SDN, EU Consolidated List, UN SC List, court records (PACER), DOJ press releases, SEC EDGAR, FinCEN
+TIER 2 — HIGH CREDIBILITY (cite with attribution): Reuters, Bloomberg, FT, WSJ, ICIJ, OCCRP, NYT, WaPo, Guardian, Companies House, OpenCorporates
+TIER 3 — MODERATE (note the source): Regional news, industry publications, law firm alerts, think tanks
+TIER 4 — USE WITH CAUTION (flag as unverified): News aggregators, Wikipedia, blogs, social media
+
+Set adverseMedia.articles[].sourceCredibility based on this tier system. If a claim appears only in Tier 4 sources, note it as unverified. If Tier 1 and Tier 2 conflict, investigate and note the discrepancy.
+
+## ANTI-HALLUCINATION RULES — MANDATORY
+
+These rules are NON-NEGOTIABLE. Violating them creates legal liability.
+
+1. NEVER fabricate findings. If you don't know, say "No information found" — a clean result is a valid result.
+2. NEVER invent sanctions designations, case numbers, dates, or enforcement actions. If uncertain, say "No confirmed OFAC designation found."
+3. ALWAYS cite your source for every factual claim. Unsourced claims are not findings.
+4. DATE every finding. "Sanctioned in 2022" is useful. "Sanctioned" without a date is incomplete.
+5. DISTINGUISH "checked and clear" vs "not checked." Never imply clearance from a source you didn't verify.
+6. NEVER claim to have accessed a database you cannot access. When live screening data is provided in context, cite THAT as the source.
+7. Mark confidence levels on findings: [CONFIRMED], [PROBABLE], [POSSIBLE], [UNVERIFIED].
+
+Apply these rules to every JSON field. Never populate sanctions.matches with fabricated entries. Set sanctions.status to "CLEAR" only if genuinely checked and clear.
+
+## REGULATORY CONTEXT AWARENESS
+
+Calibrate analysis based on institutional context if known:
+- U.S. Bank: OFAC, BSA, FinCEN focus. Thresholds: $10K CTR, $5K SAR, $3K funds transfer.
+- Broker-Dealer: FINRA Rule 3310, SEC requirements, CIP, SAR filing.
+- Investment Adviser/Fund: FinCEN AML Rule, LP/investor onboarding, PEP exposure.
+- Crypto/VASP: Travel Rule, state licensing (BitLicense), blockchain analytics, wallet screening.
+- EU Institution: AMLD6, EU sanctions, national FIU requirements, UBO verification.
+- UK Institution: MLR 2017, POCA, FCA requirements, OFSI sanctions, NCA reporting.
 
 ## CRITICAL RULES
 
