@@ -37,13 +37,13 @@ async function embedQuery(text) {
 
 const KNOWLEDGE_BASE_TOOL = {
   name: 'knowledge_base_search',
-  description: 'Search Katharos curated knowledge base of regulatory documents from OFAC, FinCEN, DOJ, SEC, FBI, FTC, CFTC, FINRA, HHS-OIG, OCC, IRS, Secret Service, CFPB, FATF, OECD, and UNODC. Use for established guidance, frameworks, typologies, red flags, enforcement patterns, statutory references, and compliance obligations relevant to the screening.',
+  description: 'Search Katharos curated knowledge base of regulatory documents from OFAC, FinCEN, DOJ, SEC, FBI, FTC, CFTC, FINRA, HHS-OIG, OCC, IRS, Secret Service, CFPB, FATF, OECD, UNODC, BIS (EAR), DDTC (ITAR), NRC, DOE, Wassenaar, NSG, MTCR, and Australia Group. Use for established guidance, frameworks, typologies, red flags, enforcement patterns, export control classifications, statutory references, and compliance obligations relevant to the screening.',
   input_schema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'Search query — describe the regulatory guidance, typology, or enforcement pattern you want to find'
+        description: 'Search query — describe the regulatory guidance, typology, enforcement pattern, or export control classification you want to find'
       }
     },
     required: ['query']
