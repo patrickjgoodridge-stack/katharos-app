@@ -14,6 +14,7 @@ import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } 
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
 import InlineChatGraph from './InlineChatGraph';
+import ChatNetworkGraph from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
 import LandingPage from './LandingPage';
 import ProductPage from './ProductPage';
@@ -56,6 +57,42 @@ const parseVizData = (content) => { // eslint-disable-line no-unused-vars
     console.log('Failed to parse vizdata:', e.message);
   }
   return null;
+};
+
+// Extract nodes/links from AI-generated networkgraph HTML
+const extractNetworkData = (html) => {
+  if (!html) return null;
+  try {
+    // Match JS array literals: const/let/var nodes = [...] and links = [...]
+    const nodesMatch = html.match(/(?:const|let|var)\s+nodes\s*=\s*(\[[\s\S]*?\]);/);
+    const linksMatch = html.match(/(?:const|let|var)\s+links\s*=\s*(\[[\s\S]*?\]);/);
+    if (!nodesMatch || !linksMatch) return null;
+    // Use Function constructor to safely evaluate the array literals
+    const nodes = new Function('return ' + nodesMatch[1])();
+    const links = new Function('return ' + linksMatch[1])();
+    if (!Array.isArray(nodes) || nodes.length === 0) return null;
+    // Normalize node format for ChatNetworkGraph
+    const normalizedNodes = nodes.map(n => ({
+      id: n.id || n.name,
+      name: n.name || n.label || n.id,
+      type: n.type || 'entity',
+      metadata: {
+        ...(n.status && n.status !== 'clear' ? { status: n.status } : {}),
+        ...(n.jurisdiction ? { jurisdiction: n.jurisdiction } : {}),
+        ...(n.role ? { role: n.role } : {}),
+      },
+    }));
+    const normalizedLinks = links.map(l => ({
+      source: l.source,
+      target: l.target,
+      type: l.type || 'related',
+      label: l.label || l.relationship || '',
+    }));
+    return { nodes: normalizedNodes, links: normalizedLinks };
+  } catch (e) {
+    console.warn('[Katharos] Failed to extract network data from HTML:', e.message);
+    return null;
+  }
 };
 
 // All supported visualization block types
@@ -12304,9 +12341,15 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    }}
  />
  </div>
- {parseHtmlArtifacts(msg.content).map((artifact, ai) => (
-   <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
- ))}
+ {parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+   if (artifact.type === 'network') {
+     const netData = extractNetworkData(artifact.html);
+     if (netData && netData.nodes.length > 0) {
+       return <ChatNetworkGraph key={ai} graphData={netData} />;
+     }
+   }
+   return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
+ })}
  {/* Action buttons for all assistant messages */}
  <div className="flex justify-end gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
  <button
