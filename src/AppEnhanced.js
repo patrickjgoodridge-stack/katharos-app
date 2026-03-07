@@ -8566,12 +8566,12 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         continue;
       }
       if (line.startsWith('### ') && !line.startsWith('#### ')) {
-        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#e0e0e0', margin: '28px 0 10px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
+        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#fff', margin: '28px 0 10px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
         i++;
         continue;
       }
       if (line.startsWith('#### ')) {
-        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#ccc', margin: '24px 0 8px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
+        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: '24px 0 8px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
         i++;
         continue;
       }
@@ -8592,12 +8592,12 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           <div key={key++} style={{ overflowX: 'auto', margin: '16px 0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
-                <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #444', color: '#ccc', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
+                <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #444', color: '#fff', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
               </thead>
               <tbody>
                 {bodyRows.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: '1px solid #2a2a2a' }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: '10px 14px', color: '#999', fontSize: '13px' }}>{formatInline(cell)}</td>)}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '10px 14px', color: '#fff', fontSize: '13px' }}>{formatInline(cell)}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -8620,7 +8620,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         elements.push(
           <ul key={key++} style={{ margin: '12px 0', paddingLeft: '24px', listStyle: 'none' }}>
             {items.map((item, li) => (
-              <li key={li} style={{ padding: '4px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#999', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
+              <li key={li} style={{ padding: '4px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#fff', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
                 <span style={{ position: 'absolute', left: 0 }}>{item.isCheck ? '✓' : item.isCross ? '✗' : '•'}</span>
                 {formatInline(item.text)}
               </li>
@@ -8638,7 +8638,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           i++;
         }
         elements.push(
-          <ol key={key++} style={{ margin: '12px 0', paddingLeft: '24px', color: '#999', fontSize: '14px', lineHeight: 1.8 }}>
+          <ol key={key++} style={{ margin: '12px 0', paddingLeft: '24px', color: '#fff', fontSize: '14px', lineHeight: 1.8 }}>
             {items.map((item, li) => <li key={li} style={{ padding: '2px 0' }}>{formatInline(item)}</li>)}
           </ol>
         );
@@ -8658,7 +8658,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         i++;
       }
       if (paraLines.length > 0) {
-        elements.push(<p key={key++} style={{ margin: '12px 0', color: '#999', fontSize: '14px', lineHeight: 1.7 }}>{formatInline(paraLines.join(' '))}</p>);
+        elements.push(<p key={key++} style={{ margin: '12px 0', color: '#fff', fontSize: '14px', lineHeight: 1.7 }}>{formatInline(paraLines.join(' '))}</p>);
       }
     }
     return elements;
@@ -8676,7 +8676,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         parts.push(<span key={k++}>{text.slice(lastIndex, match.index)}</span>);
       }
       if (match[1]) {
-        parts.push(<strong key={k++} style={{ color: '#e0e0e0', fontWeight: 600 }}>{match[2]}</strong>);
+        parts.push(<strong key={k++} style={{ color: '#fff', fontWeight: 600 }}>{match[2]}</strong>);
       } else if (match[3]) {
         parts.push(<a key={k++} href={match[5]} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>{match[4]}</a>);
       }
