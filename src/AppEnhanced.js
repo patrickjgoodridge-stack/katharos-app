@@ -8529,7 +8529,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
       {/* Delete Account */}
       <div style={{ marginTop: '48px', borderTop: '1px solid #333', paddingTop: '32px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ef4444', margin: '0 0 8px' }}>Danger Zone</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Close Account</h3>
         <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
           Permanently delete your account and all associated data including cases, screenings, and audit logs. This action cannot be undone.
         </p>
@@ -8622,29 +8622,29 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
       // Horizontal rule
       if (/^---+\s*$/.test(line)) {
-        elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #333', margin: '32px 0' }} />);
+        elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #333', margin: '20px 0' }} />);
         i++;
         continue;
       }
 
       // Headings
       if (line.startsWith('# ') && !line.startsWith('## ')) {
-        elements.push(<h1 key={key++} style={{ fontSize: '28px', fontWeight: 700, color: '#fff', margin: '40px 0 16px', lineHeight: 1.3 }}>{formatInline(line.slice(2))}</h1>);
+        elements.push(<h1 key={key++} style={{ fontSize: '28px', fontWeight: 700, color: '#fff', margin: '24px 0 10px', lineHeight: 1.3 }}>{formatInline(line.slice(2))}</h1>);
         i++;
         continue;
       }
       if (line.startsWith('## ') && !line.startsWith('### ')) {
-        elements.push(<h2 key={key++} style={{ fontSize: '22px', fontWeight: 600, color: '#fff', margin: '36px 0 12px', lineHeight: 1.3 }}>{formatInline(line.slice(3))}</h2>);
+        elements.push(<h2 key={key++} style={{ fontSize: '22px', fontWeight: 600, color: '#fff', margin: '20px 0 8px', lineHeight: 1.3 }}>{formatInline(line.slice(3))}</h2>);
         i++;
         continue;
       }
       if (line.startsWith('### ') && !line.startsWith('#### ')) {
-        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#fff', margin: '28px 0 10px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
+        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#fff', margin: '16px 0 6px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
         i++;
         continue;
       }
       if (line.startsWith('#### ')) {
-        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: '24px 0 8px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
+        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: '14px 0 4px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
         i++;
         continue;
       }
@@ -8662,7 +8662,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         const dataRows = tableRows.filter((_, idx) => idx !== 1);
         const bodyRows = dataRows.slice(1);
         elements.push(
-          <div key={key++} style={{ overflowX: 'auto', margin: '16px 0' }}>
+          <div key={key++} style={{ overflowX: 'auto', margin: '10px 0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
                 <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #444', color: '#fff', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
@@ -8691,7 +8691,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           i++;
         }
         elements.push(
-          <ul key={key++} style={{ margin: '12px 0', paddingLeft: '24px', listStyle: 'none' }}>
+          <ul key={key++} style={{ margin: '6px 0', paddingLeft: '24px', listStyle: 'none' }}>
             {items.map((item, li) => (
               <li key={li} style={{ padding: '4px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#fff', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
                 <span style={{ position: 'absolute', left: 0 }}>{item.isCheck ? '✓' : item.isCross ? '✗' : '•'}</span>
@@ -8711,7 +8711,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           i++;
         }
         elements.push(
-          <ol key={key++} style={{ margin: '12px 0', paddingLeft: '24px', color: '#fff', fontSize: '14px', lineHeight: 1.8 }}>
+          <ol key={key++} style={{ margin: '6px 0', paddingLeft: '24px', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>
             {items.map((item, li) => <li key={li} style={{ padding: '2px 0' }}>{formatInline(item)}</li>)}
           </ol>
         );
@@ -8731,7 +8731,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         i++;
       }
       if (paraLines.length > 0) {
-        elements.push(<p key={key++} style={{ margin: '12px 0', color: '#fff', fontSize: '14px', lineHeight: 1.7 }}>{formatInline(paraLines.join(' '))}</p>);
+        elements.push(<p key={key++} style={{ margin: '6px 0', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>{formatInline(paraLines.join(' '))}</p>);
       }
     }
     return elements;
@@ -8953,7 +8953,7 @@ When you screen an entity, we query the following sources on your behalf:
 
 You may delete individual cases within the Service. Deleted cases are removed from our primary database. Audit log entries referencing deleted cases are retained for compliance purposes but are anonymized.
 
-To request deletion of your entire account and associated data, contact patrick@katharos.co.
+To delete your entire account and all associated data, go to Settings and select "Close Account."
 
 ---
 
@@ -9762,8 +9762,6 @@ Katharos uses Claude, developed by Anthropic, for intelligent risk analysis. Whe
 - Customer inputs and outputs are not used to train or improve models
 - Data is not shared with third parties
 - Anthropic maintains SOC 2 Type II certification
-
-For more information, see [Anthropic's Security Practices](https://www.anthropic.com/security).
 
 ### Our Prompt Security
 
