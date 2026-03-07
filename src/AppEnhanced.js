@@ -180,7 +180,26 @@ function ScreeningProgressBar({ startedAt, compact, label, isScreening }) {
     );
   }
 
-  // Full version for main chat screening
+  // Non-screening: simpler progress bar — just "Analyzing" + bar, no steps or countdown
+  if (isScreening === false) {
+    const analyzeProgress = Math.min(95, Math.round(5 + elapsed * 6));
+    return (
+      <div style={{ width: '300px', padding: '14px 18px', background: '#242424', borderRadius: '12px', border: '1px solid #333' }}>
+        <div style={{ marginBottom: '12px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#e0e0e0', letterSpacing: '-0.2px' }}>{label || 'Analyzing'}</span>
+        </div>
+        <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: '4px',
+            background: 'linear-gradient(90deg, #b8860b, #d4a017)',
+            width: `${analyzeProgress}%`, transition: 'width 0.4s ease-out',
+          }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Full version for screening
   const remaining = Math.max(0, 45 - elapsed);
   const currentName = stepIndex >= 0 && stepIndex < SCREENING_STEPS.length - 1
     ? SCREENING_STEPS[stepIndex + 1].name
@@ -204,7 +223,7 @@ function ScreeningProgressBar({ startedAt, compact, label, isScreening }) {
         }} />
       </div>
 
-      {isScreening !== false && <span style={{ fontSize: '11px', color: '#888' }}>{currentName}...</span>}
+      <span style={{ fontSize: '11px', color: '#888' }}>{currentName}...</span>
     </div>
   );
 }
