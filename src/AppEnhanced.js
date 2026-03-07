@@ -431,13 +431,22 @@ export default function Katharos() {
  const [exploreSuggestions, setExploreSuggestions] = useState({}); // { [caseId]: string[] }
  const exploreSuggestionsInFlight = useRef(new Set()); // Prevent duplicate requests
 
+ const exploreContextKeys = useRef({}); // Track what context was used to generate suggestions
+
  const generateExploreSuggestions = useCallback(async (caseId, caseMessages, screeningResults, caseAnalysis) => {
-   // Skip if already generated or in-flight
-   if (exploreSuggestions[caseId] || exploreSuggestionsInFlight.current.has(caseId)) return;
+   // Build a context key from current state to detect when context changes
+   const msgCount = (caseMessages || []).length;
+   const entityName = screeningResults?.subject?.name || caseAnalysis?.subjectName || '';
+   const lastUserMsg = (caseMessages || []).filter(m => m.role === 'user').slice(-1)[0];
+   const lastQuery = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content.slice(0, 50) : '';
+   const contextKey = `${msgCount}:${entityName}:${lastQuery}`;
+
+   // Skip if context hasn't changed since last generation
+   if (exploreContextKeys.current[caseId] === contextKey) return;
+   if (exploreSuggestionsInFlight.current.has(caseId)) return;
    exploreSuggestionsInFlight.current.add(caseId);
 
    // Build a compact context summary from the actual results
-   const entityName = screeningResults?.subject?.name || caseAnalysis?.subjectName || '';
    const sanctions = (screeningResults?.sanctions?.matches || []).slice(0, 5).map(m => m.matchedName || m.name || '').filter(Boolean);
    const pep = (screeningResults?.pep?.matches || []).slice(0, 5).map(m => `${m.name || ''}${m.position ? ' (' + m.position + ')' : ''}`).filter(Boolean);
    const adverseMedia = (screeningResults?.adverseMedia?.articles || []).slice(0, 3).map(a => a.title || '').filter(Boolean);
@@ -447,8 +456,19 @@ export default function Katharos() {
    const redFlags = (caseAnalysis?.redFlags || []).slice(0, 5).map(f => f.title || f.description || '').filter(Boolean);
    const jurisdictions = (screeningResults?.ownershipAnalysis?.corporateStructure || []).map(c => c.jurisdiction || c.country || '').filter(Boolean);
 
+   // Also pull context from recent conversation messages
+   const recentAssistant = (caseMessages || []).filter(m => m.role === 'assistant').slice(-2).map(m => {
+     const text = typeof m.content === 'string' ? m.content : '';
+     return text.slice(0, 300);
+   }).filter(Boolean);
+   const recentUser = (caseMessages || []).filter(m => m.role === 'user').slice(-3).map(m => {
+     const text = typeof m.content === 'string' ? m.content : '';
+     return text.slice(0, 100);
+   }).filter(Boolean);
+
    const contextParts = [];
    if (entityName) contextParts.push(`Entity searched: ${entityName}`);
+   if (recentUser.length) contextParts.push(`Recent user queries: ${recentUser.join('; ')}`);
    if (sanctions.length) contextParts.push(`Sanctions matches: ${sanctions.join(', ')}`);
    if (pep.length) contextParts.push(`PEP matches: ${pep.join('; ')}`);
    if (adverseMedia.length) contextParts.push(`Adverse media: ${adverseMedia.join('; ')}`);
@@ -457,17 +477,17 @@ export default function Katharos() {
    if (owners.length) contextParts.push(`Beneficial owners: ${owners.join('; ')}`);
    if (jurisdictions.length) contextParts.push(`Jurisdictions: ${[...new Set(jurisdictions)].join(', ')}`);
    if (redFlags.length) contextParts.push(`Red flags: ${redFlags.join('; ')}`);
+   if (recentAssistant.length) contextParts.push(`Recent analysis excerpts: ${recentAssistant.join('; ')}`);
 
-   const prompt = `Based on these screening results, suggest 5 short follow-up queries.
+   const prompt = `Based on this investigation context, suggest 5 short follow-up queries.
 
 CONTEXT:
 ${contextParts.join('\n')}
 
 RULES:
 - MAX 8 WORDS per suggestion. Be blunt and direct.
-- Reference SPECIFIC names or entities from the results above
-- Good examples: "Who owns Rusal?", "Screen Oleg Deripaska", "EN+ Group sanctions timeline", "Map Deripaska's corporate network", "Check VTB Bank connections"
-- Bad examples (too long): "Show me all shell companies connected to the subject across the Baltic banking cases mentioned in the results."
+- Reference SPECIFIC names, entities, or topics from the context above
+- Suggestions MUST be relevant to the most recent queries and findings
 - Each suggestion should be a different type: person, company, relationship, timeline, risk
 - No numbering, no bullets, no prefixes
 
@@ -492,6 +512,7 @@ Return ONLY a JSON array of 5 strings.`;
      const parsed = JSON.parse(cleaned);
      if (Array.isArray(parsed) && parsed.length > 0) {
        setExploreSuggestions(prev => ({ ...prev, [caseId]: parsed.slice(0, 5).map(s => String(s)) }));
+       exploreContextKeys.current[caseId] = contextKey;
      }
    } catch (err) {
      console.log('[KeepExploring] Generation error:', err.message);
@@ -8023,7 +8044,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
       <div>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Close Account</h3>
         <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
-          Permanently delete your account and all associated data including cases, screenings, and audit logs. This action cannot be undone.
+          Permanently delete your account including cases, screenings, and audit logs from our primary database. This action cannot be undone.
         </p>
         {deleteAccountConfirm ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -8426,7 +8447,7 @@ When you screen an entity, we query the following sources on your behalf:
 | Supabase | Database hosting | All account and case data |
 | Pinecone | Vector database | Regulatory documents, screening embeddings |
 | Vercel | Application hosting | Application logs, performance data |
-| PostHog | Product analytics | Page views, feature usage (anonymized) |
+| PostHog | Product analytics | Page views, feature usage |
 | Stripe | Payment processing | Payment information (handled by Stripe) |
 
 ---
@@ -8445,9 +8466,9 @@ When you screen an entity, we query the following sources on your behalf:
 
 ### 5.2 Deletion
 
-You may delete individual cases within the Service. Deleted cases are removed from our primary database. Audit log entries referencing deleted cases are retained for compliance purposes but are anonymized.
+You may delete individual cases within the Service. Deleted cases are removed from our primary database. Audit log entries referencing deleted cases are retained for compliance purposes.
 
-To delete your entire account and all associated data, go to Settings and select "Close Account."
+To delete your account, go to Settings and select "Close Account." This removes your cases, screenings, audit logs, and account information from our primary database.
 
 ---
 
@@ -8488,11 +8509,11 @@ You may access your data at any time through the Service. To request a machine-r
 
 ### 7.2 Correction
 
-You may update your account information within the Service. To request correction of other data, contact patrick@katharos.co.
+To request correction of your data, contact patrick@katharos.co.
 
 ### 7.3 Deletion
 
-You may delete cases and screenings within the Service. To request deletion of your account and all associated data, contact patrick@katharos.co. We will process deletion requests within 30 days.
+You may delete cases and screenings within the Service. To delete your account, go to Settings and select "Close Account." For additional deletion requests, contact patrick@katharos.co. We will process deletion requests within 30 days.
 
 ### 7.4 Restriction and Objection
 
@@ -9340,7 +9361,7 @@ Every significant action is logged for security and compliance:
 | Framework | Status |
 |-----------|--------|
 | SOC 2 Type II | In Progress (Target: Q3 2026) |
-| GDPR | Compliant |
+| GDPR | Not yet compliant |
 | CCPA | Compliant |
 | HIPAA | Not applicable (no PHI processed) |
 
@@ -9365,7 +9386,7 @@ Contact patrick@katharos.co for security documentation.
 
 In the event of a security incident affecting your data:
 
-- **Identification**: We monitor for security events 24/7
+- **Identification**: Security event detection via audit logging
 - **Containment**: Immediate action to limit impact
 - **Investigation**: Thorough root cause analysis
 - **Notification**: Affected customers notified within 72 hours
@@ -9439,7 +9460,7 @@ Yes. You can export your cases and reports within the application. For a complet
 
 ### Can I delete my data?
 
-Yes. You can delete individual cases within the application. To delete your entire account and all associated data, contact patrick@katharos.co.
+Yes. You can delete individual cases within the application. To delete your account, go to Settings and select "Close Account."
 
 ### Do you support SSO?
 
@@ -12287,8 +12308,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
 {/* Keep Exploring Panel - LLM-generated suggestions */}
 {currentCaseId && !getCaseStreamingState(currentCaseId).isStreaming && conversationMessages?.length > 0 && (() => {
-  // Trigger LLM generation if not yet cached for this case
-  if (!exploreSuggestions[currentCaseId] && !exploreSuggestionsInFlight.current.has(currentCaseId)) {
+  // Trigger LLM generation (function internally checks if context has changed)
+  if (!exploreSuggestionsInFlight.current.has(currentCaseId)) {
     // Fire async — don't block render
     setTimeout(() => generateExploreSuggestions(currentCaseId, conversationMessages, kycResults, analysis), 0);
   }
