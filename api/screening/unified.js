@@ -17,6 +17,7 @@ import { BlockchainScreeningService } from '../../services/blockchainScreening.j
 import { ShippingTradeService } from '../../services/shippingTrade.js';
 import { SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES, screenEntity as screenSanctionsEntity } from '../screen-sanctions.js';
 import { Pinecone } from '@pinecone-database/pinecone';
+import { processScreeningEvent } from '../../services/intelligenceService.js';
 
 export const config = { maxDuration: 300 };
 
@@ -485,6 +486,13 @@ export default async function handler(req, res) {
     if (courtRecordsResults) finalResult.courtRecords = courtRecordsResults;
 
     finalResult._durationMs = Date.now() - startTime;
+
+    // Fire-and-forget: process screening for intelligence systems
+    const sessionId = req.body.sessionId || req.headers['x-session-id'] || 'unknown';
+    processScreeningEvent(sessionId, kycQuery, finalResult.overallRisk || 'UNKNOWN', `scr_${Date.now()}`).catch(e => {
+      console.warn('[Intelligence] Post-screening processing failed:', e.message);
+    });
+
     return res.status(200).json(finalResult);
 
   } catch (error) {

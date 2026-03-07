@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
 // pdf and ComplianceReportPDF removed — generatePdfReport now uses DOM capture via captureDomToPdf
 import posthog from 'posthog-js';
+import eventLogger from './eventLogger';
 import NetworkGraph, { NetworkGraphLegend } from './NetworkGraph';
 import { useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
@@ -228,6 +229,14 @@ function friendlyError(error) {
 export default function Katharos() {
  // Auth state - must be called before any conditional returns
  const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
+
+ // Initialize event logger with user context
+ useEffect(() => {
+   if (user?.email) {
+     eventLogger.init({ userEmail: user.email, emailDomain: workspaceId });
+   }
+   return () => eventLogger.destroy();
+ }, [user?.email, workspaceId]);
 
  const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
@@ -1051,6 +1060,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
        }
      });
      logAudit('case_created', { entityType: 'case', entityId: newCaseId, details: { name: generatedName, source: 'conversation' } });
+     eventLogger.caseCreated(newCaseId, generatedName, { source: 'conversation' });
    } else {
      console.log('[Cases] Supabase not configured or user not logged in, case saved locally only');
    }
@@ -1584,7 +1594,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      const unifiedResponse = await fetch(`${API_BASE}/api/screening/unified`, {
        method: "POST",
        headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({ query, type, country: country || null, yearOfBirth: yearOfBirth || null }),
+       body: JSON.stringify({ query, type, country: country || null, yearOfBirth: yearOfBirth || null, sessionId: eventLogger.sessionId }),
        signal: controller.signal
      });
      if (!unifiedResponse.ok) {
@@ -1666,6 +1676,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
 
      posthog.capture('screening_completed', { query, type, risk_level: finalResult.overallRisk || null });
      logAudit('screening_completed', { entityType: 'screening', entityId: jobId, details: { query, type, riskLevel: finalResult.overallRisk } });
+     eventLogger.screeningCompleted(query, type, currentCaseId, { jobId, riskLevel: finalResult.overallRisk, sourceCount: Object.keys(finalResult).length });
 
    } catch (error) {
      console.error('Screening error:', error);
@@ -1870,6 +1881,7 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
 
  posthog.capture('pdf_exported', { subject: subjectName, risk_level: riskLevel });
  logAudit('report_generated', { entityType: 'report', entityId: screening.id, details: { subject: subjectName, riskLevel } });
+ eventLogger.reportGenerated(currentCaseId, subjectName, { screeningId: screening.id, riskLevel });
 
  const { pdfBlob } = await captureDomToPdf(sourceEl, {
  subjectName,
@@ -3155,6 +3167,8 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  const handleFileInput = (e) => {
  if (e.target.files && e.target.files[0]) {
  processFiles(e.target.files);
+ const fileNames = Array.from(e.target.files).map(f => f.name);
+ eventLogger.documentUploaded(currentCaseId, { fileNames, count: fileNames.length });
  }
  };
 
@@ -4231,6 +4245,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
    // Track screening and query for analytics
    incrementScreening();
+   eventLogger.searchExecuted(userMessage, caseId, { hasFiles: attachedFiles.length > 0 });
 
    // Add user message to conversation (update case directly)
    const newUserMessage = {
@@ -12353,6 +12368,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
           key={idx}
           onClick={() => {
             setConversationInput(suggestion);
+            eventLogger.keepExploreClicked(suggestion, currentCaseId);
             if (bottomInputRef.current) {
               bottomInputRef.current.focus();
             }

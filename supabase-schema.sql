@@ -699,3 +699,40 @@ CREATE POLICY "metrics_sanc_update" ON metrics_sanctions FOR UPDATE USING (auth.
 CREATE POLICY "metrics_daily_insert" ON metrics_daily FOR INSERT WITH CHECK (true);
 CREATE POLICY "metrics_daily_select" ON metrics_daily FOR SELECT USING (auth.jwt() ->> 'email' IS NOT NULL);
 CREATE POLICY "metrics_daily_update" ON metrics_daily FOR UPDATE USING (auth.jwt() ->> 'email' IS NOT NULL);
+
+-- =====================================================================
+-- EVENTS TABLE - Append-only event log for intelligence systems
+-- Foundation for: Entity Resolution, Precedent Matching, Search Patterns,
+--   Crowd Wisdom, Temporal Detection, Risk Calibration, Query Classification
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  event_category TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  user_email TEXT,
+  email_domain TEXT,
+  entity_name TEXT,
+  entity_type TEXT,
+  case_id TEXT,
+  payload JSONB DEFAULT '{}'::jsonb,
+  client_timestamp TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS events_type_idx ON events(event_type);
+CREATE INDEX IF NOT EXISTS events_category_idx ON events(event_category);
+CREATE INDEX IF NOT EXISTS events_session_idx ON events(session_id);
+CREATE INDEX IF NOT EXISTS events_entity_name_idx ON events(entity_name);
+CREATE INDEX IF NOT EXISTS events_case_id_idx ON events(case_id);
+CREATE INDEX IF NOT EXISTS events_created_at_idx ON events(created_at DESC);
+CREATE INDEX IF NOT EXISTS events_email_domain_idx ON events(email_domain);
+CREATE INDEX IF NOT EXISTS events_entity_type_idx ON events(entity_name, event_type);
+CREATE INDEX IF NOT EXISTS events_domain_type_idx ON events(email_domain, event_type, created_at DESC);
+
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "events_insert" ON events FOR INSERT WITH CHECK (true);
+CREATE POLICY "events_select" ON events FOR SELECT
+  USING (email_domain = get_workspace_id());
