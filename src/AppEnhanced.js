@@ -4363,7 +4363,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      || /\b(summarize|recap|overview|so far|what we know|what we.ve found)\b/i.test(trimmed);
 
    // GENERATE: create outputs or artifacts
-   const isGenerate = /^(export|draft|create|generate|write|produce|build|prepare|format)\b/i.test(trimmed)
+   const isGenerate = /^(export|draft|create|generate|write|produce|build|prepare|format|make)\b/i.test(trimmed)
      || /\b(as a pdf|as pdf|sar narrative|write up|create a report|compliance report|generate report)\b/i.test(trimmed);
 
    // COMMAND: system-level instructions
