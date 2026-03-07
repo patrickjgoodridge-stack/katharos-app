@@ -8502,6 +8502,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           { id: 'audit', label: 'Audit Trail', icon: Shield },
           { id: 'dataSources', label: 'Data Sources', icon: Database },
           ...(hasPermission('manage_users') ? [{ id: 'admin', label: 'Users', icon: Users }] : []),
+          { id: 'other', label: 'Other', icon: Settings },
         ].map(tab => (
           <button
             key={tab.id}
@@ -8525,10 +8526,8 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         {settingsTab === 'audit' && <AuditTrailPanel />}
         {settingsTab === 'dataSources' && <DataSourcesPanel />}
         {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
-      </div>
-
-      {/* Delete Account */}
-      <div style={{ marginTop: '48px', borderTop: '1px solid #333', paddingTop: '32px' }}>
+        {settingsTab === 'other' && (
+      <div>
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Close Account</h3>
         <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
           Permanently delete your account and all associated data including cases, screenings, and audit logs. This action cannot be undone.
@@ -8595,6 +8594,8 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           >
             Delete Account
           </button>
+        )}
+      </div>
         )}
       </div>
     </div>
