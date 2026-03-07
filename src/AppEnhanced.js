@@ -8691,7 +8691,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   const docsContent = {
     'privacy': `# Privacy Policy
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
 **Last Updated: March 6, 2026**
 
@@ -8701,7 +8701,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
 ## Introduction
 
-Katharos, Inc. ("Katharos," "we," "us," or "our") provides an AI-powered anti-money laundering (AML), know-your-customer (KYC), and sanctions compliance screening platform (the "Service"). This Privacy Policy explains how we collect, use, disclose, and protect information when you use our Service.
+Katharos Technologies, Inc. ("Katharos," "we," "us," or "our") provides an AI-powered anti-money laundering (AML), know-your-customer (KYC), and sanctions compliance screening platform (the "Service"). This Privacy Policy explains how we collect, use, disclose, and protect information when you use our Service.
 
 By accessing or using Katharos, you agree to this Privacy Policy. If you do not agree, please do not use our Service.
 
@@ -8880,7 +8880,7 @@ When you screen an entity, we query the following sources on your behalf:
 
 You may delete individual cases within the Service. Deleted cases are removed from our primary database. Audit log entries referencing deleted cases are retained for compliance purposes but are anonymized.
 
-To request deletion of your entire account and associated data, contact privacy@katharos.co.
+To request deletion of your entire account and associated data, contact patrick@katharos.co.
 
 ---
 
@@ -8917,19 +8917,19 @@ For more details, see our Security page at [https://katharos.co/security](https:
 
 ### 7.1 Access and Portability
 
-You may access your data at any time through the Service. To request a machine-readable export of your data, contact privacy@katharos.co.
+You may access your data at any time through the Service. To request a machine-readable export of your data, contact patrick@katharos.co.
 
 ### 7.2 Correction
 
-You may update your account information within the Service. To request correction of other data, contact privacy@katharos.co.
+You may update your account information within the Service. To request correction of other data, contact patrick@katharos.co.
 
 ### 7.3 Deletion
 
-You may delete cases and screenings within the Service. To request deletion of your account and all associated data, contact privacy@katharos.co. We will process deletion requests within 30 days.
+You may delete cases and screenings within the Service. To request deletion of your account and all associated data, contact patrick@katharos.co. We will process deletion requests within 30 days.
 
 ### 7.4 Restriction and Objection
 
-You may request that we restrict processing of your data or object to certain processing activities by contacting privacy@katharos.co.
+You may request that we restrict processing of your data or object to certain processing activities by contacting patrick@katharos.co.
 
 ### 7.5 Withdrawal of Consent
 
@@ -8964,7 +8964,7 @@ If you are a California resident, you have additional rights under the Californi
 - **Right to Opt-Out**: We do not sell personal information as defined by the CCPA.
 - **Non-Discrimination**: We will not discriminate against you for exercising your privacy rights.
 
-To exercise these rights, contact privacy@katharos.co.
+To exercise these rights, contact patrick@katharos.co.
 
 ---
 
@@ -8986,11 +8986,11 @@ If you are in the European Economic Area (EEA), United Kingdom, or Switzerland, 
 
 **Data Controller**
 
-Katharos, Inc. is the data controller for information collected through the Service.
+Katharos Technologies, Inc. is the data controller for information collected through the Service.
 
 **Contact**
 
-For GDPR-related inquiries, contact privacy@katharos.co.
+For GDPR-related inquiries, contact patrick@katharos.co.
 
 ---
 
@@ -9030,15 +9030,15 @@ Your continued use of the Service after changes take effect constitutes acceptan
 
 If you have questions about this Privacy Policy or our data practices, contact us:
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
-Email: privacy@katharos.co
+Email: patrick@katharos.co
 
-For security-related concerns: security@katharos.co`,
+For security-related concerns: patrick@katharos.co`,
 
     'terms': `# Terms of Service
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
 **Last Updated: March 6, 2026**
 
@@ -9048,7 +9048,7 @@ For security-related concerns: security@katharos.co`,
 
 ## Agreement to Terms
 
-These Terms of Service ("Terms") constitute a legally binding agreement between you ("User," "you," or "your") and Katharos, Inc. ("Katharos," "we," "us," or "our") governing your access to and use of the Katharos platform, website, and related services (collectively, the "Service").
+These Terms of Service ("Terms") constitute a legally binding agreement between you ("User," "you," or "your") and Katharos Technologies, Inc. ("Katharos," "we," "us," or "our") governing your access to and use of the Katharos platform, website, and related services (collectively, the "Service").
 
 **By accessing or using the Service, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the Service.**
 
@@ -9259,7 +9259,7 @@ Confidentiality obligations do not apply to information that:
 
 Your use of the Service is subject to our Privacy Policy at [https://katharos.co/privacy](https://katharos.co/privacy), which is incorporated into these Terms by reference.
 
-For enterprise customers requiring a Data Processing Agreement (DPA), please contact legal@katharos.co.
+For enterprise customers requiring a Data Processing Agreement (DPA), please contact patrick@katharos.co.
 
 ---
 
@@ -9339,7 +9339,7 @@ These Terms are effective when you first access the Service and remain in effect
 
 ### 12.2 Termination by You
 
-You may terminate your account at any time by contacting us at support@katharos.co or using the account deletion feature (if available).
+You may terminate your account at any time by contacting us at patrick@katharos.co or using the account deletion feature (if available).
 
 ### 12.3 Termination by Us
 
@@ -9365,7 +9365,7 @@ These Terms are governed by the laws of the State of Delaware, United States, wi
 
 ### 13.2 Informal Resolution
 
-Before filing a formal dispute, you agree to contact us at legal@katharos.co and attempt to resolve the dispute informally for at least thirty (30) days.
+Before filing a formal dispute, you agree to contact us at patrick@katharos.co and attempt to resolve the dispute informally for at least thirty (30) days.
 
 ### 13.3 Arbitration
 
@@ -9382,7 +9382,7 @@ The following disputes are not subject to arbitration:
 
 ### 13.5 Opt-Out
 
-You may opt out of the arbitration provision by sending written notice to legal@katharos.co within thirty (30) days of first accepting these Terms.
+You may opt out of the arbitration provision by sending written notice to patrick@katharos.co within thirty (30) days of first accepting these Terms.
 
 ---
 
@@ -9410,7 +9410,7 @@ You may not assign or transfer these Terms or your rights under them without our
 
 ### 14.6 Notices
 
-We may provide notices to you by email or by posting on the Service. You may provide notices to us at legal@katharos.co.
+We may provide notices to you by email or by posting on the Service. You may provide notices to us at patrick@katharos.co.
 
 ### 14.7 Force Majeure
 
@@ -9426,15 +9426,15 @@ The relationship between you and Katharos is that of independent contractors. No
 
 If you have questions about these Terms, please contact us:
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
-Email: legal@katharos.co
+Email: patrick@katharos.co
 
-For support inquiries: support@katharos.co`,
+For support inquiries: patrick@katharos.co`,
 
     'acceptable-use': `# Acceptable Use Policy
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
 **Last Updated: March 6, 2026**
 
@@ -9552,7 +9552,7 @@ When using the Service, you are responsible for:
 
 If you become aware of any violation of this AUP, please report it to:
 
-**Email**: abuse@katharos.co
+**Email**: patrick@katharos.co
 
 Please include:
 - Description of the violation
@@ -9583,7 +9583,7 @@ Violations of this AUP may result in:
 
 ### Appeals
 
-If you believe enforcement action was taken in error, you may appeal by contacting legal@katharos.co within 30 days.
+If you believe enforcement action was taken in error, you may appeal by contacting patrick@katharos.co within 30 days.
 
 ---
 
@@ -9595,15 +9595,15 @@ We may update this AUP from time to time. We will notify you of material changes
 
 ## Contact
 
-**Abuse Reports**: abuse@katharos.co
+**Abuse Reports**: patrick@katharos.co
 
-**General Inquiries**: support@katharos.co
+**General Inquiries**: patrick@katharos.co
 
-**Legal Inquiries**: legal@katharos.co`,
+**Legal Inquiries**: patrick@katharos.co`,
 
     'security': `# Security
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
 **Last Updated: March 6, 2026**
 
@@ -9781,7 +9781,7 @@ Every significant action is logged for security and compliance:
 
 ### Data Processing Agreement
 
-Enterprise customers requiring a Data Processing Agreement (DPA) can request one by contacting legal@katharos.co.
+Enterprise customers requiring a Data Processing Agreement (DPA) can request one by contacting patrick@katharos.co.
 
 ### Security Questionnaires
 
@@ -9790,7 +9790,7 @@ We can provide responses to:
 - CAIQ (Cloud Assessment Initiative Questionnaire)
 - Custom security questionnaires
 
-Contact security@katharos.co for security documentation.
+Contact patrick@katharos.co for security documentation.
 
 ---
 
@@ -9811,7 +9811,7 @@ In the event of a security incident affecting your data:
 
 If you believe your account has been compromised or you've identified a security issue:
 
-**Email**: security@katharos.co
+**Email**: patrick@katharos.co
 
 Include:
 - Description of the issue
@@ -9839,7 +9839,7 @@ We value the security research community and welcome responsible disclosure of v
 
 ### How to Report
 
-**Email**: security@katharos.co
+**Email**: patrick@katharos.co
 
 **Subject**: [Vulnerability Report] - Brief Description
 
@@ -9870,39 +9870,39 @@ All data is stored in the United States using enterprise-grade cloud providers (
 
 ### Can I export my data?
 
-Yes. You can export your cases and reports within the application. For a complete data export, contact support@katharos.co.
+Yes. You can export your cases and reports within the application. For a complete data export, contact patrick@katharos.co.
 
 ### Can I delete my data?
 
-Yes. You can delete individual cases within the application. To delete your entire account and all associated data, contact privacy@katharos.co.
+Yes. You can delete individual cases within the application. To delete your entire account and all associated data, contact patrick@katharos.co.
 
 ### Do you support SSO?
 
-SSO integration (SAML 2.0, OIDC with Okta, Azure AD, etc.) is available for enterprise customers. Contact sales@katharos.co.
+SSO integration (SAML 2.0, OIDC with Okta, Azure AD, etc.) is available for enterprise customers. Contact patrick@katharos.co.
 
 ### Do you have a SOC 2 report?
 
-SOC 2 Type II certification is in progress with target completion in Q3 2026. Contact security@katharos.co for current security documentation.
+SOC 2 Type II certification is in progress with target completion in Q3 2026. Contact patrick@katharos.co for current security documentation.
 
 ---
 
 ## Contact
 
-**Security Team**: security@katharos.co
+**Security Team**: patrick@katharos.co
 
-**Privacy Inquiries**: privacy@katharos.co
+**Privacy Inquiries**: patrick@katharos.co
 
-**General Support**: support@katharos.co`,
+**General Support**: patrick@katharos.co`,
 
     'dpa': `# Data Processing Agreement
 
-**Katharos, Inc.**
+**Katharos Technologies, Inc.**
 
 **Last Updated: March 6, 2026**
 
 ---
 
-This Data Processing Agreement ("DPA") forms part of the agreement between Katharos, Inc. ("Katharos," "Processor," "we," or "us") and the entity agreeing to these terms ("Customer," "Controller," or "you") for the provision of the Katharos platform and services (the "Agreement").
+This Data Processing Agreement ("DPA") forms part of the agreement between Katharos Technologies, Inc. ("Katharos," "Processor," "we," or "us") and the entity agreeing to these terms ("Customer," "Controller," or "you") for the provision of the Katharos platform and services (the "Agreement").
 
 This DPA applies to the extent Katharos processes Personal Data on behalf of Customer in connection with the Services.
 
@@ -10225,11 +10225,11 @@ This DPA is governed by the laws specified in the Agreement, except that the SCC
 
 ## 11. Contact
 
-**Data Protection Inquiries**: privacy@katharos.co
+**Data Protection Inquiries**: patrick@katharos.co
 
-**Legal Inquiries**: legal@katharos.co
+**Legal Inquiries**: patrick@katharos.co
 
-**Security Inquiries**: security@katharos.co`,
+**Security Inquiries**: patrick@katharos.co`,
 
     'disclaimer': `# Disclaimer
 
@@ -10384,7 +10384,7 @@ The following disclaimer appears on all reports generated by the Service:
 
 If you have questions about this disclaimer or the limitations of the Service, please contact us:
 
-**Email**: legal@katharos.co`,
+**Email**: patrick@katharos.co`,
   };
 
   return (
