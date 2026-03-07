@@ -16,8 +16,68 @@ import { OpenCorporatesService } from '../../services/openCorporates.js';
 import { BlockchainScreeningService } from '../../services/blockchainScreening.js';
 import { ShippingTradeService } from '../../services/shippingTrade.js';
 import { SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES, screenEntity as screenSanctionsEntity } from '../screen-sanctions.js';
+import { Pinecone } from '@pinecone-database/pinecone';
 
 export const config = { maxDuration: 300 };
+
+// ── Pinecone Knowledge Base (RAG) ──
+let _pc = null, _pcIdx = null;
+function getPinecone() {
+  if (!_pc) _pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+  return _pc;
+}
+function getPineconeIndex() {
+  if (!_pcIdx) _pcIdx = getPinecone().index(process.env.PINECONE_INDEX_NAME || 'marlowe-financial-crimes');
+  return _pcIdx;
+}
+async function embedQuery(text) {
+  const result = await getPinecone().inference.embed('multilingual-e5-large', [text], { inputType: 'query', truncate: 'END' });
+  return result.data[0].values;
+}
+
+const KNOWLEDGE_BASE_TOOL = {
+  name: 'knowledge_base_search',
+  description: 'Search Katharos curated knowledge base of regulatory documents from OFAC, FinCEN, DOJ, SEC, FBI, FTC, CFTC, FINRA, HHS-OIG, OCC, IRS, Secret Service, CFPB, FATF, OECD, and UNODC. Use for established guidance, frameworks, typologies, red flags, enforcement patterns, statutory references, and compliance obligations relevant to the screening.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'Search query — describe the regulatory guidance, typology, or enforcement pattern you want to find'
+      }
+    },
+    required: ['query']
+  }
+};
+
+async function executeKnowledgeBaseSearch(query) {
+  if (!process.env.PINECONE_API_KEY) return { results: [], error: 'Pinecone not configured' };
+  try {
+    const queryVector = await embedQuery(query);
+    const idx = getPineconeIndex();
+    const result = await idx.namespace('regulatory_docs').query({
+      vector: queryVector,
+      topK: 5,
+      includeMetadata: true
+    });
+    return {
+      results: (result.matches || [])
+        .filter(m => m.score >= 0.65)
+        .map(m => ({
+          title: m.metadata.source || m.id,
+          category: m.metadata.category || '',
+          subcategory: m.metadata.subcategory || '',
+          documentType: m.metadata.documentType || '',
+          url: m.metadata.url || '',
+          relevance: m.score,
+          excerpt: m.metadata.text || ''
+        }))
+    };
+  } catch (err) {
+    console.error('[KnowledgeBase] Search error:', err.message);
+    return { results: [], error: err.message };
+  }
+}
 
 // ── Inline DataSourceManager (ICIJ, SEC, World Bank) to avoid extra cold start ──
 class DataSourceManager {
@@ -306,34 +366,68 @@ export default async function handler(req, res) {
     });
 
     const systemPrompt = getSystemPrompt();
+    const tools = process.env.PINECONE_API_KEY ? [KNOWLEDGE_BASE_TOOL] : [];
+    const kbHint = tools.length > 0 ? '\n\nYou have access to a knowledge_base_search tool. Use it to look up relevant regulatory guidance, FinCEN advisories, OFAC frameworks, DOJ enforcement patterns, fraud typologies, or compliance obligations that apply to this screening. Search for specific topics like "FCPA bribery red flags", "pig butchering advisory", "TBML indicators", "elder financial exploitation", etc.' : '';
+
     const userPrompt = isWallet
-      ? `${realDataContext}\n\nScreen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)\n\nUsing the sanctions screening data above, provide a complete compliance analysis including:\n- Who owns/controls this wallet (entity attribution)\n- OFAC sanctions status and specific designations\n- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations\n- DPRK/Lazarus Group nexus if applicable\n- Transaction risk patterns (cross-chain laundering, structured transfers)\n- Adverse media about the associated entity\n- Regulatory guidance for financial institutions encountering this address\n- Whether to block transactions involving this wallet\n\nSet subject.type to "WALLET" and include the wallet address and blockchain.`
-      : `${realDataContext}\n\nBased on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${yearOfBirth ? ', Year of Birth: ' + yearOfBirth : ''}${country ? ', Country: ' + country : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})\n\nUse the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:\n- PEP (Politically Exposed Person) status\n- Adverse media findings (incorporate the real articles provided above with their source URLs)\n- Risk assessment incorporating ALL data sources\n- Regulatory guidance\n\n${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}`;
+      ? `${realDataContext}\n\nScreen this crypto wallet address for sanctions compliance and risk: ${kycQuery} (${sanctionsData.blockchain || 'Unknown'} blockchain)\n\nUsing the sanctions screening data above, provide a complete compliance analysis including:\n- Who owns/controls this wallet (entity attribution)\n- OFAC sanctions status and specific designations\n- Association with mixers (Tornado Cash, Blender.io, Sinbad.io), darknet markets (Hydra), or ransomware operations\n- DPRK/Lazarus Group nexus if applicable\n- Transaction risk patterns (cross-chain laundering, structured transfers)\n- Adverse media about the associated entity\n- Regulatory guidance for financial institutions encountering this address\n- Whether to block transactions involving this wallet\n\nSet subject.type to "WALLET" and include the wallet address and blockchain.${kbHint}`
+      : `${realDataContext}\n\nBased on the REAL sanctions and ownership data above, complete the KYC screening for: ${kycQuery}${yearOfBirth ? ', Year of Birth: ' + yearOfBirth : ''}${country ? ', Country: ' + country : ''} (${kycType === 'individual' ? 'INDIVIDUAL' : 'ENTITY'})\n\nUse the verified sanctions data and external source results (ICIJ, SEC, World Bank, court records, adverse media) provided above. Add additional analysis for:\n- PEP (Politically Exposed Person) status\n- Adverse media findings (incorporate the real articles provided above with their source URLs)\n- Risk assessment incorporating ALL data sources\n- Regulatory guidance\n\n${kycType === 'entity' ? 'Include corporate structure with parent companies, subsidiaries, and affiliates.' : 'Include any corporate affiliations in corporateStructure.'}${kbHint}`;
 
-    // ── Step 5: Claude AI analysis (with 120s timeout) ──
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      signal: AbortSignal.timeout(120000),
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 16000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
+    // ── Step 5: Claude AI analysis with knowledge_base_search tool (multi-turn) ──
+    let aiMessages = [{ role: 'user', content: userPrompt }];
+    let text = '';
 
-    if (!aiResponse.ok) {
-      const err = await aiResponse.json().catch(() => ({}));
-      throw new Error(`Anthropic API error: ${aiResponse.status} ${err.error?.message || ''}`);
+    for (let turn = 0; turn < 4; turn++) {
+      const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        signal: AbortSignal.timeout(120000),
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 16000,
+          system: systemPrompt,
+          ...(tools.length > 0 ? { tools } : {}),
+          messages: aiMessages
+        })
+      });
+
+      if (!aiResponse.ok) {
+        const err = await aiResponse.json().catch(() => ({}));
+        throw new Error(`Anthropic API error: ${aiResponse.status} ${err.error?.message || ''}`);
+      }
+
+      const aiData = await aiResponse.json();
+
+      // If Claude finished (end_turn or no tool use), extract text and break
+      if (aiData.stop_reason !== 'tool_use') {
+        text = (aiData.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+        break;
+      }
+
+      // Handle tool_use blocks
+      const toolUseBlocks = (aiData.content || []).filter(b => b.type === 'tool_use');
+      const toolResults = [];
+      for (const toolUse of toolUseBlocks) {
+        if (toolUse.name === 'knowledge_base_search') {
+          console.log(`[KnowledgeBase] Searching: "${toolUse.input.query}"`);
+          const searchResult = await executeKnowledgeBaseSearch(toolUse.input.query);
+          console.log(`[KnowledgeBase] Found ${searchResult.results?.length || 0} results`);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: JSON.stringify(searchResult)
+          });
+        }
+      }
+
+      // Append assistant response + tool results for next turn
+      aiMessages.push({ role: 'assistant', content: aiData.content });
+      aiMessages.push({ role: 'user', content: toolResults });
     }
-
-    const aiData = await aiResponse.json();
-    const text = aiData.content?.[0]?.text || '';
 
     // ── Step 6: Parse result ──
     const jsonStr = extractJsonObject(text);
