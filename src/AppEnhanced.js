@@ -10287,7 +10287,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
- <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{caseItem.riskLevel || 'N/A'}</td>
+ <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{(!caseItem.riskLevel || caseItem.riskLevel === 'N/A') ? '—' : caseItem.riskLevel}</td>
  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
  <button
@@ -10329,6 +10329,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
            <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Created {new Date(viewingCase.createdAt).toLocaleDateString()}</p>
          </div>
          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+           {viewingCase.riskLevel && viewingCase.riskLevel !== 'N/A' && (
            <span style={{
              fontSize: '11px',
              fontWeight: 600,
@@ -10340,8 +10341,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
              color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : viewingCase.riskLevel === 'HIGH' ? '#f97316' : viewingCase.riskLevel === 'MEDIUM' ? '#eab308' : viewingCase.riskLevel === 'LOW' ? '#10b981' : '#858585',
              border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : viewingCase.riskLevel === 'HIGH' ? '1px solid rgba(249,115,22,0.25)' : viewingCase.riskLevel === 'MEDIUM' ? '1px solid rgba(234,179,8,0.25)' : viewingCase.riskLevel === 'LOW' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(133,133,133,0.25)'
            }}>
-             {viewingCase.riskLevel || 'N/A'} RISK
+             {viewingCase.riskLevel} RISK
            </span>
+           )}
            <button
              onClick={() => exportCaseAsPdf(viewingCase)}
              disabled={isGeneratingCaseReport}
