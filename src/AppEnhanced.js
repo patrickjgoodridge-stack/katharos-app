@@ -234,6 +234,7 @@ export default function Katharos() {
  const [docsTab, setDocsTab] = useState('privacy'); // 'privacy', 'terms', 'acceptable-use', 'security', 'dpa'
  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+ const [deleteCaseModal, setDeleteCaseModal] = useState(null); // caseId or null
  const [cases, setCases] = useState(() => {
    try {
      const stored = localStorage.getItem('marlowe_cases');
@@ -1490,22 +1491,26 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
  setCurrentPage('noirLanding');
  };
 
- // Delete a case (with confirmation guard)
+ // Delete a case — show custom modal
  const deleteCase = (caseId, e) => {
  if (e) e.stopPropagation();
- if (!window.confirm('Are you sure you want to delete this case? This cannot be undone.')) return;
+ setDeleteCaseModal(caseId);
+ };
+
+ const confirmDeleteCase = () => {
+ const caseId = deleteCaseModal;
+ if (!caseId) return;
  setCases(prev => prev.filter(c => c.id !== caseId));
- // Clear active case if it was deleted
  if (activeCase?.id === caseId) {
    setActiveCase(null);
    setCurrentCaseId(null);
    setCurrentPage('noirLanding');
  }
- // Also delete from Supabase if configured
  if (isSupabaseConfigured() && user) {
    deleteCaseFromDb(caseId).catch(console.error);
  }
  logAudit('case_deleted', { entityType: 'case', entityId: caseId });
+ setDeleteCaseModal(null);
  };
 
  // Start editing a case name
@@ -14857,6 +14862,32 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  )}
+
+{/* Delete Case Modal */}
+{deleteCaseModal && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setDeleteCaseModal(null)}>
+    <div style={{ background: '#1e1e1e', border: '1px solid #333', borderRadius: '12px', padding: '28px 32px', maxWidth: '400px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Delete Case</h3>
+      <p style={{ fontSize: '14px', color: '#999', margin: '0 0 24px', lineHeight: 1.5 }}>
+        Are you sure you want to delete this case? This cannot be undone.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+        <button
+          onClick={() => setDeleteCaseModal(null)}
+          style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 500, background: 'none', color: '#999', border: '1px solid #3a3a3a', borderRadius: '6px', cursor: 'pointer' }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmDeleteCase}
+          style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 {/* Usage Limit Modal */}
         <UsageLimitModal
