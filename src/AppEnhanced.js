@@ -3156,48 +3156,6 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  setFiles(prev => prev.filter(f => f.id !== id));
  };
 
- // Google Drive file picker handler
- const handleGoogleDrivePicker = () => {
- // Load Google Picker API
- const loadPicker = () => {
- const script = document.createElement('script');
- script.src = 'https://apis.google.com/js/api.js';
- script.onload = () => {
- window.gapi.load('picker', () => {
- createPicker();
- });
- };
- document.body.appendChild(script);
- };
-
- const createPicker = () => {
- // Note: In production, you'll need to set up Google Cloud project and get API credentials
- // For now, we'll show a simple file URL input as a placeholder
- const driveUrl = prompt('Enter Google Drive file sharing link:\n(In production, this will use Google Picker API)');
-
- if (driveUrl) {
- // Extract file ID from Drive URL
- const fileIdMatch = driveUrl.match(/[-\w]{25,}/);
- if (fileIdMatch) {
- const fileId = fileIdMatch[0];
- // In production, you would fetch the file here using Google Drive API
- alert(`File ID extracted: ${fileId}\n\nTo complete Google Drive integration:\n1. Set up Google Cloud project\n2. Enable Google Drive API\n3. Get OAuth 2.0 credentials\n4. Implement file download from Drive`);
- } else {
- alert('Invalid Google Drive link. Please use a valid sharing link.');
- }
- }
- };
-
- // Check if Google API is already loaded
- if (window.gapi) {
- window.gapi.load('picker', () => {
- createPicker();
- });
- } else {
- loadPicker();
- }
- };
-
  // Robust JSON repair function
  const repairJSON = (text) => {
  let str = text;
@@ -6563,476 +6521,6 @@ NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
 
  // OTHERWISE PROCEED WITH NORMAL INVESTIGATION ANALYSIS
 
- // Both Scout and Cipher now use the same investigation pipeline
- // Scout uses Sonnet, Cipher uses Opus
- if (false) { // Scout-specific pipeline disabled - uses unified pipeline below
- // SCOUT MODE: Multi-step screening pipeline (DISABLED)
- try {
- setAnalysisError(null);
-
- // Generate case name from context
- let displayCaseName = caseName;
- if (!displayCaseName) {
-   displayCaseName = generateCaseName(caseDescription, files);
- }
-
- // Initialize background analysis state for Scout
- setBackgroundAnalysis({
-   isRunning: true,
-   isComplete: false,
-   caseId: null,
-   caseName: displayCaseName,
-   currentStep: 'Initializing screening...',
-   stepNumber: 0,
-   totalSteps: 6,
-   progress: 0,
-   pendingAnalysis: null
- });
- setNotificationDismissed(false);
- setIsAnalyzing(false); // Hide full-screen loader, show progress card instead
-
- // Scout Pipeline Steps
- const scoutSteps = [
-   { name: 'Analyzing documents', progress: 15 },
-   { name: 'Extracting entities', progress: 30 },
-   { name: 'Screening sanctions', progress: 50 },
-   { name: 'Assessing risk levels', progress: 70 },
-   { name: 'Generating recommendations', progress: 85 },
-   { name: 'Compiling report', progress: 100 }
- ];
-
- const updateScoutProgress = (stepIndex) => {
-   setBackgroundAnalysis(prev => ({
-     ...prev,
-     currentStep: scoutSteps[stepIndex].name + '...',
-     stepNumber: stepIndex + 1,
-     totalSteps: scoutSteps.length,
-     progress: Math.round(scoutSteps[stepIndex].progress * 0.9)
-   }));
- };
-
- const evidenceContext = files.map((f, idx) => {
-   const truncatedContent = f.content.length > 5000
-     ? f.content.substring(0, 5000) + '\n\n[... content truncated ...]'
-     : f.content;
-   return `[DOCUMENT ${idx + 1}: "${f.name}"]\n${truncatedContent}\n[END DOCUMENT ${idx + 1}]`;
- }).join('\n\n');
-
- const jsonReminder = `
-
-CRITICAL: Return ONLY valid JSON. NO trailing commas. NO comments. Follow these rules:
-- Every array element except the last must be followed by a comma
-- The last element in an array must NOT have a trailing comma
-- All strings must use double quotes`;
-
- let scoutPipelineData = {};
-
- // SCOUT STEP 1: Document Analysis
- updateScoutProgress(0);
-
- const step1Prompt = `You are a KYC/AML document analyst. Analyze these documents and summarize what they contain.
-
-DOCUMENTS:
-${evidenceContext}
-
-For each document, identify:
-- Document type (bank statement, invoice, contract, email, corporate registry, etc.)
-- Key parties mentioned
-- Relevant dates and amounts
-- Any immediate red flags
-
-Respond with JSON:
-{
-  "documentAnalysis": [
-    {
-      "docId": 1,
-      "docName": "filename",
-      "type": "document type",
-      "keyParties": ["party1", "party2"],
-      "keyDates": ["date1"],
-      "keyAmounts": ["$X"],
-      "initialRedFlags": ["any immediate concerns"]
-    }
-  ]
-}${jsonReminder}`;
-
- const step1Response = await fetch(`${API_BASE}/api/messages`, {
-   method: "POST",
-   headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-     model: "claude-sonnet-4-20250514",
-     max_tokens: 4000,
-     messages: [{ role: "user", content: step1Prompt }]
-   })
- });
-
- if (!step1Response.ok) throw new Error(`Step 1 failed: ${step1Response.status}`);
- const step1Data = await step1Response.json();
- const step1Text = step1Data.content?.map(item => item.text || "").join("\n") || "";
- const step1Match = step1Text.match(/\{[\s\S]*\}/);
- if (step1Match) {
-   try {
-     scoutPipelineData.documentAnalysis = JSON.parse(step1Match[0]).documentAnalysis || [];
-   } catch (e) {
-     scoutPipelineData.documentAnalysis = [];
-   }
- }
-
- // SCOUT STEP 2: Entity Extraction
- updateScoutProgress(1);
-
- const step2Prompt = `You are an expert entity extraction specialist for KYC/AML screening.
-
-DOCUMENT ANALYSIS:
-${JSON.stringify(scoutPipelineData.documentAnalysis, null, 2)}
-
-FULL DOCUMENTS:
-${evidenceContext}
-
-Extract ALL named entities:
-- PERSON: Named individuals only (e.g., "John Smith", "Vladimir Putin")
-- ORGANIZATION: Named companies/entities (e.g., "Acme Corp", "Gazprom")
-
-DO NOT extract countries, industries, or generic terms.
-
-Respond with JSON:
-{
-  "entities": [
-    {
-      "id": "e1",
-      "name": "Entity Name",
-      "type": "PERSON|ORGANIZATION",
-      "role": "their role in the documents",
-      "mentions": ["Doc 1: context", "Doc 2: context"],
-      "initialRiskIndicators": ["any concerns"]
-    }
-  ]
-}${jsonReminder}`;
-
- const step2Response = await fetch(`${API_BASE}/api/messages`, {
-   method: "POST",
-   headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-     model: "claude-sonnet-4-20250514",
-     max_tokens: 6000,
-     messages: [{ role: "user", content: step2Prompt }]
-   })
- });
-
- if (!step2Response.ok) throw new Error(`Step 2 failed: ${step2Response.status}`);
- const step2Data = await step2Response.json();
- const step2Text = step2Data.content?.map(item => item.text || "").join("\n") || "";
- const step2Match = step2Text.match(/\{[\s\S]*\}/);
- if (step2Match) {
-   try {
-     scoutPipelineData.entities = JSON.parse(step2Match[0]).entities || [];
-   } catch (e) {
-     scoutPipelineData.entities = [];
-   }
- }
-
- // SCOUT STEP 3: Sanctions Screening
- updateScoutProgress(2);
-
- const step3Prompt = `You are a sanctions compliance expert with comprehensive knowledge of OFAC SDN, EU, UK, UN sanctions lists.
-
-HIGH-PROFILE SANCTIONED INDIVIDUALS AND THEIR CORPORATE OWNERSHIP:
-- OLEG DERIPASKA (SDN April 2018): Owns EN+ Group (48%), Rusal (48% indirect), Basic Element (100%)
-- ALISHER USMANOV (SDN March 2022): Owns USM Holdings (100%), Metalloinvest (49%), MegaFon (15.2%)
-- VIKTOR VEKSELBERG (SDN April 2018): Owns Renova Group (100%), Sulzer AG (63.4%), Columbus Nova (beneficial owner)
-- ROMAN ABRAMOVICH (EU/UK/Canada March 2022): Owns Evraz (28.6%), Millhouse Capital (100%), formerly Chelsea FC
-- GENNADY TIMCHENKO (SDN March 2014): Owns Volga Group (100%), Novatek (23.5%), Sibur (17%)
-- ARKADY & BORIS ROTENBERG (SDN March 2014): Own SMP Bank (37.5% each), SGM Group (100%), Stroygazmontazh (51%)
-- ALEXEI MORDASHOV (EU February 2022): Owns Severstal (77%), TUI AG (34%), Nordgold (90%)
-- VLADIMIR POTANIN (UK June 2022): Owns Norilsk Nickel (34.6%), Interros (100%), Rosa Khutor (50%)
-- VLADIMIR PUTIN (SANCTIONED - EU/UK/Canada/Australia/Japan/Switzerland Feb 2022, US EO 14024): President of Russia, state control over Gazprom (50%+), Rosneft (50%+), Sberbank (50%+), VTB Bank (60.9%), Transneft (100%) - CRITICAL RISK
-
-SANCTIONED ENTITIES: NIOC, IRGC, PDVSA, Rusal, EN+ Group, Gazprombank, Wagner Group, XPCC
-
-OFAC 50% RULE: Entity owned 50%+ aggregate by blocked persons is itself blocked.
-
-ENTITIES TO SCREEN:
-${JSON.stringify(scoutPipelineData.entities, null, 2)}
-
-For EACH entity, determine sanctions status. If a sanctioned person owns companies, add those companies to additionalEntities.
-
-Respond with JSON:
-{
-  "screeningResults": [
-    {
-      "entityId": "e1",
-      "sanctionStatus": "MATCH|POTENTIAL_MATCH|CLEAR",
-      "sanctionDetails": {
-        "lists": ["OFAC SDN", "EU"],
-        "listingDate": "2022-02-24",
-        "programs": ["RUSSIA"],
-        "reason": "brief reason"
-      },
-      "ownedCompanies": [
-        {"name": "Company A", "ownershipPercent": 51}
-      ]
-    }
-  ],
-  "additionalEntities": [
-    {
-      "id": "ae1",
-      "name": "Owned Company Name",
-      "type": "ORGANIZATION",
-      "role": "Owned by sanctioned individual",
-      "sanctionStatus": "BLOCKED_BY_50_PERCENT_RULE",
-      "beneficialOwner": "Sanctioned Person Name",
-      "ownershipPercent": 51
-    }
-  ]
-}${jsonReminder}`;
-
- const step3Response = await fetch(`${API_BASE}/api/messages`, {
-   method: "POST",
-   headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-     model: "claude-sonnet-4-20250514",
-     max_tokens: 6000,
-     messages: [{ role: "user", content: step3Prompt }]
-   })
- });
-
- if (!step3Response.ok) throw new Error(`Step 3 failed: ${step3Response.status}`);
- const step3Data = await step3Response.json();
- const step3Text = step3Data.content?.map(item => item.text || "").join("\n") || "";
- const step3Match = step3Text.match(/\{[\s\S]*\}/);
- if (step3Match) {
-   try {
-     const step3Parsed = JSON.parse(step3Match[0]);
-     scoutPipelineData.screeningResults = step3Parsed.screeningResults || [];
-     scoutPipelineData.additionalEntities = step3Parsed.additionalEntities || [];
-   } catch (e) {
-     scoutPipelineData.screeningResults = [];
-     scoutPipelineData.additionalEntities = [];
-   }
- }
-
- // SCOUT STEP 4: Risk Assessment
- updateScoutProgress(3);
-
- const step4Prompt = `You are a risk assessment specialist. Based on the entity extraction and sanctions screening results, assess the overall risk.
-
-ENTITIES:
-${JSON.stringify(scoutPipelineData.entities, null, 2)}
-
-SANCTIONS SCREENING RESULTS:
-${JSON.stringify(scoutPipelineData.screeningResults, null, 2)}
-
-ADDITIONAL ENTITIES (owned companies):
-${JSON.stringify(scoutPipelineData.additionalEntities, null, 2)}
-
-DOCUMENT ANALYSIS:
-${JSON.stringify(scoutPipelineData.documentAnalysis, null, 2)}
-
-For each entity, provide a comprehensive risk assessment. Identify any financial crime typologies present.
-
-Respond with JSON:
-{
-  "entityRiskAssessments": [
-    {
-      "entityId": "e1",
-      "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
-      "riskIndicators": ["indicator 1", "indicator 2"],
-      "riskRationale": "explanation of risk assessment"
-    }
-  ],
-  "typologies": [
-    {
-      "id": "t1",
-      "name": "Typology name",
-      "category": "SANCTIONS_EVASION|MONEY_LAUNDERING|FRAUD|OTHER",
-      "description": "description",
-      "riskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
-      "indicators": ["indicator 1"],
-      "redFlags": ["red flag 1"],
-      "involvedEntities": ["e1", "e2"]
-    }
-  ],
-  "overallRiskLevel": "LOW|MEDIUM|HIGH|CRITICAL",
-  "overallRiskRationale": "explanation"
-}${jsonReminder}`;
-
- const step4Response = await fetch(`${API_BASE}/api/messages`, {
-   method: "POST",
-   headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-     model: "claude-sonnet-4-20250514",
-     max_tokens: 6000,
-     messages: [{ role: "user", content: step4Prompt }]
-   })
- });
-
- if (!step4Response.ok) throw new Error(`Step 4 failed: ${step4Response.status}`);
- const step4Data = await step4Response.json();
- const step4Text = step4Data.content?.map(item => item.text || "").join("\n") || "";
- const step4Match = step4Text.match(/\{[\s\S]*\}/);
- if (step4Match) {
-   try {
-     const step4Parsed = JSON.parse(step4Match[0]);
-     scoutPipelineData.entityRiskAssessments = step4Parsed.entityRiskAssessments || [];
-     scoutPipelineData.typologies = step4Parsed.typologies || [];
-     scoutPipelineData.overallRiskLevel = step4Parsed.overallRiskLevel || 'N/A';
-     scoutPipelineData.overallRiskRationale = step4Parsed.overallRiskRationale || '';
-   } catch (e) {
-     scoutPipelineData.entityRiskAssessments = [];
-     scoutPipelineData.typologies = [];
-     scoutPipelineData.overallRiskLevel = 'N/A';
-   }
- }
-
- // SCOUT STEP 5: Generate Recommendations
- updateScoutProgress(4);
-
- const step5Prompt = `You are a compliance advisory specialist. Based on the screening results and risk assessment, provide actionable recommendations.
-
-OVERALL RISK: ${scoutPipelineData.overallRiskLevel}
-RISK RATIONALE: ${scoutPipelineData.overallRiskRationale}
-
-ENTITIES WITH RISK ASSESSMENTS:
-${JSON.stringify(scoutPipelineData.entityRiskAssessments, null, 2)}
-
-TYPOLOGIES IDENTIFIED:
-${JSON.stringify(scoutPipelineData.typologies, null, 2)}
-
-SANCTIONS HITS:
-${JSON.stringify(scoutPipelineData.screeningResults?.filter(r => r.sanctionStatus !== 'CLEAR'), null, 2)}
-
-Provide:
-1. Executive summary (2-3 sentences)
-2. Primary concerns (top 3-5)
-3. Recommended next steps with priority
-
-Respond with JSON:
-{
-  "executiveSummary": {
-    "overview": "2-3 sentence summary",
-    "primaryConcerns": ["concern 1", "concern 2", "concern 3"],
-    "recommendedActions": ["action 1", "action 2"]
-  },
-  "nextSteps": [
-    {
-      "priority": "HIGH|MEDIUM|LOW",
-      "action": "specific action",
-      "rationale": "why this is important"
-    }
-  ]
-}${jsonReminder}`;
-
- const step5Response = await fetch(`${API_BASE}/api/messages`, {
-   method: "POST",
-   headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-     model: "claude-sonnet-4-20250514",
-     max_tokens: 4000,
-     messages: [{ role: "user", content: step5Prompt }]
-   })
- });
-
- if (!step5Response.ok) throw new Error(`Step 5 failed: ${step5Response.status}`);
- const step5Data = await step5Response.json();
- const step5Text = step5Data.content?.map(item => item.text || "").join("\n") || "";
- const step5Match = step5Text.match(/\{[\s\S]*\}/);
- if (step5Match) {
-   try {
-     const step5Parsed = JSON.parse(step5Match[0]);
-     scoutPipelineData.executiveSummary = step5Parsed.executiveSummary || {};
-     scoutPipelineData.nextSteps = step5Parsed.nextSteps || [];
-   } catch (e) {
-     scoutPipelineData.executiveSummary = { overview: 'Analysis complete', primaryConcerns: [], recommendedActions: [] };
-     scoutPipelineData.nextSteps = [];
-   }
- }
-
- // SCOUT STEP 6: Compile Final Report
- updateScoutProgress(5);
-
- // Merge entities with their risk assessments and sanctions results
- const finalEntities = scoutPipelineData.entities.map(entity => {
-   const riskAssessment = scoutPipelineData.entityRiskAssessments?.find(r => r.entityId === entity.id) || {};
-   const sanctionResult = scoutPipelineData.screeningResults?.find(r => r.entityId === entity.id) || {};
-   return {
-     ...entity,
-     riskLevel: riskAssessment.riskLevel || entity.riskLevel || 'N/A',
-     riskIndicators: riskAssessment.riskIndicators || entity.initialRiskIndicators || [],
-     sanctionStatus: sanctionResult.sanctionStatus || 'CLEAR',
-     sanctionDetails: sanctionResult.sanctionDetails || null,
-     ownedCompanies: sanctionResult.ownedCompanies || [],
-     citations: entity.mentions || []
-   };
- });
-
- // Add additional entities (owned companies of sanctioned individuals)
- if (scoutPipelineData.additionalEntities?.length > 0) {
-   scoutPipelineData.additionalEntities.forEach(ae => {
-     finalEntities.push({
-       id: ae.id,
-       name: ae.name,
-       type: ae.type,
-       role: ae.role,
-       riskLevel: 'HIGH',
-       riskIndicators: [`Owned ${ae.ownershipPercent}% by ${ae.beneficialOwner}`, 'Subject to OFAC 50% Rule'],
-       sanctionStatus: ae.sanctionStatus,
-       citations: []
-     });
-   });
- }
-
- // Build final analysis object
- const finalAnalysis = {
-   executiveSummary: {
-     ...scoutPipelineData.executiveSummary,
-     riskLevel: scoutPipelineData.overallRiskLevel || 'N/A'
-   },
-   entities: finalEntities,
-   typologies: scoutPipelineData.typologies || [],
-   nextSteps: scoutPipelineData.nextSteps || []
- };
-
- // Auto-generate case name based on analysis - always re-evaluate for multi-entity
- const entityCount = finalAnalysis.entities?.length || 1;
- let finalCaseName = displayCaseName;
- if (entityCount > 1) {
-   // Multi-entity: always override with context-aware naming
-   finalCaseName = generateCaseName(caseDescription, files, entityCount);
- } else if (!caseName || caseName === '') {
-   const primaryEntity = finalAnalysis.entities?.[0]?.name || displayCaseName;
-   finalCaseName = primaryEntity;
- }
- const riskLevel = finalAnalysis.executiveSummary?.riskLevel || 'N/A';
- const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
- finalCaseName = `${finalCaseName} - ${riskLevel} - ${dateStr}`;
- setCaseName(finalCaseName);
-
- await new Promise(resolve => setTimeout(resolve, 300));
-
- // Complete - show "Results ready" popup and store pending analysis
- setBackgroundAnalysis(prev => ({
-   ...prev,
-   isRunning: false,
-   isComplete: true,
-   progress: 100,
-   currentStep: 'Screening complete',
-   caseName: finalCaseName,
-   pendingAnalysis: finalAnalysis
- }));
-
- // Save the case but don't navigate yet
- saveCase(finalAnalysis, finalCaseName);
-
- } catch (error) {
- console.error('Scout pipeline error:', error);
- setAnalysisError(`Scout screening error: ${error.message}`);
- setBackgroundAnalysis(prev => ({ ...prev, isRunning: false, isComplete: false }));
- } finally {
- setIsAnalyzing(false);
- }
- return;
- }
-
  // CIPHER MODE: Run analysis
  console.log('CIPHER MODE: Starting analysis');
 
@@ -8628,29 +8116,29 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
       // Horizontal rule
       if (/^---+\s*$/.test(line)) {
-        elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #333', margin: '20px 0' }} />);
+        elements.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid #333', margin: '12px 0' }} />);
         i++;
         continue;
       }
 
       // Headings
       if (line.startsWith('# ') && !line.startsWith('## ')) {
-        elements.push(<h1 key={key++} style={{ fontSize: '28px', fontWeight: 700, color: '#fff', margin: '24px 0 10px', lineHeight: 1.3 }}>{formatInline(line.slice(2))}</h1>);
+        elements.push(<h1 key={key++} style={{ fontSize: '28px', fontWeight: 700, color: '#fff', margin: '16px 0 6px', lineHeight: 1.3 }}>{formatInline(line.slice(2))}</h1>);
         i++;
         continue;
       }
       if (line.startsWith('## ') && !line.startsWith('### ')) {
-        elements.push(<h2 key={key++} style={{ fontSize: '22px', fontWeight: 600, color: '#fff', margin: '20px 0 8px', lineHeight: 1.3 }}>{formatInline(line.slice(3))}</h2>);
+        elements.push(<h2 key={key++} style={{ fontSize: '22px', fontWeight: 600, color: '#fff', margin: '12px 0 4px', lineHeight: 1.3 }}>{formatInline(line.slice(3))}</h2>);
         i++;
         continue;
       }
       if (line.startsWith('### ') && !line.startsWith('#### ')) {
-        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#fff', margin: '16px 0 6px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
+        elements.push(<h3 key={key++} style={{ fontSize: '17px', fontWeight: 600, color: '#fff', margin: '10px 0 3px', lineHeight: 1.4 }}>{formatInline(line.slice(4))}</h3>);
         i++;
         continue;
       }
       if (line.startsWith('#### ')) {
-        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: '14px 0 4px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
+        elements.push(<h4 key={key++} style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: '8px 0 2px', lineHeight: 1.4 }}>{formatInline(line.slice(5))}</h4>);
         i++;
         continue;
       }
@@ -8668,15 +8156,15 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         const dataRows = tableRows.filter((_, idx) => idx !== 1);
         const bodyRows = dataRows.slice(1);
         elements.push(
-          <div key={key++} style={{ overflowX: 'auto', margin: '10px 0' }}>
+          <div key={key++} style={{ overflowX: 'auto', margin: '4px 0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
-                <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #444', color: '#fff', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
+                <tr>{headerRow.map((cell, ci) => <th key={ci} style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #444', color: '#fff', fontWeight: 600, fontSize: '13px' }}>{formatInline(cell)}</th>)}</tr>
               </thead>
               <tbody>
                 {bodyRows.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: '1px solid #2a2a2a' }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: '10px 14px', color: '#fff', fontSize: '13px' }}>{formatInline(cell)}</td>)}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: '6px 10px', color: '#fff', fontSize: '13px' }}>{formatInline(cell)}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -8697,9 +8185,9 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           i++;
         }
         elements.push(
-          <ul key={key++} style={{ margin: '6px 0', paddingLeft: '24px', listStyle: 'none' }}>
+          <ul key={key++} style={{ margin: '2px 0', paddingLeft: '20px', listStyle: 'none' }}>
             {items.map((item, li) => (
-              <li key={li} style={{ padding: '4px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#fff', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
+              <li key={li} style={{ padding: '1px 0', color: item.isCheck ? '#22c55e' : item.isCross ? '#ef4444' : '#fff', fontSize: '14px', lineHeight: 1.6, position: 'relative', paddingLeft: '20px' }}>
                 <span style={{ position: 'absolute', left: 0 }}>{item.isCheck ? '✓' : item.isCross ? '✗' : '•'}</span>
                 {formatInline(item.text)}
               </li>
@@ -8717,7 +8205,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
           i++;
         }
         elements.push(
-          <ol key={key++} style={{ margin: '6px 0', paddingLeft: '24px', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>
+          <ol key={key++} style={{ margin: '2px 0', paddingLeft: '20px', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>
             {items.map((item, li) => <li key={li} style={{ padding: '2px 0' }}>{formatInline(item)}</li>)}
           </ol>
         );
@@ -8737,7 +8225,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
         i++;
       }
       if (paraLines.length > 0) {
-        elements.push(<p key={key++} style={{ margin: '6px 0', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>{formatInline(paraLines.join(' '))}</p>);
+        elements.push(<p key={key++} style={{ margin: '3px 0', color: '#fff', fontSize: '14px', lineHeight: 1.6 }}>{formatInline(paraLines.join(' '))}</p>);
       }
     }
     return elements;
@@ -13118,23 +12606,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Upload className="w-4 h-4 text-gray-500" />
  Upload from Computer
- </button>
- <button
- onClick={() => {
- handleGoogleDrivePicker();
- setShowUploadDropdown(false);
- }}
- className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
- >
- <svg className="w-4 h-4" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
- <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
- <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
- <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
- <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
- <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
- <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
- </svg>
- Import from Google Drive
  </button>
  </div>
  )}

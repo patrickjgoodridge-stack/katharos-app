@@ -464,15 +464,6 @@ const LandingPage = ({
 
       {/* Footer */}
       <footer className="text-center py-10" style={{ borderTop: '1px solid #3a3a3a' }}>
-        <button
-          onClick={() => setCurrentPage('disclosures')}
-          className="text-[12px] font-normal uppercase transition-colors bg-transparent border-none cursor-pointer mb-4"
-          style={{ color: '#ffffff', letterSpacing: '0.5px' }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#858585'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#ffffff'}
-        >
-          Disclosures
-        </button>
         <p className="text-[11px]" style={{ color: '#ffffff' }}>
           © 2026 Katharos Technologies, Inc. All Rights Reserved.
         </p>
