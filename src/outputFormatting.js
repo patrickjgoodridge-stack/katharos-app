@@ -486,7 +486,7 @@ Format responses like a professional intelligence terminal:
 `;
 
 
-export default {
+const outputFormatting = {
   OUTPUT_FORMATTING_PROMPT,
   SAR_FORMATTING_PROMPT,
   WALLET_SCREENING_PROMPT,
@@ -495,3 +495,5 @@ export default {
   FULL_FORMATTING_PROMPT,
   MINIMAL_FORMATTING_PROMPT,
 };
+
+export default outputFormatting;

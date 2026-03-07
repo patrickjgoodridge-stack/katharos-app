@@ -69,8 +69,8 @@ const extractNetworkData = (html) => {
     const linksMatch = html.match(/(?:const|let|var)\s+links\s*=\s*(\[[\s\S]*?\]);/);
     if (!nodesMatch || !linksMatch) return null;
     // Use Function constructor to safely evaluate the array literals
-    const nodes = new Function('return ' + nodesMatch[1])();
-    const links = new Function('return ' + linksMatch[1])();
+    const nodes = new Function('return ' + nodesMatch[1])(); // eslint-disable-line no-new-func
+    const links = new Function('return ' + linksMatch[1])(); // eslint-disable-line no-new-func
     if (!Array.isArray(nodes) || nodes.length === 0) return null;
     // Normalize node format for ChatNetworkGraph
     const normalizedNodes = nodes.map(n => ({
