@@ -8667,7 +8667,6 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
   const formatInline = (text) => {
     if (!text) return text;
     const parts = [];
-    let remaining = text;
     let k = 0;
     const regex = /(\*\*(.+?)\*\*)|(\[(.+?)\]\((.+?)\))/g;
     let lastIndex = 0;
