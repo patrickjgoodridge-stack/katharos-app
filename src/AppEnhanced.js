@@ -117,12 +117,13 @@ const extractNetworkData = (html) => {
         ...(n.role ? { role: n.role } : {}),
       },
     }));
+    const nodeIds = new Set(normalizedNodes.map(n => n.id));
     const normalizedLinks = links.map(l => ({
       source: l.source,
       target: l.target,
       type: l.type || 'related',
       label: l.label || l.relationship || '',
-    }));
+    })).filter(l => nodeIds.has(l.source) && nodeIds.has(l.target));
     return { nodes: normalizedNodes, links: normalizedLinks };
   } catch (e) {
     console.warn('[Katharos] Failed to extract network data from HTML:', e.message);

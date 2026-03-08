@@ -198,7 +198,11 @@ export function extractGraphData(analysis) {
     addLink(subj.id, 'jurisdiction_0', 'related', 'Jurisdiction');
   }
 
-  return { nodes, links };
+  // ─── 4. Filter out links referencing non-existent nodes ───
+  const validNodeIds = new Set(nodes.map(n => n.id));
+  const validLinks = links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
+
+  return { nodes, links: validLinks };
 }
 
 /**
@@ -437,7 +441,11 @@ export function buildGraphFromScreeningResult(result) {
     }
   });
 
-  return { nodes, links };
+  // Filter out links referencing non-existent nodes
+  const validIds = new Set(nodes.map(n => n.id));
+  const validLinks = links.filter(l => validIds.has(l.source) && validIds.has(l.target));
+
+  return { nodes, links: validLinks };
 }
 
 
@@ -549,6 +557,7 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
   useEffect(() => {
     if (!svgRef.current || graphData.nodes.length === 0) return;
 
+    try {
     const container = containerRef.current;
     const width = container ? container.clientWidth : 900;
     const height = isFullscreen ? window.innerHeight - 100 : 600;
@@ -585,9 +594,10 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
         .attr('fill', color);
     });
 
-    // Deep clone data
+    // Deep clone data and filter out links referencing non-existent nodes
     const nodes = graphData.nodes.map(d => ({ ...d, _connections: connectionCounts[d.id] || 0 }));
-    const links = graphData.links.map(d => ({ ...d }));
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const links = graphData.links.filter(d => nodeIds.has(d.source) && nodeIds.has(d.target)).map(d => ({ ...d }));
     nodesRef.current = nodes;
     linksRef.current = links;
 
@@ -795,6 +805,9 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
     svgRef.current._zoomBehavior = zoomBehavior;
 
     return () => simulation.stop();
+    } catch (err) {
+      console.error('Network graph render error:', err);
+    }
   }, [graphData, connectionCounts, isFullscreen, showLabels, onNodeClick]);
 
   // Toggle labels
