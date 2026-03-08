@@ -4373,7 +4373,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    // Set per-case streaming state
    setCaseStreamingState(caseId, { isStreaming: true, streamingText: '' });
    setActiveAnalysisCount(prev => prev + 1);
-   countdownTotalRef.current = 45; setScreeningCountdown(45); screeningStartRef.current = Date.now();
+   activeIntentRef.current = 'PENDING'; screeningStartRef.current = Date.now();
    // Keep legacy global state for compatibility
    setIsStreaming(true);
    setStreamingText('');
@@ -4541,6 +4541,9 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
    console.log(`[Katharos] Intent: ${classifiedIntent} | Follow-up: ${hasExistingResults} | Input: "${trimmed.substring(0, 60)}"`);
    activeIntentRef.current = classifiedIntent;
+   if (classifiedIntent === 'SCREEN') {
+     countdownTotalRef.current = 45; setScreeningCountdown(45);
+   }
 
    // Extract screening target — only for SCREEN intent
    let queryToScreen = null;
