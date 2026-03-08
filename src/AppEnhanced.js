@@ -14,7 +14,7 @@ import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } 
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
 import InlineChatGraph from './InlineChatGraph';
-import ChatNetworkGraph from './ChatNetworkGraph';
+import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
 import LandingPage from './LandingPage';
 import ProductPage from './ProductPage';
@@ -12394,7 +12394,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
-       return <ChatNetworkGraph key={ai} graphData={netData} />;
+       return <GraphErrorBoundary key={ai}><ChatNetworkGraph graphData={netData} /></GraphErrorBoundary>;
      }
    }
    return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
@@ -14172,7 +14172,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
-       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><ChatNetworkGraph graphData={netData} /></div>;
+       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><GraphErrorBoundary><ChatNetworkGraph graphData={netData} /></GraphErrorBoundary></div>;
      }
    }
    return (
@@ -14308,7 +14308,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
-       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><ChatNetworkGraph graphData={netData} /></div>;
+       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><GraphErrorBoundary><ChatNetworkGraph graphData={netData} /></GraphErrorBoundary></div>;
      }
    }
    return (

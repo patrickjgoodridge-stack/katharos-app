@@ -1,7 +1,35 @@
 // ChatNetworkGraph.js — Interactive D3 force-directed network graph for entity relationships
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, Component } from 'react';
 import * as d3 from 'd3';
 import { X, Download, Maximize2, Minimize2, Tag, EyeOff, RotateCcw, ArrowLeft } from 'lucide-react';
+
+// Error boundary to prevent graph errors from crashing the entire app
+export class GraphErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err) {
+    console.error('Network graph error caught by boundary:', err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', background: '#0a0a0a', color: '#6b6b6b', fontSize: '14px', borderRadius: '12px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.4 }}>{'\u26A0\uFE0F'}</div>
+            <div style={{ fontWeight: 600, color: '#a1a1a1', marginBottom: '4px' }}>Graph rendering error</div>
+            <div>The network data could not be displayed</div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── Node type colors ───
 const NODE_COLORS = {
@@ -463,7 +491,18 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
 
   // Build graph from: external pre-built data > full analysis object > entities/relationships props > subject fallback
   const graphData = React.useMemo(() => {
-    if (externalData?.nodes?.length) return externalData;
+    if (externalData?.nodes?.length) {
+      // Filter out links referencing non-existent nodes (saved data may have stale refs)
+      const ids = new Set(externalData.nodes.map(n => n.id));
+      return {
+        nodes: externalData.nodes,
+        links: (externalData.links || []).filter(l => {
+          const sid = typeof l.source === 'object' ? l.source?.id : l.source;
+          const tid = typeof l.target === 'object' ? l.target?.id : l.target;
+          return ids.has(sid) && ids.has(tid);
+        }),
+      };
+    }
     // Extract from full analysis object (has entities, relationships, etc.)
     if (analysis) {
       const extracted = extractGraphData(analysis);
@@ -597,7 +636,11 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
     // Deep clone data and filter out links referencing non-existent nodes
     const nodes = graphData.nodes.map(d => ({ ...d, _connections: connectionCounts[d.id] || 0 }));
     const nodeIds = new Set(nodes.map(n => n.id));
-    const links = graphData.links.filter(d => nodeIds.has(d.source) && nodeIds.has(d.target)).map(d => ({ ...d }));
+    const links = graphData.links.filter(d => {
+      const sid = typeof d.source === 'object' ? d.source?.id : d.source;
+      const tid = typeof d.target === 'object' ? d.target?.id : d.target;
+      return nodeIds.has(sid) && nodeIds.has(tid);
+    }).map(d => ({ ...d }));
     nodesRef.current = nodes;
     linksRef.current = links;
 
