@@ -1477,6 +1477,16 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      /(?:summarize|summary)\s+(?:entity\s+)?(?:risks?|risk\s+(?:of|for))\s+(?:of\s+|for\s+)?(.+)/i,
      // "map ownership X", "map ownership of X"
      /(?:map|show|display)\s+(?:the\s+)?ownership\s+(?:structure\s+)?(?:of\s+|for\s+)?(.+)/i,
+     // "make/create/build a [anything] of/for X" — catches "make a corporate network map of EN+ Group"
+     /(?:create|make|generate|build|draw|produce|prepare|design|draft)\s+(?:a\s+|an\s+)?[\w\s]+?(?:\bof\b|\bfor\b|\babout\b|\bon\b)\s+(.+)/i,
+     // "show/display/visualize the [anything] of/for X"
+     /(?:show|display|visualize|illustrate|render|present|graph|chart)\s+(?:the\s+|a\s+)?[\w\s]+?(?:\bof\b|\bfor\b|\babout\b|\bon\b)\s+(.+)/i,
+     // "what/which [things] exist/operate in X"
+     /(?:exist|operate|reside|located?|work|active)\s+(?:in|at|within)\s+(.+)/i,
+     // "compare X and Y" / "compare X vs Y"
+     /(?:compare|contrast|diff)\s+(.+)/i,
+     // "how is X connected to Y" — take full phrase as name
+     /(?:how\s+is|how\s+are|what\s+connects?)\s+(.+)/i,
    ];
 
    for (const pattern of prefixPatterns) {
