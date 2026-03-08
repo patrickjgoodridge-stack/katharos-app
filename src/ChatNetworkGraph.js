@@ -492,15 +492,15 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
   // Build graph from: external pre-built data > full analysis object > entities/relationships props > subject fallback
   const graphData = React.useMemo(() => {
     if (externalData?.nodes?.length) {
-      // Filter out links referencing non-existent nodes (saved data may have stale refs)
+      // Normalize source/target to string IDs and filter out invalid links
       const ids = new Set(externalData.nodes.map(n => n.id));
       return {
         nodes: externalData.nodes,
-        links: (externalData.links || []).filter(l => {
-          const sid = typeof l.source === 'object' ? l.source?.id : l.source;
-          const tid = typeof l.target === 'object' ? l.target?.id : l.target;
-          return ids.has(sid) && ids.has(tid);
-        }),
+        links: (externalData.links || []).map(l => ({
+          ...l,
+          source: typeof l.source === 'object' ? l.source?.id : l.source,
+          target: typeof l.target === 'object' ? l.target?.id : l.target,
+        })).filter(l => ids.has(l.source) && ids.has(l.target)),
       };
     }
     // Extract from full analysis object (has entities, relationships, etc.)
@@ -633,14 +633,15 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
         .attr('fill', color);
     });
 
-    // Deep clone data and filter out links referencing non-existent nodes
+    // Deep clone data, normalize source/target back to string IDs (D3 mutates them to objects),
+    // and filter out links referencing non-existent nodes
     const nodes = graphData.nodes.map(d => ({ ...d, _connections: connectionCounts[d.id] || 0 }));
     const nodeIds = new Set(nodes.map(n => n.id));
-    const links = graphData.links.filter(d => {
-      const sid = typeof d.source === 'object' ? d.source?.id : d.source;
-      const tid = typeof d.target === 'object' ? d.target?.id : d.target;
-      return nodeIds.has(sid) && nodeIds.has(tid);
-    }).map(d => ({ ...d }));
+    const links = graphData.links.map(d => ({
+      ...d,
+      source: typeof d.source === 'object' ? d.source?.id : d.source,
+      target: typeof d.target === 'object' ? d.target?.id : d.target,
+    })).filter(d => nodeIds.has(d.source) && nodeIds.has(d.target));
     nodesRef.current = nodes;
     linksRef.current = links;
 
