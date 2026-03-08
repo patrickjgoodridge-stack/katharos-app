@@ -59,23 +59,58 @@ const parseVizData = (content) => { // eslint-disable-line no-unused-vars
   return null;
 };
 
+// Extract a JS array from code using balanced bracket matching
+const extractJsArray = (code, varName) => {
+  // Try multiple patterns: "const nodes = [", "let nodes=[", "nodes = [", etc.
+  const pattern = new RegExp(`(?:const|let|var)?\\s*(?:${varName})\\s*=\\s*\\[`);
+  const match = code.match(pattern);
+  if (!match) return null;
+  // Find the opening bracket
+  const startIdx = code.indexOf('[', match.index);
+  if (startIdx === -1) return null;
+  // Walk forward with balanced bracket counting
+  let depth = 0;
+  for (let i = startIdx; i < code.length; i++) {
+    if (code[i] === '[') depth++;
+    else if (code[i] === ']') {
+      depth--;
+      if (depth === 0) {
+        const arrayStr = code.substring(startIdx, i + 1);
+        try {
+          return new Function('return ' + arrayStr)(); // eslint-disable-line no-new-func
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+};
+
 // Extract nodes/links from AI-generated networkgraph HTML
 const extractNetworkData = (html) => {
   if (!html) return null;
   try {
-    // Match JS array literals: const/let/var nodes = [...] and links = [...]
-    const nodesMatch = html.match(/(?:const|let|var)\s+nodes\s*=\s*(\[[\s\S]*?\]);/);
-    const linksMatch = html.match(/(?:const|let|var)\s+links\s*=\s*(\[[\s\S]*?\]);/);
-    if (!nodesMatch || !linksMatch) return null;
-    // Use Function constructor to safely evaluate the array literals
-    const nodes = new Function('return ' + nodesMatch[1])(); // eslint-disable-line no-new-func
-    const links = new Function('return ' + linksMatch[1])(); // eslint-disable-line no-new-func
+    // Extract JS from script tags, or use full HTML as fallback
+    const scripts = [];
+    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    let m;
+    while ((m = scriptRegex.exec(html)) !== null) scripts.push(m[1]);
+    const jsCode = scripts.length > 0 ? scripts.join('\n') : html;
+
+    // Extract nodes array (try "nodes", "graphNodes", "nodeData")
+    const nodes = extractJsArray(jsCode, 'nodes|graphNodes|nodeData');
+    // Extract links array (try "links", "edges", "graphLinks", "connections")
+    const links = extractJsArray(jsCode, 'links|edges|graphLinks|connections');
+
     if (!Array.isArray(nodes) || nodes.length === 0) return null;
+    if (!Array.isArray(links)) return null;
+
     // Normalize node format for ChatNetworkGraph
     const normalizedNodes = nodes.map(n => ({
-      id: n.id || n.name,
+      id: n.id || n.name || n.label,
       name: n.name || n.label || n.id,
-      type: n.type || 'entity',
+      type: n.type || n.group || 'entity',
       metadata: {
         ...(n.status && n.status !== 'clear' ? { status: n.status } : {}),
         ...(n.jurisdiction ? { jurisdiction: n.jurisdiction } : {}),
@@ -14119,11 +14154,19 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <p className="text-sm whitespace-pre-wrap">{stripVizData(msg.content)}</p>
  </div>
- {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => (
-   <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
-     <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
-   </div>
- ))}
+ {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+   if (artifact.type === 'network') {
+     const netData = extractNetworkData(artifact.html);
+     if (netData && netData.nodes.length > 0) {
+       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><ChatNetworkGraph graphData={netData} /></div>;
+     }
+   }
+   return (
+     <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
+       <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
+     </div>
+   );
+ })}
  </div>
  ))}
 
@@ -14247,11 +14290,19 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <p className="text-sm whitespace-pre-wrap">{stripVizData(msg.content)}</p>
  </div>
- {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => (
-   <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
-     <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
-   </div>
- ))}
+ {msg.role === 'assistant' && parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+   if (artifact.type === 'network') {
+     const netData = extractNetworkData(artifact.html);
+     if (netData && netData.nodes.length > 0) {
+       return <div key={ai} style={{ width: '100%', marginTop: '8px' }}><ChatNetworkGraph graphData={netData} /></div>;
+     }
+   }
+   return (
+     <div key={ai} style={{ width: '100%', marginTop: '8px' }}>
+       <InlineChatGraph html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />
+     </div>
+   );
+ })}
  </div>
  ))}
 
