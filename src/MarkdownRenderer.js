@@ -263,10 +263,9 @@ const CustomListItem = ({ children, ordered, index }) => {
 
   return (
     <li
-      style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', padding: '8px', marginLeft: '-8px', borderRadius: '4px' }}
+      style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', padding: '6px 0', borderRadius: '4px' }}
       onClick={handleClick}
     >
-      <span style={{ fontSize: '12px', marginTop: '6px', color: '#6b6b6b' }}>•</span>
       <span style={{ flex: 1, fontSize: '15px', color: '#d4d4d4', lineHeight: 1.6, fontWeight: 300 }}>{children}</span>
     </li>
   );
@@ -488,6 +487,17 @@ const preprocessMarkdown = (content) => {
     return true;
   });
   processed = uniqueParagraphs.join('\n\n');
+
+  // Strip source tags like [INTERNAL], [RAG], [OSINT] — including bold-wrapped variants
+  // Handles: [OSINT], **[OSINT]**, — [OSINT], — **[OSINT]**, "Excellent intelligence haul — [OSINT]"
+  processed = processed.replace(/\s*(?:—\s*)?(?:\*\*)?(?:\[(?:INTERNAL|RAG|OSINT)\])(?:\*\*)?\s*/gi, ' ');
+  // Also catch lines that are ONLY a tag (possibly with dashes/bold)
+  processed = processed.replace(/^\s*(?:—\s*)?(?:\*\*)?(?:\[(?:INTERNAL|RAG|OSINT)\])(?:\*\*)?\s*$/gm, '');
+
+  // Fix bold markers split across lines: "**\nSome text\n**" → "**Some text**"
+  processed = processed.replace(/\*\*\s*\n\s*([^\n*]+)\s*\n\s*\*\*/g, '**$1**');
+  // Fix orphaned bold markers on their own line
+  processed = processed.replace(/^\s*\*\*\s*$/gm, '');
 
   // Ensure headers have proper spacing
   processed = processed.replace(/^(#{1,6})\s*([^\n]+)/gm, '\n$1 $2');

@@ -1463,10 +1463,21 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
    if (!description) return null;
    const desc = String(description).trim();
 
+   // Title-case helper
+   const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
+
    // First, try to extract entity AFTER common prefixes (for question-style inputs)
    const prefixPatterns = [
+     // "What are the primary X of/for Y?" — extract the noun topic (prefer Y subject when present)
+     /(?:what\s+are|what's|what\s+is)\s+(?:the\s+)?(?:primary\s+|main\s+|key\s+|top\s+|major\s+|common\s+|best\s+)?(.+?)(?:\s+(?:of|for|in|about|behind|involving)\s+(.+?))?[?.!]*$/i,
+     // "Walk me through X" / "Help me understand X"
+     /(?:walk me through|help me understand|explain to me|teach me about|brief me on|give me an overview of)\s+(?:a\s+few\s+|some\s+)?(.+)/i,
      // "Tell me about X", "What about X"
      /(?:tell me about|what about|info on|information on|look up|lookup)\s+(.+)/i,
+     // "Tell me all the [things] [Name] [verb]" — strip prefix + generic noun, keep subject
+     /(?:tell me|find me|show me|give me|list|get me)\s+(?:all\s+)?(?:the\s+)?(?:companies|entities|organizations?|people|individuals|firms|subsidiaries|associates?|accounts?|transactions?|connections?)\s+(.+?)\s+(?:is|are|has|have|was|were|owns?|controls?|operates?|involved)\b/i,
+     // "Find me the top [things] operating/working in X"
+     /(?:tell me|find me|show me|give me|list|get me)\s+(?:all\s+)?(?:the\s+)?(?:top\s+\d*\s*)?(.+?)(?:\s+operating|\s+working|\s+active|\s+based|\s+involved|\s+connected)(?:\s+in|\s+at|\s+with|\s+to)?\s*(.*)/i,
      // "risks of investing in X", "risks of X", "risk of X"
      /risks?\s+(?:of\s+)?(?:investing\s+in\s+|onboarding\s+|dealing\s+with\s+|working\s+with\s+)?(.+)/i,
      // "screen X", "check X", "analyze X"
@@ -1493,17 +1504,26 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      /(?:compare|contrast|diff)\s+(.+)/i,
      // "how is X connected to Y" — take full phrase as name
      /(?:how\s+is|how\s+are|what\s+connects?)\s+(.+)/i,
+     // "Do a [something] for me" / "Run a [something] for me"
+     /(?:do|run|perform|conduct|execute|start)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\s+me|\s+please|\s+now)?$/i,
    ];
 
    for (const pattern of prefixPatterns) {
      const match = desc.match(pattern);
      if (match && match[1]) {
-       let extracted = match[1].trim();
+       // For "What are X of Y?" pattern — prefer Y (the subject) when present
+       let extracted = (match[2] && match[2].trim().length >= 2) ? match[2].trim() : match[1].trim();
        // Clean up trailing phrases and punctuation
        extracted = extracted.replace(/\s+(who|which|that|is\s+a|is\s+an|is\s+the|\(|,).*$/i, '').trim();
        extracted = extracted.replace(/[?.!]+$/, '').trim();
+       // Strip trailing prepositions left dangling
+       // Strip trailing "for me", "please", dangling prepositions
+       extracted = extracted.replace(/\s+(?:for\s+me|please|now)$/i, '').trim();
+       extracted = extracted.replace(/\s+(?:in|on|at|of|for|to|with|from|about|by)$/i, '').trim();
+       // Strip leading articles/fillers
+       extracted = extracted.replace(/^(?:a\s+few\s+|some\s+|a\s+|an\s+|the\s+)/i, '').trim();
        if (extracted.length >= 2 && extracted.length <= 60) {
-         return extracted;
+         return titleCase(extracted);
        }
      }
    }
@@ -1519,14 +1539,21 @@ if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpa
      }
    }
 
-   // Clean up common prefixes and limit length
-   entityName = entityName.replace(/^(screen|check|analyze|investigate|review|tell\s+me\s+about|what\s+is|who\s+is|tell\s+me\s+the)\s+/i, '').trim();
+   // Clean up common prefixes — aggressively strip imperative/question phrasing
+   entityName = entityName.replace(/^(?:please\s+)?(?:can you\s+|could you\s+|would you\s+)?(?:help me\s+)?(?:do|run|perform|conduct|execute|start|find|tell|show|give|get|list|make|create|generate|build|draw|produce|prepare|design|draft|screen|check|analyze|investigate|review|assess|evaluate|search|look up|lookup|explain|describe|summarize|map|display|visualize|walk)\s+/i, '').trim();
+   // Strip leading filler: "me", "a/an/the", "all", "for me", "about", "through", etc.
+   entityName = entityName.replace(/^(?:me\s+)?(?:through\s+)?(?:a\s+|an\s+|the\s+)?(?:all\s+(?:the\s+)?)?/i, '').trim();
+   // Strip leading generic nouns when followed by a proper name (e.g. "companies Vladimir Putin" → "Vladimir Putin")
+   entityName = entityName.replace(/^(?:companies|entities|organizations?|people|individuals|firms|subsidiaries|associates?|accounts?|transactions?|connections?|risks?|methods?|cases?|practices?|flags?)\s+(?=[A-Z])/i, '').trim();
+   // Strip trailing "for me", "please", dangling prepositions
+   entityName = entityName.replace(/\s+(?:for\s+me|please|now)$/i, '').trim();
+   entityName = entityName.replace(/\s+(?:in|on|at|of|for|to|with|from|about|by)$/i, '').trim();
    entityName = entityName.replace(/[?.!]+$/, '').trim();
    if (entityName.length > 50) {
      entityName = entityName.substring(0, 50).replace(/\s+\S*$/, '');
    }
 
-   return entityName || desc.substring(0, 50);
+   return titleCase(entityName) || desc.substring(0, 50);
  };
 
  // Generate smart case name based on context (files, entity count, description)
@@ -12745,53 +12772,50 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="max-w-2xl">
  {/* Agent tool cards — show during agent mode streaming */}
  {agentMode && agentToolCards.length > 0 && (
-   <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+   <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
      {agentToolCards.map(tc => (
        <div key={tc.tool_use_id} style={{
-         padding: '10px 14px', borderRadius: '8px',
-         background: tc.status === 'running' ? '#1a1f2e' : tc.status === 'error' ? '#2d1a1a' : '#1a2d1a',
-         border: `1px solid ${tc.status === 'running' ? '#2a3a5c' : tc.status === 'error' ? '#5c2a2a' : '#2a5c2a'}`,
-         fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px',
+         padding: '4px 0',
+         fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px',
        }}>
          {tc.status === 'running' ? (
-           <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#7eb8e0', flexShrink: 0 }} />
+           <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: '#858585', flexShrink: 0 }} />
          ) : tc.status === 'error' ? (
-           <XCircle className="w-4 h-4" style={{ color: '#ef4444', flexShrink: 0 }} />
+           <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444', flexShrink: 0 }} />
          ) : (
-           <CheckCircle2 className="w-4 h-4" style={{ color: '#22c55e', flexShrink: 0 }} />
+           <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#858585', flexShrink: 0 }} />
          )}
-         <div style={{ flex: 1 }}>
-           <div style={{ fontWeight: 600, color: '#d4d4d4' }}>
-             {tc.name === 'screen_entity' ? `Screening ${tc.input?.name || ''}` :
-              tc.name === 'search_sanctions' ? `Checking sanctions: ${tc.input?.name || ''}` :
-              tc.name === 'search_adverse_media' ? `Searching adverse media: ${tc.input?.name || ''}` :
-              tc.name === 'search_corporate_records' ? `Looking up corporate records: ${tc.input?.name || ''}` :
-              tc.name === 'search_court_records' ? `Searching court records: ${tc.input?.name || ''}` :
-              tc.name === 'knowledge_base_search' ? `Searching knowledge base` :
-              tc.name === 'web_search' ? `Searching the web` :
-              tc.name === 'trace_ownership' ? `Tracing ownership: ${tc.input?.name || ''}` :
-              tc.name === 'find_precedents' ? `Finding precedents: ${tc.input?.name || ''}` :
-              tc.name === 'get_related_entities' ? `Checking entity graph: ${tc.input?.name || ''}` :
-              tc.name}
-           </div>
-           {tc.summary && <div style={{ color: '#858585', marginTop: '2px' }}>{tc.summary}</div>}
-         </div>
+         <span style={{ color: '#858585' }}>
+           {tc.name === 'screen_entity' ? `Screened ${tc.input?.name || ''}` :
+            tc.name === 'search_sanctions' ? `Checked sanctions: ${tc.input?.name || ''}` :
+            tc.name === 'search_adverse_media' ? `Searched adverse media: ${tc.input?.name || ''}` :
+            tc.name === 'search_corporate_records' ? `Looked up corporate records: ${tc.input?.name || ''}` :
+            tc.name === 'search_court_records' ? `Searched court records: ${tc.input?.name || ''}` :
+            tc.name === 'knowledge_base_search' ? `Searched knowledge base` :
+            tc.name === 'web_search' ? `Searched the web` :
+            tc.name === 'trace_ownership' ? `Traced ownership: ${tc.input?.name || ''}` :
+            tc.name === 'find_precedents' ? `Found precedents: ${tc.input?.name || ''}` :
+            tc.name === 'get_related_entities' ? `Checked entity graph: ${tc.input?.name || ''}` :
+            tc.name}
+           {tc.summary ? ` — ${tc.summary}` : ''}
+         </span>
        </div>
      ))}
    </div>
  )}
- {/* Agent mode: hide intermediate narration, show typing indicator */}
- {/* Non-agent mode: show progress bar or streaming markdown as before */}
- {agentMode ? (
-   <div style={{ padding: '12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
-   </div>
- ) : !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
-   <div className="py-3">
-     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
-   </div>
+ {/* Show streaming narration for both agent and non-agent mode */}
+ {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
+   agentMode ? (
+     <div style={{ padding: '12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+     </div>
+   ) : (
+     <div className="py-3">
+       <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
+     </div>
+   )
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
  )}
@@ -12804,7 +12828,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    <div className="flex justify-center" style={{ marginBottom: '16px' }}>
      <div style={{
        maxWidth: '672px', width: '100%', padding: '16px 20px', borderRadius: '12px',
-       background: '#1a1f2e', border: '1px solid #2a3a5c',
+       background: '#242424', border: '1px solid #3a3a3a',
      }}>
        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
          <UserSearch style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
@@ -12823,7 +12847,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
                }
              }} style={{
                padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
-               background: '#2a3a5c', color: '#7eb8e0', border: '1px solid #3a4a6c', cursor: 'pointer',
+               background: '#2d2d2d', color: '#d4d4d4', border: '1px solid #4a4a4a', cursor: 'pointer',
              }}>{opt}</button>
            ))}
          </div>
@@ -12840,7 +12864,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
            placeholder="Type your answer..."
            style={{
              flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '13px',
-             background: '#111827', color: '#ffffff', border: '1px solid #2a3a5c', outline: 'none',
+             background: '#1a1a1a', color: '#ffffff', border: '1px solid #3a3a3a', outline: 'none',
              fontFamily: "'Inter', -apple-system, sans-serif",
            }}
          />
