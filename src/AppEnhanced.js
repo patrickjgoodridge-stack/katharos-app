@@ -506,6 +506,11 @@ export default function Katharos() {
      return newMap;
    });
  }, []);
+ const [agentMode, setAgentMode] = useState(false);
+ const [agentToolCards, setAgentToolCards] = useState([]); // { tool_use_id, name, input, status, summary }
+ const [agentQuestion, setAgentQuestion] = useState(null); // { question, options, checkpoint_data, tool_use_id, conversationState, pendingContent }
+ const [agentQuestionInput, setAgentQuestionInput] = useState('');
+ const agentConversationStateRef = useRef(null); // Stores conversation state for resume
  const [conversationStarted, setConversationStarted] = useState(false); // Input centered until first message
  const [sidebarOpen, setSidebarOpen] = useState(true); // eslint-disable-line no-unused-vars
  const conversationEndRef = useRef(null);
@@ -4318,6 +4323,184 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
  }
 
  return parsed;
+ };
+
+ // ═══════════════════════════════════════════════════════════════
+ // AGENT MODE — Autonomous compliance analyst with tool execution
+ // ═══════════════════════════════════════════════════════════════
+ const handleAgentMessage = async (caseId, userMessage, attachedFiles = [], resumeState = null) => {
+   if (!userMessage.trim() && !resumeState) return;
+   if (!caseId) return;
+
+   // Prevent concurrent sends
+   if (sendingLockRef.current.has(caseId)) return;
+   sendingLockRef.current.add(caseId);
+
+   // Check usage limits
+   if (!canScreen()) { setShowUsageLimitModal(true); sendingLockRef.current.delete(caseId); return; }
+   incrementScreening();
+
+   // Clear agent question state if resuming
+   setAgentQuestion(null);
+   setAgentQuestionInput('');
+   setAgentToolCards([]);
+
+   // Build messages for the API
+   let apiMessages;
+   if (resumeState) {
+     // Resuming after user answered a question
+     const { conversationState, pendingContent, tool_use_id } = resumeState;
+     apiMessages = [
+       ...conversationState,
+       { role: 'assistant', content: pendingContent },
+       { role: 'user', content: [{ type: 'tool_result', tool_use_id, content: userMessage }] }
+     ];
+   } else {
+     // Fresh message — build from case transcript
+     const existingCase = cases.find(c => c.id === caseId);
+     const priorMessages = (existingCase?.conversationTranscript || [])
+       .filter(m => m.role === 'user' || m.role === 'assistant')
+       .map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }));
+
+     // Add user message to transcript
+     const newUserMessage = { role: 'user', content: userMessage, files: attachedFiles.map(f => f.name), timestamp: new Date().toISOString(), isAgent: true };
+     setCases(prev => prev.map(c => {
+       if (c.id !== caseId) return c;
+       const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), newUserMessage] };
+       if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+       return updated;
+     }));
+     setConversationMessages(prev => [...prev, newUserMessage]);
+     setConversationInput('');
+     setFiles([]);
+
+     apiMessages = [...priorMessages, { role: 'user', content: userMessage }];
+   }
+
+   // Set streaming state
+   setCaseStreamingState(caseId, { isStreaming: true, streamingText: '' });
+   setActiveAnalysisCount(prev => prev + 1);
+
+   const abortController = new AbortController();
+   conversationAbortRef.current = abortController;
+
+   try {
+     const existingCase = cases.find(c => c.id === caseId);
+     const response = await fetch(`${API_BASE}/api/agent`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         messages: apiMessages,
+         caseContext: { name: existingCase?.name, subject: existingCase?.name, type: 'investigation' }
+       }),
+       signal: abortController.signal,
+     });
+
+     if (!response.ok) {
+       const errText = await response.text();
+       throw new Error(`Agent API error: ${errText}`);
+     }
+
+     const reader = response.body.getReader();
+     const decoder = new TextDecoder();
+     let fullText = '';
+     let buffer = '';
+
+     while (true) {
+       const { done, value } = await reader.read();
+       if (done) break;
+       buffer += decoder.decode(value, { stream: true });
+
+       const lines = buffer.split('\n');
+       buffer = lines.pop() || '';
+
+       for (const line of lines) {
+         if (!line.startsWith('data: ')) continue;
+         const raw = line.slice(6);
+         if (raw === '[DONE]') continue;
+
+         try {
+           const evt = JSON.parse(raw);
+
+           switch (evt.type) {
+             case 'agent_text':
+               fullText += evt.text;
+               setCaseStreamingState(caseId, { isStreaming: true, streamingText: fullText });
+               break;
+
+             case 'agent_tool_call':
+               setAgentToolCards(prev => [...prev, {
+                 tool_use_id: evt.tool_use_id,
+                 name: evt.name,
+                 input: evt.input,
+                 status: 'running',
+                 summary: null,
+               }]);
+               break;
+
+             case 'agent_tool_result':
+               setAgentToolCards(prev => prev.map(tc =>
+                 tc.tool_use_id === evt.tool_use_id
+                   ? { ...tc, status: evt.error ? 'error' : 'done', summary: evt.summary }
+                   : tc
+               ));
+               break;
+
+             case 'agent_question':
+               agentConversationStateRef.current = {
+                 conversationState: evt.conversation_state,
+                 pendingContent: evt.pending_assistant_content,
+                 tool_use_id: evt.tool_use_id,
+               };
+               setAgentQuestion({
+                 question: evt.question,
+                 options: evt.options,
+                 checkpoint_data: evt.checkpoint_data,
+               });
+               break;
+
+             case 'agent_status':
+               // Informational — could show in UI later
+               break;
+
+             case 'agent_error':
+               fullText += `\n\nAgent error: ${evt.message}`;
+               setCaseStreamingState(caseId, { isStreaming: true, streamingText: fullText });
+               break;
+
+             case 'agent_done':
+               break;
+           }
+         } catch { /* ignore parse errors */ }
+       }
+     }
+
+     // Save assistant message to transcript
+     if (fullText.trim()) {
+       const assistantMsg = { role: 'assistant', content: fullText, timestamp: new Date().toISOString(), isAgent: true };
+       setCases(prev => prev.map(c => {
+         if (c.id !== caseId) return c;
+         const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), assistantMsg] };
+         if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+         return updated;
+       }));
+       setConversationMessages(prev => [...prev, assistantMsg]);
+     }
+
+   } catch (err) {
+     if (err.name !== 'AbortError') {
+       console.error('[Agent] Error:', err);
+       const errMsg = { role: 'assistant', content: `Agent error: ${err.message}`, timestamp: new Date().toISOString(), isAgent: true };
+       setCases(prev => prev.map(c => {
+         if (c.id !== caseId) return c;
+         return { ...c, conversationTranscript: [...(c.conversationTranscript || []), errMsg] };
+       }));
+     }
+   } finally {
+     setCaseStreamingState(caseId, { isStreaming: false, streamingText: '' });
+     setActiveAnalysisCount(prev => Math.max(0, prev - 1));
+     sendingLockRef.current.delete(caseId);
+   }
  };
 
  // Streaming conversation function - Claude-like interface
@@ -12219,7 +12402,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- sendConversationMessage(newCaseId, conversationInput, files);
+ if (agentMode) {
+   handleAgentMessage(newCaseId, conversationInput, files);
+ } else {
+   sendConversationMessage(newCaseId, conversationInput, files);
+ }
  }
  }}
  placeholder="Enter a name, describe a case, or upload files."
@@ -12239,12 +12426,35 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
+ <div className="relative group">
+   <button
+     onClick={() => setAgentMode(!agentMode)}
+     style={{
+       width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+       background: agentMode ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+       border: agentMode ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+       borderRadius: '6px', cursor: 'pointer',
+       color: agentMode ? '#f59e0b' : '#858585',
+       transition: 'all 0.2s ease',
+     }}
+     title="Agent Mode (Beta)"
+   >
+     <UserSearch className="w-4 h-4" />
+   </button>
+   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
+     <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Agent Mode (Beta)</div>
+   </div>
+ </div>
  <button
  onClick={() => {
  if (String(conversationInput || '').trim() || files.length > 0) {
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- sendConversationMessage(newCaseId, conversationInput, files);
+ if (agentMode) {
+   handleAgentMessage(newCaseId, conversationInput, files);
+ } else {
+   sendConversationMessage(newCaseId, conversationInput, files);
+ }
  }
  }}
  disabled={!String(conversationInput || '').trim() && files.length === 0}
@@ -12530,10 +12740,44 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-center">
  <div className="max-w-2xl">
+ {/* Agent tool cards — show during agent mode streaming */}
+ {agentMode && agentToolCards.length > 0 && (
+   <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+     {agentToolCards.map(tc => (
+       <div key={tc.tool_use_id} style={{
+         padding: '10px 14px', borderRadius: '8px',
+         background: tc.status === 'running' ? '#1a1f2e' : tc.status === 'error' ? '#2d1a1a' : '#1a2d1a',
+         border: `1px solid ${tc.status === 'running' ? '#2a3a5c' : tc.status === 'error' ? '#5c2a2a' : '#2a5c2a'}`,
+         fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px',
+       }}>
+         {tc.status === 'running' ? (
+           <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#7eb8e0', flexShrink: 0 }} />
+         ) : tc.status === 'error' ? (
+           <XCircle className="w-4 h-4" style={{ color: '#ef4444', flexShrink: 0 }} />
+         ) : (
+           <CheckCircle2 className="w-4 h-4" style={{ color: '#22c55e', flexShrink: 0 }} />
+         )}
+         <div style={{ flex: 1 }}>
+           <div style={{ fontWeight: 600, color: '#d4d4d4' }}>
+             {tc.name === 'screen_entity' ? `Screening ${tc.input?.name || ''}` :
+              tc.name === 'search_sanctions' ? `Checking sanctions: ${tc.input?.name || ''}` :
+              tc.name === 'search_adverse_media' ? `Searching adverse media: ${tc.input?.name || ''}` :
+              tc.name === 'search_corporate_records' ? `Looking up corporate records: ${tc.input?.name || ''}` :
+              tc.name === 'search_court_records' ? `Searching court records: ${tc.input?.name || ''}` :
+              tc.name === 'knowledge_base_search' ? `Searching knowledge base` :
+              tc.name === 'web_search' ? `Searching the web` :
+              tc.name}
+           </div>
+           {tc.summary && <div style={{ color: '#858585', marginTop: '2px' }}>{tc.summary}</div>}
+         </div>
+       </div>
+     ))}
+   </div>
+ )}
  {/* Show "Analyzing..." initially, then stream the markdown */}
  {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
    <div className="py-3">
-     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
+     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={agentMode ? 'Agent working' : (activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing')} isScreening={!agentMode && activeIntentRef.current === 'SCREEN'} />
    </div>
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
@@ -12541,6 +12785,65 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  )}
+
+ {/* Agent question / checkpoint — shown when agent pauses for user input */}
+ {agentMode && agentQuestion && (
+   <div className="flex justify-center" style={{ marginBottom: '16px' }}>
+     <div style={{
+       maxWidth: '672px', width: '100%', padding: '16px 20px', borderRadius: '12px',
+       background: '#1a1f2e', border: '1px solid #2a3a5c',
+     }}>
+       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+         <UserSearch style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
+         <span style={{ fontSize: '13px', fontWeight: 600, color: '#f59e0b' }}>Agent needs your input</span>
+       </div>
+       <div style={{ fontSize: '14px', color: '#d4d4d4', marginBottom: '12px', lineHeight: '1.5' }}>{agentQuestion.question}</div>
+       {agentQuestion.checkpoint_data && (
+         <div style={{ fontSize: '13px', color: '#858585', marginBottom: '12px', padding: '10px', background: '#111827', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>{agentQuestion.checkpoint_data}</div>
+       )}
+       {agentQuestion.options && agentQuestion.options.length > 0 && (
+         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+           {agentQuestion.options.map((opt, i) => (
+             <button key={i} onClick={() => {
+               if (currentCaseId && agentConversationStateRef.current) {
+                 handleAgentMessage(currentCaseId, opt, [], agentConversationStateRef.current);
+               }
+             }} style={{
+               padding: '6px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+               background: '#2a3a5c', color: '#7eb8e0', border: '1px solid #3a4a6c', cursor: 'pointer',
+             }}>{opt}</button>
+           ))}
+         </div>
+       )}
+       <div style={{ display: 'flex', gap: '8px' }}>
+         <input
+           value={agentQuestionInput}
+           onChange={e => setAgentQuestionInput(e.target.value)}
+           onKeyDown={e => {
+             if (e.key === 'Enter' && agentQuestionInput.trim() && currentCaseId && agentConversationStateRef.current) {
+               handleAgentMessage(currentCaseId, agentQuestionInput, [], agentConversationStateRef.current);
+             }
+           }}
+           placeholder="Type your answer..."
+           style={{
+             flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '13px',
+             background: '#111827', color: '#ffffff', border: '1px solid #2a3a5c', outline: 'none',
+             fontFamily: "'Inter', -apple-system, sans-serif",
+           }}
+         />
+         <button onClick={() => {
+           if (agentQuestionInput.trim() && currentCaseId && agentConversationStateRef.current) {
+             handleAgentMessage(currentCaseId, agentQuestionInput, [], agentConversationStateRef.current);
+           }
+         }} style={{
+           padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+           background: '#f59e0b', color: '#000', border: 'none', cursor: 'pointer',
+         }}>Reply</button>
+       </div>
+     </div>
+   </div>
+ )}
+
  <div ref={conversationEndRef} />
  </div>
  </div>
@@ -12589,7 +12892,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
- sendConversationMessage(currentCaseId, conversationInput, files);
+ if (agentMode) {
+   handleAgentMessage(currentCaseId, conversationInput, files);
+ } else {
+   sendConversationMessage(currentCaseId, conversationInput, files);
+ }
  e.target.style.height = 'auto';
  }
  }}
@@ -12597,6 +12904,25 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  rows={1}
  style={{ flex: 1, resize: 'none', background: 'transparent', border: 'none', outline: 'none', color: '#ffffff', padding: '8px 0', minHeight: '40px', maxHeight: '200px', overflow: 'auto', fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px' }}
  />
+ <div className="relative group">
+   <button
+     onClick={() => setAgentMode(!agentMode)}
+     style={{
+       width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+       background: agentMode ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+       border: agentMode ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
+       borderRadius: '6px', cursor: 'pointer',
+       color: agentMode ? '#f59e0b' : '#858585',
+       transition: 'all 0.2s ease',
+     }}
+     title="Agent Mode (Beta)"
+   >
+     <UserSearch className="w-4 h-4" />
+   </button>
+   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
+     <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Agent Mode (Beta)</div>
+   </div>
+ </div>
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming ? (
  <button
  onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); }}
@@ -12607,7 +12933,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </button>
  ) : (
  <button
- onClick={() => currentCaseId && sendConversationMessage(currentCaseId, conversationInput, files)}
+ onClick={() => {
+   if (!currentCaseId) return;
+   if (agentMode) {
+     handleAgentMessage(currentCaseId, conversationInput, files);
+   } else {
+     sendConversationMessage(currentCaseId, conversationInput, files);
+   }
+ }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"
  >
