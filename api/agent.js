@@ -188,18 +188,42 @@ async function executeTool(toolName, toolInput) {
 
       const [ofac, adverseMedia, courtRecords, occrp, pep, regulatory, openCorporates, blockchain, shipping, webIntel, wallet] = results;
 
+      // Parse results using the actual service response shapes:
+      // - regulatory: { totalActions, actions: [...], riskAssessment: { score, level, flags } }
+      // - adverseMedia: { adverseMedia: { status }, articles/results from sub-sources }
+      // - courtRecords: { summary: { totalCases, criminalCases, ... }, cases: [...] }
+      // - ofac: { matches: [...], isMatch, totalSDNEntries }
+      // - pep: { matches/pepMatches: [...] }
+      // - occrp: { results: [...] }
+      // - openCorporates: { companies: [...], officers: [...] }
+
+      // Count only confirmed high-confidence matches from OFAC
+      const ofacMatches = !ofac?._error ? (ofac?.matches || []).filter(m => m.matchConfidence >= 0.8) : [];
+
+      // Regulatory: use riskAssessment, not raw action count
+      const regActions = !regulatory?._error ? (regulatory?.actions || []) : [];
+      const regRisk = !regulatory?._error ? regulatory?.riskAssessment : null;
+
+      // Adverse media: count only articles flagged as relevant (HIGH/MEDIUM relevance)
+      const allArticles = !adverseMedia?._error ? (adverseMedia?.adverseMedia?.articles || adverseMedia?.articles || []) : [];
+      const relevantArticles = allArticles.filter(a => a.relevance === 'HIGH' || a.relevance === 'MEDIUM' || a.category !== 'OTHER');
+
+      // Court records: use summary counts
+      const courtSummary = !courtRecords?._error ? courtRecords?.summary : null;
+      const courtCases = !courtRecords?._error ? (courtRecords?.cases || []) : [];
+
       const summary = {
         subject: name, type, screeningDate: new Date().toISOString(),
-        sanctions: !ofac?._error ? { matches: ofac?.matches?.length || 0, isMatch: ofac?.isMatch || false, details: ofac?.matches?.slice(0, 5) } : { error: ofac._error },
-        pep: !pep?._error ? { matches: pep?.matches?.length || pep?.pepMatches?.length || 0, details: (pep?.matches || pep?.pepMatches || []).slice(0, 5) } : { error: pep._error },
-        adverseMedia: !adverseMedia?._error ? { articles: adverseMedia?.articles?.length || adverseMedia?.results?.length || 0, details: (adverseMedia?.articles || adverseMedia?.results || []).slice(0, 5) } : { error: adverseMedia._error },
-        courtRecords: !courtRecords?._error ? { cases: courtRecords?.cases?.length || courtRecords?.results?.length || 0, details: (courtRecords?.cases || courtRecords?.results || []).slice(0, 5) } : { error: courtRecords._error },
-        occrp: !occrp?._error ? { matches: occrp?.results?.length || 0, details: (occrp?.results || []).slice(0, 5) } : { error: occrp._error },
-        regulatory: !regulatory?._error ? { actions: regulatory?.actions?.length || regulatory?.results?.length || 0, details: (regulatory?.actions || regulatory?.results || []).slice(0, 5) } : { error: regulatory._error },
-        corporateRecords: !openCorporates?._error ? { companies: openCorporates?.companies?.length || 0, officers: openCorporates?.officers?.length || 0 } : { error: openCorporates._error },
+        sanctions: !ofac?._error ? { matches: ofacMatches.length, isMatch: ofac?.isMatch || false, details: ofacMatches.slice(0, 5) } : { error: ofac._error },
+        pep: !pep?._error ? { matches: (pep?.matches || pep?.pepMatches || []).length, details: (pep?.matches || pep?.pepMatches || []).slice(0, 5) } : { error: pep._error },
+        adverseMedia: !adverseMedia?._error ? { totalArticles: allArticles.length, relevantArticles: relevantArticles.length, status: adverseMedia?.adverseMedia?.status || 'UNKNOWN', details: relevantArticles.slice(0, 5) } : { error: adverseMedia._error },
+        courtRecords: !courtRecords?._error ? { totalCases: courtSummary?.totalCases || courtCases.length, criminalCases: courtSummary?.criminalCases || 0, details: courtCases.slice(0, 5) } : { error: courtRecords._error },
+        occrp: !occrp?._error ? { matches: (occrp?.results || []).length, details: (occrp?.results || []).slice(0, 5) } : { error: occrp._error },
+        regulatory: !regulatory?._error ? { totalActions: regulatory?.totalActions || regActions.length, riskLevel: regRisk?.level || 'UNKNOWN', riskScore: regRisk?.score || 0, flags: (regRisk?.flags || []).slice(0, 5), details: regActions.slice(0, 5) } : { error: regulatory._error },
+        corporateRecords: !openCorporates?._error ? { companies: (openCorporates?.companies || []).length, officers: (openCorporates?.officers || []).length } : { error: openCorporates._error },
         blockchain: blockchain && !blockchain?._error ? { flagged: blockchain?.flagged || false, details: blockchain } : null,
-        shipping: shipping && !shipping?._error ? { matches: shipping?.matches?.length || 0 } : null,
-        webIntelligence: !webIntel?._error ? { results: webIntel?.results?.length || 0, details: (webIntel?.results || []).slice(0, 5) } : { error: webIntel._error },
+        shipping: shipping && !shipping?._error ? { matches: (shipping?.matches || []).length } : null,
+        webIntelligence: !webIntel?._error ? { results: (webIntel?.results || []).length, details: (webIntel?.results || []).slice(0, 5) } : { error: webIntel._error },
       };
 
       return JSON.stringify(summary, null, 2);
@@ -485,16 +509,26 @@ export default async function handler(req, res) {
 }
 
 // ── Tool Result Summarizer (for compact UI cards) ──
+// Uses the corrected field names from service response shapes
 function summarizeToolResult(toolName, result) {
   switch (toolName) {
     case 'screen_entity': {
       const parts = [];
-      if (result.sanctions?.isMatch) parts.push(`SANCTIONS HIT`);
-      if (result.sanctions?.matches > 0) parts.push(`${result.sanctions.matches} sanctions match(es)`);
+      if (result.sanctions?.isMatch) parts.push('SANCTIONS HIT');
+      else if (result.sanctions?.matches > 0) parts.push(`${result.sanctions.matches} potential sanctions match(es)`);
       if (result.pep?.matches > 0) parts.push(`${result.pep.matches} PEP match(es)`);
-      if (result.adverseMedia?.articles > 0) parts.push(`${result.adverseMedia.articles} adverse media article(s)`);
-      if (result.courtRecords?.cases > 0) parts.push(`${result.courtRecords.cases} court case(s)`);
-      if (result.regulatory?.actions > 0) parts.push(`${result.regulatory.actions} regulatory action(s)`);
+      // Use relevantArticles count (only HIGH/MEDIUM relevance), not raw total
+      if (result.adverseMedia?.relevantArticles > 0) parts.push(`${result.adverseMedia.relevantArticles} adverse media finding(s)`);
+      else if (result.adverseMedia?.status === 'FINDINGS') parts.push('Adverse media findings');
+      // Use summary counts from court records service
+      if (result.courtRecords?.criminalCases > 0) parts.push(`${result.courtRecords.criminalCases} criminal case(s)`);
+      else if (result.courtRecords?.totalCases > 0) parts.push(`${result.courtRecords.totalCases} court case(s)`);
+      // Use risk level from regulatory service, not raw action count
+      if (result.regulatory?.riskLevel === 'CRITICAL' || result.regulatory?.riskLevel === 'HIGH') {
+        parts.push(`Regulatory risk: ${result.regulatory.riskLevel}`);
+      } else if (result.regulatory?.totalActions > 0 && result.regulatory?.riskScore > 0) {
+        parts.push(`${result.regulatory.flags?.length || 0} regulatory flag(s)`);
+      }
       if (result.occrp?.matches > 0) parts.push(`${result.occrp.matches} OCCRP match(es)`);
       return parts.length > 0 ? parts.join(' · ') : 'No significant findings';
     }
@@ -505,8 +539,12 @@ function summarizeToolResult(toolName, result) {
       return parts.length > 0 ? parts.join(' · ') : 'No sanctions/PEP matches';
     }
     case 'search_adverse_media': {
-      const count = result.articles?.length || result.results?.length || 0;
-      return count > 0 ? `${count} article(s) found` : 'No adverse media found';
+      // adverseMedia.screen() returns { adverseMedia: { status }, ... }
+      const status = result.adverseMedia?.status;
+      const articles = result.adverseMedia?.articles || result.articles || [];
+      const relevant = articles.filter(a => a.relevance === 'HIGH' || a.relevance === 'MEDIUM');
+      if (status === 'FINDINGS' || relevant.length > 0) return `${relevant.length} relevant article(s) found`;
+      return 'No adverse media found';
     }
     case 'search_corporate_records': {
       const parts = [];
@@ -515,8 +553,11 @@ function summarizeToolResult(toolName, result) {
       return parts.length > 0 ? parts.join(' · ') : 'No corporate records found';
     }
     case 'search_court_records': {
-      const count = result.cases?.length || result.results?.length || 0;
-      return count > 0 ? `${count} court case(s) found` : 'No court records found';
+      // courtRecords.screenEntity() returns { summary: { totalCases, criminalCases, ... }, cases: [...] }
+      const total = result.summary?.totalCases || result.cases?.length || 0;
+      const criminal = result.summary?.criminalCases || 0;
+      if (criminal > 0) return `${total} case(s) found (${criminal} criminal)`;
+      return total > 0 ? `${total} court case(s) found` : 'No court records found';
     }
     case 'knowledge_base_search': {
       return result.results?.length > 0 ? `${result.results.length} regulatory document(s) found` : 'No knowledge base matches';
