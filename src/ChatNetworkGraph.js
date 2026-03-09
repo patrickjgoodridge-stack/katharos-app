@@ -647,16 +647,36 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
     nodesRef.current = nodes;
     linksRef.current = links;
 
-    // Force simulation — tuned for stability and smooth interaction
+    // ─── Semantic pinning: jurisdictions on outer ring, subject center-right ───
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const outerRadius = Math.min(width, height) * 0.42;
+    const countryNodes = nodes.filter(n => n.type === 'country');
+    countryNodes.forEach((n, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(countryNodes.length, 1) - Math.PI / 2;
+      n.fx = centerX + outerRadius * Math.cos(angle);
+      n.fy = centerY + outerRadius * Math.sin(angle);
+    });
+    // Pin subject node center-right
+    const subjectNode = nodes.find(n => n.id === 'subject') ||
+      nodes.reduce((best, n) => (!best || (n._connections || 0) > (best._connections || 0)) ? n : best, null);
+    if (subjectNode && subjectNode.type !== 'country') {
+      subjectNode.fx = width * 0.6;
+      subjectNode.fy = height * 0.5;
+    }
+
+    // Force simulation — wide spacing, slow settle for clean layout
     const simulation = d3.forceSimulation(nodes)
-      .alphaDecay(0.06)        // Settle ~3x faster than default (0.0228)
-      .velocityDecay(0.65)     // High friction — nodes slow down quickly
-      .force('link', d3.forceLink(links).id(d => d.id).distance(140).strength(0.7))
-      .force('charge', d3.forceManyBody().strength(-200).distanceMax(350))
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.8))
-      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 10).strength(0.8))
-      .force('x', d3.forceX(width / 2).strength(0.08))
-      .force('y', d3.forceY(height / 2).strength(0.08));
+      .alphaDecay(0.03)        // Run longer before settling
+      .velocityDecay(0.55)     // Moderate friction — let nodes find good positions
+      .force('link', d3.forceLink(links).id(d => d.id).distance(160).strength(0.7))
+      .force('charge', d3.forceManyBody()
+        .strength(d => -400 * (1 + (d._connections || 0) * 0.3))  // High-connectivity nodes push harder
+        .distanceMax(500))
+      .force('center', d3.forceCenter(centerX, centerY).strength(0.3))
+      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 60).strength(0.9))
+      .force('x', d3.forceX(centerX).strength(0.05))
+      .force('y', d3.forceY(centerY).strength(0.05));
 
     simulationRef.current = simulation;
 
@@ -749,16 +769,42 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
         return '\u{1F3E2}';
       });
 
+    // ─── Label helpers ───
+    const isPrimaryNode = (d) =>
+      d.id === 'subject' || d.type === 'country' ||
+      d.metadata?.sanction_status === 'SANCTIONED' || d.metadata?.sanctioned === 'YES' ||
+      (d._connections || 0) > 3;
+
+    // Label background pills (dark rounded rects for readability)
+    node.append('rect')
+      .attr('class', 'label-bg')
+      .attr('rx', 4).attr('ry', 4)
+      .attr('fill', 'rgba(10,10,10,0.85)')
+      .attr('pointer-events', 'none')
+      .attr('opacity', 0); // sized after text is measured
+
     // Node labels (below node)
     const labels = node.append('text')
-      .attr('dy', d => getNodeRadius(d) + 14)
+      .attr('dy', d => getNodeRadius(d) + 16)
       .attr('text-anchor', 'middle')
-      .attr('font-size', d => d.type === 'country' ? '12px' : '10px')
-      .attr('font-weight', d => d.type === 'country' ? '600' : '400')
-      .attr('fill', '#d4d4d4')
+      .attr('font-size', d => isPrimaryNode(d) ? '14px' : '12px')
+      .attr('font-weight', d => isPrimaryNode(d) ? '600' : '400')
+      .attr('fill', '#e5e5e5')
       .attr('pointer-events', 'none')
-      .text(d => d.name.length > 24 ? d.name.slice(0, 22) + '...' : d.name)
-      .attr('opacity', showLabels ? 1 : 0);
+      .text(d => d.name.length > 28 ? d.name.slice(0, 26) + '...' : d.name)
+      .attr('opacity', d => showLabels ? (isPrimaryNode(d) ? 1 : 0) : 0);
+
+    // Measure text and size background pills
+    labels.each(function (d) {
+      const bbox = this.getBBox();
+      const parent = this.parentNode;
+      const bg = d3.select(parent).select('.label-bg');
+      bg.attr('x', bbox.x - 4)
+        .attr('y', bbox.y - 2)
+        .attr('width', bbox.width + 8)
+        .attr('height', bbox.height + 4)
+        .attr('opacity', showLabels ? (isPrimaryNode(d) ? 0.9 : 0) : 0);
+    });
 
     // ─── Hover / Click interactions ───
     node.on('mouseover', function (event, d) {
@@ -784,6 +830,9 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
 
       node.select('circle:nth-child(2)').attr('fill-opacity', n => connectedIds.has(n.id) ? 0.95 : 0.2);
       node.select('circle:nth-child(3)').attr('fill-opacity', n => connectedIds.has(n.id) ? 0.95 : 0.2);
+      // Show labels for connected secondary nodes on hover
+      node.selectAll('.label-bg').attr('opacity', n => connectedIds.has(n.id) ? 0.9 : (isPrimaryNode(n) ? 0.9 : 0));
+      labels.attr('opacity', n => connectedIds.has(n.id) ? 1 : (isPrimaryNode(n) ? 1 : 0));
       link.attr('stroke-opacity', l => {
         const sid = typeof l.source === 'object' ? l.source.id : l.source;
         const tid = typeof l.target === 'object' ? l.target.id : l.target;
@@ -811,6 +860,9 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
       node.select('circle:nth-child(3)').attr('fill-opacity', 0.85);
       link.attr('stroke-opacity', 0.6).attr('stroke-width', 2);
       linkLabel.attr('opacity', 1);
+      // Hide secondary labels again
+      labels.attr('opacity', n => showLabels ? (isPrimaryNode(n) ? 1 : 0) : 0);
+      node.selectAll('.label-bg').attr('opacity', n => showLabels ? (isPrimaryNode(n) ? 0.9 : 0) : 0);
     })
     .on('click', function (event, d) {
       event.stopPropagation();
@@ -851,6 +903,8 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
 
     // Store labels ref for toggle
     svgRef.current._labels = labels;
+    svgRef.current._labelBgs = node.selectAll('.label-bg');
+    svgRef.current._isPrimaryNode = isPrimaryNode;
     svgRef.current._zoomBehavior = zoomBehavior;
 
     return () => simulation.stop();
@@ -859,10 +913,17 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
     }
   }, [graphData, connectionCounts, isFullscreen, showLabels, onNodeClick]);
 
-  // Toggle labels
+  // Toggle labels (primary always visible when showLabels is on, secondary hidden)
   useEffect(() => {
     if (svgRef.current?._labels) {
-      svgRef.current._labels.transition().duration(300).attr('opacity', showLabels ? 1 : 0);
+      const isPrimary = svgRef.current._isPrimaryNode || (() => true);
+      svgRef.current._labels.transition().duration(300)
+        .attr('opacity', d => showLabels ? (isPrimary(d) ? 1 : 0) : 0);
+    }
+    if (svgRef.current?._labelBgs) {
+      const isPrimary = svgRef.current._isPrimaryNode || (() => true);
+      svgRef.current._labelBgs.transition().duration(300)
+        .attr('opacity', d => showLabels ? (isPrimary(d) ? 0.9 : 0) : 0);
     }
   }, [showLabels]);
 
