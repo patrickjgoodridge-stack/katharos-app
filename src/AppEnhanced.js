@@ -507,7 +507,7 @@ export default function Katharos() {
    });
  }, []);
  const [agentMode, setAgentMode] = useState(false);
- const [agentToolCards, setAgentToolCards] = useState([]); // { tool_use_id, name, input, status, summary }
+ const [agentToolCards, setAgentToolCards] = useState([]); // eslint-disable-line no-unused-vars
  const [agentQuestion, setAgentQuestion] = useState(null); // { question, options, checkpoint_data, tool_use_id, conversationState, pendingContent }
  const [agentQuestionInput, setAgentQuestionInput] = useState('');
  const agentConversationStateRef = useRef(null); // Stores conversation state for resume
