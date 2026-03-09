@@ -12770,39 +12770,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-center">
  <div className="max-w-2xl">
- {/* Agent tool cards — show during agent mode streaming */}
- {agentMode && agentToolCards.length > 0 && (
-   <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-     {agentToolCards.map(tc => (
-       <div key={tc.tool_use_id} style={{
-         padding: '4px 0',
-         fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px',
-       }}>
-         {tc.status === 'running' ? (
-           <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: '#858585', flexShrink: 0 }} />
-         ) : tc.status === 'error' ? (
-           <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444', flexShrink: 0 }} />
-         ) : (
-           <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#858585', flexShrink: 0 }} />
-         )}
-         <span style={{ color: '#858585' }}>
-           {tc.name === 'screen_entity' ? `Screened ${tc.input?.name || ''}` :
-            tc.name === 'search_sanctions' ? `Checked sanctions: ${tc.input?.name || ''}` :
-            tc.name === 'search_adverse_media' ? `Searched adverse media: ${tc.input?.name || ''}` :
-            tc.name === 'search_corporate_records' ? `Looked up corporate records: ${tc.input?.name || ''}` :
-            tc.name === 'search_court_records' ? `Searched court records: ${tc.input?.name || ''}` :
-            tc.name === 'knowledge_base_search' ? `Searched knowledge base` :
-            tc.name === 'web_search' ? `Searched the web` :
-            tc.name === 'trace_ownership' ? `Traced ownership: ${tc.input?.name || ''}` :
-            tc.name === 'find_precedents' ? `Found precedents: ${tc.input?.name || ''}` :
-            tc.name === 'get_related_entities' ? `Checked entity graph: ${tc.input?.name || ''}` :
-            tc.name}
-           {tc.summary ? ` — ${tc.summary}` : ''}
-         </span>
-       </div>
-     ))}
-   </div>
- )}
  {/* Show streaming narration for both agent and non-agent mode */}
  {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
    agentMode ? (
