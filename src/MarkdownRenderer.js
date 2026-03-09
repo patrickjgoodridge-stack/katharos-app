@@ -222,13 +222,13 @@ const CustomHeading = ({ level, children }) => {
 const CustomList = ({ ordered, children }) => {
   if (ordered) {
     return (
-      <ol style={{ marginLeft: '16px', marginTop: '12px', marginBottom: '12px' }}>
+      <ol style={{ marginLeft: '16px', marginTop: '12px', marginBottom: '12px', listStyle: 'none', paddingLeft: 0 }}>
         {children}
       </ol>
     );
   }
   return (
-    <ul style={{ marginTop: '12px', marginBottom: '12px' }}>
+    <ul style={{ marginTop: '12px', marginBottom: '12px', listStyle: 'none', paddingLeft: 0 }}>
       {children}
     </ul>
   );
@@ -488,11 +488,13 @@ const preprocessMarkdown = (content) => {
   });
   processed = uniqueParagraphs.join('\n\n');
 
-  // Strip source tags like [INTERNAL], [RAG], [OSINT] — including bold-wrapped variants
-  // Handles: [OSINT], **[OSINT]**, — [OSINT], — **[OSINT]**, "Excellent intelligence haul — [OSINT]"
-  processed = processed.replace(/\s*(?:—\s*)?(?:\*\*)?(?:\[(?:INTERNAL|RAG|OSINT)\])(?:\*\*)?\s*/gi, ' ');
-  // Also catch lines that are ONLY a tag (possibly with dashes/bold)
-  processed = processed.replace(/^\s*(?:—\s*)?(?:\*\*)?(?:\[(?:INTERNAL|RAG|OSINT)\])(?:\*\*)?\s*$/gm, '');
+  // Strip source tags like [INTERNAL], [RAG], [OSINT] in ALL forms:
+  // Plain: [OSINT], bold: **[OSINT]**, with dash: — [OSINT], in headers: ## [INTERNAL] Title
+  processed = processed.replace(/\*?\*?\[(?:INTERNAL|RAG|OSINT)\]\*?\*?/gi, '');
+  // Clean up leftover dashes from "Title — [OSINT]" → "Title"
+  processed = processed.replace(/\s*—\s*$/gm, '');
+  // Clean up orphaned periods on their own line
+  processed = processed.replace(/^\s*\.\s*$/gm, '');
 
   // Fix bold markers split across lines: "**\nSome text\n**" → "**Some text**"
   processed = processed.replace(/\*\*\s*\n\s*([^\n*]+)\s*\n\s*\*\*/g, '**$1**');
