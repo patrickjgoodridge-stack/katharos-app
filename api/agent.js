@@ -14,8 +14,18 @@ import { OpenCorporatesService } from '../services/openCorporates.js';
 import { BlockchainScreeningService } from '../services/blockchainScreening.js';
 import { ShippingTradeService } from '../services/shippingTrade.js';
 import { WalletScreeningService } from '../services/walletScreening.js';
-import { screenEntity as screenSanctionsEntity } from './screen-sanctions.js';
 import { Pinecone } from '@pinecone-database/pinecone';
+
+// Dynamic imports for CommonJS services (entity resolution, precedent matching, ownership)
+let _entityResolution = null, _precedentMatching = null;
+async function getEntityResolution() {
+  if (!_entityResolution) _entityResolution = await import('../services/entityResolution.js').then(m => m.default || m);
+  return _entityResolution;
+}
+async function getPrecedentMatching() {
+  if (!_precedentMatching) _precedentMatching = await import('../services/precedentMatching.js').then(m => m.default || m);
+  return _precedentMatching;
+}
 
 export const config = { maxDuration: 300 };
 
@@ -157,6 +167,41 @@ const AGENT_TOOLS = [
       required: ['question']
     }
   },
+  {
+    name: 'trace_ownership',
+    description: 'Trace the beneficial ownership chain of an entity or individual. Returns ownership percentages, sanctioned owner flags, OFAC 50% Rule analysis, sister companies through common owners, and risk levels. Use this to follow ownership layers until you reach a natural person or a dead end.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Entity or individual name to trace ownership for' },
+        type: { type: 'string', enum: ['individual', 'entity'], description: 'Whether tracing from an individual (shows companies they own) or an entity (shows who owns it)' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'find_precedents',
+    description: 'Find historical enforcement actions and prior screening outcomes similar to this entity. Returns enforcement precedent matches (OFAC designations, BIS Entity List, DOJ actions), similar screening statistics (how many similar entities were high-risk, escalated, or later sanctioned), and a precedent risk score. Use this to assess whether an entity\'s risk profile matches known enforcement patterns.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Entity name to find precedents for' },
+        details: { type: 'object', description: 'Optional additional details (jurisdiction, sector, red flags) to improve matching' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'get_related_entities',
+    description: 'Query the entity resolution graph to find known aliases, name variants, transliterations, and entities co-searched in the same sessions. Returns canonical entity info, all known variants, and related entities with relationship types and confidence scores. Use this to discover the full identity surface of a target before screening.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Entity name to look up in the resolution graph' }
+      },
+      required: ['name']
+    }
+  },
   // Web search is a built-in Claude tool type
 ];
 
@@ -286,6 +331,88 @@ async function executeTool(toolName, toolInput) {
       }
     }
 
+    case 'trace_ownership': {
+      const { name, type = 'entity' } = toolInput;
+      // Use the ownership-network module's logic inline
+      // (it uses screen-sanctions.js internally — already imported as service)
+      try {
+        const { SANCTIONED_INDIVIDUALS, SANCTIONED_ENTITIES, screenEntity } = await import('./screen-sanctions.js');
+
+        const normalizedName = name.toUpperCase().trim();
+
+        if (type === 'individual') {
+          // Find companies owned by this individual
+          const ownedCompanies = [];
+          const individual = SANCTIONED_INDIVIDUALS[normalizedName];
+          if (individual?.ownership) {
+            for (const [company, percentage] of Object.entries(individual.ownership)) {
+              ownedCompanies.push({ company, ownershipPercent: typeof percentage === 'number' ? percentage : 0, sanctionedOwner: true });
+            }
+          }
+          for (const [entityName, entityData] of Object.entries(SANCTIONED_ENTITIES)) {
+            if (entityData.beneficialOwners?.[normalizedName]) {
+              ownedCompanies.push({ company: entityName, ownershipPercent: entityData.beneficialOwners[normalizedName], ownershipType: 'BENEFICIAL' });
+            }
+          }
+          const personScreening = screenEntity(name, 'INDIVIDUAL');
+          return JSON.stringify({ subject: { name, type: 'INDIVIDUAL', sanctionStatus: personScreening.status }, ownedCompanies, totalCompanies: ownedCompanies.length }, null, 2);
+        } else {
+          // Analyze who owns this entity
+          const knownEntity = SANCTIONED_ENTITIES[normalizedName];
+          const beneficialOwners = [];
+          let aggregateBlockedOwnership = 0;
+
+          if (knownEntity?.beneficialOwners) {
+            for (const [ownerName, percentage] of Object.entries(knownEntity.beneficialOwners)) {
+              const ownerScreening = screenEntity(ownerName, 'INDIVIDUAL');
+              const isBlocked = ownerScreening.status === 'MATCH';
+              const pct = typeof percentage === 'number' ? percentage : 0;
+              beneficialOwners.push({ name: ownerName, ownershipPercent: pct, sanctionStatus: isBlocked ? 'SANCTIONED' : 'CLEAR' });
+              if (isBlocked && pct > 0) aggregateBlockedOwnership += pct;
+            }
+          }
+
+          const entityScreening = screenEntity(name, 'ENTITY');
+          const fiftyPercentRuleTriggered = aggregateBlockedOwnership >= 50;
+          const riskLevel = fiftyPercentRuleTriggered ? 'CRITICAL' : aggregateBlockedOwnership >= 25 ? 'HIGH' : aggregateBlockedOwnership > 0 ? 'MEDIUM' : 'LOW';
+
+          return JSON.stringify({
+            subject: { name, type: 'ENTITY', sanctionStatus: entityScreening.status },
+            beneficialOwners, aggregateBlockedOwnership, fiftyPercentRuleTriggered, riskLevel,
+            summary: fiftyPercentRuleTriggered
+              ? `BLOCKED under OFAC 50% Rule: ${aggregateBlockedOwnership.toFixed(1)}% owned by sanctioned persons`
+              : aggregateBlockedOwnership > 0
+              ? `${aggregateBlockedOwnership.toFixed(1)}% aggregate sanctioned ownership detected`
+              : 'No sanctioned beneficial ownership identified'
+          }, null, 2);
+        }
+      } catch (err) {
+        return JSON.stringify({ error: err.message }, null, 2);
+      }
+    }
+
+    case 'find_precedents': {
+      const { name, details = {} } = toolInput;
+      try {
+        const precedentModule = await getPrecedentMatching();
+        const result = await race(precedentModule.findPrecedents(name, details), 'precedents');
+        return JSON.stringify(!result?._error ? result : { error: result._error }, null, 2);
+      } catch (err) {
+        return JSON.stringify({ error: err.message }, null, 2);
+      }
+    }
+
+    case 'get_related_entities': {
+      const { name } = toolInput;
+      try {
+        const entityModule = await getEntityResolution();
+        const result = await race(entityModule.getRelatedEntities(name), 'entity-resolution');
+        return JSON.stringify(!result?._error ? result : { error: result._error }, null, 2);
+      } catch (err) {
+        return JSON.stringify({ error: err.message }, null, 2);
+      }
+    }
+
     default:
       return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
@@ -297,32 +424,105 @@ function sendSSE(res, event, data) {
 }
 
 // ── Agent System Prompt ──
-const AGENT_SYSTEM_PROMPT = `You are Marlowe, a senior compliance analyst AI agent working within the Katharos compliance platform. You work autonomously to complete compliance tasks — screening entities, investigating risks, drafting Suspicious Activity Reports (SARs), and preparing due diligence reports.
+const AGENT_SYSTEM_PROMPT = `You are Marlowe, a financial crime investigation agent embedded in the Katharos compliance platform. You do not answer questions — you conduct investigations.
 
-WORKFLOW:
-1. Analyze the user's request and briefly explain your planned approach
-2. Use your tools to gather information systematically (run screenings, search records, check knowledge base, search the web)
-3. At key checkpoints, use ask_user to present intermediate findings and get direction
-4. Produce a comprehensive final output with citations
+## CORE BEHAVIORAL RULES
 
-GUIDELINES:
-- Always explain what you're about to do before doing it
-- Use ask_user when you need clarification, when there are multiple possible subjects, or when presenting significant intermediate findings
-- Be thorough — check multiple sources before drawing conclusions
-- Cite your sources with specifics (database name, date, match details)
-- For SAR drafting: include all FinCEN-required fields, narrative sections, and supporting evidence
-- For due diligence: cover beneficial ownership, sanctions exposure, adverse media, litigation, and regulatory history
-- Keep responses focused and professional — you are a compliance expert
+**Never just search and return results.** Every tool call must feed into a reasoning loop:
+1. Retrieve data
+2. Form or update a hypothesis
+3. Decide what to look at next based on what you found
+4. Continue until you reach a defensible conclusion or a named dead end
 
-AVAILABLE TOOLS:
-- screen_entity: Full comprehensive screening (sanctions, PEP, adverse media, corporate records, courts, OCCRP, regulatory, blockchain, web intelligence)
-- search_sanctions: Targeted OFAC + PEP check
-- search_adverse_media: Negative news and media search
-- search_corporate_records: OpenCorporates + OCCRP corporate data
-- search_court_records: Federal court cases via CourtListener
-- knowledge_base_search: Katharos regulatory knowledge base (OFAC, FinCEN, DOJ, SEC, FATF, etc.)
-- web_search: Live web search for current information
-- ask_user: Pause to ask the user a question or present checkpoint findings`;
+If you find yourself returning raw results without analysis, stop and reason instead.
+
+Before each tool call, state your current hypothesis. After each tool result, update it. The user should be able to follow your investigative logic like reading an analyst's workpaper.
+
+## INVESTIGATION MODES
+
+### Open-Ended Investigation
+When given a vague prompt ("something feels off", "should I allow this?"):
+- Do NOT ask clarifying questions first
+- Begin investigating immediately with your best hypothesis
+- Surface what you find, revise as you go
+- Conclude with a risk judgment and your confidence level
+
+### Beneficial Ownership Chains
+When tracing ownership:
+- Never stop at a company — keep going until you reach a natural person or a documented dead end
+- Use trace_ownership and search_corporate_records iteratively — follow every layer
+- At each layer, note: jurisdiction, formation agent, nominee indicators, and anything anomalous
+- If you find a formation agent managing many entities, cross-reference all of them against sanctions data unprompted
+
+### Contradiction Detection
+When given multiple sources (stated SOW, transactions, LinkedIn, KYC docs):
+- Do NOT summarize each source separately
+- Reason across them looking for internal inconsistencies
+- Weight each source by reliability
+- Produce a coherence score with specific contradictions called out
+
+### Alert Prioritization
+When given a list of alerts:
+- Develop your own scoring rubric before applying it
+- Score on: typology match strength, data completeness, counterparty risk, recency, prior escalation history
+- Return ranked list with scores, reasoning per alert, and your top 3 picks with justification
+
+### Evidence Sufficiency
+When asked "is this enough to file?":
+- Check current evidence against the legal SAR threshold (31 CFR 1020.320 or relevant jurisdiction standard)
+- Use knowledge_base_search for the applicable regulatory standard
+- Identify specific evidentiary gaps by name
+- For each gap: assess whether it is fillable, how, and how long it would take
+- Return a binary filing recommendation with conditions if not yet ready
+
+### Proactive Investigation
+When investigating any entity:
+- Use find_precedents to check if the entity profile matches known enforcement patterns
+- Use get_related_entities to discover aliases, variants, and co-searched entities
+- Cross-reference findings across tools — a sanctions miss + adverse media hit + high-risk jurisdiction is not "no findings," it's a pattern
+- Follow the entity resolution graph: if related entities surface, investigate them too
+
+## SOURCE HIERARCHY
+Tag every finding with its source layer:
+1. **[INTERNAL]** — Katharos screening data, entity resolution graph, precedent engine (highest trust — primary evidence)
+2. **[RAG]** — Regulatory knowledge base: OFAC guidance, FinCEN advisories, DOJ enforcement, FATF typologies (high trust — legal grounding)
+3. **[OSINT]** — Web search, news, public records (corroborating — treat as leads, not conclusions)
+
+## OUTPUT STANDARDS
+- Every conclusion must cite the evidence that supports it with source tags
+- Every gap must be named, not implied
+- Every recommendation must be binary (file/don't file, allow/block, escalate/close) followed by reasoning
+- If you cannot reach a conclusion, say exactly what is missing and why it matters
+- Structure final output with: HYPOTHESIS → FINDINGS → CONTRADICTIONS → GAPS → RECOMMENDATION
+
+## THE STANDARD YOU ARE HELD TO
+An investigator reading your output should never have to ask "but what does this mean?" or "so what should I do?"
+
+You decide what questions matter. You pursue them. You stop when you have enough — and you say when you don't.
+
+## NARRATION STYLE
+
+You are a senior investigator narrating your work to a colleague watching over your shoulder. Write like that — clear, confident, sequential. Never clinical, never robotic.
+
+### Pacing & Spacing
+- Every new action gets its own paragraph.
+- Never end a sentence with a colon and continue on the same line.
+- After every tool call, emit a blank line before continuing.
+- After each tool result, pause and interpret before moving on.
+- Transitions between steps should feel like turning a page, not running a sentence together.
+
+### When something goes wrong
+Don't pivot silently. Name it briefly, then move.
+Example: "OpenCorporates isn't responding — I'll route around it via web search and come back if needed."
+
+### When something interesting turns up
+Slow down. Don't rush past a finding to get to the next search. Spend a sentence on why it matters before continuing.
+
+### Voice
+- First person, active voice.
+- Short sentences when the finding is significant.
+- Longer sentences only for context and background.
+- Never use "Excellent!" or similar self-congratulation.`;
 
 // ── Main Handler ──
 export default async function handler(req, res) {
@@ -400,8 +600,9 @@ export default async function handler(req, res) {
 
       for (const block of content) {
         if (block.type === 'text' && block.text) {
-          // Stream text to the client
-          sendSSE(res, 'agent_text', { text: block.text });
+          // Add paragraph break between iterations so text doesn't run together
+          const prefix = iteration > 1 ? '\n\n' : '';
+          sendSSE(res, 'agent_text', { text: prefix + block.text });
         }
 
         if (block.type === 'tool_use') {
@@ -561,6 +762,37 @@ function summarizeToolResult(toolName, result) {
     }
     case 'knowledge_base_search': {
       return result.results?.length > 0 ? `${result.results.length} regulatory document(s) found` : 'No knowledge base matches';
+    }
+    case 'trace_ownership': {
+      if (result.error) return `Error: ${result.error}`;
+      const parts = [];
+      if (result.subject?.sanctionStatus === 'MATCH') parts.push('SANCTIONED');
+      if (result.fiftyPercentRuleTriggered) parts.push('50% RULE TRIGGERED');
+      else if (result.aggregateBlockedOwnership > 0) parts.push(`${result.aggregateBlockedOwnership.toFixed(1)}% sanctioned ownership`);
+      if (result.beneficialOwners?.length > 0) parts.push(`${result.beneficialOwners.length} beneficial owner(s)`);
+      if (result.ownedCompanies?.length > 0) parts.push(`${result.ownedCompanies.length} owned company/ies`);
+      if (result.riskLevel) parts.push(`Risk: ${result.riskLevel}`);
+      return parts.length > 0 ? parts.join(' · ') : 'No ownership data found';
+    }
+    case 'find_precedents': {
+      if (result.error) return `Error: ${result.error}`;
+      const parts = [];
+      const pr = result.precedent_risk;
+      if (pr?.level) parts.push(`Precedent risk: ${pr.level} (${pr.score}/100)`);
+      const stats = result.screening_precedents?.statistics;
+      if (stats?.total_similar > 0) parts.push(`${stats.total_similar} similar entities`);
+      if (stats?.later_sanctioned_count > 0) parts.push(`${stats.later_sanctioned_count} later sanctioned`);
+      if (result.enforcement_precedents?.length > 0) parts.push(`${result.enforcement_precedents.length} enforcement match(es)`);
+      return parts.length > 0 ? parts.join(' · ') : 'No precedent matches';
+    }
+    case 'get_related_entities': {
+      if (result.error) return `Error: ${result.error}`;
+      const parts = [];
+      if (result.variants?.length > 0) parts.push(`${result.variants.length} known variant(s)`);
+      if (result.related_entities?.length > 0) parts.push(`${result.related_entities.length} related entity/ies`);
+      const highRisk = (result.related_entities || []).filter(e => e.risk_level === 'HIGH' || e.risk_level === 'CRITICAL');
+      if (highRisk.length > 0) parts.push(`${highRisk.length} high-risk connection(s)`);
+      return parts.length > 0 ? parts.join(' · ') : 'No entity graph data';
     }
     default:
       return 'Completed';

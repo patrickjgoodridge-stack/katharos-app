@@ -2,7 +2,7 @@
 // POST /api/screening/opencorporates
 
 class OpenCorporatesService {
-  constructor() { this.apiKey = process.env.OPENCORPORATES_API_KEY || null; this.baseUrl = 'https://api.opencorporates.com/v0.4'; }
+  constructor() { this.apiKey = process.env.OPENCORPORATES_API_KEY || null; this.baseUrl = 'https://api.opencorporates.com/v0.4.8'; }
 
   async screenEntity(query) {
     const { name, jurisdiction } = query;

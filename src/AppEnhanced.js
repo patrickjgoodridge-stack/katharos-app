@@ -12769,6 +12769,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
               tc.name === 'search_court_records' ? `Searching court records: ${tc.input?.name || ''}` :
               tc.name === 'knowledge_base_search' ? `Searching knowledge base` :
               tc.name === 'web_search' ? `Searching the web` :
+              tc.name === 'trace_ownership' ? `Tracing ownership: ${tc.input?.name || ''}` :
+              tc.name === 'find_precedents' ? `Finding precedents: ${tc.input?.name || ''}` :
+              tc.name === 'get_related_entities' ? `Checking entity graph: ${tc.input?.name || ''}` :
               tc.name}
            </div>
            {tc.summary && <div style={{ color: '#858585', marginTop: '2px' }}>{tc.summary}</div>}

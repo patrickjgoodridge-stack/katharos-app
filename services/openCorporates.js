@@ -1,5 +1,5 @@
 // OpenCorporatesService — Global corporate registry search
-// Source: OpenCorporates API (free tier: 50 req/day, no key needed)
+// Source: OpenCorporates API (requires API key — https://opencorporates.com/api_accounts/new)
 
 const { BoundedCache } = require('./boundedCache');
 
@@ -7,7 +7,7 @@ class OpenCorporatesService {
 
   constructor() {
     this.apiKey = process.env.OPENCORPORATES_API_KEY || null;
-    this.baseUrl = 'https://api.opencorporates.com/v0.4';
+    this.baseUrl = 'https://api.opencorporates.com/v0.4.8';
     this.cache = new BoundedCache({ maxSize: 200, ttlMs: 60 * 60 * 1000 });
   }
 
