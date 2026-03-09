@@ -602,9 +602,8 @@ export default async function handler(req, res) {
         }
       }
 
-      // Only send text to client on the FINAL iteration (no tool calls = agent is done)
-      // Intermediate narration ("Let me search...", "Found a match!") is suppressed
-      if (iterationText && !hasToolUse) {
+      // Stream ALL narration text to client — intermediate and final
+      if (iterationText) {
         sendSSE(res, 'agent_text', { text: iterationText });
       }
 
