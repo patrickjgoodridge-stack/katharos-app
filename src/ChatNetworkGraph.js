@@ -580,7 +580,7 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
       if (nodesRef.current) {
         nodesRef.current.forEach(n => { n.fx = null; n.fy = null; });
       }
-      simulationRef.current.alpha(1).restart();
+      simulationRef.current.alpha(0.3).restart();
     }
     setSelectedNode(null);
     // Reset zoom
@@ -609,10 +609,12 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
       .attr('height', height)
       .style('background', '#0a0a0a');
 
-    // Zoom behavior
-    const zoomBehavior = d3.zoom().scaleExtent([0.2, 5]).on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
+    // Zoom behavior — constrained range, smooth easing
+    const zoomBehavior = d3.zoom()
+      .scaleExtent([0.3, 3])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform);
+      });
     svg.call(zoomBehavior);
 
     const g = svg.append('g');
@@ -645,14 +647,16 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
     nodesRef.current = nodes;
     linksRef.current = links;
 
-    // Force simulation
+    // Force simulation — tuned for stability and smooth interaction
     const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
-      .force('charge', d3.forceManyBody().strength(-600))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 20))
-      .force('x', d3.forceX(width / 2).strength(0.05))
-      .force('y', d3.forceY(height / 2).strength(0.05));
+      .alphaDecay(0.06)        // Settle ~3x faster than default (0.0228)
+      .velocityDecay(0.65)     // High friction — nodes slow down quickly
+      .force('link', d3.forceLink(links).id(d => d.id).distance(140).strength(0.7))
+      .force('charge', d3.forceManyBody().strength(-200).distanceMax(350))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.8))
+      .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 10).strength(0.8))
+      .force('x', d3.forceX(width / 2).strength(0.08))
+      .force('y', d3.forceY(height / 2).strength(0.08));
 
     simulationRef.current = simulation;
 
@@ -688,7 +692,8 @@ export default function ChatNetworkGraph({ graphData: externalData, analysis, en
       .attr('cursor', 'grab')
       .call(d3.drag()
         .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
+          // Gentle reheat — other nodes barely react
+          if (!event.active) simulation.alphaTarget(0.05).restart();
           d.fx = d.x;
           d.fy = d.y;
           d3.select(event.sourceEvent.target.closest('g')).attr('cursor', 'grabbing');

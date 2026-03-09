@@ -4470,6 +4470,9 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
              case 'agent_done':
                break;
+
+             default:
+               break;
            }
          } catch { /* ignore parse errors */ }
        }
