@@ -12770,21 +12770,21 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-center">
  <div className="max-w-2xl">
- {/* Show streaming narration for both agent and non-agent mode */}
- {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
-   agentMode ? (
-     <div style={{ padding: '12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-       <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
-     </div>
-   ) : (
-     <div className="py-3">
-       <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
-     </div>
-   )
- ) : (
+ {/* Always show narration text when available */}
+ {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
+ )}
+ {/* Show dots at the bottom while still streaming — acts as a live cursor */}
+ {agentMode ? (
+   <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+   </div>
+ ) : !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
+   <div className="py-3">
+     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
+   </div>
  )}
  </div>
  </div>
