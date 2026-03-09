@@ -12780,10 +12780,17 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      ))}
    </div>
  )}
- {/* Show "Analyzing..." initially, then stream the markdown */}
- {!String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
+ {/* Agent mode: hide intermediate narration, show typing indicator */}
+ {/* Non-agent mode: show progress bar or streaming markdown as before */}
+ {agentMode ? (
+   <div style={{ padding: '12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+     <span className="agent-typing-dot" style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+   </div>
+ ) : !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() ? (
    <div className="py-3">
-     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={agentMode ? 'Agent working' : (activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing')} isScreening={!agentMode && activeIntentRef.current === 'SCREEN'} />
+     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
    </div>
  ) : (
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
