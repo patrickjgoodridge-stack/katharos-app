@@ -57,6 +57,19 @@ const AuthPage = ({ onSuccess }) => {
           created_at: new Date().toISOString()
         }], { onConflict: 'email' });
       }
+      // Notify admin
+      try {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'demo_request',
+            name: demoName.trim(),
+            email: demoEmail.trim(),
+            company: demoCompany.trim(),
+          }),
+        });
+      } catch { /* notification is best-effort */ }
       setDemoSent(true);
     } catch {
       setDemoSent(true); // Show success anyway — don't reveal backend issues

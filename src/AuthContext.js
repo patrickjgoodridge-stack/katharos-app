@@ -156,6 +156,19 @@ export const AuthProvider = ({ children }) => {
           await loadUserData(invitedUser.email, invitedUser.name, invitedUser.company);
           // Clean the URL
           window.history.replaceState({}, '', window.location.pathname);
+          // Notify admin that invite link was used
+          try {
+            fetch('/api/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'invite_login',
+                name: invitedUser.name || '',
+                email: invitedUser.email,
+                company: invitedUser.company || '',
+              }),
+            });
+          } catch { /* best-effort */ }
           setLoading(false);
           return;
         }
@@ -211,6 +224,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Restricted login — only allows existing, active users (for gated access)
+  // Also checks collected_emails as fallback (grandfathers in pre-gate users)
   const loginExistingUser = async (email) => {
     const trimmedEmail = String(email || '').trim().toLowerCase();
     if (!trimmedEmail) return { success: false, error: 'Please enter your email' };
@@ -218,8 +232,27 @@ export const AuthProvider = ({ children }) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) return { success: false, error: 'Please enter a valid email' };
 
-    // Check if this user has been invited / exists
-    const existingUser = await checkUserExists(trimmedEmail);
+    // Check if this user has been invited / exists in users table
+    let existingUser = await checkUserExists(trimmedEmail);
+
+    // Fallback: check collected_emails (pre-gate users who used the old flow)
+    if (!existingUser && isSupabaseConfigured()) {
+      try {
+        const { data: legacyUser } = await supabase
+          .from('collected_emails')
+          .select('email, name, company')
+          .eq('email', trimmedEmail)
+          .single();
+        if (legacyUser) {
+          // Promote to proper user record via getOrCreateUser
+          const record = await getOrCreateUser(trimmedEmail, legacyUser.name, legacyUser.company, null);
+          if (record) existingUser = record;
+        }
+      } catch {
+        // No legacy record either
+      }
+    }
+
     if (!existingUser) {
       return { success: false, error: 'No account found. Access is by invitation only.' };
     }
