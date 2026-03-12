@@ -244,9 +244,10 @@ export const AuthProvider = ({ children }) => {
           .eq('email', trimmedEmail)
           .single();
         if (legacyUser) {
-          // Promote to proper user record via getOrCreateUser
+          // Try to promote to proper user record (may fail due to RLS)
           const record = await getOrCreateUser(trimmedEmail, legacyUser.name, legacyUser.company, null);
-          if (record) existingUser = record;
+          // Use whichever succeeded — user record or collected_emails data
+          existingUser = record || { email: legacyUser.email, name: legacyUser.name, company: legacyUser.company };
         }
       } catch {
         // No legacy record either
