@@ -116,7 +116,7 @@ const LandingPage = ({
                 e.currentTarget.style.borderColor = '#4a4a4a';
               }}
             >
-              Log In / Sign Up
+              Log In
             </button>
           )}
         </div>

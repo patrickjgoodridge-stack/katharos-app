@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, UserCheck, UserX, ChevronDown } from 'lucide-react';
-import { fetchTeamUsers, updateUserRole, suspendUser } from './userService';
+import { Users, Shield, UserCheck, UserX, ChevronDown, Link2, UserPlus, Copy, Check } from 'lucide-react';
+import { fetchTeamUsers, updateUserRole, suspendUser, createInvitedUser } from './userService';
 import { useAuth } from './AuthContext';
 
 const ROLE_COLORS = {
@@ -20,6 +20,16 @@ const AdminPanel = () => {
   const { domain } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Invite form state
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteCompany, setInviteCompany] = useState('');
+  const [inviteRole, setInviteRole] = useState('analyst');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteError, setInviteError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!domain) return;
@@ -45,13 +55,127 @@ const AdminPanel = () => {
     }
   };
 
+  const handleCreateInvite = async (e) => {
+    e.preventDefault();
+    setInviteError('');
+    setInviteLink('');
+
+    if (!inviteEmail.trim()) { setInviteError('Email is required'); return; }
+
+    setInviteLoading(true);
+    try {
+      const { data, token, error } = await createInvitedUser(
+        inviteEmail.trim(),
+        inviteName.trim(),
+        inviteCompany.trim(),
+        inviteRole
+      );
+      if (error) {
+        setInviteError(typeof error === 'string' ? error : 'Failed to create invite');
+      } else {
+        const baseUrl = window.location.origin;
+        setInviteLink(`${baseUrl}?invite=${token}`);
+        // Add user to the list if not already there
+        if (data) {
+          setUsers(prev => {
+            const exists = prev.find(u => u.email === data.email);
+            if (exists) return prev.map(u => u.email === data.email ? data : u);
+            return [...prev, data];
+          });
+        }
+      }
+    } catch {
+      setInviteError('Failed to create invite');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const formatDate = (ts) => {
     if (!ts) return 'Never';
     return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  const inputStyle = {
+    padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px',
+    fontFamily: "'Inter', sans-serif", outline: 'none', width: '100%', boxSizing: 'border-box',
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Invite User Section */}
+      <div style={{ marginBottom: '24px', padding: '20px', background: '#faf5ff', borderRadius: '8px', border: '1px solid #e8daef' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+          <UserPlus style={{ width: '18px', height: '18px', color: '#9c27b0' }} />
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>Send Secure Access Link</h3>
+        </div>
+
+        <form onSubmit={handleCreateInvite}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <input
+              type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+              placeholder="Email address *" style={inputStyle}
+            />
+            <input
+              type="text" value={inviteName} onChange={e => setInviteName(e.target.value)}
+              placeholder="Full name" style={inputStyle}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px', gap: '10px', marginBottom: '12px' }}>
+            <input
+              type="text" value={inviteCompany} onChange={e => setInviteCompany(e.target.value)}
+              placeholder="Company / Firm" style={inputStyle}
+            />
+            <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer', background: 'white' }}>
+              <option value="admin">Admin</option>
+              <option value="analyst">Analyst</option>
+              <option value="reviewer">Reviewer</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <button type="submit" disabled={inviteLoading}
+              style={{
+                padding: '8px 16px', background: '#9c27b0', color: 'white', border: 'none',
+                borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: inviteLoading ? 'not-allowed' : 'pointer',
+                opacity: inviteLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}
+            >
+              <Link2 style={{ width: '14px', height: '14px' }} />
+              {inviteLoading ? 'Creating...' : 'Generate'}
+            </button>
+          </div>
+        </form>
+
+        {inviteError && (
+          <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', marginBottom: '10px' }}>
+            <p style={{ fontSize: '12px', color: '#ef4444', margin: 0 }}>{inviteError}</p>
+          </div>
+        )}
+
+        {inviteLink && (
+          <div style={{ padding: '12px', background: 'white', border: '1px solid #e0e0e0', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ flex: 1, fontSize: '12px', color: '#555', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all', lineHeight: 1.6 }}>
+              {inviteLink}
+            </div>
+            <button onClick={handleCopyLink}
+              style={{
+                padding: '6px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px',
+                cursor: 'pointer', background: copied ? '#f0fff0' : 'white', color: copied ? '#4caf50' : '#555',
+                display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0,
+              }}
+            >
+              {copied ? <><Check style={{ width: '12px', height: '12px' }} /> Copied</> : <><Copy style={{ width: '12px', height: '12px' }} /> Copy</>}
+            </button>
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
         <Users style={{ width: '20px', height: '20px', color: '#9c27b0' }} />
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#1a1a1a' }}>User Management</h2>

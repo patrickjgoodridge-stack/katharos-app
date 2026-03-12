@@ -2,7 +2,7 @@
 // Full Supabase Auth version preserved in AuthContext.supabase-auth.js
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { getOrCreateUser, hasPermission as checkPermission } from './userService';
+import { getOrCreateUser, hasPermission as checkPermission, lookupByInviteToken, checkUserExists } from './userService';
 import { logAudit } from './auditService';
 
 const AuthContext = createContext({});
@@ -137,27 +137,50 @@ export const AuthProvider = ({ children }) => {
     if (record) setUserRecord(record);
   }, []);
 
-  // Initialize — check localStorage for existing user
+  // Initialize — check invite token in URL, then localStorage
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
 
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.email) {
-          setUser(parsed);
-          loadUserData(parsed.email, parsed.name || '', parsed.company || '');
+    const init = async () => {
+      // Check for invite token in URL (?invite=<token>)
+      const params = new URLSearchParams(window.location.search);
+      const inviteToken = params.get('invite');
+
+      if (inviteToken) {
+        const invitedUser = await lookupByInviteToken(inviteToken);
+        if (invitedUser) {
+          const userData = { email: invitedUser.email, name: invitedUser.name || '', company: invitedUser.company || '' };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+          setUser(userData);
+          await loadUserData(invitedUser.email, invitedUser.name, invitedUser.company);
+          // Clean the URL
+          window.history.replaceState({}, '', window.location.pathname);
+          setLoading(false);
+          return;
         }
       }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-    setLoading(false);
+
+      // Fall back to localStorage
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.email) {
+            setUser(parsed);
+            loadUserData(parsed.email, parsed.name || '', parsed.company || '');
+          }
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      setLoading(false);
+    };
+
+    init();
   }, [loadUserData]);
 
-  // Submit email — instant access, no verification
+  // Submit email — instant access, no verification (legacy, kept for compatibility)
   const submitEmail = async (email, name, company) => {
     const trimmedEmail = String(email || '').trim().toLowerCase();
     const trimmedName = String(name || '').trim();
@@ -182,6 +205,35 @@ export const AuthProvider = ({ children }) => {
       entityType: 'user',
       entityId: trimmedEmail,
       details: { provider: 'email_gate' }
+    });
+
+    return { success: true };
+  };
+
+  // Restricted login — only allows existing, active users (for gated access)
+  const loginExistingUser = async (email) => {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    if (!trimmedEmail) return { success: false, error: 'Please enter your email' };
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) return { success: false, error: 'Please enter a valid email' };
+
+    // Check if this user has been invited / exists
+    const existingUser = await checkUserExists(trimmedEmail);
+    if (!existingUser) {
+      return { success: false, error: 'No account found. Access is by invitation only.' };
+    }
+
+    const userData = { email: trimmedEmail, name: existingUser.name || '', company: existingUser.company || '' };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    setUser(userData);
+
+    await loadUserData(trimmedEmail, existingUser.name, existingUser.company);
+
+    logAudit('user_login', {
+      entityType: 'user',
+      entityId: trimmedEmail,
+      details: { provider: 'restricted_gate' }
     });
 
     return { success: true };
@@ -238,6 +290,7 @@ export const AuthProvider = ({ children }) => {
     email,
     loading,
     submitEmail,
+    loginExistingUser,
     signOut,
     isAuthenticated: !!user,
     isConfigured: isSupabaseConfigured(),
