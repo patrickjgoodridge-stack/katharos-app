@@ -7,6 +7,9 @@ import { logAudit } from './auditService';
 
 const AuthContext = createContext({});
 
+// Owner/admin emails that always bypass the gate (no DB lookup needed)
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || 'patrick@katharos.co').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
 const DAILY_FREE_LIMIT = 50;
 
 const PERSONAL_DOMAINS = [
@@ -231,6 +234,16 @@ export const AuthProvider = ({ children }) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) return { success: false, error: 'Please enter a valid email' };
+
+    // Admin bypass — owner emails always get through
+    if (ADMIN_EMAILS.includes(trimmedEmail)) {
+      const userData = { email: trimmedEmail, name: '', company: '' };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
+      await loadUserData(trimmedEmail, '', '');
+      logAudit('user_login', { entityType: 'user', entityId: trimmedEmail, details: { provider: 'admin_bypass' } });
+      return { success: true };
+    }
 
     // Check if this user has been invited / exists in users table
     let existingUser = await checkUserExists(trimmedEmail);
