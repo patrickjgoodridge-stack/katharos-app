@@ -137,12 +137,14 @@ const AuthPage = ({ onSuccess }) => {
                 <ArrowRight style={{ width: '16px', height: '16px' }} />
               </button>
 
-              <button
-                onClick={() => { setMode('demo'); setError(''); }}
+              <a
+                href="https://calendly.com/patrick-katharos/30min"
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   width: '100%', padding: '14px', background: 'transparent', color: '#858585',
                   border: '1px solid #3a3a3a', borderRadius: '6px', fontFamily: "'Inter', sans-serif",
-                  fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+                  fontSize: '14px', fontWeight: 500, cursor: 'pointer', textDecoration: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                   transition: 'all 0.15s'
                 }}
@@ -150,7 +152,7 @@ const AuthPage = ({ onSuccess }) => {
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3a3a3a'; e.currentTarget.style.color = '#858585'; }}
               >
                 Request a Demo
-              </button>
+              </a>
             </div>
           </div>
         )}

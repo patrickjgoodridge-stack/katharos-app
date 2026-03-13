@@ -121,10 +121,12 @@ const ProductPage = ({
             From raw data to regulatory-ready reports. One platform that handles research, analysis, and documentation.
           </p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => setCurrentPage('contact')}
-              className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
-              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px' }}
+            <a
+              href="https://calendly.com/patrick-katharos/30min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all no-underline"
+              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px', textDecoration: 'none' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.opacity = '0.85';
                 e.currentTarget.style.transform = 'translateY(-1px)';
@@ -136,7 +138,7 @@ const ProductPage = ({
             >
               Request a Demo
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </a>
             <button
               className="px-8 py-3.5 rounded text-sm font-medium transition-all"
               style={{ background: 'transparent', color: '#a1a1a1', border: '1px solid #4a4a4a' }}
@@ -353,10 +355,12 @@ const ProductPage = ({
           See Katharos in action with your own data. Request a demo and run your first search today.
         </p>
         <div className="flex gap-3 justify-center">
-          <button
-            onClick={() => setCurrentPage('contact')}
-            className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
-            style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px' }}
+          <a
+            href="https://calendly.com/patrick-katharos/30min"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all no-underline"
+            style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px', textDecoration: 'none' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.opacity = '0.85';
               e.currentTarget.style.transform = 'translateY(-1px)';
@@ -368,7 +372,7 @@ const ProductPage = ({
           >
             Request a Demo
             <ArrowRight className="w-4 h-4" />
-          </button>
+          </a>
           <button
             className="px-8 py-3.5 rounded text-sm font-medium transition-all"
             style={{ background: 'transparent', color: '#a1a1a1', border: '1px solid #4a4a4a' }}
