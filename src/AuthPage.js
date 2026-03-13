@@ -1,14 +1,17 @@
-// AuthPage.js - Restricted Access Gate
+// AuthPage.js - Restricted Access Gate with Password Login
 // "Access is currently restricted to partner institutions."
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { Mail, ArrowRight, Loader2, Lock, Send } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, Lock, Send, KeyRound } from 'lucide-react';
 
 const AuthPage = ({ onSuccess }) => {
-  const { loginExistingUser } = useAuth();
+  const { loginWithPassword, setPasswordFromInvite, pendingInvite } = useAuth();
 
-  const [mode, setMode] = useState('gate'); // 'gate', 'login', 'demo'
+  const [mode, setMode] = useState('gate'); // 'gate', 'login', 'demo', 'set-password'
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [demoEmail, setDemoEmail] = useState('');
   const [demoName, setDemoName] = useState('');
   const [demoCompany, setDemoCompany] = useState('');
@@ -16,18 +19,48 @@ const AuthPage = ({ onSuccess }) => {
   const [error, setError] = useState('');
   const [demoSent, setDemoSent] = useState(false);
 
+  // Show set-password mode when there's a pending invite
+  useEffect(() => {
+    if (pendingInvite) {
+      setMode('set-password');
+    }
+  }, [pendingInvite]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     if (!email.trim()) { setError('Please enter your email'); return; }
+    if (!password) { setError('Please enter your password'); return; }
 
     setLoading(true);
     try {
-      const result = await loginExistingUser(email);
+      const result = await loginWithPassword(email, password);
       if (result.success) {
         if (onSuccess) onSuccess();
       } else {
-        setError(result.error || 'Access denied.');
+        setError(result.error || 'Invalid email or password.');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!newPassword) { setError('Please enter a password'); return; }
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match'); return; }
+
+    setLoading(true);
+    try {
+      const result = await setPasswordFromInvite(pendingInvite.token, newPassword);
+      if (result.success) {
+        if (onSuccess) onSuccess();
+      } else {
+        setError(result.error || 'Failed to set password.');
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -172,11 +205,18 @@ const AuthPage = ({ onSuccess }) => {
               </div>
             )}
 
-            <form onSubmit={handleLogin} autoComplete="off">
+            <form onSubmit={handleLogin} autoComplete="on">
               <div style={{ marginBottom: '16px' }}>
                 <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
                   <Mail style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" autoComplete="email" autoFocus style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+                  <KeyRound style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" style={inputStyle} />
                 </div>
               </div>
 
@@ -196,7 +236,7 @@ const AuthPage = ({ onSuccess }) => {
                 {loading ? (
                   <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Verifying...</>
                 ) : (
-                  <>Continue <ArrowRight style={{ width: '16px', height: '16px' }} /></>
+                  <>Log In <ArrowRight style={{ width: '16px', height: '16px' }} /></>
                 )}
               </button>
             </form>
@@ -206,6 +246,62 @@ const AuthPage = ({ onSuccess }) => {
                 Back
               </button>
             </div>
+          </div>
+        )}
+
+        {mode === 'set-password' && pendingInvite && (
+          <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '36px 32px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#242424', border: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+              <KeyRound style={{ width: '20px', height: '20px', color: '#6b6b6b' }} />
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.3px', marginBottom: '6px' }}>
+              Create Your Password
+            </h1>
+            <p style={{ fontSize: '13px', color: '#6b6b6b', textAlign: 'center', marginBottom: '28px' }}>
+              Welcome{pendingInvite.name ? `, ${pendingInvite.name.split(' ')[0]}` : ''}. Set a password to secure your account.
+            </p>
+
+            {error && (
+              <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px' }}>
+                <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSetPassword} autoComplete="off">
+              <div style={{ marginBottom: '16px' }}>
+                <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+                  <KeyRound style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Password (min. 8 characters)" autoComplete="new-password" autoFocus style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+                  <KeyRound style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm password" autoComplete="new-password" style={inputStyle} />
+                </div>
+              </div>
+
+              <button type="submit" disabled={loading}
+                style={{
+                  width: '100%', padding: '14px', marginTop: '4px',
+                  background: '#ffffff', color: '#1a1a1a',
+                  border: 'none', borderRadius: '6px',
+                  fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  opacity: loading ? 0.7 : 1, transition: 'all 0.15s'
+                }}
+                onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.transform = 'translateY(-1px)'; }}}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = loading ? '0.7' : '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                {loading ? (
+                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Setting up...</>
+                ) : (
+                  <>Create Account <ArrowRight style={{ width: '16px', height: '16px' }} /></>
+                )}
+              </button>
+            </form>
           </div>
         )}
 

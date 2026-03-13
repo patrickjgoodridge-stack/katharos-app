@@ -65,9 +65,8 @@ export default async function handler(req, res) {
   const { type, name, email, company } = req.body || {};
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
   const NOTIFY_TO = process.env.NOTIFY_EMAIL || 'patrick@katharos.co';
-  const BASE_URL = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : (process.env.BASE_URL || 'https://katharos.co');
+  const BASE_URL = process.env.BASE_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://katharos.co');
 
   // Generate Secure Access Link for demo requests
   let inviteLink = null;
@@ -138,7 +137,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Katharos <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Katharos <notifications@katharos.co>',
         to: NOTIFY_TO,
         subject,
         html,

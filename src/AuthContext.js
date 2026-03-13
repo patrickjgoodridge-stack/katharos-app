@@ -119,6 +119,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
   const [dailyScreenings, setDailyScreenings] = useState(0);
+  const [pendingInvite, setPendingInvite] = useState(null); // { token, email, name, company } — needs password
   const initRef = useRef(false);
 
   // Load user data from Supabase (user record, paid status, usage)
@@ -153,14 +154,27 @@ export const AuthProvider = ({ children }) => {
       if (inviteToken) {
         const invitedUser = await lookupByInviteToken(inviteToken);
         if (invitedUser) {
+          // Clean the URL immediately
+          window.history.replaceState({}, '', window.location.pathname);
+
+          // If user has no password yet, prompt them to create one
+          if (!invitedUser.password_hash) {
+            setPendingInvite({
+              token: inviteToken,
+              email: invitedUser.email,
+              name: invitedUser.name || '',
+              company: invitedUser.company || '',
+            });
+            setLoading(false);
+            return;
+          }
+
+          // User already has a password — auto-login (returning invite user)
           const userData = { email: invitedUser.email, name: invitedUser.name || '', company: invitedUser.company || '' };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
           setUser(userData);
           await loadUserData(invitedUser.email, invitedUser.name, invitedUser.company);
-          // Flag so AppEnhanced navigates to new case page
           localStorage.setItem('katharos_invite_redirect', 'newCase');
-          // Clean the URL
-          window.history.replaceState({}, '', window.location.pathname);
           // Notify admin that invite link was used
           try {
             fetch('/api/notify', {
@@ -288,6 +302,84 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
+  // Login with email + password (calls /api/auth verify-password)
+  const loginWithPassword = async (email, password) => {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    if (!trimmedEmail || !password) return { success: false, error: 'Email and password are required' };
+
+    // Admin bypass — no password needed
+    if (ADMIN_EMAILS.includes(trimmedEmail)) {
+      const userData = { email: trimmedEmail, name: '', company: '' };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
+      await loadUserData(trimmedEmail, '', '');
+      logAudit('user_login', { entityType: 'user', entityId: trimmedEmail, details: { provider: 'admin_bypass' } });
+      return { success: true };
+    }
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify-password', email: trimmedEmail, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        return { success: false, error: data.error || 'Invalid email or password' };
+      }
+      const userData = { email: data.email, name: data.name || '', company: data.company || '' };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
+      await loadUserData(data.email, data.name, data.company);
+      logAudit('user_login', { entityType: 'user', entityId: data.email, details: { provider: 'password' } });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Something went wrong. Please try again.' };
+    }
+  };
+
+  // Set password from invite flow (calls /api/auth set-password, then auto-logs in)
+  const setPasswordFromInvite = async (token, password) => {
+    if (!token || !password) return { success: false, error: 'Token and password are required' };
+    if (password.length < 8) return { success: false, error: 'Password must be at least 8 characters' };
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-password', token, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        return { success: false, error: data.error || 'Failed to set password' };
+      }
+      // Auto-login after setting password
+      const userData = { email: data.email, name: data.name || '', company: data.company || '' };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
+      setPendingInvite(null);
+      await loadUserData(data.email, data.name, data.company);
+      localStorage.setItem('katharos_invite_redirect', 'newCase');
+      // Notify admin
+      try {
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'invite_login',
+            name: data.name || '',
+            email: data.email,
+            company: data.company || '',
+          }),
+        });
+      } catch { /* best-effort */ }
+      logAudit('user_login', { entityType: 'user', entityId: data.email, details: { provider: 'invite_password_set' } });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Something went wrong. Please try again.' };
+    }
+  };
+
   // Sign out — clear localStorage + state
   const signOut = async () => {
     if (user?.email) {
@@ -369,6 +461,9 @@ export const AuthProvider = ({ children }) => {
     loading,
     submitEmail,
     loginExistingUser,
+    loginWithPassword,
+    setPasswordFromInvite,
+    pendingInvite,
     signOut,
     isAuthenticated: !!user,
     isConfigured: isSupabaseConfigured(),

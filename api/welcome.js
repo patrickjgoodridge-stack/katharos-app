@@ -11,6 +11,25 @@ const getSupabase = () => {
   return createClient(url, key);
 };
 
+// ─── Rate Limiter (in-memory, per-IP, 5 req/min) ────────────────────────────
+const rateMap = new Map();
+const RATE_LIMIT = 5;
+const RATE_WINDOW = 60_000; // 1 minute
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateMap.get(ip);
+  if (!entry || now - entry.start > RATE_WINDOW) {
+    rateMap.set(ip, { start: now, count: 1 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
+
+const getBaseUrl = () =>
+  process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://katharos.co');
+
 const generateToken = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
@@ -64,8 +83,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email is required' });
   }
 
+  // Rate limit check
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const BASE_URL = process.env.BASE_URL || 'https://katharos.co';
+  const BASE_URL = getBaseUrl();
 
   // Create user + generate invite token
   const supabase = getSupabase();
@@ -112,7 +137,7 @@ export default async function handler(req, res) {
                 Your Katharos account${company ? ` for <strong>${company}</strong>` : ''} has been provisioned and is ready for use. Katharos provides expert-level AI for deep due diligence — automated screening against thousands of regulatory, sanctions, and financial crime intelligence sources.
               </p>
               <p style="font-size: 15px; color: #333; margin: 0 0 32px; line-height: 1.7;">
-                Click below to access your account. This link is unique to you and will log you in securely.
+                Click below to access your account. You'll be asked to create a password for secure access. This link is unique to you and can only be used once.
               </p>
 
               <!-- CTA Button -->
@@ -174,7 +199,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Katharos <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Katharos <notifications@katharos.co>',
         to: email,
         reply_to: 'patrick@katharos.co',
         subject,
@@ -196,7 +221,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Katharos <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Katharos <notifications@katharos.co>',
         to: process.env.NOTIFY_EMAIL || 'patrick@katharos.co',
         subject: `Welcome Email Sent — ${company || name || email}`,
         html: `<div style="font-family: -apple-system, sans-serif; padding: 20px;"><p>Welcome email sent to <strong>${email}</strong>${company ? ` (${company})` : ''}.</p><p>Invite link: <a href="${inviteLink}">${inviteLink}</a></p></div>`,
