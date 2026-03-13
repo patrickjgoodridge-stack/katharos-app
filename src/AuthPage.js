@@ -231,11 +231,17 @@ const AuthPage = ({ onSuccess }) => {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '8px' }}>
                 <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
                   <KeyRound style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
                   <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" style={inputStyle} />
                 </div>
+              </div>
+
+              <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+                <button type="button" onClick={() => { setMode('forgot-password'); setError(''); setResetSent(false); setResetEmail(''); }} style={{ ...linkStyle, fontSize: '12px' }}>
+                  Forgot password?
+                </button>
               </div>
 
               <button type="submit" disabled={loading}
@@ -259,12 +265,9 @@ const AuthPage = ({ onSuccess }) => {
               </button>
             </form>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+            <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <button onClick={() => { setMode('gate'); setError(''); }} style={linkStyle}>
                 Back
-              </button>
-              <button onClick={() => { setMode('forgot-password'); setError(''); setResetSent(false); setResetEmail(''); }} style={linkStyle}>
-                Forgot password?
               </button>
             </div>
           </div>
