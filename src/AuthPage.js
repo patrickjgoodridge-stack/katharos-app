@@ -133,7 +133,7 @@ const AuthPage = ({ onSuccess }) => {
                 onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
               >
-                Log In
+                Log In / Get Started
                 <ArrowRight style={{ width: '16px', height: '16px' }} />
               </button>
 
