@@ -135,8 +135,8 @@ const LandingPage = ({
             className="text-[68px] font-normal mb-7 leading-[1.1]"
             style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
           >
-            The AI investigator for<br />
-            <span style={{ color: '#858585', fontStyle: 'italic' }}>financial crime</span>
+            The AI Expert for<br />
+            <span style={{ color: '#858585', fontStyle: 'italic' }}>Deep Diligence</span>
           </h1>
 
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff' }}>
