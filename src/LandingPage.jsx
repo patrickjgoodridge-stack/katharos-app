@@ -142,8 +142,8 @@ const LandingPage = ({
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff', fontFamily: 'Georgia, serif' }}>
             Reduce complex diligence from days to minutes.
           </p>
-          <p className="text-[14px] font-light max-w-[520px] mx-auto mt-3" style={{ color: '#6b6b6b', fontFamily: 'Georgia, serif' }}>
-            For asset managers, corporates, law firms, risk consultancies, and more
+          <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff', fontFamily: 'Georgia, serif' }}>
+            For asset managers, corporates, law firms, risk consultancies, and more.
           </p>
 
           <div className="flex gap-3 justify-center mt-11">
