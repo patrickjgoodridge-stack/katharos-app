@@ -8299,7 +8299,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
        {(user?.company || workspaceName) && (
          <>
            <span style={{ margin: '0 8px', color: '#3a3a3a' }}>|</span>
-           <span style={{ color: '#858585' }}>{user?.company || workspaceName} Portal</span>
+           <span style={{ color: '#858585' }}>{user?.company || workspaceName}</span>
          </>
        )}
      </span>
