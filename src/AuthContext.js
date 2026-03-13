@@ -147,9 +147,10 @@ export const AuthProvider = ({ children }) => {
     initRef.current = true;
 
     const init = async () => {
-      // Check for invite token in URL (?invite=<token>)
+      // Check for invite or reset token in URL
       const params = new URLSearchParams(window.location.search);
       const inviteToken = params.get('invite');
+      const resetToken = params.get('reset');
 
       if (inviteToken) {
         // Use server-side lookup (bypasses RLS) instead of frontend anon key
@@ -200,6 +201,34 @@ export const AuthProvider = ({ children }) => {
               }),
             });
           } catch { /* best-effort */ }
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Check for password reset token (?reset=<token>)
+      if (resetToken) {
+        let resetUser = null;
+        try {
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lookup-token', token: resetToken }),
+          });
+          if (res.ok) {
+            resetUser = await res.json();
+          }
+        } catch { /* lookup failed */ }
+
+        if (resetUser?.ok) {
+          window.history.replaceState({}, '', window.location.pathname);
+          setPendingInvite({
+            token: resetToken,
+            email: resetUser.email,
+            name: resetUser.name || '',
+            company: resetUser.company || '',
+            isReset: true,
+          });
           setLoading(false);
           return;
         }
@@ -392,6 +421,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Request password reset — sends reset email via /api/auth
+  const requestPasswordReset = async (email) => {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    if (!trimmedEmail) return { success: false, error: 'Please enter your email' };
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request-reset', email: trimmedEmail }),
+      });
+      // Always return success to avoid email enumeration
+      return { success: true };
+    } catch {
+      return { success: true };
+    }
+  };
+
   // Sign out — clear localStorage + state
   const signOut = async () => {
     if (user?.email) {
@@ -475,6 +521,7 @@ export const AuthProvider = ({ children }) => {
     loginExistingUser,
     loginWithPassword,
     setPasswordFromInvite,
+    requestPasswordReset,
     pendingInvite,
     signOut,
     isAuthenticated: !!user,

@@ -5,9 +5,11 @@ import { useAuth } from './AuthContext';
 import { Mail, ArrowRight, Loader2, Lock, Send, KeyRound } from 'lucide-react';
 
 const AuthPage = ({ onSuccess }) => {
-  const { loginWithPassword, setPasswordFromInvite, pendingInvite } = useAuth();
+  const { loginWithPassword, setPasswordFromInvite, requestPasswordReset, pendingInvite } = useAuth();
 
-  const [mode, setMode] = useState('gate'); // 'gate', 'login', 'demo', 'set-password'
+  const [mode, setMode] = useState('gate'); // 'gate', 'login', 'demo', 'set-password', 'forgot-password'
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -64,6 +66,22 @@ const AuthPage = ({ onSuccess }) => {
       }
     } catch {
       setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!resetEmail.trim()) { setError('Please enter your email'); return; }
+
+    setLoading(true);
+    try {
+      await requestPasswordReset(resetEmail);
+      setResetSent(true);
+    } catch {
+      setResetSent(true); // Always show success to avoid email enumeration
     } finally {
       setLoading(false);
     }
@@ -241,9 +259,12 @@ const AuthPage = ({ onSuccess }) => {
               </button>
             </form>
 
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
               <button onClick={() => { setMode('gate'); setError(''); }} style={linkStyle}>
                 Back
+              </button>
+              <button onClick={() => { setMode('forgot-password'); setError(''); setResetSent(false); setResetEmail(''); }} style={linkStyle}>
+                Forgot password?
               </button>
             </div>
           </div>
@@ -255,10 +276,13 @@ const AuthPage = ({ onSuccess }) => {
               <KeyRound style={{ width: '20px', height: '20px', color: '#6b6b6b' }} />
             </div>
             <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.3px', marginBottom: '6px' }}>
-              Create Your Password
+              {pendingInvite.isReset ? 'Reset Your Password' : 'Create Your Password'}
             </h1>
             <p style={{ fontSize: '13px', color: '#6b6b6b', textAlign: 'center', marginBottom: '28px' }}>
-              Welcome{pendingInvite.name ? `, ${pendingInvite.name.split(' ')[0]}` : ''}. Set a password to secure your account.
+              {pendingInvite.isReset
+                ? 'Choose a new password for your account.'
+                : `Welcome${pendingInvite.name ? `, ${pendingInvite.name.split(' ')[0]}` : ''}. Set a password to secure your account.`
+              }
             </p>
 
             {error && (
@@ -302,6 +326,75 @@ const AuthPage = ({ onSuccess }) => {
                 )}
               </button>
             </form>
+          </div>
+        )}
+
+        {mode === 'forgot-password' && !resetSent && (
+          <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '36px 32px' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.3px', marginBottom: '6px' }}>
+              Reset Password
+            </h1>
+            <p style={{ fontSize: '13px', color: '#6b6b6b', textAlign: 'center', marginBottom: '28px' }}>
+              Enter your email and we'll send a reset link
+            </p>
+
+            {error && (
+              <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px' }}>
+                <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotPassword} autoComplete="off">
+              <div style={{ marginBottom: '16px' }}>
+                <div style={inputWrapStyle} onFocus={(e) => focusWrap(e, true)} onBlur={(e) => focusWrap(e, false)}>
+                  <Mail style={{ width: '16px', height: '16px', color: '#6b6b6b', flexShrink: 0 }} />
+                  <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="Email address" autoComplete="email" autoFocus style={inputStyle} />
+                </div>
+              </div>
+
+              <button type="submit" disabled={loading}
+                style={{
+                  width: '100%', padding: '14px', marginTop: '4px',
+                  background: '#ffffff', color: '#1a1a1a',
+                  border: 'none', borderRadius: '6px',
+                  fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  opacity: loading ? 0.7 : 1, transition: 'all 0.15s'
+                }}
+                onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.transform = 'translateY(-1px)'; }}}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = loading ? '0.7' : '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                {loading ? (
+                  <><Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> Sending...</>
+                ) : (
+                  <>Send Reset Link <ArrowRight style={{ width: '16px', height: '16px' }} /></>
+                )}
+              </button>
+            </form>
+
+            <div style={{ textAlign: 'center', marginTop: '20px' }}>
+              <button onClick={() => { setMode('login'); setError(''); }} style={linkStyle}>
+                Back to login
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'forgot-password' && resetSent && (
+          <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '40px 32px', textAlign: 'center' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+              <Mail style={{ width: '20px', height: '20px', color: '#22c55e' }} />
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.3px', marginBottom: '12px' }}>
+              Check Your Email
+            </h1>
+            <p style={{ fontSize: '14px', color: '#858585', lineHeight: 1.7, marginBottom: '24px' }}>
+              If an account exists for that email, we've sent a link to reset your password.
+            </p>
+            <button onClick={() => { setMode('login'); setResetSent(false); setError(''); }} style={linkStyle}>
+              Back to login
+            </button>
           </div>
         )}
 
