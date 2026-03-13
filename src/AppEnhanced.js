@@ -8278,6 +8278,33 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
  <div className="grid-bg absolute inset-0 opacity-60" />
  </div>
 
+ {/* Firm-branded header bar for authenticated app pages */}
+ {isAuthenticated && !['noirLanding', 'landing', 'about', 'product', 'contact'].includes(currentPage) && (
+   <div style={{
+     position: 'fixed',
+     top: 0,
+     left: ['existingCases', 'newCase', 'activeCase'].includes(currentPage) ? '56px' : 0,
+     right: 0,
+     height: '32px',
+     background: '#141414',
+     borderBottom: '1px solid #2a2a2a',
+     display: 'flex',
+     alignItems: 'center',
+     padding: '0 16px',
+     zIndex: 40,
+     fontFamily: "'Inter', sans-serif",
+   }}>
+     <span style={{ fontSize: '12px', color: '#6b6b6b', fontWeight: 500, letterSpacing: '0.3px' }}>
+       <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#858585', fontWeight: 400 }}>Katharos</span>
+       {(user?.company || workspaceName) && (
+         <>
+           <span style={{ margin: '0 8px', color: '#3a3a3a' }}>|</span>
+           <span style={{ color: '#858585' }}>{user?.company || workspaceName} Portal</span>
+         </>
+       )}
+     </span>
+   </div>
+ )}
 
  {/* Landing pages render directly without main wrapper */}
 {currentPage === 'noirLanding' && (
@@ -8332,7 +8359,7 @@ if (!isAuthenticated && !publicPages.includes(currentPage)) {
 
 
 {currentPage === 'settings' && (
-  <div style={{ background: '#1a1a1a', minHeight: '100vh' }}>
+  <div style={{ background: '#1a1a1a', minHeight: '100vh', paddingTop: '32px' }}>
     <div className="fade-in max-w-6xl mx-auto pt-16 px-8 pb-16">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => setCurrentPage('newCase')} className="p-2 hover:bg-neutral-800 rounded-lg">
@@ -10307,9 +10334,9 @@ If you have questions about this disclaimer or the limitations of the Service, p
   };
 
   return (
-  <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex' }}>
+  <div style={{ background: '#1a1a1a', minHeight: '100vh', display: 'flex', paddingTop: '32px' }}>
     {/* Docs Sidebar */}
-    <div style={{ width: '260px', minWidth: '260px', borderRight: '1px solid #2a2a2a', padding: '32px 0', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+    <div style={{ width: '260px', minWidth: '260px', borderRight: '1px solid #2a2a2a', padding: '32px 0', position: 'sticky', top: '32px', height: 'calc(100vh - 32px)', overflowY: 'auto' }}>
       <div style={{ padding: '0 24px', marginBottom: '24px' }}>
         <button onClick={() => setCurrentPage('newCase')} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#6b6b6b', cursor: 'pointer', fontSize: '13px', padding: '4px 0', marginBottom: '16px' }}>
           <ArrowLeft style={{ width: '14px', height: '14px' }} /> Back
@@ -11819,9 +11846,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
  {/* Case Management Page */}
  {currentPage === 'existingCases' && (
- <div className="min-h-screen" style={{ background: '#1a1a1a' }}>
+ <div className="min-h-screen" style={{ background: '#1a1a1a', paddingTop: '32px' }}>
  {/* Sidebar */}
- <div className="fixed top-0 left-0 h-full flex flex-col items-center pt-5 gap-2" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
+ <div className="fixed left-0 h-full flex flex-col items-center pt-5 gap-2" style={{ top: '32px', width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
  {/* Home Button */}
  <div className="relative group">
  <button onClick={goToLanding} className="katharos-sidebar-icon" title="Home">
@@ -12290,7 +12317,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
  {/* Claude-like Conversational Interface */}
  {(currentPage === 'newCase' || currentPage === 'activeCase') && !analysis && (
- <div className="h-screen flex" style={{ background: '#1a1a1a' }}>
+ <div className="flex" style={{ background: '#1a1a1a', height: 'calc(100vh - 32px)', marginTop: '32px' }}>
  {/* Left Icon Bar - Katharos Sidebar */}
  <div className="flex flex-col items-center pt-5 gap-2 overflow-visible" style={{ width: '56px', background: '#141414', borderRight: '1px solid #3a3a3a' }}>
  {/* Home icon - at top */}

@@ -330,6 +330,35 @@ export const AuthProvider = ({ children }) => {
     return false;
   };
 
+  // 2-hour inactivity timeout — auto-logout
+  const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+  const inactivityTimer = useRef(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const resetTimer = () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(() => {
+        logAudit('session_timeout', { entityType: 'user', entityId: user.email, details: { reason: 'inactivity_2h' } });
+        localStorage.removeItem(STORAGE_KEY);
+        setUser(null);
+        setUserRecord(null);
+        setIsPaid(false);
+        setDailyScreenings(0);
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer(); // start on mount
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const email = user?.email || null;
 
   const value = {
