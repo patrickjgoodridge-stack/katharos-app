@@ -138,7 +138,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Katharos <notifications@katharos.co>',
+        from: process.env.RESEND_FROM || 'Katharos <onboarding@resend.dev>',
         to: NOTIFY_TO,
         subject,
         html,
