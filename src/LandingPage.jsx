@@ -139,8 +139,8 @@ const LandingPage = ({
             <span style={{ color: '#858585', fontStyle: 'italic' }}>Deep Diligence</span>
           </h1>
 
-          <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff' }}>
-            Reduce complex diligence from hours to minutes.
+          <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff', fontFamily: 'Georgia, serif' }}>
+            Reduce complex diligence from days to minutes.
           </p>
 
           <div className="flex gap-3 justify-center mt-11">
