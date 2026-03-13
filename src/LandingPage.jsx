@@ -136,7 +136,7 @@ const LandingPage = ({
             style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
           >
             Expert-level AI for<br />
-            <span style={{ color: '#858585', fontStyle: 'italic' }}>Deep Diligence</span>
+            <span style={{ color: '#858585', fontStyle: 'italic' }}>Deep Due Diligence</span>
           </h1>
 
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff', fontFamily: 'Georgia, serif' }}>
