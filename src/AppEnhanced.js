@@ -320,7 +320,7 @@ function friendlyError(error) {
 // Main Katharos Component
 export default function Katharos() {
  // Auth state - must be called before any conditional returns
- const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission } = useAuth();
+ const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission, pendingInvite } = useAuth();
 
  // Initialize event logger with user context
  useEffect(() => {
@@ -8113,8 +8113,8 @@ const publicPages = ['noirLanding', 'landing', 'about', 'product', 'contact'];
 
 // No loading screen — landing page renders instantly, AuthPage handles protected pages
 
-// Show AuthPage only if user is trying to access a protected page
-if (!isAuthenticated && !publicPages.includes(currentPage)) {
+// Show AuthPage if user is trying to access a protected page, or has a pending invite
+if (!isAuthenticated && (!publicPages.includes(currentPage) || pendingInvite)) {
   return <AuthPage onSuccess={handleEmailSubmitted} />;
 }
  // Use dark background for landing pages, light for app pages
