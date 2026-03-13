@@ -35,7 +35,9 @@ const generateToken = () => {
   return 'xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
 };
 
-const ensureInviteToken = async (supabase, email, name, company) => {
+const VALID_ROLES = ['admin', 'analyst', 'reviewer', 'viewer'];
+
+const ensureInviteToken = async (supabase, email, name, company, role) => {
   if (!supabase || !email) return null;
   const token = generateToken();
   const domain = email.split('@')[1]?.toLowerCase() || '';
@@ -59,7 +61,7 @@ const ensureInviteToken = async (supabase, email, name, company) => {
       email: email.toLowerCase(),
       name: name || null,
       company: company || null,
-      role: 'analyst',
+      role: (role && VALID_ROLES.includes(role)) ? role : 'analyst',
       status: 'active',
       email_domain: domain,
       auth_id: token,
@@ -77,7 +79,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, company } = req.body || {};
+  const { email, name, company, role } = req.body || {};
 
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
@@ -94,7 +96,7 @@ export default async function handler(req, res) {
 
   // Create user + generate invite token
   const supabase = getSupabase();
-  const token = await ensureInviteToken(supabase, email, name, company);
+  const token = await ensureInviteToken(supabase, email, name, company, role);
   const inviteLink = token ? `${BASE_URL}?invite=${token}` : null;
 
   if (!RESEND_API_KEY) {

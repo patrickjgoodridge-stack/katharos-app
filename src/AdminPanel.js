@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, UserCheck, UserX, ChevronDown, Link2, UserPlus, Copy, Check } from 'lucide-react';
-import { fetchTeamUsers, updateUserRole, suspendUser, createInvitedUser } from './userService';
+import { fetchTeamUsers, updateUserRole, suspendUser } from './userService';
 import { useAuth } from './AuthContext';
 
 const ROLE_COLORS = {
@@ -64,28 +64,28 @@ const AdminPanel = () => {
 
     setInviteLoading(true);
     try {
-      const { data, token, error } = await createInvitedUser(
-        inviteEmail.trim(),
-        inviteName.trim(),
-        inviteCompany.trim(),
-        inviteRole
-      );
-      if (error) {
-        setInviteError(typeof error === 'string' ? error : 'Failed to create invite');
+      const res = await fetch('/api/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          name: inviteName.trim(),
+          company: inviteCompany.trim(),
+          role: inviteRole,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.ok) {
+        setInviteError(result.error || 'Failed to send invite');
       } else {
-        const baseUrl = window.location.origin;
-        setInviteLink(`${baseUrl}?invite=${token}`);
-        // Add user to the list if not already there
-        if (data) {
-          setUsers(prev => {
-            const exists = prev.find(u => u.email === data.email);
-            if (exists) return prev.map(u => u.email === data.email ? data : u);
-            return [...prev, data];
-          });
+        setInviteLink(result.inviteLink || '');
+        // Refresh user list
+        if (domain) {
+          fetchTeamUsers(domain).then(data => setUsers(data));
         }
       }
     } catch {
-      setInviteError('Failed to create invite');
+      setInviteError('Failed to send invite');
     } finally {
       setInviteLoading(false);
     }
@@ -147,7 +147,7 @@ const AdminPanel = () => {
               }}
             >
               <Link2 style={{ width: '14px', height: '14px' }} />
-              {inviteLoading ? 'Creating...' : 'Generate'}
+              {inviteLoading ? 'Sending...' : 'Send'}
             </button>
           </div>
         </form>
