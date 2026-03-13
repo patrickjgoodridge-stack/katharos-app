@@ -8420,11 +8420,11 @@ if (!isAuthenticated && (!publicPages.includes(currentPage) || pendingInvite)) {
           onClick={async () => { await signOut(); setCurrentPage('noirLanding'); }}
           style={{
             padding: '8px 20px', fontSize: '13px', fontWeight: 600,
-            background: '#ffffff', color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer',
-            transition: 'opacity 0.15s',
+            background: 'none', color: '#ffffff', border: '1px solid #3a3a3a', borderRadius: '6px', cursor: 'pointer',
+            transition: 'border-color 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6b6b6b'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3a3a3a'; }}
         >
           Sign Out
         </button>
