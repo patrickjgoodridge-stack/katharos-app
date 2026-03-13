@@ -8410,6 +8410,25 @@ if (!isAuthenticated && (!publicPages.includes(currentPage) || pendingInvite)) {
         {settingsTab === 'admin' && hasPermission('manage_users') && <AdminPanel />}
         {settingsTab === 'other' && (
       <div>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Sign Out</h3>
+        <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
+          End your current session. You'll need to log in again with your email and password.
+        </p>
+        <button
+          onClick={async () => { await signOut(); setCurrentPage('noirLanding'); }}
+          style={{
+            padding: '8px 20px', fontSize: '13px', fontWeight: 600,
+            background: '#ffffff', color: '#1a1a1a', border: 'none', borderRadius: '6px', cursor: 'pointer',
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+        >
+          Sign Out
+        </button>
+
+        <hr style={{ border: 'none', borderTop: '1px solid #3a3a3a', margin: '28px 0' }} />
+
         <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Close Account</h3>
         <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
           Permanently delete your account including cases, screenings, and audit logs from our primary database. This action cannot be undone.
