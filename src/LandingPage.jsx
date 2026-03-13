@@ -140,15 +140,16 @@ const LandingPage = ({
           </h1>
 
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff' }}>
-            Reduce investigation time from hours to minutes.<br />
-            Close up to <strong style={{ fontWeight: 600 }}>10x</strong> more cases per week.
+            Reduce complex diligence from hours to minutes.
           </p>
 
           <div className="flex gap-3 justify-center mt-11">
-            <button
-              onClick={() => startNewCase()}
-              className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all"
-              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px', cursor: 'pointer' }}
+            <a
+              href="https://calendly.com/patrick-katharos/30min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2.5 px-8 py-3.5 rounded text-sm font-semibold transition-all no-underline"
+              style={{ background: '#ffffff', color: '#1a1a1a', letterSpacing: '0.3px', cursor: 'pointer', textDecoration: 'none' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.opacity = '0.85';
                 e.currentTarget.style.transform = 'translateY(-1px)';
@@ -158,9 +159,9 @@ const LandingPage = ({
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Run a Search
+              Book a Demo
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </a>
           </div>
         </div>
       </section>
