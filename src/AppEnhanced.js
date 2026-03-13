@@ -320,7 +320,7 @@ function friendlyError(error) {
 // Main Katharos Component
 export default function Katharos() {
  // Auth state - must be called before any conditional returns
- const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission, pendingInvite } = useAuth();
+ const { user, isAuthenticated, isConfigured, signOut, canScreen, incrementScreening, refreshPaidStatus, workspaceId, workspaceName, hasPermission, pendingInvite, requestPasswordReset } = useAuth();
 
  // Initialize event logger with user context
  useEffect(() => {
@@ -343,6 +343,8 @@ export default function Katharos() {
  const [docsTab, setDocsTab] = useState('privacy'); // 'privacy', 'terms', 'acceptable-use', 'security', 'dpa'
  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+ const [resetPwSent, setResetPwSent] = useState(false);
+ const [resetPwLoading, setResetPwLoading] = useState(false);
  const [deleteCaseModal, setDeleteCaseModal] = useState(null); // caseId or null
  const [cases, setCases] = useState(() => {
    try {
@@ -8426,6 +8428,41 @@ if (!isAuthenticated && (!publicPages.includes(currentPage) || pendingInvite)) {
         >
           Sign Out
         </button>
+
+        <hr style={{ border: 'none', borderTop: '1px solid #3a3a3a', margin: '28px 0' }} />
+
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#ffffff', margin: '0 0 8px' }}>Reset Password</h3>
+        <p style={{ fontSize: '13px', color: '#858585', margin: '0 0 16px', lineHeight: 1.5 }}>
+          Send a password reset link to your email ({user?.email}).
+        </p>
+        {resetPwSent ? (
+          <p style={{ fontSize: '13px', color: '#22c55e', margin: 0 }}>
+            Reset link sent — check your email.
+          </p>
+        ) : (
+          <button
+            onClick={async () => {
+              if (!user?.email) return;
+              setResetPwLoading(true);
+              try {
+                await requestPasswordReset(user.email);
+                setResetPwSent(true);
+              } catch { /* best-effort */ }
+              setResetPwLoading(false);
+            }}
+            disabled={resetPwLoading}
+            style={{
+              padding: '8px 20px', fontSize: '13px', fontWeight: 600,
+              background: 'none', color: '#ffffff', border: '1px solid #3a3a3a', borderRadius: '6px',
+              cursor: resetPwLoading ? 'not-allowed' : 'pointer', opacity: resetPwLoading ? 0.6 : 1,
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6b6b6b'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#3a3a3a'; }}
+          >
+            {resetPwLoading ? 'Sending...' : 'Send Reset Link'}
+          </button>
+        )}
 
         <hr style={{ border: 'none', borderTop: '1px solid #3a3a3a', margin: '28px 0' }} />
 
