@@ -135,7 +135,7 @@ const LandingPage = ({
             className="text-[68px] font-normal mb-7 leading-[1.1]"
             style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
           >
-            The AI Expert for<br />
+            Expert-level AI for<br />
             <span style={{ color: '#858585', fontStyle: 'italic' }}>Deep Diligence</span>
           </h1>
 
