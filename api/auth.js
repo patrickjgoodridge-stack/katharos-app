@@ -156,5 +156,32 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── Lookup Token (invite flow — frontend calls this to check token) ────
+
+  if (action === 'lookup-token') {
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+
+    const { data: user, error: lookupErr } = await supabase
+      .from('users')
+      .select('email, name, company, password_hash, status')
+      .eq('auth_id', token)
+      .eq('status', 'active')
+      .single();
+
+    if (lookupErr || !user) {
+      return res.status(404).json({ ok: false, error: 'Invalid or expired invite link' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      email: user.email,
+      name: user.name,
+      company: user.company,
+      hasPassword: !!user.password_hash,
+    });
+  }
+
   return res.status(400).json({ error: 'Invalid action' });
 }

@@ -2,7 +2,7 @@
 // Full Supabase Auth version preserved in AuthContext.supabase-auth.js
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { getOrCreateUser, hasPermission as checkPermission, lookupByInviteToken, checkUserExists } from './userService';
+import { getOrCreateUser, hasPermission as checkPermission, checkUserExists } from './userService';
 import { logAudit } from './auditService';
 
 const AuthContext = createContext({});
@@ -152,13 +152,25 @@ export const AuthProvider = ({ children }) => {
       const inviteToken = params.get('invite');
 
       if (inviteToken) {
-        const invitedUser = await lookupByInviteToken(inviteToken);
-        if (invitedUser) {
+        // Use server-side lookup (bypasses RLS) instead of frontend anon key
+        let invitedUser = null;
+        try {
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'lookup-token', token: inviteToken }),
+          });
+          if (res.ok) {
+            invitedUser = await res.json();
+          }
+        } catch { /* lookup failed */ }
+
+        if (invitedUser?.ok) {
           // Clean the URL immediately
           window.history.replaceState({}, '', window.location.pathname);
 
           // If user has no password yet, prompt them to create one
-          if (!invitedUser.password_hash) {
+          if (!invitedUser.hasPassword) {
             setPendingInvite({
               token: inviteToken,
               email: invitedUser.email,
