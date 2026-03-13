@@ -330,7 +330,15 @@ export default function Katharos() {
    return () => eventLogger.destroy();
  }, [user?.email, workspaceId]);
 
- const [currentPage, setCurrentPage] = useState('noirLanding'); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
+ const [currentPage, setCurrentPage] = useState(() => {
+   // If user arrived via invite link, go straight to new case
+   const redirect = localStorage.getItem('katharos_invite_redirect');
+   if (redirect) {
+     localStorage.removeItem('katharos_invite_redirect');
+     return redirect;
+   }
+   return 'noirLanding';
+ }); // 'noirLanding', 'newCase', 'existingCases', 'activeCase'
  const [settingsTab, setSettingsTab] = useState('audit'); // 'audit', 'dataSources', 'admin'
  const [docsTab, setDocsTab] = useState('privacy'); // 'privacy', 'terms', 'acceptable-use', 'security', 'dpa'
  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);

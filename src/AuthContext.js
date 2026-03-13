@@ -157,6 +157,8 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
           setUser(userData);
           await loadUserData(invitedUser.email, invitedUser.name, invitedUser.company);
+          // Flag so AppEnhanced navigates to new case page
+          localStorage.setItem('katharos_invite_redirect', 'newCase');
           // Clean the URL
           window.history.replaceState({}, '', window.location.pathname);
           // Notify admin that invite link was used
