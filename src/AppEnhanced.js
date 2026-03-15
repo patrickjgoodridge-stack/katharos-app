@@ -12984,7 +12984,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
  handleAgentMessage(newCaseId, conversationInput, files);
  }
- }
  }}
  disabled={!String(conversationInput || '').trim() && files.length === 0}
  className="katharos-send-btn"
@@ -13411,7 +13410,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    handleAgentMessage(currentCaseId, conversationInput, files);
  }
  e.target.style.height = 'auto';
- }
  }}
  placeholder=""
  rows={1}
@@ -13430,7 +13428,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onClick={() => {
    if (!currentCaseId) return;
    handleAgentMessage(currentCaseId, conversationInput, files);
-   }
  }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"
