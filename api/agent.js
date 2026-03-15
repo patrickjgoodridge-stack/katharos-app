@@ -65,6 +65,13 @@ async function embedQuery(text) {
   const result = await getPinecone().inference.embed('multilingual-e5-large', [text], { inputType: 'query', truncate: 'END' });
   return result.data[0].values;
 }
+async function embedPassage(texts) {
+  const result = await getPinecone().inference.embed('multilingual-e5-large', texts, { inputType: 'passage', truncate: 'END' });
+  return result.data.map(d => d.values);
+}
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
+}
 
 // ── Timeout wrapper ──
 const TIMEOUT = 15000;
@@ -152,7 +159,7 @@ const AGENT_TOOLS = [
   },
   {
     name: 'search_entity_investigations',
-    description: 'Search Katharos curated entity investigation database containing 2,500+ pre-researched entities across 7 major investigations with 1,784 semantic vectors: (1) Russian Oligarch Networks (135+ entities — Putin, Potanin, Deripaska, Abramovich), (2) Glencore corporate network (33+ entities), (3) Global Commodities sanctions (55+ entities — Iranian oil, North Korean shipping), (4) Criminal Enforcement (359+ entities — FTX, Terraform, Binance, Prince Group/Huione, Sinaloa Cartel), (5) 70-Subject Entity Investigation (415+ entities — Vinnik/BTC-e, Daren Li, Lichtenstein/Bitfinex, OneCoin, 3AC, Celsius, 1MDB, Lazarus, Tether, BitMEX, Combs RICO, Holmes/Theranos, Hwang/Archegos), (6) Top 100 SDN Subjects (685+ entities across 6 OFAC programs — Russia oligarchs Usmanov/Timchenko/Sechin/Deripaska/Fridman, IRGC-QF front companies, Lazarus/DPRK, CJNG/Sinaloa cartels, Garantex/Grinex successor chain, Gertler DRC mining network), and (7) SDN Batch 2 — Next 100 Highest-Signal Subjects (871+ entities — Abramovich 261 Cyprus Confidential entities, Vekselberg/Renova, Kostin/VTB DOJ indictment, Prigozhin estate/Concord/Africa Corps, Gazprombank November 2024, Jho Low/1MDB expanded 29 entities, CZ/Binance plea, Do Kwon/Terra, SBF/FTX estate, Maduro/Saab/Venezuela, Obiang/Ablyazov Global Magnitsky). Returns entity details, SDN status, OFAC 50% rule analysis, sanctions contamination chains, and compliance implications. ALWAYS search this FIRST.',
+    description: 'Search Katharos curated entity investigation database containing 3,200+ pre-researched entities across 8 major investigations with 2,076 semantic vectors: (1) Russian Oligarch Networks (135+ entities — Putin, Potanin, Deripaska, Abramovich), (2) Glencore corporate network (33+ entities), (3) Global Commodities sanctions (55+ entities — Iranian oil, North Korean shipping), (4) Criminal Enforcement (359+ entities — FTX, Terraform, Binance, Prince Group/Huione, Sinaloa Cartel), (5) 70-Subject Entity Investigation (415+ entities — Vinnik/BTC-e, Daren Li, Lichtenstein/Bitfinex, OneCoin, 3AC, Celsius, 1MDB, Lazarus, Tether, BitMEX, Combs RICO, Holmes/Theranos, Hwang/Archegos), (6) Top 100 SDN Subjects (685+ entities across 6 OFAC programs — Russia oligarchs Usmanov/Timchenko/Sechin/Deripaska/Fridman, IRGC-QF front companies, Lazarus/DPRK, CJNG/Sinaloa cartels, Garantex/Grinex successor chain, Gertler DRC mining network), (7) SDN Batch 2 — Next 100 Highest-Signal Subjects (871+ entities — Abramovich 261 Cyprus Confidential entities, Vekselberg/Renova, Kostin/VTB DOJ indictment, Prigozhin estate/Concord/Africa Corps, Gazprombank November 2024, Jho Low/1MDB expanded 29 entities, CZ/Binance plea, Do Kwon/Terra, SBF/FTX estate, Maduro/Saab/Venezuela, Obiang/Ablyazov Global Magnitsky), and (8) SDN Batch 3 — Subjects 176-275 (715+ entities — Lavrov, Evraz/Abramov/Frolov 78 Cyprus Confidential entities, LockBit ransomware 15 entities, Evil Corp/Yakubets 18 entities, Russia Shadow Fleet January 2025 mass designation 400+ vessels, Kolomoisky Ukraine, Hezbollah/Hamas/Houthi financial infrastructure, SBF/FTX expanded, Isabel dos Santos, Gulnara Karimova, Firtash, Manafort, Bank Rossiya/PSB/SMP/MOEX sanctioned financial institutions). Returns entity details, SDN status, OFAC 50% rule analysis, sanctions contamination chains, and compliance implications. ALWAYS search this FIRST.',
     input_schema: {
       type: 'object',
       properties: {
@@ -211,6 +218,38 @@ const AGENT_TOOLS = [
         name: { type: 'string', description: 'Entity name to look up in the resolution graph' }
       },
       required: ['name']
+    }
+  },
+  {
+    name: 'save_discovered_entities',
+    description: 'Save entities discovered during this investigation to the Katharos knowledge base so they appear in future searches. Call this ONCE at the end of every investigation with ALL net-new entities discovered. Do NOT include entities already returned by search_entity_investigations — they are already in the database.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        investigation_subject: { type: 'string', description: 'Primary subject of this investigation (e.g., "Vladimir Potanin")' },
+        investigation_summary: { type: 'string', description: 'One-paragraph summary: key findings, coverage gap, and recommendation' },
+        entities: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Full legal name of the entity' },
+              type: { type: 'string', enum: ['individual', 'entity', 'vessel', 'wallet', 'fund'], description: 'Entity type' },
+              tier: { type: 'number', description: 'Tier classification (1-8) per investigation protocol' },
+              riskLevel: { type: 'string', enum: ['CRITICAL', 'HIGH', 'ELEVATED', 'MEDIUM', 'LOW'], description: 'Risk classification' },
+              jurisdiction: { type: 'string', description: 'Primary jurisdiction(s)' },
+              sanctioned: { type: 'boolean', description: 'Whether entity is directly sanctioned' },
+              connection: { type: 'string', description: 'How this entity connects to the investigation subject' },
+              description: { type: 'string', description: 'Key compliance-relevant facts about this entity' },
+              sdnStatus: { type: 'string', description: 'SDN designation status if applicable' },
+              ofac50pct: { type: 'boolean', description: 'Whether OFAC 50% rule applies' }
+            },
+            required: ['name', 'type', 'tier', 'riskLevel']
+          },
+          description: 'Array of all net-new entities discovered during this investigation'
+        }
+      },
+      required: ['investigation_subject', 'investigation_summary', 'entities']
     }
   },
   // Web search is a built-in Claude tool type
@@ -475,6 +514,106 @@ async function executeTool(toolName, toolInput) {
       }
     }
 
+    case 'save_discovered_entities': {
+      const { investigation_subject, investigation_summary, entities } = toolInput;
+      if (!process.env.PINECONE_API_KEY) return JSON.stringify({ saved: 0, error: 'Pinecone not configured' });
+      if (!entities || entities.length === 0) return JSON.stringify({ saved: 0, note: 'No entities provided' });
+
+      try {
+        const idx = getPineconeIndex();
+        const ns = idx.namespace('entity_investigations');
+        const timestamp = new Date().toISOString();
+        const investigationId = `AGENT-${slugify(investigation_subject).toUpperCase().substring(0, 40)}`;
+        const allVectors = [];
+        const BATCH = 5;
+
+        // Embed entity vectors in batches of 5
+        for (let i = 0; i < entities.length; i += BATCH) {
+          const batch = entities.slice(i, i + BATCH);
+          const embeddingTexts = batch.map(e => [
+            `Entity: ${e.name}`,
+            e.type ? `Type: ${e.type}` : '',
+            e.jurisdiction ? `Jurisdiction: ${e.jurisdiction}` : '',
+            e.riskLevel ? `Risk Level: ${e.riskLevel}` : '',
+            e.sanctioned ? 'SANCTIONED: Yes' : '',
+            e.sdnStatus ? `SDN status: ${e.sdnStatus}` : '',
+            e.ofac50pct ? 'OFAC 50% RULE: Yes' : '',
+            e.connection ? `Connection: ${e.connection}` : '',
+            e.description ? `Description: ${e.description}` : '',
+            `Investigation subject: ${investigation_subject}`,
+            `Tier: ${e.tier}`,
+            'Source: Katharos Agent Investigation',
+          ].filter(Boolean).join(' | '));
+
+          const vectors = await embedPassage(embeddingTexts);
+
+          batch.forEach((e, j) => {
+            const id = `agent-${slugify(investigation_subject)}-${slugify(e.name)}`.substring(0, 100);
+            allVectors.push({
+              id,
+              values: vectors[j],
+              metadata: {
+                name: e.name,
+                type: e.type || 'entity',
+                jurisdiction: e.jurisdiction || '',
+                tier: `Tier ${e.tier}`,
+                riskLevel: e.riskLevel || '',
+                sanctioned: String(e.sanctioned || false),
+                sdnStatus: e.sdnStatus || '',
+                ofac50pct: String(e.ofac50pct || false),
+                connection: (e.connection || '').substring(0, 500),
+                description: (e.description || '').substring(0, 500),
+                parentSubject: investigation_subject,
+                category: 'entity_investigation',
+                investigation: investigationId,
+                source_tag: 'agent-discovery',
+                type_tag: 'entity',
+                confidence: 'agent-assessed',
+                text: embeddingTexts[j].substring(0, 1000),
+                timestamp,
+              }
+            });
+          });
+        }
+
+        // Embed investigation summary vector
+        const summaryText = `Agent investigation: ${investigation_subject}. ${investigation_summary}. Entities found: ${entities.map(e => e.name).join(', ')}`.substring(0, 1500);
+        const [summaryVector] = await embedPassage([summaryText]);
+        allVectors.push({
+          id: `agent-${slugify(investigation_subject)}-summary`.substring(0, 100),
+          values: summaryVector,
+          metadata: {
+            name: `Agent Investigation: ${investigation_subject}`,
+            type: 'investigation_summary',
+            category: 'entity_investigation',
+            investigation: investigationId,
+            source_tag: 'agent-discovery',
+            type_tag: 'investigation_metadata',
+            entityCount: String(entities.length),
+            text: summaryText.substring(0, 1000),
+            timestamp,
+          }
+        });
+
+        // Upsert in batches of 10
+        let upserted = 0;
+        for (let i = 0; i < allVectors.length; i += 10) {
+          const batch = allVectors.slice(i, i + 10);
+          await ns.upsert(batch);
+          upserted += batch.length;
+        }
+
+        return JSON.stringify({
+          saved: entities.length,
+          investigation: investigationId,
+          vectorsUpserted: upserted,
+          note: `${entities.length} entities and 1 investigation summary saved to knowledge base. These will appear in future search_entity_investigations queries.`
+        });
+      } catch (err) {
+        return JSON.stringify({ saved: 0, error: err.message });
+      }
+    }
+
     default:
       return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
@@ -542,7 +681,7 @@ Use get_related_entities and web_search for identity resolution. Do not proceed 
 
 ### STEP 2 — BATCH 1 (Fire simultaneously)
 
-ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 2,500+ pre-researched entities across 7 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
+ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 3,200+ pre-researched entities across 8 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
 
 Then fire in parallel based on subject type:
 
@@ -665,11 +804,20 @@ Close with:
 
 ALWAYS state the coverage gap: "Standard screening would find: X. This investigation found: Y. Coverage gap: Z%." This is the core value proposition — the entities that standard screening misses are where the actual compliance exposure lives.
 
+### STEP 11 — PERSIST DISCOVERIES
+
+After writing your final output, call save_discovered_entities ONCE with:
+- investigation_subject: the primary subject name
+- investigation_summary: your coverage gap statement and key finding summary (1 paragraph)
+- entities: every net-new entity from your BRANCH ACCOUNTING that was NOT already present in the entity investigation database (from search_entity_investigations results). Include tier, riskLevel, type, jurisdiction, connection, and description for each.
+
+This persists your findings so future investigations automatically benefit from this work. Only include entities YOU discovered through live screening — not entities that search_entity_investigations already returned. This step is MANDATORY. Every investigation must end with a save_discovered_entities call.
+
 ## TOOL STRATEGY
 
 Your tools and when to use them:
 
-- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 2,500+ pre-researched entities across 7 investigations. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, criminal enforcement, 70-subject database, SDN Top 100, and SDN Batch 2 (Abramovich, Vekselberg, Kostin, Prigozhin, Gazprombank, Jho Low/1MDB, CZ/Binance).
+- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 3,200+ pre-researched entities across 8 investigations. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, criminal enforcement, 70-subject database, SDN Top 100, SDN Batch 2 (Abramovich, Vekselberg, Kostin, Prigozhin, Gazprombank, Jho Low/1MDB, CZ/Binance), and SDN Batch 3 (Lavrov, Evraz, LockBit, Evil Corp, Shadow Fleet, Kolomoisky, Hezbollah/Hamas/Houthi, Isabel dos Santos, Karimova, Firtash, Manafort).
 - **screen_entity**: Full 13-layer screening (OFAC, PEP, adverse media, corporate, courts, OCCRP, blockchain, etc). Use for comprehensive due diligence on any entity.
 - **search_sanctions**: Targeted OFAC/PEP lookup. Use in Batch 2 for each new entity.
 - **search_adverse_media**: News and reputational intelligence. Use for media-driven investigations.
@@ -681,8 +829,12 @@ Your tools and when to use them:
 - **knowledge_base_search**: Regulatory guidance from OFAC, FinCEN, DOJ, FATF, SEC, etc. Use for typologies and red flags.
 - **web_search**: Current news, OSINT, public records. CRITICAL: Never conclude without at least one live search per subject.
 - **ask_user**: Pause for operator input. Use for NETWORK-SCALE scope declarations or when investigation branches require authorization.
+- **save_discovered_entities**: Save all net-new entities to the permanent knowledge base. Call ONCE as your FINAL tool call in every investigation. Include every entity from BRANCH ACCOUNTING with tier, risk level, and connection. Do NOT include entities already returned by search_entity_investigations.
 
 ## MANDATORY PROTOCOLS
+
+### KNOWLEDGE BASE PERSISTENCE
+Every investigation MUST end with a save_discovered_entities call. The knowledge base grows with every investigation. Skipping this step means your findings die with the session.
 
 ### EVIDENCE SUFFICIENCY
 Do not state as fact anything unverified from a primary source. Use qualified language: "Reported to hold" not "has", "LinkedIn indicates" not "previously worked at." A documented negative search IS the due diligence.
@@ -1006,6 +1158,10 @@ function summarizeToolResult(toolName, result) {
       const highRisk = (result.related_entities || []).filter(e => e.risk_level === 'HIGH' || e.risk_level === 'CRITICAL');
       if (highRisk.length > 0) parts.push(`${highRisk.length} high-risk connection(s)`);
       return parts.length > 0 ? parts.join(' · ') : 'No entity graph data';
+    }
+    case 'save_discovered_entities': {
+      if (result.error) return `Error: ${result.error}`;
+      return `${result.saved} entities saved to knowledge base (${result.investigation})`;
     }
     default:
       return 'Completed';
