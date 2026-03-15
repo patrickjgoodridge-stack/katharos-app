@@ -152,7 +152,7 @@ const AGENT_TOOLS = [
   },
   {
     name: 'search_entity_investigations',
-    description: 'Search Katharos curated entity investigation database containing 1,500+ pre-researched entities across 6 major investigations: (1) Russian Oligarch Networks (135 entities — Putin, Potanin, Deripaska, Abramovich), (2) Glencore corporate network (33 entities), (3) Global Commodities sanctions (55 entities — Iranian oil, North Korean shipping), (4) Criminal Enforcement (359 entities — FTX, Terraform, Binance, Prince Group/Huione, Sinaloa Cartel), (5) 70-Subject Entity Investigation (343 entities — Vinnik/BTC-e, Daren Li, Lichtenstein/Bitfinex, OneCoin, 3AC, Celsius, 1MDB, Lazarus, Tether, BitMEX, Combs RICO, Holmes/Theranos, Hwang/Archegos), and (6) Top 100 SDN Subjects (391 entities across 6 OFAC programs — Russia oligarchs Usmanov/Timchenko/Sechin/Deripaska/Fridman, IRGC-QF front companies, Lazarus/DPRK, CJNG/Sinaloa cartels, Garantex/Grinex successor chain, Gertler DRC mining network, Global Magnitsky targets). Returns entity details, SDN status, OFAC 50% rule analysis, sanctions contamination chains, and compliance implications. ALWAYS search this FIRST.',
+    description: 'Search Katharos curated entity investigation database containing 1,700+ pre-researched entities across 6 major investigations with 1,509 semantic vectors: (1) Russian Oligarch Networks (135+ entities — Putin, Potanin, Deripaska, Abramovich), (2) Glencore corporate network (33+ entities), (3) Global Commodities sanctions (55+ entities — Iranian oil, North Korean shipping), (4) Criminal Enforcement (359+ entities — FTX, Terraform, Binance, Prince Group/Huione, Sinaloa Cartel), (5) 70-Subject Entity Investigation (415+ entities — Vinnik/BTC-e, Daren Li, Lichtenstein/Bitfinex, OneCoin, 3AC, Celsius, 1MDB, Lazarus, Tether, BitMEX, Combs RICO, Holmes/Theranos, Hwang/Archegos), and (6) Top 100 SDN Subjects (685+ entities across 6 OFAC programs — Russia oligarchs Usmanov/Timchenko/Sechin/Deripaska/Fridman, IRGC-QF front companies, Lazarus/DPRK, CJNG/Sinaloa cartels, Garantex/Grinex successor chain, Gertler DRC mining network, Global Magnitsky targets). Returns entity details, SDN status, OFAC 50% rule analysis, sanctions contamination chains, and compliance implications. ALWAYS search this FIRST.',
     input_schema: {
       type: 'object',
       properties: {
@@ -542,7 +542,7 @@ Use get_related_entities and web_search for identity resolution. Do not proceed 
 
 ### STEP 2 — BATCH 1 (Fire simultaneously)
 
-ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 1,500+ pre-researched entities across 6 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
+ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 1,700+ pre-researched entities across 6 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
 
 Then fire in parallel based on subject type:
 
@@ -669,7 +669,7 @@ ALWAYS state the coverage gap: "Standard screening would find: X. This investiga
 
 Your tools and when to use them:
 
-- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 1,500+ pre-researched entities. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, and criminal enforcement cases.
+- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 1,700+ pre-researched entities. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, and criminal enforcement cases.
 - **screen_entity**: Full 13-layer screening (OFAC, PEP, adverse media, corporate, courts, OCCRP, blockchain, etc). Use for comprehensive due diligence on any entity.
 - **search_sanctions**: Targeted OFAC/PEP lookup. Use in Batch 2 for each new entity.
 - **search_adverse_media**: News and reputational intelligence. Use for media-driven investigations.
