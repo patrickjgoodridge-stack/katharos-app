@@ -2,9 +2,9 @@
 /**
  * Seed Glencore corporate network entity database into Pinecone RAG knowledge base.
  *
- * Parses katharos-glencore-entity-database.md, extracts each entity + the
- * relationship map + compliance recommendation, generates embeddings via
- * Pinecone Inference, and upserts to the "entity_investigations" namespace.
+ * Parses katharos-glencore-entity-database.md (v2.0 with provenance),
+ * extracts each entity's JSON block + relationship map + compliance recommendation,
+ * generates embeddings via Pinecone Inference, and upserts to "entity_investigations".
  *
  * Usage: PINECONE_API_KEY=pcsk_... node scripts/seed-glencore-entities.js
  */
@@ -18,7 +18,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'marlowe-financial-crimes';
 const NAMESPACE = 'entity_investigations';
 
-// ── Parse individual entity sections ──
+// ── Parse entity JSON blocks from markdown ──
 
 function parseEntities(markdown) {
   const entities = [];
@@ -30,56 +30,49 @@ function parseEntities(markdown) {
     const headerMatch = section.match(/^### \d+\.\s+(.+)/);
     if (!headerMatch) continue;
 
-    const name = headerMatch[1].trim();
-    const entity = extract(section, /\*\*Entity\*\*:\s*(.+)/);
-    const type = extract(section, /\*\*Type\*\*:\s*(.+)/);
-    const jurisdiction = extract(section, /\*\*Jurisdiction(?:s)?\*\*:\s*(.+)/);
-    const riskLevel = extract(section, /\*\*Risk Level\*\*:\s*(.+)/);
-    const relationship = extract(section, /\*\*Relationship\*\*:\s*(.+)/);
-    const conviction = extract(section, /\*\*Criminal Conviction\*\*:\s*(.+)/);
-    const penalty = extract(section, /\*\*Penalty\*\*:\s*(.+)/);
-    const sanctioned = extract(section, /\*\*Is Sanctioned\*\*:\s*(.+)/);
-    const aliases = extract(section, /\*\*Aliases\*\*:\s*(.+)/);
-    const operationalRole = extract(section, /\*\*Operational Role\*\*:\s*(.+)/);
-    const complianceImplication = extract(section, /\*\*Compliance Implication\*\*:\s*(.+)/);
-    const note = extract(section, /\*\*Note\*\*:\s*(.+)/);
-    const beneficialOwner = extract(section, /\*\*Beneficial Owner\*\*:\s*(.+)/);
+    const headerName = headerMatch[1].trim();
 
-    // Extract all risk signals
-    const riskSignals = [];
-    const riskSignalMatches = section.matchAll(/\*\*Risk Signal(?:\s*\d+)?\*\*:\s*(.+)/g);
-    for (const m of riskSignalMatches) {
-      riskSignals.push(m[1].trim());
+    // Extract JSON block from section
+    const jsonMatch = section.match(/```json\s*\n([\s\S]*?)\n```/);
+    if (!jsonMatch) continue;
+
+    let data;
+    try {
+      data = JSON.parse(jsonMatch[1]);
+    } catch (e) {
+      console.warn(`  Warning: Failed to parse JSON for "${headerName}": ${e.message}`);
+      continue;
     }
 
+    const name = data.full_legal_name || headerName;
     const id = `glencore-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
 
     entities.push({
       id,
-      name: entity || name,
-      aliases: aliases || '',
-      type: type || 'Company',
-      jurisdiction: jurisdiction || '',
-      riskLevel: riskLevel || '',
-      relationship: relationship || '',
-      conviction: conviction || '',
-      penalty: penalty || '',
-      sanctioned: sanctioned || '',
-      operationalRole: operationalRole || '',
-      complianceImplication: complianceImplication || '',
-      note: note || '',
-      beneficialOwner: beneficialOwner || '',
-      riskSignals,
+      name,
+      aliases: Array.isArray(data.aliases) ? data.aliases.join(', ') : (data.aliases || ''),
+      type: data.entity_type || 'company',
+      jurisdiction: Array.isArray(data.jurisdictions) ? data.jurisdictions.join(', ') : (data.jurisdiction || ''),
+      riskLevel: data.risk_level || '',
+      sanctioned: data.is_sanctioned || data.sanctioned || false,
+      convicted: data.criminal_conviction || data.convicted || false,
+      convictionDetail: data.conviction_detail || '',
+      penalty: data.penalty || '',
+      relationship: data.relationship_to_parent || data.relationship_to_glencore || '',
+      operationalRole: data.operational_role || data.role || '',
+      complianceImplication: data.compliance_implication || '',
+      beneficialOwner: data.beneficial_owner || '',
+      note: data.note || '',
+      sourcePrimary: data.source_primary || '',
+      sourceUrl: data.source_url || '',
+      sourceType: data.source_type || '',
+      sourceDate: data.source_date || '',
+      confidence: data.confidence || 'high',
       content: section.trim(),
     });
   }
 
   return entities;
-}
-
-function extract(text, regex) {
-  const m = text.match(regex);
-  return m ? m[1].trim() : null;
 }
 
 // ── Build embedding text for semantic search ──
@@ -91,15 +84,17 @@ function buildEntityEmbeddingText(e) {
     `Type: ${e.type}`,
     `Jurisdiction: ${e.jurisdiction}`,
     `Risk Level: ${e.riskLevel}`,
-    e.relationship ? `Relationship to Glencore: ${e.relationship}` : '',
-    e.conviction ? `Criminal conviction: ${e.conviction}` : '',
+    e.sanctioned ? 'SANCTIONED: Yes' : '',
+    e.convicted ? 'CONVICTED: Yes' : '',
+    e.convictionDetail ? `Conviction: ${e.convictionDetail}` : '',
     e.penalty ? `Penalty: ${e.penalty}` : '',
-    e.sanctioned ? `Sanctioned: ${e.sanctioned}` : '',
+    e.relationship ? `Relationship to Glencore: ${e.relationship}` : '',
     e.operationalRole ? `Role: ${e.operationalRole}` : '',
     e.beneficialOwner ? `Beneficial owner: ${e.beneficialOwner}` : '',
-    ...e.riskSignals.map(s => `Risk: ${s}`),
     e.complianceImplication ? `Compliance: ${e.complianceImplication}` : '',
     e.note ? `Note: ${e.note}` : '',
+    e.sourcePrimary ? `Source: ${e.sourcePrimary}` : '',
+    e.confidence ? `Confidence: ${e.confidence}` : '',
     'Investigation: Glencore plc corporate network — 33 entities across 8 tiers',
     'Parent subject: Glencore plc, Glencore International AG',
   ];
@@ -139,7 +134,7 @@ async function main() {
 
   // Parse entities
   const entities = parseEntities(md);
-  console.log(`Parsed ${entities.length} entities from Glencore investigation`);
+  console.log(`Parsed ${entities.length} entities from Glencore investigation (v2.0 with provenance)`);
 
   // Extract tier overviews
   const tiers = extractTierSections(md);
@@ -147,7 +142,7 @@ async function main() {
 
   // Extract relationship map and compliance recommendation
   const relMapMatch = md.match(/## RELATIONSHIP MAP\n([\s\S]*?)(?=\n## COMPLIANCE RECOMMENDATION|$)/);
-  const compRecMatch = md.match(/## COMPLIANCE RECOMMENDATION\n([\s\S]*?)$/);
+  const compRecMatch = md.match(/## COMPLIANCE RECOMMENDATION\n([\s\S]*?)(?=\n## COMPLETE ENTITY LOG|$)/);
   const metadataMatch = md.match(/## INVESTIGATION METADATA\n([\s\S]*?)(?=\n## PRIMARY SUBJECT)/);
 
   // Init Pinecone
@@ -177,13 +172,19 @@ async function main() {
           type: e.type,
           jurisdiction: e.jurisdiction,
           riskLevel: e.riskLevel,
+          sanctioned: String(e.sanctioned),
+          convicted: String(e.convicted),
           relationship: e.relationship,
-          conviction: e.conviction.substring(0, 500),
+          convictionDetail: (e.convictionDetail || '').substring(0, 500),
           penalty: e.penalty,
-          sanctioned: e.sanctioned,
-          operationalRole: e.operationalRole.substring(0, 500),
-          complianceImplication: e.complianceImplication.substring(0, 500),
-          riskSignals: e.riskSignals.join(' | ').substring(0, 900),
+          operationalRole: (e.operationalRole || '').substring(0, 500),
+          complianceImplication: (e.complianceImplication || '').substring(0, 500),
+          beneficialOwner: e.beneficialOwner || '',
+          sourcePrimary: (e.sourcePrimary || '').substring(0, 300),
+          sourceUrl: e.sourceUrl || '',
+          sourceType: e.sourceType || '',
+          sourceDate: e.sourceDate || '',
+          confidence: e.confidence,
           category: 'entity_investigation',
           investigation: 'KATHAROS-2026-GLENCORE-001',
           parentSubject: 'Glencore plc',
@@ -274,7 +275,7 @@ async function main() {
 
   // 5. Investigation metadata vector
   if (metadataMatch) {
-    const metaText = `Glencore plc full entity investigation KATHAROS-2026-GLENCORE-001: 33 entities across 8 tiers including convicted subsidiaries Glencore International AG and Glencore Ltd, OFAC 50% rule entities Kamoto Copper Company and Mutanda Mining, sanctioned Dan Gertler network, active offshore entities in Bermuda BVI Panama, Paradise Papers Appleby entities, hidden SwissMarine shipping fleet, bribery intermediaries across Nigeria Cameroon Equatorial Guinea Ivory Coast South Sudan DRC, and predecessor Marc Rich criminal entity. Basic screening returns 1 clean entity. This investigation returns 33.`;
+    const metaText = `Glencore plc full entity investigation KATHAROS-2026-GLENCORE-001 version 2.0 with source provenance: 33 entities across 8 tiers including convicted subsidiaries Glencore International AG and Glencore Ltd, OFAC 50% rule entities Kamoto Copper Company and Mutanda Mining, sanctioned Dan Gertler network, active offshore entities in Bermuda BVI Panama, Paradise Papers Appleby entities, hidden SwissMarine shipping fleet, bribery intermediaries across Nigeria Cameroon Equatorial Guinea Ivory Coast South Sudan DRC, and predecessor Marc Rich criminal entity. Basic screening returns 1 clean entity. This investigation returns 33. All entities now include source provenance: source_primary, source_url, source_type, source_date, and confidence level.`;
     const metaEmbed = await pc.inference.embed('multilingual-e5-large', [metaText], {
       inputType: 'passage',
       truncate: 'END'
@@ -283,7 +284,7 @@ async function main() {
       id: 'glencore-investigation-metadata',
       values: metaEmbed.data[0].values,
       metadata: {
-        name: 'Glencore Investigation Overview',
+        name: 'Glencore Investigation Overview v2.0',
         category: 'entity_investigation',
         investigation: 'KATHAROS-2026-GLENCORE-001',
         parentSubject: 'Glencore plc',
@@ -292,6 +293,7 @@ async function main() {
         text: metaText.substring(0, 1000),
         totalEntities: '33',
         riskLevel: 'CRITICAL',
+        schemaVersion: '2.0',
         timestamp: new Date().toISOString()
       }
     });
