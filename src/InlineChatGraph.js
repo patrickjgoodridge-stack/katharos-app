@@ -18,6 +18,21 @@ const InlineChatGraph = ({ html, label = 'Network Graph', type = 'network', file
   const [isExpanded, setIsExpanded] = useState(false);
   const Icon = ICON_MAP[type] || Network;
 
+  // Inject <base> tag so relative paths (like /d3.v7.min.js) resolve against the app origin
+  const htmlWithBase = React.useMemo(() => {
+    if (!html) return html;
+    const origin = window.location.origin;
+    const baseTag = `<base href="${origin}/">`;
+    // Insert after <head> if present, otherwise prepend
+    if (html.includes('<head>')) {
+      return html.replace('<head>', `<head>${baseTag}`);
+    }
+    if (html.includes('<head ')) {
+      return html.replace(/<head\s[^>]*>/, (match) => `${match}${baseTag}`);
+    }
+    return `${baseTag}${html}`;
+  }, [html]);
+
   const handleDownload = useCallback(() => {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -72,7 +87,7 @@ const InlineChatGraph = ({ html, label = 'Network Graph', type = 'network', file
         </div>
       </div>
       <iframe
-        srcDoc={html}
+        srcDoc={htmlWithBase}
         sandbox="allow-scripts allow-same-origin"
         style={{
           width: '100%',
