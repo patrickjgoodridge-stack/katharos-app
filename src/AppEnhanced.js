@@ -4708,8 +4708,8 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      || /\b(still on the|still listed|still sanctioned|still active|confirm that|verify that)\b/i.test(trimmed);
 
    // INVESTIGATE: research, map, dig deeper into a subject
-   const isInvestigate = /^(map|trace|find|analyze|look into|look at|look for|check for|check on the|dig into|research|uncover|identify|assess|evaluate|review|examine|explore|investigate the|investigate whether|investigate how|search for|search the)\b/i.test(trimmed)
-     || /\b(ownership network|ownership structure|source of funds|supply chain|procurement network|beneficial owner|connected to|linked to|associated with|shell compan|front compan)\b/i.test(trimmed);
+   const isInvestigate = /^(show me|show all|list|map|trace|find|analyze|look into|look at|look for|check for|check on the|dig into|research|uncover|identify|assess|evaluate|review|examine|explore|investigate the|investigate whether|investigate how|search for|search the)\b/i.test(trimmed)
+     || /\b(show me all|show me the|show me every|list all|list the|all entities|all affiliat|all subsidiar|all director|all officer|all shareholder|ownership network|ownership structure|source of funds|supply chain|procurement network|beneficial owner|connected to|linked to|associated with|affiliated with|shell compan|front compan)\b/i.test(trimmed);
 
    // FOLLOW_UP: continuing from previous results
    const isFollowUpIntent = hasExistingResults && (
