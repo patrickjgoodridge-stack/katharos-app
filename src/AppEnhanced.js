@@ -4551,7 +4551,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
- const sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => {
+ const _sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => { // eslint-disable-line no-unused-vars
    if (!userMessage.trim() && attachedFiles.length === 0) return;
    if (!caseId) {
      console.error('sendConversationMessage called without caseId');
