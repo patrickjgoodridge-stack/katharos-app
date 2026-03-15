@@ -1035,6 +1035,8 @@ If you reach a dead end on one path, pivot to alternative identifiers (aliases, 
 BRANCH SPAWNING & FIVE-DIMENSION PROTOCOL:
 CORE DIRECTIVE: Every new entity, individual, address, or registered agent discovered becomes a new subject to investigate. Do not report a finding and move on — report a finding and follow it.
 
+SOURCE SCOPE: Sources listed are the MINIMUM BASELINE, not exhaustive. Use any additional relevant database, registry, watchlist, court system, or public record you can access. If a relevant source exists that is not listed, search it anyway.
+
 FIVE DIMENSIONS — all must return clean before classifying as low risk:
 1. Sanctions & Watchlists: OFAC, UN, EU, UK, OpenSanctions. Connections within two hops. 50% rule.
 2. Regulatory & Enforcement: DOJ, SEC, FinCEN, FCA, OFAC penalties, OCC. Any action, fine, warning, consent order, license issue.
