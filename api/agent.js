@@ -152,7 +152,7 @@ const AGENT_TOOLS = [
   },
   {
     name: 'search_entity_investigations',
-    description: 'Search Katharos curated entity investigation database containing 659 pre-researched entities across 4 major investigations: Russian Oligarch Networks (135 entities across Putin, Potanin, Deripaska, Abramovich networks with shell companies, evasion entities, and cross-network connections), Glencore corporate network (33 entities across 8 tiers including convicted subsidiaries and Dan Gertler sanctioned network), Global Commodities sanctions (55 entities including Iranian oil networks and North Korean shipping), and Criminal Enforcement cases (359 entities — FTX, Terraform/Do Kwon, Binance/CZ, Prince Group/Huione Guarantee, Sinaloa Cartel fentanyl). Returns entity details, tier classifications, sanctions status, ownership chains, evasion schemes, and compliance implications. ALWAYS search this FIRST — if the subject appears here, you have pre-researched intelligence that standard screening would miss. Standard screening finds 5-10 entities. These investigations found 20-135 per subject.',
+    description: 'Search Katharos curated entity investigation database containing 1,045+ pre-researched entities across 5 major investigations: (1) Russian Oligarch Networks (135 entities — Putin, Potanin, Deripaska, Abramovich networks), (2) Glencore corporate network (33 entities across 8 tiers), (3) Global Commodities sanctions (55 entities — Iranian oil, North Korean shipping), (4) Criminal Enforcement (359 entities — FTX, Terraform, Binance, Prince Group/Huione, Sinaloa Cartel), and (5) 70-Subject Entity Investigation (343 entities across 42 subjects — Vinnik/BTC-e, Daren Li pig butchering, Lichtenstein/Bitfinex, OneCoin, 3AC, Celsius, 1MDB, Lazarus Group, Tether, BitMEX, Sean Combs RICO, Holmes/Theranos, Hwang/Archegos, and more). Returns entity details, tier classifications, sanctions status, ownership chains, and compliance implications. ALWAYS search this FIRST — if the subject appears here, you have pre-researched intelligence that standard screening would miss.',
     input_schema: {
       type: 'object',
       properties: {
@@ -542,7 +542,7 @@ Use get_related_entities and web_search for identity resolution. Do not proceed 
 
 ### STEP 2 — BATCH 1 (Fire simultaneously)
 
-ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 659 pre-researched entities across 4 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
+ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 1,045+ pre-researched entities across 5 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
 
 Then fire in parallel based on subject type:
 
@@ -669,7 +669,7 @@ ALWAYS state the coverage gap: "Standard screening would find: X. This investiga
 
 Your tools and when to use them:
 
-- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 659 pre-researched entities. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, and criminal enforcement cases.
+- **search_entity_investigations**: ALWAYS USE FIRST. Curated database of 1,045+ pre-researched entities. If the subject appears here, you have deep intelligence before live screening even starts. Contains full network maps for Russian oligarchs, Glencore, commodities sanctions, and criminal enforcement cases.
 - **screen_entity**: Full 13-layer screening (OFAC, PEP, adverse media, corporate, courts, OCCRP, blockchain, etc). Use for comprehensive due diligence on any entity.
 - **search_sanctions**: Targeted OFAC/PEP lookup. Use in Batch 2 for each new entity.
 - **search_adverse_media**: News and reputational intelligence. Use for media-driven investigations.
