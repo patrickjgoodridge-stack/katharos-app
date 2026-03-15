@@ -43,6 +43,8 @@
     { "source": "/api/screening/:path*", "destination": "/api/screening/:path*" },
     { "source": "/api/rag", "destination": "/api/rag" },
     { "source": "/api/health-check", "destination": "/api/health-check" },
+    { "source": "/api/message-feedback", "destination": "/api/message-feedback" },
+    { "source": "/api/screening-feedback", "destination": "/api/screening-feedback" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

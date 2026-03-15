@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -645,6 +645,9 @@ Return ONLY a JSON array of 5 strings.`;
  const [marloweAnimationPhase, setKatharosAnimationPhase] = useState('large'); // eslint-disable-line no-unused-vars
  const [darkMode, setDarkMode] = useState(false);
  const [copiedMessageId, setCopiedMessageId] = useState(null);
+ const [messageFeedback, setMessageFeedback] = useState({});
+ const [feedbackDropdownOpen, setFeedbackDropdownOpen] = useState(null);
+ const [screeningMatchFeedback, setScreeningMatchFeedback] = useState({});
  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
  const [samplesExpanded, setSamplesExpanded] = useState(false);
 const suggestionsRef = useRef(null);
@@ -7992,6 +7995,100 @@ const getRiskBg = (level) => {
  }, [chatMessages]);
 
  // Track if user has scrolled up to prevent auto-scroll hijacking
+ // ─── Feedback Handlers ────────────────────────────────────────────────────
+ const submitMessageFeedback = async (messageIndex, feedbackType, category, freeText) => {
+   const key = `${currentCaseId}-${messageIndex}`;
+   setMessageFeedback(prev => ({ ...prev, [key]: feedbackType }));
+   setFeedbackDropdownOpen(null);
+   try {
+     await fetch('/api/message-feedback', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         caseId: currentCaseId,
+         messageIndex,
+         feedbackType,
+         category: category || null,
+         freeText: freeText || null,
+         userEmail: user?.email || null,
+       }),
+     });
+     eventLogger.feedbackProvided(kycResults?.subject?.name || '', currentCaseId, { surface: 'chat_message', messageIndex, feedbackType, category });
+   } catch (err) {
+     console.error('[Feedback] message error:', err);
+   }
+ };
+
+ const submitScreeningFeedback = async (matchType, matchIndex, isTruePositive, analystNote) => {
+   const screeningId = selectedHistoryItem?.id;
+   if (!screeningId) return;
+   const key = `${screeningId}-${matchType}-${matchIndex}`;
+   setScreeningMatchFeedback(prev => ({ ...prev, [key]: isTruePositive }));
+   setFeedbackDropdownOpen(null);
+   try {
+     await fetch('/api/screening-feedback', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ screeningId, matchIndex, isTruePositive, analystNote: analystNote || null, source: matchType, userEmail: user?.email || null }),
+     });
+     eventLogger.feedbackProvided(selectedHistoryItem?.query || '', currentCaseId, { surface: 'screening_match', matchType, matchIndex, isTruePositive, screeningId });
+   } catch (err) {
+     console.error('[Feedback] screening error:', err);
+   }
+ };
+
+ // Click-outside handler for feedback dropdown
+ useEffect(() => {
+   if (!feedbackDropdownOpen) return;
+   const handler = (e) => {
+     if (!e.target.closest('.feedback-dropdown-container')) setFeedbackDropdownOpen(null);
+   };
+   document.addEventListener('mousedown', handler);
+   return () => document.removeEventListener('mousedown', handler);
+ }, [feedbackDropdownOpen]);
+
+ // Inline FeedbackCategoryDropdown
+ const FeedbackCategoryDropdown = ({ onSelect, isDark }) => {
+   const [selected, setSelected] = useState(null);
+   const [text, setText] = useState('');
+   const categories = [
+     { key: 'false_positive', label: 'False positive' },
+     { key: 'false_negative', label: 'False negative' },
+     { key: 'inaccurate', label: 'Inaccurate information' },
+     { key: 'missing_details', label: 'Missing details' },
+     { key: 'other', label: 'Other' },
+   ];
+   const bg = isDark ? '#2d2d2d' : '#ffffff';
+   const border = isDark ? '#3a3a3a' : '#e5e7eb';
+   const textColor = isDark ? '#d4d4d4' : '#374151';
+   const mutedColor = isDark ? '#858585' : '#9ca3af';
+   const hoverBg = isDark ? '#363636' : '#f3f4f6';
+   return (
+     <div className="feedback-dropdown-container" style={{ position: 'absolute', left: 0, top: '100%', marginTop: '4px', background: bg, border: `1px solid ${border}`, borderRadius: '8px', padding: '4px', minWidth: '200px', zIndex: 50, boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
+       <div style={{ padding: '6px 8px', fontSize: '11px', color: mutedColor, fontWeight: 600 }}>What went wrong?</div>
+       {categories.map(cat => (
+         <button key={cat.key} onClick={() => cat.key === 'other' ? setSelected('other') : onSelect(cat.key, null)}
+           style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 8px', fontSize: '13px', color: textColor, background: 'transparent', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
+           onMouseEnter={(e) => { e.currentTarget.style.background = hoverBg; }}
+           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+         >{cat.label}</button>
+       ))}
+       {selected === 'other' && (
+         <div style={{ padding: '4px 8px' }}>
+           <input type="text" placeholder="Tell us more..." value={text} onChange={(e) => setText(e.target.value)}
+             onKeyDown={(e) => { if (e.key === 'Enter' && text.trim()) onSelect('other', text); }}
+             autoFocus
+             style={{ width: '100%', padding: '6px 8px', fontSize: '12px', background: isDark ? '#1a1a1a' : '#f9fafb', border: `1px solid ${border}`, borderRadius: '4px', color: textColor, outline: 'none', boxSizing: 'border-box', fontFamily: "'Inter', sans-serif" }}
+           />
+           <button onClick={() => { if (text.trim()) onSelect('other', text); }}
+             style={{ marginTop: '4px', width: '100%', padding: '4px', fontSize: '12px', fontWeight: 600, background: isDark ? '#fff' : '#1a1a1a', color: isDark ? '#1a1a1a' : '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
+           >Submit</button>
+         </div>
+       )}
+     </div>
+   );
+ };
+
  const handleScrollContainer = (e) => {
    const el = e.target;
    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -11608,6 +11705,18 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {match.listingDate && (
  <p className="text-xs text-gray-500 mt-2">Listed: {match.listingDate}</p>
  )}
+ <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+   <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: '2px' }}>Accurate?</span>
+   <button onClick={() => submitScreeningFeedback('sanctions', idx, true)} title="True positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-sanctions-${idx}`] === true ? '#22c55e' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsUp style={{ width: '13px', height: '13px' }} /></button>
+   <button onClick={() => setFeedbackDropdownOpen(feedbackDropdownOpen === `screening-sanctions-${idx}` ? null : `screening-sanctions-${idx}`)} title="False positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-sanctions-${idx}`] === false ? '#ef4444' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsDown style={{ width: '13px', height: '13px' }} /></button>
+   {feedbackDropdownOpen === `screening-sanctions-${idx}` && (
+     <FeedbackCategoryDropdown onSelect={(cat, text) => submitScreeningFeedback('sanctions', idx, false, text)} isDark={false} />
+   )}
+ </div>
  </div>
  ))}
  </div>
@@ -11651,6 +11760,18 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <span className="text-gray-600"> • {match.relationshipToSubject}</span>
  )}
  </p>
+ <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+   <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: '2px' }}>Accurate?</span>
+   <button onClick={() => submitScreeningFeedback('pep', idx, true)} title="True positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-pep-${idx}`] === true ? '#22c55e' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsUp style={{ width: '13px', height: '13px' }} /></button>
+   <button onClick={() => setFeedbackDropdownOpen(feedbackDropdownOpen === `screening-pep-${idx}` ? null : `screening-pep-${idx}`)} title="False positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-pep-${idx}`] === false ? '#ef4444' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsDown style={{ width: '13px', height: '13px' }} /></button>
+   {feedbackDropdownOpen === `screening-pep-${idx}` && (
+     <FeedbackCategoryDropdown onSelect={(cat, text) => submitScreeningFeedback('pep', idx, false, text)} isDark={false} />
+   )}
+ </div>
  </div>
  ))}
  </div>
@@ -11714,6 +11835,18 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex items-center gap-3 text-xs text-gray-500">
  <span>{article.source}</span>
  <span className="px-2 py-0.5 bg-gray-200 rounded">{article.category}</span>
+ </div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', position: 'relative' }}>
+   <span style={{ fontSize: '11px', color: '#9ca3af', marginRight: '2px' }}>Accurate?</span>
+   <button onClick={() => submitScreeningFeedback('adverse_media', idx, true)} title="True positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-adverse_media-${idx}`] === true ? '#22c55e' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsUp style={{ width: '13px', height: '13px' }} /></button>
+   <button onClick={() => setFeedbackDropdownOpen(feedbackDropdownOpen === `screening-media-${idx}` ? null : `screening-media-${idx}`)} title="False positive"
+     style={{ background: 'transparent', border: 'none', padding: '3px', cursor: 'pointer', color: screeningMatchFeedback[`${selectedHistoryItem?.id}-adverse_media-${idx}`] === false ? '#ef4444' : '#9ca3af', transition: 'color 0.15s' }}
+   ><ThumbsDown style={{ width: '13px', height: '13px' }} /></button>
+   {feedbackDropdownOpen === `screening-media-${idx}` && (
+     <FeedbackCategoryDropdown onSelect={(cat, text) => submitScreeningFeedback('adverse_media', idx, false, text)} isDark={false} />
+   )}
  </div>
  </div>
  ))}
@@ -12731,7 +12864,25 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
  })}
  {/* Action buttons for all assistant messages */}
- <div className="flex justify-end gap-2 mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
+ <div className="flex justify-between items-center mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
+ {/* Left: Feedback buttons */}
+ <div style={{ position: 'relative', display: 'flex', gap: '2px' }}>
+   <button onClick={() => submitMessageFeedback(idx, 'positive')} title="Helpful"
+     style={{ background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', color: messageFeedback[`${currentCaseId}-${idx}`] === 'positive' ? '#22c55e' : '#6b6b6b', transition: 'color 0.15s' }}
+     onMouseEnter={(e) => { if (messageFeedback[`${currentCaseId}-${idx}`] !== 'positive') e.currentTarget.style.color = '#a1a1a1'; }}
+     onMouseLeave={(e) => { if (messageFeedback[`${currentCaseId}-${idx}`] !== 'positive') e.currentTarget.style.color = '#6b6b6b'; }}
+   ><ThumbsUp style={{ width: '15px', height: '15px' }} /></button>
+   <button onClick={() => setFeedbackDropdownOpen(feedbackDropdownOpen === `chat-${idx}` ? null : `chat-${idx}`)} title="Not helpful"
+     style={{ background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', color: messageFeedback[`${currentCaseId}-${idx}`] === 'negative' ? '#ef4444' : '#6b6b6b', transition: 'color 0.15s' }}
+     onMouseEnter={(e) => { if (messageFeedback[`${currentCaseId}-${idx}`] !== 'negative') e.currentTarget.style.color = '#a1a1a1'; }}
+     onMouseLeave={(e) => { if (messageFeedback[`${currentCaseId}-${idx}`] !== 'negative') e.currentTarget.style.color = '#6b6b6b'; }}
+   ><ThumbsDown style={{ width: '15px', height: '15px' }} /></button>
+   {feedbackDropdownOpen === `chat-${idx}` && (
+     <FeedbackCategoryDropdown onSelect={(cat, text) => submitMessageFeedback(idx, 'negative', cat, text)} isDark={true} />
+   )}
+ </div>
+ {/* Right: Copy + Export PDF */}
+ <div className="flex gap-2">
  <button
  onClick={() => {
    navigator.clipboard.writeText(stripVizData(msg.content)).then(() => {
@@ -12756,6 +12907,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  Export PDF
  </button>
  )}
+ </div>
  </div>
  </div>
  )}
