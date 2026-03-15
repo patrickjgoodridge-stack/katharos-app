@@ -3076,6 +3076,8 @@ Help the analyst understand the findings, suggest additional due diligence steps
 
 ANTI-HALLUCINATION RULES: Never fabricate findings, dates, or case numbers. Cite the screening data for every claim. Distinguish confirmed facts from inferences. Mark confidence levels: [CONFIRMED], [PROBABLE], [POSSIBLE], [UNVERIFIED]. If the screening data doesn't cover something, say so — never imply clearance from an unchecked source.
 
+BRANCH SPAWNING: Every new entity, individual, or address discovered becomes a new subject to investigate. Do not report a finding and move on — follow it. Five dimensions must all return clean: (1) Sanctions & Watchlists, (2) Regulatory & Enforcement, (3) Adverse Media, (4) Fraud & Financial Crime Indicators, (5) Structural Red Flags. Sanctions is the floor, not the ceiling.
+
 SCREENING RESULTS:
 ${screeningContext}
 
@@ -7105,7 +7107,9 @@ You must respond with a JSON object that will be converted into an investigative
 
 Perform comprehensive screening checking: sanctions lists (OFAC, UN, EU, UK), PEP status, adverse media, and ownership analysis. Return detailed findings.
 
-NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.`;
+NEXT STEPS must be SHORT (max 15 words). Include source URLs when available.
+
+BRANCH SPAWNING & FIVE-DIMENSION PROTOCOL: Every new entity, individual, address, or registered agent discovered becomes a new subject to investigate. Do not report a finding and move on — follow it. Five dimensions must ALL return clean before classifying as low risk: (1) Sanctions & Watchlists — OFAC, UN, EU, UK, OpenSanctions, connections within two hops, 50% rule. (2) Regulatory & Enforcement — DOJ, SEC, FinCEN, FCA, OFAC penalties, OCC. (3) Adverse Media — OCCRP, ICIJ, Bellingcat, Reuters, Bloomberg, CourtListener. (4) Fraud & Financial Crime — Panama Papers, Pandora Papers, FinCEN Files, ICIJ Offshore Leaks, ML typologies. (5) Structural Red Flags — ownership complexity vs. business purpose, nominees, bearer shares, offshore layering, shared agents/addresses, formation timing. Branch spawning triggers: any director/shareholder/officer/UBO, any parent/subsidiary/affiliate, any registered agent, any shared address. Priority: Individuals → Offshore entities → Recently formed → Shared infrastructure. Sanctions is the floor, not the ceiling. The investigation ends when every discovered entity has been assessed across all five dimensions.`;
 
  const userPrompt = `Screen this subject: ${screeningSubject}`;
 
@@ -7484,7 +7488,9 @@ Red Flag Indicators to Watch:
 - Inconsistent documentation
 - Sanctions evasion indicators
 - PEP involvement
-- Complex corporate structures hiding ownership`;
+- Complex corporate structures hiding ownership
+
+BRANCH SPAWNING & FIVE-DIMENSION PROTOCOL: Every new entity, individual, address, or registered agent discovered becomes a new subject to investigate. Do not report a finding and move on — follow it. Five dimensions must ALL return clean before classifying as low risk: (1) Sanctions & Watchlists — OFAC, UN, EU, UK, OpenSanctions, connections within two hops, 50% rule. (2) Regulatory & Enforcement — DOJ, SEC, FinCEN, FCA, OFAC penalties. (3) Adverse Media — OCCRP, ICIJ, Bellingcat, Reuters, Bloomberg, CourtListener. (4) Fraud & Financial Crime — Panama Papers, Pandora Papers, FinCEN Files, ML typologies. (5) Structural Red Flags — ownership complexity vs. business purpose, nominees, bearer shares, offshore layering, shared agents/addresses. Branch spawning triggers: any director/shareholder/officer/UBO, any parent/subsidiary/affiliate, any registered agent, any shared address. Maintain FOUND LIST and INVESTIGATED LIST — do not conclude until they match. Sanctions is the floor, not the ceiling.`;
 
  const investigationContext = String(caseDescription || '').trim() 
  ? `INVESTIGATION CONTEXT:\n${caseDescription}\n\n`
@@ -8449,6 +8455,8 @@ DO NOT make claims without citations. If you cannot cite it, do not say it.
 
 Be concise but thorough. If you don't know something or it's not in the evidence, say so.
 Think like a seasoned investigator - look for connections, inconsistencies, and implications.
+
+BRANCH SPAWNING: Every new entity, individual, or address discovered becomes a new subject to investigate. Do not report a finding and move on — follow it. Five dimensions must all return clean: (1) Sanctions & Watchlists, (2) Regulatory & Enforcement, (3) Adverse Media, (4) Fraud & Financial Crime Indicators, (5) Structural Red Flags. Sanctions is the floor, not the ceiling.
 
 EVIDENCE DOCUMENTS:
 ${evidenceContext}
