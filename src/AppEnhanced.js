@@ -516,7 +516,6 @@ export default function Katharos() {
      return newMap;
    });
  }, []);
- const [agentMode, setAgentMode] = useState(false);
  const [agentToolCards, setAgentToolCards] = useState([]); // eslint-disable-line no-unused-vars
  const [agentQuestion, setAgentQuestion] = useState(null); // { question, options, checkpoint_data, tool_use_id, conversationState, pendingContent }
  const [agentQuestionInput, setAgentQuestionInput] = useState('');
@@ -12958,11 +12957,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- if (agentMode) {
-   handleAgentMessage(newCaseId, conversationInput, files);
- } else {
-   sendConversationMessage(newCaseId, conversationInput, files);
- }
+ handleAgentMessage(newCaseId, conversationInput, files);
  }
  }}
  placeholder="Enter a name, describe a case, or upload files."
@@ -12982,34 +12977,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
- <div className="relative group">
-   <button
-     onClick={() => setAgentMode(!agentMode)}
-     style={{
-       width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-       background: agentMode ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-       border: agentMode ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
-       borderRadius: '6px', cursor: 'pointer',
-       color: agentMode ? '#f59e0b' : '#858585',
-       transition: 'all 0.2s ease',
-     }}
-     title="Agent Mode (Beta)"
-   >
-     <UserSearch className="w-4 h-4" />
-   </button>
-   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
-     <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Agent Mode (Beta)</div>
-   </div>
- </div>
  <button
  onClick={() => {
  if (String(conversationInput || '').trim() || files.length > 0) {
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- if (agentMode) {
-   handleAgentMessage(newCaseId, conversationInput, files);
- } else {
-   sendConversationMessage(newCaseId, conversationInput, files);
+ handleAgentMessage(newCaseId, conversationInput, files);
  }
  }
  }}
@@ -13320,23 +13293,17 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
  )}
  {/* Show dots at the bottom while still streaming — acts as a live cursor */}
- {agentMode ? (
-   <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-     <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
-   </div>
- ) : !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-   <div className="py-3">
-     <ScreeningProgressBar startedAt={screeningStartRef.current || Date.now()} label={activeIntentRef.current === 'SCREEN' ? 'Screening in progress' : 'Analyzing'} isScreening={activeIntentRef.current === 'SCREEN'} />
-   </div>
- )}
+ <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+ </div>
  </div>
  </div>
  )}
 
  {/* Agent question / checkpoint — shown when agent pauses for user input */}
- {agentMode && agentQuestion && (
+ {agentQuestion && (
    <div className="flex justify-center" style={{ marginBottom: '16px' }}>
      <div style={{
        maxWidth: '672px', width: '100%', padding: '16px 20px', borderRadius: '12px',
@@ -13441,10 +13408,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
- if (agentMode) {
    handleAgentMessage(currentCaseId, conversationInput, files);
- } else {
-   sendConversationMessage(currentCaseId, conversationInput, files);
  }
  e.target.style.height = 'auto';
  }
@@ -13453,25 +13417,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  rows={1}
  style={{ flex: 1, resize: 'none', background: 'transparent', border: 'none', outline: 'none', color: '#ffffff', padding: '8px 0', minHeight: '40px', maxHeight: '200px', overflow: 'auto', fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px' }}
  />
- <div className="relative group">
-   <button
-     onClick={() => setAgentMode(!agentMode)}
-     style={{
-       width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-       background: agentMode ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-       border: agentMode ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent',
-       borderRadius: '6px', cursor: 'pointer',
-       color: agentMode ? '#f59e0b' : '#858585',
-       transition: 'all 0.2s ease',
-     }}
-     title="Agent Mode (Beta)"
-   >
-     <UserSearch className="w-4 h-4" />
-   </button>
-   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none z-50">
-     <div style={{ background: '#2d2d2d', color: '#fff', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3a3a3a', whiteSpace: 'nowrap' }}>Agent Mode (Beta)</div>
-   </div>
- </div>
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming ? (
  <button
  onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); }}
@@ -13484,10 +13429,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button
  onClick={() => {
    if (!currentCaseId) return;
-   if (agentMode) {
-     handleAgentMessage(currentCaseId, conversationInput, files);
-   } else {
-     sendConversationMessage(currentCaseId, conversationInput, files);
+   handleAgentMessage(currentCaseId, conversationInput, files);
    }
  }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
