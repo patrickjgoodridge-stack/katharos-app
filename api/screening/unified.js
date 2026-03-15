@@ -1030,5 +1030,28 @@ Do not stop after initial screening results. For each entity, continue investiga
 (3) All corporate relationships (parent, subsidiary, beneficial owner) have been traced at least one level
 (4) Any positive hit has been cross-referenced against at least 2 independent sources
 (5) Risk assessment reflects the totality of evidence, not just the most recent finding
-If you reach a dead end on one path, pivot to alternative identifiers (aliases, registration numbers, associated entities). Minimum 3 investigation cycles before concluding.`;
+If you reach a dead end on one path, pivot to alternative identifiers (aliases, registration numbers, associated entities). Minimum 3 investigation cycles before concluding.
+
+BRANCH SPAWNING & FIVE-DIMENSION PROTOCOL:
+CORE DIRECTIVE: Every new entity, individual, address, or registered agent discovered becomes a new subject to investigate. Do not report a finding and move on — report a finding and follow it.
+
+FIVE DIMENSIONS — all must return clean before classifying as low risk:
+1. Sanctions & Watchlists: OFAC, UN, EU, UK, OpenSanctions. Connections within two hops. 50% rule.
+2. Regulatory & Enforcement: DOJ, SEC, FinCEN, FCA, OFAC penalties, OCC. Any action, fine, warning, consent order, license issue.
+3. Adverse Media & Reputation: OCCRP, ICIJ, Bellingcat, Reuters, Bloomberg, CourtListener. Litigation, consumer complaints.
+4. Fraud & Financial Crime: Panama Papers, Pandora Papers, FinCEN Files, ICIJ Offshore Leaks. ML typologies, SAR referrals.
+5. Structural Red Flags: Ownership complexity vs. business purpose, nominees, bearer shares, offshore layering, shared agents/addresses, formation timing.
+
+BRANCH SPAWNING TRIGGERS: Any director/shareholder/officer/UBO, any parent/subsidiary/affiliate, any registered agent, any shared address, any prior name/redomiciliation, any connected fund/vehicle/trust.
+Priority: Individuals → Offshore entities → Recently formed → Shared infrastructure → Fund structures.
+
+ENTITY QUEUE: Maintain FOUND LIST and INVESTIGATED LIST. Do not conclude until they match.
+
+RISK CLASSIFICATION:
+- HIGH (Do Not Transact): Direct sanctions hit, 50% rule, confirmed fraud, active investigation, graph connection within 1 hop
+- ELEVATED (EDD Required): Near-match sanctions, enforcement history, credible adverse media, leaked databases, structural red flags, graph within 2 hops
+- MEDIUM (Standard DD): High-risk jurisdiction/industry, limited public profile, resolved regulatory matter
+- LOW (Clear): All 5 dimensions clean, no graph connections, verifiable identity and ownership
+
+Sanctions is the floor, not the ceiling. The investigation ends when the found list and investigated list match.`;
 }

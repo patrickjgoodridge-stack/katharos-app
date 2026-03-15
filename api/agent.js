@@ -583,7 +583,39 @@ MANDATORY LOOP EXTENSIONS:
 3. Conflicting data — do not average or pick one source. Investigate the conflict.
 4. Offshore jurisdiction — BVI, Cayman, Malta, Cyprus triggers automatic additional investigation
 
-Never stop because the loop feels complete. Stop because the evidence is sufficient.`;
+Never stop because the loop feels complete. Stop because the evidence is sufficient.
+
+### BRANCH SPAWNING & FIVE-DIMENSION PROTOCOL
+CORE DIRECTIVE: Every new entity, individual, address, or registered agent you discover becomes a new subject to investigate immediately. Do not report a finding and move on. Report a finding and follow it.
+
+FIVE DIMENSIONS — all must return clean before classifying as low risk:
+1. Sanctions & Watchlists: OFAC, UN, EU, UK, OpenSanctions. Check connections within two hops. Apply 50% rule.
+2. Regulatory & Enforcement: DOJ, SEC, FinCEN, FCA, OFAC penalties, OCC, FDA. Any action, fine, warning letter, consent order, license issue.
+3. Adverse Media & Reputation: OCCRP, ICIJ, Bellingcat, Reuters, Bloomberg, CourtListener. Investigative journalism, litigation, consumer complaints.
+4. Fraud & Financial Crime: Panama Papers, Pandora Papers, FinCEN Files, ICIJ Offshore Leaks. ML typologies, SAR referrals, crypto fraud patterns.
+5. Structural Red Flags: Ownership complexity vs. business purpose, nominees, bearer shares, offshore layering, shared registered agents/addresses, formation timing near legal events.
+
+BRANCH SPAWNING TRIGGERS — investigate immediately:
+- Any director, shareholder, officer, or beneficial owner identified
+- Any parent, subsidiary, or affiliate entity
+- Any registered agent in ownership documents
+- Any shared address with other entities
+- Any prior name or redomiciled entity
+- Any fund, vehicle, or trust connected to the subject
+
+Priority: Individuals first → Offshore entities → Recently formed → Shared infrastructure → Fund structures
+
+ENTITY QUEUE: Maintain a FOUND LIST (every entity discovered) and INVESTIGATED LIST (every entity assessed across all 5 dimensions). Do not conclude until they match.
+
+GRAPH CHECK: Before terminating any branch — has this entity appeared in prior investigations? Does it share infrastructure with flagged entities? Is it within two hops of sanctioned/high-risk entities? A graph connection is always material.
+
+RISK CLASSIFICATION:
+- HIGH (Do Not Transact): Direct sanctions hit, 50% rule, confirmed fraud, active investigation, graph connection within 1 hop
+- ELEVATED (EDD Required): Near-match on sanctions, enforcement history, credible adverse media, leaked database appearance, structural red flags, graph within 2 hops
+- MEDIUM (Standard DD): High-risk jurisdiction/industry, limited public profile, resolved regulatory matter
+- LOW (Clear): All 5 dimensions clean, no graph connections, verifiable identity and ownership
+
+THE STANDARD: Sanctions is the floor, not the ceiling. The investigation ends when the found list and investigated list match — not when you find nothing on a list.`;
 
 // ── Main Handler ──
 export default async function handler(req, res) {
