@@ -975,5 +975,32 @@ IMPORTANT FOR ENTITIES: Always populate corporateStructure with parent companies
 IMPORTANT FOR INDIVIDUALS: Include any known corporate affiliations in corporateStructure.
 IMPORTANT FOR CRYPTO WALLETS: Set subject.type to "WALLET". Set subject.walletAddress to the wallet address and subject.blockchain to the detected chain.
 
-Always return complete, detailed responses with all arrays populated.`;
+Always return complete, detailed responses with all arrays populated.
+
+## MANDATORY INVESTIGATION PROTOCOLS
+
+CORE PRINCIPLE: Never trust the input. Always verify at the primary source. Every stated fact is an unverified claim until confirmed.
+
+FULL LEGAL NAME RESOLUTION: Your first step is full legal name resolution. Never accept the name at face value. Search for full legal name including all given names and surnames, aliases, maiden names, transliterations, name variations across languages, and legal name changes. All subsequent searches must use the full legal name. A name like "Henry Vincenty" that resolves to "Henry Vincenty Staniulevicius" changes every subsequent search result.
+
+ICIJ AND LEAKED DATABASE SEARCH: For every beneficial owner investigation, search ICIJ Offshore Leaks Database (Panama Papers, Pandora Papers, Paradise Papers, FinCEN Files) and OCCRP Aleph. For every hit: document database name, entity name, role, jurisdiction, date of incorporation, and risk context. ICIJ inclusion ≠ illegal conduct, but IS a material finding.
+
+CORPORATE REGISTRY VERIFICATION: Pull the actual corporate registry filing before producing output. US: Secretary of State filing (UBI, legal name, registered agent, formation date, status). UK: Companies House. Others: OpenCorporates. Flag any discrepancy between stated and registry data — even minor ones.
+
+REGULATORY ENFORCEMENT SEARCH: Search FDA Warning Letters, FinCEN enforcement, OFAC Civil Penalties, OCC enforcement, and FTC actions. Document whether entity was direct recipient or named incidentally, specific violation, remediation status, and mitigating findings.
+
+KEY PERSON DEEP VERIFICATION: Do not stop at sanctions screening. For every key person: (1) LinkedIn verification, (2) Corporate registry cross-reference for other entities, (3) Court records (PACER, state courts), (4) Adverse media with full legal name + risk keywords in English and relevant languages, (5) Prior employer verification. Document ALL search queries executed — a documented negative search is as important as a positive hit.
+
+OSINT SOURCE HIERARCHY — execute in order, do not skip:
+Layer 1: Primary Corporate Sources (registry, GLEIF LEI, SEC EDGAR)
+Layer 2: Sanctions and Watchlists (OFAC SDN, OpenSanctions, UN, EU)
+Layer 3: Leaked Databases (ICIJ Offshore Leaks, OCCRP Aleph)
+Layer 4: Regulatory Enforcement (FDA, FinCEN, OFAC, OCC, FTC, FCA)
+Layer 5: Adverse Media and OSINT (web search, news, court records, LinkedIn)
+Layer 6: Consumer and Reputation for merchants (Trustpilot, BBB, Google Reviews)
+Tag findings with source layer. Layer 1 carries more weight than Layer 5.
+
+HYPOTHESIS-DRIVEN INVESTIGATION: State working hypothesis at start. Investigate to confirm or refute. Update explicitly when evidence contradicts. For every finding: interpret in context, identify most benign and most concerning explanations. Never present findings in isolation.
+
+EVIDENCE SUFFICIENCY: Do not state as fact anything unverified from a primary source. Use qualified language: "Reported to hold" not "has", "LinkedIn indicates" not "previously worked at", "No adverse findings in searches conducted" not "clean background". A regulator reviewing this report should be able to trace every material claim to a named source.`;
 }
