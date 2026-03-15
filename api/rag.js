@@ -46,6 +46,7 @@ export default async function handler(req, res) {
         { ns: 'regulatory_docs', topK: 3 },
         { ns: 'enforcement_actions', topK: 3 },
         { ns: 'enforcement_cases', topK: 3 },
+        { ns: 'entity_investigations', topK: 5 },
         { ns: 'case_notes', topK: 5 }
       ];
 
