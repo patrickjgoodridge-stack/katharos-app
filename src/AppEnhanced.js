@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown, Binoculars } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -13,6 +13,7 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
+import InvestigationReport from './InvestigationReport';
 import InlineChatGraph from './InlineChatGraph';
 import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
@@ -5127,7 +5128,12 @@ You are in a multi-turn conversation. The full conversation history is included 
 - Always maintain awareness of: entities discussed, relationships mentioned, documents uploaded, screening results returned
 
 USER INTENT FOR THIS MESSAGE: ${classifiedIntent}
-${classifiedIntent === 'SCREEN' ? `→ The user wants to SCREEN an entity. Provide a full structured risk assessment with risk score.` : ''}${classifiedIntent === 'INVESTIGATE' ? `→ The user wants to INVESTIGATE or dig deeper. Use the conversation context and your knowledge to research the topic. Do NOT produce a new full screening report — provide focused investigative analysis.` : ''}${classifiedIntent === 'FOLLOW_UP' ? `→ The user is following up on previous results. Reference the prior conversation, answer their specific question, and go deeper on the topic. Do NOT produce a new screening report.` : ''}${classifiedIntent === 'QUESTION' ? `→ The user is asking a knowledge question. Provide a clear, informative answer. Do NOT produce a screening report or risk score.` : ''}${classifiedIntent === 'COMPARE' ? `→ The user wants to compare entities or findings. Provide a structured comparison. Consider using a comparison table visualization.` : ''}${classifiedIntent === 'SUMMARIZE' ? `→ The user wants a summary of findings so far. Condense the conversation results into a clear overview.` : ''}${classifiedIntent === 'GENERATE' ? `→ The user wants to create an output or artifact (report, PDF, SAR narrative, etc.). Generate the requested document format.` : ''}${classifiedIntent === 'HYPOTHETICAL' ? `→ The user is exploring a hypothetical scenario. Analyze the scenario using your compliance expertise. Do NOT produce a risk score.` : ''}${classifiedIntent === 'VALIDATE' ? `→ The user wants to verify or confirm a specific fact. Provide a direct, factual answer with sources.` : ''}${classifiedIntent === 'COMMAND' ? `→ The user is giving a system instruction. Acknowledge and respond appropriately.` : ''}
+${classifiedIntent === 'SCREEN' ? `→ The user wants to SCREEN an entity. Provide a full structured risk assessment with risk score.
+
+STRUCTURED REPORT DATA — MANDATORY FOR ALL SCREEN INTENTS:
+After your markdown response, output a hidden JSON block in this exact format on a single line:
+<!--REPORT_JSON:{"riskLevel":"CRITICAL|HIGH|MEDIUM|LOW","riskScore":0-100,"bottomLineHeader":"SHORT VERDICT e.g. IMMEDIATE REJECT — BLOCKED ENTITY","bottomLine":"One paragraph explanation of the verdict","summary":"3-4 sentences of analyst prose with <b>bold</b> for entity names and <a href='url'>links</a> for sources","scoreBreakdown":[{"factor":"OFAC SDN Designation","score":100,"reasoning":"explanation"},{"factor":"Secondary Sanctions Risk","score":0,"reasoning":"—"},{"factor":"DoD / Entity List Designation","score":0,"reasoning":"—"},{"factor":"Entity Complexity","score":0,"reasoning":"—"},{"factor":"Adverse Media","score":0,"reasoning":"—"},{"factor":"Enforcement History","score":0,"reasoning":"—"},{"factor":"PEP Exposure","score":0,"reasoning":"—"},{"factor":"Crypto Address Flags","score":0,"reasoning":"—"}],"entities":[{"name":"Entity Name","jurisdiction":"Country","type":"Company|Individual|Vessel","role":"Subsidiary|Director|etc","tier":1,"sanctioned":true}],"findings":[{"title":"Finding title","detail":"1-2 sentence explanation"}],"actions":{"immediate":["action text"],"shortTerm":["action text"],"ongoing":["action text"]},"notes":"Full investigation reasoning and methodology notes"}-->
+The JSON must be valid. Use the actual data from your analysis. Set score to 0 and reasoning to "—" for factors not applicable. Always include all 8 scoreBreakdown factors. Tier values: 1=Critical, 2=High Risk, 3=Elevated, 4=Monitor.` : ''}${classifiedIntent === 'INVESTIGATE' ? `→ The user wants to INVESTIGATE or dig deeper. Use the conversation context and your knowledge to research the topic. Do NOT produce a new full screening report — provide focused investigative analysis.` : ''}${classifiedIntent === 'FOLLOW_UP' ? `→ The user is following up on previous results. Reference the prior conversation, answer their specific question, and go deeper on the topic. Do NOT produce a new screening report.` : ''}${classifiedIntent === 'QUESTION' ? `→ The user is asking a knowledge question. Provide a clear, informative answer. Do NOT produce a screening report or risk score.` : ''}${classifiedIntent === 'COMPARE' ? `→ The user wants to compare entities or findings. Provide a structured comparison. Consider using a comparison table visualization.` : ''}${classifiedIntent === 'SUMMARIZE' ? `→ The user wants a summary of findings so far. Condense the conversation results into a clear overview.` : ''}${classifiedIntent === 'GENERATE' ? `→ The user wants to create an output or artifact (report, PDF, SAR narrative, etc.). Generate the requested document format.` : ''}${classifiedIntent === 'HYPOTHETICAL' ? `→ The user is exploring a hypothetical scenario. Analyze the scenario using your compliance expertise. Do NOT produce a risk score.` : ''}${classifiedIntent === 'VALIDATE' ? `→ The user wants to verify or confirm a specific fact. Provide a direct, factual answer with sources.` : ''}${classifiedIntent === 'COMMAND' ? `→ The user is giving a system instruction. Acknowledge and respond appropriately.` : ''}
 
 NETWORK GRAPH VISUALIZATION:
 When the user asks to visualize, graph, or map entities/ownership/networks/relationships/connections:
@@ -6864,13 +6870,27 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        }
      }
 
+     // Parse structured report JSON if present (Scout SCREEN mode)
+     let reportData = null;
+     let displayText = fullText;
+     const reportJsonMatch = fullText.match(/<!--REPORT_JSON:([\s\S]*?)-->/);
+     if (reportJsonMatch) {
+       try {
+         reportData = JSON.parse(reportJsonMatch[1]);
+         displayText = fullText.replace(/<!--REPORT_JSON:[\s\S]*?-->/, '').trim();
+       } catch (e) {
+         console.warn('[Katharos] Failed to parse REPORT_JSON:', e);
+       }
+     }
+
      // Add completed message to conversation (update case directly)
      const vizType = detectVisualizationRequest(userMessage);
      const assistantMessage = {
        role: 'assistant',
-       content: fullText || 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
+       content: displayText || 'No response received from the API. This may be due to the file content being too large or containing unsupported characters. Please try with a smaller file or different format.',
        timestamp: new Date().toISOString(),
-       ...(vizType && { visualization: vizType })
+       ...(vizType && { visualization: vizType }),
+       ...(reportData && { reportData })
      };
 
      if (!fullText) {
@@ -13067,6 +13087,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
    >
+     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <Binoculars className="w-3 h-3" />}
      <span>{investigationMode === 'cipher' ? 'Cipher' : 'Scout'}</span>
      <ChevronDown className="w-3 h-3" />
    </button>
@@ -13078,8 +13099,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
          onMouseEnter={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = '#383838'; }}
          onMouseLeave={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = 'transparent'; }}
        >
-         <span style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>Scout</span>
-         <span style={{ fontSize: '11px', color: '#888' }}>Basic Screenings</span>
+         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><Binoculars style={{ width: 14, height: 14, flexShrink: 0 }} /> Scout</span>
+         <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Basic Screenings</span>
        </button>
        <button
          onClick={() => { setInvestigationMode('cipher'); setShowModeDropdown(false); }}
@@ -13087,8 +13108,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
          onMouseEnter={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = '#383838'; }}
          onMouseLeave={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = 'transparent'; }}
        >
-         <span style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>Cipher</span>
-         <span style={{ fontSize: '11px', color: '#888' }}>Full Investigations</span>
+         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><Search style={{ width: 14, height: 14, flexShrink: 0 }} /> Cipher</span>
+         <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Full Investigations</span>
        </button>
      </div>
    )}
@@ -13217,6 +13238,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
+   // Scout mode: render structured InvestigationReport if reportData exists
+   if (msg.reportData) {
+     const caseName = cases.find(c => c.id === currentCaseId)?.name || '';
+     const subjectName = caseName.split(' - ')[0] || caseName || 'Entity';
+     return <InvestigationReport reportData={msg.reportData} investigationComplete={true} subjectName={subjectName} />;
+   }
    const stripped = stripVizData(msg.content);
    const sections = splitReportSections(stripped);
    const exploreHandler = (text) => {
@@ -13394,12 +13421,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
   );
 })()}
 
- {/* Show investigation progress panel during streaming */}
+ {/* Show progress during streaming */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-center">
  <div style={{ maxWidth: '672px', width: '100%' }}>
 
-   {/* Investigation Progress Card */}
+   {investigationMode === 'cipher' ? (
+   /* Cipher: Investigation Progress Card with tool steps */
    <div style={{
      background: '#242424',
      border: '1px solid #3a3a3a',
@@ -13463,8 +13491,22 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
      </div>
    </div>
+   ) : (
+   /* Scout: Simple analyzing indicator */
+   <div style={{
+     display: 'flex', alignItems: 'center', gap: '10px',
+     padding: '16px 20px',
+     background: '#242424',
+     border: '1px solid #3a3a3a',
+     borderRadius: '12px',
+     marginBottom: '16px',
+   }}>
+     <Loader2 className="animate-spin" style={{ width: '16px', height: '16px', color: '#888' }} />
+     <span style={{ fontSize: '13px', color: '#aaa', fontFamily: "'Inter', -apple-system, sans-serif" }}>Analyzing...</span>
+   </div>
+   )}
 
-   {/* Show structured report text as it streams in (final output only, not narration) */}
+   {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
      <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
    )}
