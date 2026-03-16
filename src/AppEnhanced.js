@@ -13829,8 +13829,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  investigationMode === 'cipher' ? 'bg-gray-100/50' : ''
  }`}
  >
- <div className="text-sm font-medium text-gray-900">Cipher</div>
- <div className="text-[10px] text-gray-500">Deep Investigations</div>
+ <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Search style={{ width: 14, height: 14 }} /> Cipher</div>
+ <div className="text-[10px] text-gray-500 ml-5">Deep Investigations</div>
  </button>
  <button
  onClick={() => {
@@ -13841,8 +13841,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  investigationMode === 'scout' ? 'bg-gray-100/50' : ''
  }`}
  >
- <div className="text-sm font-medium text-gray-900">Scout</div>
- <div className="text-[10px] text-gray-500">Lightweight Screenings</div>
+ <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Binoculars style={{ width: 14, height: 14 }} /> Scout</div>
+ <div className="text-[10px] text-gray-500 ml-5">Lightweight Screenings</div>
  </button>
  </div>
  )}
