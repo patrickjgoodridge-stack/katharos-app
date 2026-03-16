@@ -13011,10 +13011,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- handleAgentMessage(newCaseId, conversationInput, files);
+ if (investigationMode === 'scout') {
+   _sendConversationMessage(newCaseId, conversationInput, files);
+ } else {
+   handleAgentMessage(newCaseId, conversationInput, files);
+ }
  }
  }}
- placeholder="Enter a name, describe a case, or upload files."
+ placeholder={investigationMode === 'scout' ? "Enter a name or entity to screen." : "Enter a name, describe a case, or upload files."}
  rows={3}
  style={{ width: '100%', resize: 'none', background: 'transparent', border: 'none', outline: 'none', fontSize: '15px', color: '#ffffff', lineHeight: 1.5, fontFamily: "'Inter', -apple-system, sans-serif" }}
  autoFocus
@@ -13036,7 +13040,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  if (String(conversationInput || '').trim() || files.length > 0) {
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- handleAgentMessage(newCaseId, conversationInput, files);
+ if (investigationMode === 'scout') {
+   _sendConversationMessage(newCaseId, conversationInput, files);
+ } else {
+   handleAgentMessage(newCaseId, conversationInput, files);
+ }
  }
  }}
  disabled={!String(conversationInput || '').trim() && files.length === 0}
@@ -13044,6 +13052,47 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  >
  <Send className="w-4 h-4" />
  </button>
+ </div>
+ {/* Mode Selector Dropdown */}
+ <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+ <div className="relative" ref={modeDropdownRef}>
+   <button
+     onClick={() => setShowModeDropdown(!showModeDropdown)}
+     style={{
+       display: 'flex', alignItems: 'center', gap: '6px',
+       padding: '4px 10px', borderRadius: '6px', cursor: 'pointer',
+       background: 'transparent', border: 'none', color: '#888', fontSize: '12px',
+       fontFamily: "'Inter', -apple-system, sans-serif",
+     }}
+     onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
+     onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+   >
+     <span>{investigationMode === 'cipher' ? 'Cipher' : 'Scout'}</span>
+     <ChevronDown className="w-3 h-3" />
+   </button>
+   {showModeDropdown && (
+     <div style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', overflow: 'hidden', zIndex: 50, minWidth: '180px' }}>
+       <button
+         onClick={() => { setInvestigationMode('scout'); setShowModeDropdown(false); }}
+         style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '10px 14px', background: investigationMode === 'scout' ? '#333' : 'transparent', border: 'none', borderBottom: '1px solid #3a3a3a', cursor: 'pointer', textAlign: 'left' }}
+         onMouseEnter={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = '#383838'; }}
+         onMouseLeave={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = 'transparent'; }}
+       >
+         <span style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>Scout</span>
+         <span style={{ fontSize: '11px', color: '#888' }}>Basic Screenings</span>
+       </button>
+       <button
+         onClick={() => { setInvestigationMode('cipher'); setShowModeDropdown(false); }}
+         style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '10px 14px', background: investigationMode === 'cipher' ? '#333' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+         onMouseEnter={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = '#383838'; }}
+         onMouseLeave={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = 'transparent'; }}
+       >
+         <span style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>Cipher</span>
+         <span style={{ fontSize: '11px', color: '#888' }}>Full Investigations</span>
+       </button>
+     </div>
+   )}
+ </div>
  </div>
  </div>
 
@@ -13529,7 +13578,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
-   handleAgentMessage(currentCaseId, conversationInput, files);
+   if (investigationMode === 'scout') {
+     _sendConversationMessage(currentCaseId, conversationInput, files);
+   } else {
+     handleAgentMessage(currentCaseId, conversationInput, files);
+   }
  }
  e.target.style.height = 'auto';
  }}
@@ -13549,7 +13602,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button
  onClick={() => {
    if (!currentCaseId) return;
-   handleAgentMessage(currentCaseId, conversationInput, files);
+   if (investigationMode === 'scout') {
+     _sendConversationMessage(currentCaseId, conversationInput, files);
+   } else {
+     handleAgentMessage(currentCaseId, conversationInput, files);
+   }
  }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"
