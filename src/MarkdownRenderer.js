@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import {
   AlertTriangle,
   Shield,
@@ -511,7 +512,7 @@ const preprocessMarkdown = (content) => {
 };
 
 // Stable remark plugins array (avoid re-creating on every render)
-const remarkPlugins = [remarkGfm];
+const remarkPlugins = [remarkGfm, remarkBreaks];
 
 // Main MarkdownRenderer component
 const MarkdownRenderer = React.memo(({ content, onExploreClick, darkMode = false }) => {

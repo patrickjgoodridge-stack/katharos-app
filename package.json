@@ -27,6 +27,7 @@
     "react-force-graph-2d": "^1.29.0",
     "react-markdown": "^10.1.0",
     "react-scripts": "5.0.1",
+    "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "tesseract.js": "^5.1.1"
   },

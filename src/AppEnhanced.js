@@ -516,7 +516,27 @@ export default function Katharos() {
      return newMap;
    });
  }, []);
- const [agentToolCards, setAgentToolCards] = useState([]); // eslint-disable-line no-unused-vars
+ const [agentToolCards, setAgentToolCards] = useState([]);
+
+ // Human-readable labels for agent tool cards in progress panel
+ const getToolLabel = useCallback((toolName, toolInput) => {
+   switch (toolName) {
+     case 'screen_entity': return `Screening ${toolInput?.name || toolInput?.entity_name || 'entity'}`;
+     case 'search_entity_investigations': return 'Searching curated intelligence database';
+     case 'search_sanctions': return `Checking sanctions: ${toolInput?.name || ''}`;
+     case 'search_adverse_media': return `Searching adverse media: ${toolInput?.name || ''}`;
+     case 'search_corporate_records': return `Searching corporate records: ${toolInput?.name || ''}`;
+     case 'search_court_records': return `Searching court records: ${toolInput?.name || ''}`;
+     case 'trace_ownership': return `Tracing ownership: ${toolInput?.name || toolInput?.entity_name || ''}`;
+     case 'knowledge_base_search': return 'Searching regulatory knowledge base';
+     case 'find_precedents': return 'Finding enforcement precedents';
+     case 'get_related_entities': return `Resolving identity: ${toolInput?.name || ''}`;
+     case 'save_discovered_entities': return `Saving ${toolInput?.entities?.length || ''} entities to knowledge base`;
+     case 'ask_user': return 'Waiting for operator input';
+     default: return toolName.replace(/_/g, ' ');
+   }
+ }, []);
+
  const [agentQuestion, setAgentQuestion] = useState(null); // { question, options, checkpoint_data, tool_use_id, conversationState, pendingContent }
  const [agentQuestionInput, setAgentQuestionInput] = useState('');
  const agentConversationStateRef = useRef(null); // Stores conversation state for resume
@@ -13283,20 +13303,102 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
   );
 })()}
 
- {/* Show streaming indicator for current case */}
+ {/* Show investigation progress panel during streaming */}
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming && (
  <div className="flex justify-center">
- <div className="max-w-2xl">
- {/* Always show narration text when available */}
- {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-   <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
- )}
- {/* Show dots at the bottom while still streaming — acts as a live cursor */}
- <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-   <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
- </div>
+ <div style={{ maxWidth: '672px', width: '100%' }}>
+
+   {/* Investigation Progress Card */}
+   <div style={{
+     background: '#242424',
+     border: '1px solid #3a3a3a',
+     borderRadius: '12px',
+     padding: '20px 24px',
+     marginBottom: '16px',
+   }}>
+     {/* Header */}
+     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: agentToolCards.length > 0 ? '16px' : '0' }}>
+       <Loader2 className="animate-spin" style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
+       <span style={{
+         fontSize: '11px',
+         fontWeight: 700,
+         letterSpacing: '2px',
+         textTransform: 'uppercase',
+         color: '#f59e0b',
+         fontFamily: "'Inter', -apple-system, sans-serif",
+       }}>INVESTIGATING</span>
+     </div>
+
+     {/* Tool cards */}
+     {agentToolCards.length > 0 && (
+       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+         {agentToolCards.map((tc) => (
+           <div key={tc.tool_use_id} style={{
+             display: 'flex',
+             alignItems: 'flex-start',
+             gap: '10px',
+             padding: '6px 10px',
+             borderRadius: '6px',
+             background: tc.status === 'running' ? 'rgba(245, 158, 11, 0.06)' : 'transparent',
+             transition: 'background 0.2s',
+           }}>
+             {/* Status icon */}
+             {tc.status === 'running' ? (
+               <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
+             ) : tc.status === 'error' ? (
+               <XCircle style={{ width: '14px', height: '14px', color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
+             ) : (
+               <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+             )}
+
+             {/* Label and summary */}
+             <div style={{ flex: 1, minWidth: 0 }}>
+               <div style={{
+                 fontSize: '13px',
+                 color: tc.status === 'running' ? '#f59e0b' : tc.status === 'error' ? '#ef4444' : '#6b6b6b',
+                 fontWeight: tc.status === 'running' ? 500 : 400,
+                 fontFamily: "'Inter', -apple-system, sans-serif",
+                 whiteSpace: 'nowrap',
+                 overflow: 'hidden',
+                 textOverflow: 'ellipsis',
+               }}>
+                 {getToolLabel(tc.name, tc.input)}
+               </div>
+               {tc.status !== 'running' && tc.summary && (
+                 <div style={{
+                   fontSize: '12px',
+                   color: (tc.summary.includes('SANCTIONS HIT') || tc.summary.includes('SANCTIONS MATCH'))
+                     ? '#ef4444'
+                     : tc.summary.includes('50% RULE')
+                       ? '#f97316'
+                       : '#858585',
+                   fontFamily: "'JetBrains Mono', monospace",
+                   marginTop: '2px',
+                   whiteSpace: 'nowrap',
+                   overflow: 'hidden',
+                   textOverflow: 'ellipsis',
+                 }}>
+                   {tc.summary}
+                 </div>
+               )}
+             </div>
+           </div>
+         ))}
+       </div>
+     )}
+
+     {/* Animated dots */}
+     <div style={{ padding: '12px 0 4px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+     </div>
+   </div>
+
+   {/* Show structured report text as it streams in (final output only, not narration) */}
+   {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
+     <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText)} darkMode={darkMode} />
+   )}
  </div>
  </div>
  )}
