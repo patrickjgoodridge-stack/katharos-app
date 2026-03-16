@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Download, Share2, FolderPlus } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download, Share2, FolderPlus } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // INVESTIGATION REPORT — Scout Mode Report Renderer
@@ -15,11 +15,18 @@ const TEXT_PRIMARY = '#ffffff';
 const TEXT_SECONDARY = '#9ca3af';
 const TABLE_HEADER = '#6b7280';
 
-const TIER_COLORS = {
-  1: { label: 'Critical', border: CRIT_BORDER, bg: 'rgba(220, 38, 38, 0.08)' },
-  2: { label: 'High Risk', border: '#f97316', bg: 'rgba(249, 115, 22, 0.08)' },
-  3: { label: 'Elevated', border: '#eab308', bg: 'rgba(234, 179, 8, 0.08)' },
-  4: { label: 'Monitor', border: '#6b7280', bg: 'rgba(107, 114, 128, 0.08)' },
+const TIER_CONFIG = {
+  1: { label: 'Critical', border: CRIT_BORDER, titleColor: CRIT_TEXT },
+  2: { label: 'High Risk', border: '#d97706', titleColor: '#f59e0b' },
+  3: { label: 'Elevated', border: '#ca8a04', titleColor: TEXT_SECONDARY },
+  4: { label: 'Monitor', border: '#374151', titleColor: TEXT_SECONDARY },
+};
+
+const BADGE_STYLES = {
+  SDN:   { bg: CRIT_BG, color: CRIT_TEXT, border: CRIT_BORDER },
+  '1260H': { bg: '#422006', color: '#f59e0b', border: '#d97706' },
+  SANCTIONED: { bg: CRIT_BG, color: CRIT_TEXT, border: CRIT_BORDER },
+  CLEAN: { bg: 'transparent', color: '#6b7280', border: '#374151' },
 };
 
 // ── Fade-in section with stagger ──
@@ -53,57 +60,78 @@ const getRiskColor = (level) => {
 const getRiskBg = (level) => {
   const l = (level || '').toUpperCase();
   if (l === 'CRITICAL') return CRIT_BG;
-  if (l === 'HIGH') return 'rgba(249, 115, 22, 0.15)';
-  if (l === 'MEDIUM') return 'rgba(234, 179, 8, 0.15)';
-  return 'rgba(34, 197, 94, 0.15)';
+  if (l === 'HIGH') return '#422006';
+  if (l === 'MEDIUM') return '#422006';
+  return 'rgba(34, 197, 94, 0.12)';
+};
+
+const getRiskBorder = (level) => {
+  const l = (level || '').toUpperCase();
+  if (l === 'CRITICAL') return CRIT_BORDER;
+  if (l === 'HIGH') return '#d97706';
+  if (l === 'MEDIUM') return '#ca8a04';
+  return '#166534';
+};
+
+// ── Entity status badge ──
+const StatusBadge = ({ entity }) => {
+  const status = entity.badge || entity.status ||
+    (entity.sanctioned || entity.sdn ? 'SDN' : 'CLEAN');
+  const s = BADGE_STYLES[status.toUpperCase()] || BADGE_STYLES.CLEAN;
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: '9999px',
+      fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em',
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+    }}>
+      {status.toUpperCase()}
+    </span>
+  );
 };
 
 // ── Tier Accordion ──
 const TierAccordion = ({ tier, entities }) => {
-  const config = TIER_COLORS[tier] || TIER_COLORS[4];
+  const config = TIER_CONFIG[tier] || TIER_CONFIG[4];
   const [open, setOpen] = useState(tier === 1);
   if (!entities || entities.length === 0) return null;
 
   return (
-    <div style={{ border: `1px solid ${CARD_BORDER}`, borderLeft: `3px solid ${config.border}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
-      <button
+    <div style={{
+      paddingLeft: '14px', marginBottom: '10px', cursor: 'pointer',
+      borderLeft: `3px solid ${config.border}`,
+    }}>
+      <div
         onClick={() => setOpen(!open)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', background: config.bg, border: 'none', cursor: 'pointer',
-        }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
-        <span style={{ fontSize: '13px', fontWeight: 600, color: TEXT_PRIMARY, fontFamily: "'Inter', system-ui" }}>
-          Tier {tier} — {config.label} <span style={{ fontWeight: 400, color: TEXT_SECONDARY }}>({entities.length} {entities.length === 1 ? 'entity' : 'entities'})</span>
+        <span style={{ fontSize: '13px', fontWeight: 500, color: config.titleColor }}>
+          Tier {tier} — {config.label}{' '}
+          <span style={{ fontWeight: 400, color: TEXT_SECONDARY }}>
+            ({entities.length} {entities.length === 1 ? 'entity' : 'entities'})
+          </span>
         </span>
-        {open ? <ChevronDown style={{ width: 14, height: 14, color: TEXT_SECONDARY }} /> : <ChevronRight style={{ width: 14, height: 14, color: TEXT_SECONDARY }} />}
-      </button>
+        <span style={{ color: TABLE_HEADER, fontSize: '12px' }}>{open ? '▲' : '▼'}</span>
+      </div>
       {open && (
-        <div style={{ padding: '0' }}>
+        <div style={{ marginTop: '10px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Name', 'Jurisdiction', 'Type', 'Role', 'Status'].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', fontSize: '10px', fontWeight: 600, color: TABLE_HEADER, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: `1px solid ${CARD_BORDER}` }}>{h}</th>
+                {['Entity', 'Jurisdiction', 'Type', 'Status'].map(h => (
+                  <th key={h} style={{
+                    padding: '8px 0', fontSize: '11px', fontWeight: 500, color: TABLE_HEADER,
+                    letterSpacing: '0.08em', textAlign: 'left', borderBottom: `1px solid ${CARD_BORDER}`,
+                  }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entities.map((e, i) => (
-                <tr key={i} style={{ borderBottom: i < entities.length - 1 ? `1px solid ${CARD_BORDER}` : 'none' }}>
-                  <td style={{ padding: '10px 12px', fontSize: '13px', color: TEXT_PRIMARY, fontWeight: 500 }}>{e.name}</td>
-                  <td style={{ padding: '10px 12px', fontSize: '13px', color: TEXT_SECONDARY }}>{e.jurisdiction || '—'}</td>
-                  <td style={{ padding: '10px 12px', fontSize: '13px', color: TEXT_SECONDARY }}>{e.type || e.entity_type || '—'}</td>
-                  <td style={{ padding: '10px 12px', fontSize: '13px', color: TEXT_SECONDARY }}>{e.role || e.connection || '—'}</td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em',
-                      background: e.sanctioned || e.sdn ? 'rgba(239, 68, 68, 0.15)' : 'rgba(107, 114, 128, 0.15)',
-                      color: e.sanctioned || e.sdn ? CRIT_TEXT : TEXT_SECONDARY,
-                    }}>
-                      {e.sanctioned || e.sdn ? 'SDN' : 'CLEAN'}
-                    </span>
-                  </td>
+                <tr key={i} style={{ borderBottom: i < entities.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
+                  <td style={{ padding: '10px 0', fontSize: '13px', color: '#e5e7eb', fontWeight: 500 }}>{e.name}</td>
+                  <td style={{ padding: '10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.jurisdiction || '—'}</td>
+                  <td style={{ padding: '10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.type || e.entity_type || '—'}</td>
+                  <td style={{ padding: '10px 0' }}><StatusBadge entity={e} /></td>
                 </tr>
               ))}
             </tbody>
@@ -116,12 +144,12 @@ const TierAccordion = ({ tier, entities }) => {
 
 // ── Action Checkbox Row ──
 const ActionRow = ({ text, color }) => (
-  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 0' }}>
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: '#e5e7eb', marginBottom: '6px' }}>
     <div style={{
-      width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-      border: `2px solid ${color}`, background: `${color}22`,
+      width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, marginTop: '1px',
+      border: `1px solid ${color}`,
     }} />
-    <span style={{ fontSize: '13px', color: TEXT_PRIMARY, lineHeight: 1.5 }}>{text}</span>
+    <span>{text}</span>
   </div>
 );
 
@@ -144,6 +172,8 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
     findings = [],
     actions = {},
     notes = '',
+    coverageGap = null,
+    gapsAndLimitations = null,
   } = reportData;
 
   // Group entities by tier
@@ -154,7 +184,7 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
     tiers[t].push(e);
   }
 
-  // Default score breakdown factors
+  // Default score breakdown factors — always show all 8
   const defaultFactors = [
     'OFAC SDN Designation', 'Secondary Sanctions Risk', 'DoD / Entity List Designation',
     'Entity Complexity', 'Adverse Media', 'Enforcement History', 'PEP Exposure', 'Crypto Address Flags',
@@ -165,59 +195,66 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
     return found || { factor, score: '—', reasoning: 'Not applicable' };
   });
 
-  // Score subtotal
   const numericScores = finalBreakdown.filter(r => typeof r.score === 'number' && r.score > 0);
   const subtotal = numericScores.reduce((sum, r) => sum + r.score, 0);
 
   let sectionIdx = 0;
 
   return (
-    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: '720px', width: '100%' }}>
+    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: '900px', width: '100%', paddingBottom: '80px' }}>
 
       {/* 1. Subject Chip */}
       <FadeSection index={sectionIdx++} visible={investigationComplete}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
           <span style={{
-            padding: '6px 14px', borderRadius: '9999px', fontSize: '13px', fontWeight: 500,
-            background: '#242424', border: `1px solid ${CARD_BORDER}`, color: TEXT_PRIMARY,
+            padding: '6px 16px', borderRadius: '9999px', fontSize: '13px',
+            background: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY,
           }}>
             {subjectName}
           </span>
         </div>
       </FadeSection>
 
-      {/* 2. Risk Banner */}
+      {/* 2. Risk Banner — square icon box matching mockup */}
       <FadeSection index={sectionIdx++} visible={investigationComplete}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px',
-          background: getRiskBg(riskLevel), border: `1px solid ${getRiskColor(riskLevel)}`,
+          background: getRiskBg(riskLevel), border: `1px solid ${getRiskBorder(riskLevel)}`,
           borderRadius: '8px', marginBottom: '12px',
         }}>
-          <AlertTriangle style={{ width: 20, height: 20, color: getRiskColor(riskLevel), flexShrink: 0 }} />
-          <span style={{ fontSize: '14px', fontWeight: 700, color: getRiskColor(riskLevel), letterSpacing: '1px', textTransform: 'uppercase' }}>
-            OVERALL RISK: {riskLevel}
-          </span>
-          <span style={{ marginLeft: 'auto', fontSize: '20px', fontWeight: 700, color: getRiskColor(riskLevel) }}>
-            {riskScore} / 100
-          </span>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '6px', flexShrink: 0,
+            background: getRiskBorder(riskLevel),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <AlertTriangle style={{ width: 16, height: 16, color: '#fff' }} />
+          </div>
+          <div>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: getRiskColor(riskLevel), letterSpacing: '0.05em' }}>
+              OVERALL RISK: {riskLevel}
+            </span>
+            <span style={{ color: riskLevel === 'CRITICAL' ? '#fca5a5' : TEXT_SECONDARY, fontSize: '14px', marginLeft: '8px' }}>
+              {riskScore} / 100
+            </span>
+          </div>
         </div>
       </FadeSection>
 
-      {/* 3. Bottom Line Card */}
+      {/* 3. Bottom Line Card — red bookend */}
       {bottomLine && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
           <div style={{
             padding: '16px 20px', background: CRIT_BG,
-            border: `1px solid ${CRIT_BORDER}`, borderRadius: '8px', marginBottom: '16px',
+            border: `1px solid ${CRIT_BORDER}`, borderRadius: '8px', marginBottom: '20px',
           }}>
             {bottomLineHeader && (
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', marginBottom: '6px', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: CRIT_TEXT, letterSpacing: '0.08em', marginBottom: '6px' }}>
                 {bottomLineHeader}
               </div>
             )}
-            <div style={{ fontSize: '13px', color: '#fca5a5', lineHeight: 1.6 }}>
-              {bottomLine}
-            </div>
+            <p style={{ fontSize: '14px', color: '#fecaca', lineHeight: 1.6, margin: 0 }}
+              dangerouslySetInnerHTML={{ __html: bottomLine }}
+            />
           </div>
         </FadeSection>
       )}
@@ -226,10 +263,13 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
       {summary && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
           <div style={{
-            padding: '16px 20px', background: CARD_BG,
-            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '16px',
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
           }}>
-            <div style={{ fontSize: '13px', color: TEXT_SECONDARY, lineHeight: 1.7 }}
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              INVESTIGATION SUMMARY
+            </div>
+            <p style={{ fontSize: '14px', color: '#e5e7eb', lineHeight: 1.7, margin: 0 }}
               dangerouslySetInnerHTML={{ __html: summary }}
             />
           </div>
@@ -237,65 +277,74 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
       )}
 
       {/* 5. Risk Score Breakdown */}
-      {finalBreakdown.length > 0 && (
-        <FadeSection index={sectionIdx++} visible={investigationComplete}>
-          <div style={{
-            background: CARD_BG, border: `1px solid ${CARD_BORDER}`,
-            borderRadius: '8px', marginBottom: '16px', overflow: 'hidden',
-          }}>
-            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${CARD_BORDER}` }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Risk Score Breakdown</span>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Factor', 'Score', 'Reasoning'].map(h => (
-                    <th key={h} style={{ padding: '8px 16px', fontSize: '10px', fontWeight: 600, color: TABLE_HEADER, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: `1px solid ${CARD_BORDER}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {finalBreakdown.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
-                    <td style={{ padding: '10px 16px', fontSize: '13px', color: TEXT_PRIMARY, fontWeight: 500 }}>{row.factor}</td>
-                    <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: typeof row.score === 'number' && row.score > 0 ? CRIT_TEXT : TEXT_SECONDARY }}>
-                      {typeof row.score === 'number' && row.score > 0 ? `+${row.score}` : row.score}
-                    </td>
-                    <td style={{ padding: '10px 16px', fontSize: '12px', color: TEXT_SECONDARY }}>{row.reasoning}</td>
-                  </tr>
-                ))}
-                {/* Subtotal */}
-                <tr style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
-                  <td style={{ padding: '10px 16px', fontSize: '13px', color: TEXT_SECONDARY, fontWeight: 600 }}>Subtotal</td>
-                  <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: TEXT_PRIMARY }}>{subtotal}</td>
-                  <td />
-                </tr>
-                {/* Cap row */}
-                {subtotal > 100 && (
-                  <tr style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
-                    <td style={{ padding: '10px 16px', fontSize: '13px', color: TEXT_SECONDARY }}>Cap Applied</td>
-                    <td style={{ padding: '10px 16px', fontSize: '13px', color: TEXT_SECONDARY }}>100</td>
-                    <td style={{ padding: '10px 16px', fontSize: '12px', color: TEXT_SECONDARY }}>Maximum score capped at 100</td>
-                  </tr>
-                )}
-                {/* Final Score */}
-                <tr>
-                  <td style={{ padding: '10px 16px', fontSize: '13px', color: TEXT_PRIMARY, fontWeight: 700 }}>Final Score</td>
-                  <td style={{ padding: '10px 16px', fontSize: '14px', fontWeight: 700, color: getRiskColor(riskLevel) }}>{riskScore}</td>
-                  <td />
-                </tr>
-              </tbody>
-            </table>
+      <FadeSection index={sectionIdx++} visible={investigationComplete}>
+        <div style={{
+          padding: '20px', background: CARD_BG,
+          border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+            RISK SCORE BREAKDOWN
           </div>
-        </FadeSection>
-      )}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr>
+                {['Factor', 'Score', 'Reasoning'].map(h => (
+                  <th key={h} style={{
+                    textAlign: 'left', padding: '8px 0', color: TABLE_HEADER, fontWeight: 500,
+                    fontSize: '11px', letterSpacing: '0.08em', borderBottom: `1px solid ${CARD_BORDER}`,
+                  }}>{h.toUpperCase()}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {finalBreakdown.map((row, i) => {
+                const hasScore = typeof row.score === 'number' && row.score > 0;
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid #1f1f1f` }}>
+                    <td style={{ padding: '10px 0', color: '#e5e7eb' }}>{row.factor}</td>
+                    <td style={{ padding: '10px 0', color: hasScore ? CRIT_TEXT : TABLE_HEADER, fontWeight: hasScore ? 500 : 400 }}>
+                      {hasScore ? `+${row.score}` : row.score}
+                    </td>
+                    <td style={{ padding: '10px 0', color: hasScore ? TEXT_SECONDARY : TABLE_HEADER, fontStyle: hasScore ? 'normal' : 'normal' }}>
+                      {row.reasoning}
+                    </td>
+                  </tr>
+                );
+              })}
+              {/* Subtotal */}
+              <tr style={{ borderBottom: `1px solid #1f1f1f`, color: TABLE_HEADER, fontStyle: 'italic' }}>
+                <td style={{ padding: '10px 0' }}>Subtotal</td>
+                <td style={{ padding: '10px 0' }}>{subtotal}</td>
+                <td />
+              </tr>
+              {/* Cap row */}
+              {subtotal > 100 && (
+                <tr style={{ borderBottom: `1px solid #1f1f1f`, color: TABLE_HEADER, fontStyle: 'italic' }}>
+                  <td style={{ padding: '10px 0' }}>Cap Applied</td>
+                  <td style={{ padding: '10px 0' }}>100</td>
+                  <td style={{ padding: '10px 0' }}>Maximum possible score</td>
+                </tr>
+              )}
+              {/* Final Score */}
+              <tr style={{ borderBottom: 'none' }}>
+                <td style={{ padding: '10px 0', color: '#fff', fontWeight: 500 }}>Final Score</td>
+                <td style={{ padding: '10px 0', color: getRiskColor(riskLevel), fontWeight: 500 }}>{riskScore}</td>
+                <td style={{ padding: '10px 0', color: getRiskColor(riskLevel), fontWeight: 500 }}>{riskLevel}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </FadeSection>
 
       {/* 6. Entity Network by Tier */}
       {Object.keys(tiers).length > 0 && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ padding: '0 0 10px 0' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Entity Network by Tier</span>
+          <div style={{
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              ENTITY NETWORK BY TIER
             </div>
             {[1, 2, 3, 4].map(t => tiers[t] ? <TierAccordion key={t} tier={t} entities={tiers[t]} /> : null)}
           </div>
@@ -306,18 +355,26 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
       {findings.length > 0 && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
           <div style={{
-            padding: '16px 20px', background: CARD_BG,
-            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '16px',
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
           }}>
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Key Findings</span>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              KEY FINDINGS
             </div>
-            {findings.map((f, i) => (
-              <div key={i} style={{ marginBottom: i < findings.length - 1 ? '12px' : 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: TEXT_PRIMARY, marginBottom: '2px' }}>{i + 1}. {f.title}</div>
-                {f.detail && <div style={{ fontSize: '12px', color: TEXT_SECONDARY, lineHeight: 1.6, paddingLeft: '18px' }}>{f.detail}</div>}
-              </div>
-            ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {findings.map((f, i) => (
+                <div key={i} style={{ display: 'flex', gap: '12px' }}>
+                  <span style={{
+                    color: i < 2 ? CRIT_TEXT : (i < 4 ? '#f59e0b' : TEXT_SECONDARY),
+                    fontWeight: 500, fontSize: '13px', minWidth: '20px',
+                  }}>{i + 1}</span>
+                  <div>
+                    <div style={{ color: '#fff', fontWeight: 500, fontSize: '13px', marginBottom: '3px' }}>{f.title}</div>
+                    {f.detail && <div style={{ color: TEXT_SECONDARY, fontSize: '13px', lineHeight: 1.5 }}>{f.detail}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </FadeSection>
       )}
@@ -326,54 +383,88 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
       {(actions.immediate?.length > 0 || actions.shortTerm?.length > 0 || actions.ongoing?.length > 0) && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
           <div style={{
-            padding: '16px 20px', background: CARD_BG,
-            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '16px',
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
           }}>
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recommended Actions</span>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              RECOMMENDED ACTIONS
             </div>
             {actions.immediate?.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: CRIT_TEXT, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Immediate</span>
-                {actions.immediate.map((a, i) => <ActionRow key={i} text={a} color={CRIT_TEXT} />)}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: CRIT_TEXT, letterSpacing: '0.08em', marginBottom: '8px' }}>IMMEDIATE</div>
+                {actions.immediate.map((a, i) => <ActionRow key={i} text={a} color={CRIT_BORDER} />)}
               </div>
             )}
             {actions.shortTerm?.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Short-Term</span>
-                {actions.shortTerm.map((a, i) => <ActionRow key={i} text={a} color="#f97316" />)}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#f59e0b', letterSpacing: '0.08em', marginBottom: '8px' }}>SHORT-TERM</div>
+                {actions.shortTerm.map((a, i) => <ActionRow key={i} text={a} color="#d97706" />)}
               </div>
             )}
             {actions.ongoing?.length > 0 && (
               <div>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Ongoing</span>
-                {actions.ongoing.map((a, i) => <ActionRow key={i} text={a} color={TEXT_SECONDARY} />)}
+                <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.08em', marginBottom: '8px' }}>ONGOING</div>
+                {actions.ongoing.map((a, i) => <ActionRow key={i} text={a} color="#4b5563" />)}
               </div>
             )}
           </div>
         </FadeSection>
       )}
 
-      {/* 9. Investigation Notes (collapsible) */}
+      {/* 9. Coverage Gap (not in mockup, from current report) */}
+      {coverageGap && (
+        <FadeSection index={sectionIdx++} visible={investigationComplete}>
+          <div style={{
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              COVERAGE GAP
+            </div>
+            <p style={{ fontSize: '13px', color: '#e5e7eb', lineHeight: 1.6, margin: 0 }}
+              dangerouslySetInnerHTML={{ __html: coverageGap }}
+            />
+          </div>
+        </FadeSection>
+      )}
+
+      {/* 10. Gaps and Limitations (not in mockup, from current report) */}
+      {gapsAndLimitations && (
+        <FadeSection index={sectionIdx++} visible={investigationComplete}>
+          <div style={{
+            padding: '20px', background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`, borderRadius: '8px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: TABLE_HEADER, letterSpacing: '0.1em', marginBottom: '12px' }}>
+              GAPS AND LIMITATIONS
+            </div>
+            <p style={{ fontSize: '13px', color: TEXT_SECONDARY, lineHeight: 1.6, margin: 0 }}
+              dangerouslySetInnerHTML={{ __html: gapsAndLimitations }}
+            />
+          </div>
+        </FadeSection>
+      )}
+
+      {/* 11. Investigation Notes (collapsible) */}
       {notes && (
         <FadeSection index={sectionIdx++} visible={investigationComplete}>
-          <div style={{ marginBottom: '80px' }}>
-            <button
-              onClick={() => setNotesOpen(!notesOpen)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 0',
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '12px', color: TEXT_SECONDARY,
-              }}
-            >
-              {notesOpen ? 'Hide' : 'Show'} investigation notes
-              <ChevronDown style={{ width: 12, height: 12, transform: notesOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
+          <div
+            onClick={() => setNotesOpen(!notesOpen)}
+            style={{
+              background: '#111', border: `1px solid ${CARD_BORDER}`, borderRadius: '8px',
+              padding: '14px 20px', cursor: 'pointer', marginBottom: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: TABLE_HEADER }}>
+                {notesOpen ? 'Hide' : 'Show'} investigation notes
+              </span>
+              <span style={{ color: TABLE_HEADER, fontSize: '12px' }}>{notesOpen ? '▲' : '▼'}</span>
+            </div>
             {notesOpen && (
               <div style={{
-                padding: '14px 16px', background: '#111', border: `1px solid ${CARD_BORDER}`,
-                borderRadius: '8px', fontSize: '12px', color: '#777', lineHeight: 1.7,
-                whiteSpace: 'pre-wrap',
+                marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${CARD_BORDER}`,
+                fontSize: '12px', color: TABLE_HEADER, lineHeight: 1.6, whiteSpace: 'pre-wrap',
               }}>
                 {notes}
               </div>
@@ -382,36 +473,35 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
         </FadeSection>
       )}
 
-      {/* 10. Sticky Export Bar */}
+      {/* 12. Sticky Export Bar */}
       {investigationComplete && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+          display: 'flex', justifyContent: 'flex-end', gap: '10px',
           padding: '12px 24px',
-          background: 'rgba(13, 13, 13, 0.85)',
-          backdropFilter: 'blur(12px)',
+          background: '#111',
           borderTop: `1px solid ${CARD_BORDER}`,
         }}>
           <button style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-            background: GOLD, color: '#000', fontSize: '13px', fontWeight: 600,
-          }}>
-            <Download style={{ width: 14, height: 14 }} /> Export PDF
-          </button>
-          <button style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 20px', borderRadius: '8px', cursor: 'pointer',
-            background: 'transparent', border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY, fontSize: '13px', fontWeight: 500,
-          }}>
-            <FolderPlus style={{ width: 14, height: 14 }} /> Save to Cases
-          </button>
-          <button style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer',
             background: 'transparent', border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY,
+            padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
           }}>
-            <Share2 style={{ width: 14, height: 14 }} />
+            <Share2 style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+            Share
+          </button>
+          <button style={{
+            background: 'transparent', border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY,
+            padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
+          }}>
+            <FolderPlus style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+            Save to Cases
+          </button>
+          <button style={{
+            background: GOLD, border: 'none', color: '#000',
+            padding: '8px 20px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+          }}>
+            <Download style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+            Export PDF
           </button>
         </div>
       )}
