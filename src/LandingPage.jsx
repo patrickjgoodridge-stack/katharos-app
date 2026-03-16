@@ -135,8 +135,8 @@ const LandingPage = ({
             className="text-[68px] font-normal mb-7 leading-[1.1]"
             style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-2px' }}
           >
-            AI-Native Financial<br />
-            <span style={{ color: '#858585', fontStyle: 'italic' }}>Crime Intelligence</span>
+            AI-Native<br />
+            <span style={{ color: '#858585', fontStyle: 'italic' }}>Financial Crime Intelligence</span>
           </h1>
 
           <p className="text-[17px] font-light max-w-[480px] mx-auto leading-[1.7]" style={{ color: '#ffffff', fontFamily: 'Georgia, serif' }}>
