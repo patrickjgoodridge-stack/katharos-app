@@ -8703,7 +8703,7 @@ if (!isAuthenticated && (!publicPages.includes(currentPage) || pendingInvite)) {
      fontFamily: "'Inter', sans-serif",
    }}>
      <span style={{ fontSize: '12px', color: '#6b6b6b', fontWeight: 500, letterSpacing: '0.3px' }}>
-       <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#858585', fontWeight: 400 }}>Katharos</span>
+       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 227" width="12" height="16" style={{ verticalAlign: 'middle' }}><path d="M57.0703 0.879883V226.12L0.759766 169.81V57.1899L57.0703 0.879883Z" fill="#858585"/><path d="M169.69 75.96V0.879883L57.0703 113.5L169.69 226.12V151.04L132.15 113.5L169.69 75.96Z" fill="#858585"/></svg><span style={{ fontFamily: "'Funnel Display', sans-serif", color: '#858585', fontWeight: 700, letterSpacing: '-0.3px' }}>Katharos</span></span>
        {(user?.company || workspaceName) && (
          <>
            <span style={{ margin: '0 8px', color: '#3a3a3a' }}>|</span>

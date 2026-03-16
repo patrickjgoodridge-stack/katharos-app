@@ -39,10 +39,16 @@ const LandingPage = ({
       >
         <button
           onClick={() => setCurrentPage('noirLanding')}
-          className="text-[28px] font-medium bg-transparent border-none cursor-pointer"
-          style={{ fontFamily: "Georgia, serif", color: '#ffffff', letterSpacing: '-0.5px' }}
+          className="flex items-center gap-2 bg-transparent border-none cursor-pointer"
+          style={{ padding: 0 }}
         >
-          Katharos
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 227" width="22" height="29" style={{ flexShrink: 0 }}>
+            <path d="M57.0703 0.879883V226.12L0.759766 169.81V57.1899L57.0703 0.879883Z" fill="#ffffff"/>
+            <path d="M169.69 75.96V0.879883L57.0703 113.5L169.69 226.12V151.04L132.15 113.5L169.69 75.96Z" fill="#ffffff"/>
+          </svg>
+          <span style={{ fontFamily: "'Funnel Display', sans-serif", fontSize: '24px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px' }}>
+            Katharos
+          </span>
         </button>
         <div className="flex items-center gap-9">
           <button
@@ -468,7 +474,16 @@ const LandingPage = ({
 
       {/* Footer */}
       <footer className="text-center py-10" style={{ borderTop: '1px solid #3a3a3a' }}>
-        <p className="text-[11px]" style={{ color: '#ffffff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '8px' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 227" width="14" height="18" style={{ flexShrink: 0 }}>
+            <path d="M57.0703 0.879883V226.12L0.759766 169.81V57.1899L57.0703 0.879883Z" fill="#6b6b6b"/>
+            <path d="M169.69 75.96V0.879883L57.0703 113.5L169.69 226.12V151.04L132.15 113.5L169.69 75.96Z" fill="#6b6b6b"/>
+          </svg>
+          <span style={{ fontFamily: "'Funnel Display', sans-serif", fontSize: '14px', fontWeight: 700, color: '#6b6b6b', letterSpacing: '-0.3px' }}>
+            Katharos
+          </span>
+        </div>
+        <p className="text-[11px]" style={{ color: '#4a4a4a' }}>
           © 2026 Katharos Technologies, Inc. All Rights Reserved.
         </p>
       </footer>

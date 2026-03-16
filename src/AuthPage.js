@@ -2,7 +2,7 @@
 // "Access is currently restricted to partner institutions."
 import { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { Mail, ArrowRight, Loader2, Lock, Send, KeyRound } from 'lucide-react';
+import { Mail, ArrowRight, ArrowLeft, Loader2, Lock, Send, KeyRound } from 'lucide-react';
 
 const AuthPage = ({ onSuccess }) => {
   const { loginWithPassword, setPasswordFromInvite, requestPasswordReset, pendingInvite } = useAuth();
@@ -154,12 +154,31 @@ const AuthPage = ({ onSuccess }) => {
     <div style={{ minHeight: '100vh', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ width: '100%', maxWidth: '420px', padding: '0 24px' }}>
         {/* Logo */}
-        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: '28px', fontWeight: 400, color: '#ffffff', textAlign: 'center', letterSpacing: '-0.5px', marginBottom: '48px' }}>
-          Katharos
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '48px' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 227" width="22" height="29" style={{ flexShrink: 0 }}>
+            <path d="M57.0703 0.879883V226.12L0.759766 169.81V57.1899L57.0703 0.879883Z" fill="#ffffff"/>
+            <path d="M169.69 75.96V0.879883L57.0703 113.5L169.69 226.12V151.04L132.15 113.5L169.69 75.96Z" fill="#ffffff"/>
+          </svg>
+          <span style={{ fontFamily: "'Funnel Display', sans-serif", fontSize: '24px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.5px' }}>
+            Katharos
+          </span>
         </div>
 
         {mode === 'gate' && (
-          <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '40px 32px', textAlign: 'center' }}>
+          <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', padding: '40px 32px', textAlign: 'center', position: 'relative' }}>
+            <a
+              href="https://katharos.co"
+              style={{
+                position: 'absolute', top: '16px', left: '16px',
+                display: 'flex', alignItems: 'center', gap: '4px',
+                color: '#6b6b6b', textDecoration: 'none', fontSize: '12px',
+                fontFamily: "'Inter', sans-serif", transition: 'color 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#ffffff'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#6b6b6b'; }}
+            >
+              <ArrowLeft style={{ width: '14px', height: '14px' }} />
+            </a>
             <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#242424', border: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
               <Lock style={{ width: '20px', height: '20px', color: '#6b6b6b' }} />
             </div>
