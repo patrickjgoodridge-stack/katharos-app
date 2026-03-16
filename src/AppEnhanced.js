@@ -165,6 +165,40 @@ const parseHtmlArtifacts = (content) => {
   return artifacts;
 };
 
+// Staggered fade-in for investigation report sections
+const ReportSection = ({ children, index }) => {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), 100 + index * 120);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(8px)',
+      transition: 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out',
+    }}>
+      {children}
+    </div>
+  );
+};
+
+// Split investigation report content into sections by ## headers
+const splitReportSections = (content) => {
+  if (!content) return null;
+  // Only split if this looks like a structured investigation report
+  if (!content.includes('## OVERALL RISK') && !content.includes('## ENTITY NETWORK') && !content.includes('## SUBJECT IDENTITY')) {
+    return null;
+  }
+  const sections = [];
+  const parts = content.split(/(?=^## )/m);
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed) sections.push(trimmed);
+  }
+  return sections.length > 1 ? sections : null;
+};
+
 // Strip all viz blocks from content for display
 const stripVizData = (content) => {
   if (!content) return content;
@@ -13133,10 +13167,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  /* Assistant message - full width analysis result */
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
- <MarkdownRenderer
-   content={stripVizData(msg.content)}
-   darkMode={darkMode}
-   onExploreClick={(text) => {
+ {(() => {
+   const stripped = stripVizData(msg.content);
+   const sections = splitReportSections(stripped);
+   const exploreHandler = (text) => {
      setConversationInput(`Tell me more about: ${text}`);
      setTimeout(() => {
        if (bottomInputRef.current) {
@@ -13145,8 +13179,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
          mainInputRef.current.focus();
        }
      }, 50);
-   }}
- />
+   };
+   if (sections) {
+     return sections.map((section, sIdx) => (
+       <ReportSection key={sIdx} index={sIdx}>
+         <MarkdownRenderer content={section} darkMode={darkMode} onExploreClick={exploreHandler} />
+       </ReportSection>
+     ));
+   }
+   return <MarkdownRenderer content={stripped} darkMode={darkMode} onExploreClick={exploreHandler} />;
+ })()}
  </div>
  {parseHtmlArtifacts(msg.content).map((artifact, ai) => {
    if (artifact.type === 'network') {
@@ -13329,63 +13371,41 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }}>INVESTIGATING</span>
      </div>
 
-     {/* Tool cards */}
-     {agentToolCards.length > 0 && (
-       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-         {agentToolCards.map((tc) => (
-           <div key={tc.tool_use_id} style={{
-             display: 'flex',
-             alignItems: 'flex-start',
-             gap: '10px',
-             padding: '6px 10px',
-             borderRadius: '6px',
-             background: tc.status === 'running' ? 'rgba(245, 158, 11, 0.06)' : 'transparent',
-             transition: 'background 0.2s',
-           }}>
-             {/* Status icon */}
-             {tc.status === 'running' ? (
-               <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
-             ) : tc.status === 'error' ? (
-               <XCircle style={{ width: '14px', height: '14px', color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
-             ) : (
-               <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-             )}
-
-             {/* Label and summary */}
-             <div style={{ flex: 1, minWidth: 0 }}>
-               <div style={{
-                 fontSize: '13px',
-                 color: tc.status === 'running' ? '#f59e0b' : tc.status === 'error' ? '#ef4444' : '#6b6b6b',
-                 fontWeight: tc.status === 'running' ? 500 : 400,
-                 fontFamily: "'Inter', -apple-system, sans-serif",
-                 whiteSpace: 'nowrap',
-                 overflow: 'hidden',
-                 textOverflow: 'ellipsis',
-               }}>
-                 {getToolLabel(tc.name, tc.input)}
-               </div>
-               {tc.status !== 'running' && tc.summary && (
-                 <div style={{
-                   fontSize: '12px',
-                   color: (tc.summary.includes('SANCTIONS HIT') || tc.summary.includes('SANCTIONS MATCH'))
-                     ? '#ef4444'
-                     : tc.summary.includes('50% RULE')
-                       ? '#f97316'
-                       : '#858585',
-                   fontFamily: "'JetBrains Mono', monospace",
-                   marginTop: '2px',
-                   whiteSpace: 'nowrap',
-                   overflow: 'hidden',
-                   textOverflow: 'ellipsis',
-                 }}>
-                   {tc.summary}
-                 </div>
+     {/* Progress steps — deduplicated by tool type, clean labels only */}
+     {agentToolCards.length > 0 && (() => {
+       const stepMap = new Map();
+       for (const tc of agentToolCards) {
+         const label = getToolLabel(tc.name, tc.input);
+         const existing = stepMap.get(tc.name);
+         if (!existing || tc.status === 'running') {
+           stepMap.set(tc.name, { label, status: tc.status });
+         } else if (existing.status !== 'running') {
+           existing.status = tc.status;
+         }
+       }
+       return (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+           {[...stepMap.values()].map((step, i) => (
+             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+               {step.status === 'running' ? (
+                 <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b', flexShrink: 0 }} />
+               ) : step.status === 'error' ? (
+                 <XCircle style={{ width: '14px', height: '14px', color: '#ef4444', flexShrink: 0 }} />
+               ) : (
+                 <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0 }} />
                )}
+               <span style={{
+                 fontSize: '13px',
+                 color: step.status === 'running' ? '#d4d4d4' : '#6b6b6b',
+                 fontFamily: "'Inter', -apple-system, sans-serif",
+               }}>
+                 {step.label}
+               </span>
              </div>
-           </div>
-         ))}
-       </div>
-     )}
+           ))}
+         </div>
+       );
+     })()}
 
      {/* Animated dots */}
      <div style={{ padding: '12px 0 4px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>

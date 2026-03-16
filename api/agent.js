@@ -655,8 +655,8 @@ When the investigation is complete, output your structured report in this exact 
 
 ## ENTITY NETWORK
 
-| Entity | Type | Jurisdiction | Tier | Risk | Sanctioned | Connection |
-|--------|------|-------------|------|------|------------|------------|
+| Entity | Type | Jurisdiction | Risk | Sanctioned | Connection |
+|--------|------|-------------|------|------------|------------|
 | [one row per entity discovered] |
 
 ## CRITICAL FINDINGS
@@ -667,6 +667,15 @@ Standard screening would find: [N]. This investigation found: [N]. Coverage gap:
 
 ## GAPS AND LIMITATIONS
 [What could not be verified, what would close each gap]
+
+## RECOMMENDED ACTIONS
+[Specific, actionable next steps for the compliance team. Examples:
+- "Request certified UBO declaration from [entity] covering all subsidiaries"
+- "File SAR referencing [specific transaction pattern]"
+- "Engage external investigator for [jurisdiction] corporate registry records"
+- "Escalate to MLRO for enhanced due diligence determination"
+- "Block onboarding pending resolution of [specific finding]"
+Tailor to the risk level: LOW = standard monitoring, MEDIUM = enhanced DD steps, HIGH/CRITICAL = immediate blocking actions + regulatory notifications]
 
 Bottom line: [One-sentence final assessment]
 
