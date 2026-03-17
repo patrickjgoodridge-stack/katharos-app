@@ -667,6 +667,10 @@ When the investigation is complete, output your structured report in this exact 
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
 [One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
 
+## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
+Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
+Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
+
 ## ENTITY NETWORK
 
 | Entity | Type | Jurisdiction | Risk | Sanctioned | Match % | Connection | Source |
@@ -696,10 +700,6 @@ Source = where this entity was found (OFAC SDN List / OCCRP / Companies House / 
 | Date | Event | Entity | Detail | Compliance Note |
 |------|-------|--------|--------|-----------------|
 | [YYYY-MM-DD] | [Formed/Renamed/Dissolved/Sold/Restructured] | [Entity name] | [one line] | [one line] |
-
-## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
-Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
-Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 
 ## DESIGNATION TIMELINE
 [Include this section ONLY when the subject or connected entities have SDN/sanctions designations. Omit entirely for clean subjects. Order most recent first.]
