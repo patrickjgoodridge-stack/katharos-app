@@ -266,6 +266,11 @@ const renderBlock = (block, idx) => {
 
     case 'table': {
       const { headers, rows } = parseTable(block.lines);
+      // Detect summary/total rows (Subtotal, Cap Applied, Final Score, Total, etc.)
+      const isSummaryRow = (row) => {
+        const firstCell = (row[0] || '').replace(/\*{1,2}/g, '').trim().toLowerCase();
+        return /^(subtotal|total|cap applied|final score|overall|net score|base)/.test(firstCell);
+      };
       return (
         <table key={idx} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px' }}>
           <thead>
@@ -280,27 +285,41 @@ const renderBlock = (block, idx) => {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, ri) => (
-              <tr key={ri} style={{ borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
-                {row.map((cell, ci) => {
-                  const cleaned = cell.replace(/\*{1,2}/g, '');
-                  const isScore = /^[+]?\d+$/.test(cleaned.trim());
-                  const scoreVal = isScore ? parseInt(cleaned.trim().replace('+', '')) : 0;
-                  const risk = detectRiskLevel(cleaned);
-                  let cellColor = ci === 0 ? '#e5e7eb' : TEXT_SECONDARY;
-                  if (isScore && scoreVal > 0) cellColor = '#ef4444';
-                  if (risk) cellColor = RISK_COLORS[risk];
-                  return (
-                    <td key={ci} style={{
-                      padding: '14px 12px 14px 0', fontSize: '13px',
-                      color: cellColor,
-                      fontWeight: ci === 0 || isScore || risk ? 500 : 400,
-                      letterSpacing: '0.01em',
-                    }}>{renderInline(cleaned)}</td>
-                  );
-                })}
-              </tr>
-            ))}
+            {rows.map((row, ri) => {
+              const isSummary = isSummaryRow(row);
+              // Add heavier border before first summary row
+              const prevIsSummary = ri > 0 && isSummaryRow(rows[ri - 1]);
+              const isFirstSummary = isSummary && !prevIsSummary;
+              return (
+                <tr key={ri} style={{
+                  borderTop: isFirstSummary ? `2px solid #3a3a3a` : 'none',
+                  borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none',
+                  background: isSummary ? 'rgba(255,255,255,0.02)' : 'transparent',
+                }}>
+                  {row.map((cell, ci) => {
+                    const cleaned = cell.replace(/\*{1,2}/g, '');
+                    const isScore = /^[+]?\d+$/.test(cleaned.trim());
+                    const scoreVal = isScore ? parseInt(cleaned.trim().replace('+', '')) : 0;
+                    const risk = detectRiskLevel(cleaned);
+                    // Scores: white for readability, risk keywords get color
+                    let cellColor = ci === 0 ? '#e5e7eb' : TEXT_SECONDARY;
+                    if (isScore && scoreVal > 0) cellColor = '#ffffff';
+                    if (risk) cellColor = RISK_COLORS[risk];
+                    // Summary row label gets extra weight
+                    const isSummaryLabel = isSummary && ci === 0;
+                    return (
+                      <td key={ci} style={{
+                        padding: '14px 12px 14px 0', fontSize: isSummaryLabel ? '13px' : '13px',
+                        color: cellColor,
+                        fontWeight: isSummaryLabel || risk ? 600 : ci === 0 || isScore ? 500 : 400,
+                        letterSpacing: isSummaryLabel ? '0.04em' : '0.01em',
+                        textTransform: isSummaryLabel ? 'uppercase' : 'none',
+                      }}>{renderInline(cleaned)}</td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       );
@@ -613,51 +632,74 @@ const ScoutReport = ({ content }) => {
   return (
     <div style={{ fontFamily: FONT, maxWidth: '900px', width: '100%' }}>
 
-      {/* 1. RISK BANNER — full width, colored */}
+      {/* 1. RISK BANNER — colored header stripe only */}
       {riskSection && (() => {
         const risk = detectRiskLevel(riskSection.title);
         const riskColor = risk ? RISK_COLORS[risk] : '#ef4444';
-        const riskBg = risk ? RISK_BG[risk] : '#7f1d1d';
-        const riskBorder = risk ? RISK_BORDER[risk] : '#dc2626';
+        // Parse risk content into sub-blocks: separate prose (entity summary) from tables (scoring)
+        const riskContent = riskSection.content
+          ? riskSection.content.replace(/(?:^|\n)\*?\*?Bottom\s+Line:?\*?\*?\s*.+?(?:\n\n|\n(?=##)|$)/is, '\n').trim()
+          : '';
+        const riskSubBlocks = riskContent ? parseBlocks(riskContent) : [];
+        const riskProseBlocks = riskSubBlocks.filter(b => b.type === 'paragraph' || b.type === 'callout' || b.type === 'bullets');
+        const riskTableBlocks = riskSubBlocks.filter(b => b.type === 'table');
         return (
-          <div style={{
-            background: riskBg, border: `1px solid ${riskBorder}`, borderRadius: '8px',
-            padding: '20px 24px', marginBottom: '12px',
-          }}>
+          <>
+            {/* Risk score header */}
             <div style={{
-              fontSize: '18px', fontWeight: 700, color: riskColor,
-              letterSpacing: '0.05em', textTransform: 'uppercase',
+              background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: '8px',
+              marginBottom: '12px', overflow: 'hidden',
             }}>
-              {riskSection.title}
+              <div style={{
+                background: risk === 'CRITICAL' ? 'rgba(239,68,68,0.12)' : risk === 'HIGH' ? 'rgba(249,115,22,0.10)' : risk === 'MEDIUM' ? 'rgba(234,179,8,0.08)' : 'rgba(34,197,94,0.08)',
+                borderBottom: `2px solid ${riskColor}`,
+                padding: '16px 24px',
+              }}>
+                <div style={{
+                  fontSize: '18px', fontWeight: 700, color: riskColor,
+                  letterSpacing: '0.05em', textTransform: 'uppercase',
+                }}>
+                  {riskSection.title}
+                </div>
+              </div>
             </div>
-            {riskSection.content && (() => {
-              // Render risk section content (table, etc.) but strip out bottom line
-              const riskContent = riskSection.content.replace(/(?:^|\n)\*?\*?Bottom\s+Line:?\*?\*?\s*.+?(?:\n\n|\n(?=##)|$)/is, '\n').trim();
-              return riskContent ? <div style={{ marginTop: '14px' }}>{renderContent(riskContent)}</div> : null;
-            })()}
-          </div>
+
+            {/* 2. CALLOUT BLOCKS — verdict: left border accent, dark bg, white text */}
+            {calloutBlocks.map((blk, ci) => {
+              const calloutRisk = detectRiskLevel(blk.text);
+              const accentColor = calloutRisk ? RISK_COLORS[calloutRisk] : TEXT_PRIMARY;
+              return (
+                <div key={`callout-${ci}`} style={{
+                  background: '#111111', borderLeft: `4px solid ${accentColor}`, borderRadius: '4px',
+                  padding: '14px 20px', marginBottom: '12px',
+                }}>
+                  <div style={{ fontSize: '14px', color: TEXT_PRIMARY, lineHeight: 1.6, fontWeight: 600, letterSpacing: '0.03em' }}>
+                    {renderInline(blk.text)}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 3. Entity summary prose — greyscale card, visually subordinate to verdict */}
+            {riskProseBlocks.length > 0 && (
+              <div style={cardStyle}>
+                <div style={sectionLabelStyle}>Entity Summary</div>
+                {riskProseBlocks.map((b, bi) => renderBlock(b, bi))}
+              </div>
+            )}
+
+            {/* 4. Scoring breakdown table — separate greyscale card */}
+            {riskTableBlocks.length > 0 && (
+              <div style={cardStyle}>
+                <div style={sectionLabelStyle}>Risk Scoring</div>
+                {riskTableBlocks.map((b, bi) => renderBlock(b, bi))}
+              </div>
+            )}
+          </>
         );
       })()}
 
-      {/* 2. CALLOUT BLOCKS — full width, edge to edge */}
-      {calloutBlocks.map((block, ci) => {
-        const risk = detectRiskLevel(block.text);
-        const bg = risk ? RISK_BG[risk] : '#222';
-        const border = risk ? RISK_BORDER[risk] : '#333';
-        const textColor = risk ? RISK_COLORS[risk] : TEXT_PRIMARY;
-        return (
-          <div key={`callout-${ci}`} style={{
-            background: bg, border: `1px solid ${border}`, borderRadius: '8px',
-            padding: '16px 24px', marginBottom: '12px',
-          }}>
-            <div style={{ fontSize: '15px', color: textColor, lineHeight: 1.7, fontWeight: 600, letterSpacing: '0.02em' }}>
-              {renderInline(block.text)}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* 3. BOTTOM LINE — its own card, right after banners */}
+      {/* 5. BOTTOM LINE — its own card, right after banners */}
       {bottomLineText && (
         <div style={cardStyle}>
           <div style={sectionLabelStyle}>Bottom Line</div>
@@ -665,7 +707,7 @@ const ScoutReport = ({ content }) => {
         </div>
       )}
 
-      {/* 4. SUMMARY — paragraphs before first section, their own card */}
+      {/* 6. SUMMARY — paragraphs before first section, their own card */}
       {summaryBlocks.length > 0 && (
         <div style={cardStyle}>
           {summaryBlocks.map((b, si) => (
@@ -676,7 +718,7 @@ const ScoutReport = ({ content }) => {
         </div>
       )}
 
-      {/* 5. SECTIONS — each in its own card, with special renderers */}
+      {/* 7. SECTIONS — each in its own card, with special renderers */}
       {sectionBlocks.map((section, si) => {
         const hasContent = section.content && section.content.trim();
         const isActions = /recommended\s+actions?|action\s+items?/i.test(section.title);
