@@ -13558,15 +13558,15 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      </div>
    </div>
    ) : (
-   /* Scout: Simple "Analyzing" progress bar */
-   <ScreeningProgressBar startedAt={screeningStartRef.current ? new Date(screeningStartRef.current).toISOString() : new Date().toISOString()} isScreening={false} />
+   /* Scout: Simple "Analyzing" progress bar — centered */
+   <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+     <ScreeningProgressBar startedAt={screeningStartRef.current ? new Date(screeningStartRef.current).toISOString() : new Date().toISOString()} isScreening={false} />
+   </div>
    )}
 
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-     investigationMode === 'scout'
-       ? <ScoutReport content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} />
-       : <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} darkMode={darkMode} />
+     <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} darkMode={darkMode} />
    )}
  </div>
  </div>
