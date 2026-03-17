@@ -13055,6 +13055,29 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
+ <button
+ onClick={() => {
+ if (String(conversationInput || '').trim() || files.length > 0) {
+   setConversationStarted(true);
+   const newCaseId = createCaseFromFirstMessage(conversationInput, files);
+   if (investigationMode === 'scout') {
+     _sendConversationMessage(newCaseId, conversationInput, files);
+   } else {
+     handleAgentMessage(newCaseId, conversationInput, files);
+   }
+ }
+ }}
+ disabled={!String(conversationInput || '').trim() && files.length === 0}
+ style={{
+   width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#b8733a',
+   display: 'flex', alignItems: 'center', justifyContent: 'center',
+   opacity: (!String(conversationInput || '').trim() && files.length === 0) ? 0.5 : 1,
+   transition: 'background 0.15s, opacity 0.15s',
+ }}
+ >
+ <ArrowRight className="w-4 h-4" style={{ color: '#fff', transform: 'rotate(-90deg)' }} />
+ </button>
  </div>
  {/* Mode Selector Dropdown */}
  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
