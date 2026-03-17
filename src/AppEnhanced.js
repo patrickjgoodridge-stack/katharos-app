@@ -174,6 +174,18 @@ const parseHtmlArtifacts = (content) => {
   return artifacts;
 };
 
+// Strip markdown syntax from plain text fields (defense-in-depth for KYC results)
+const stripMarkdown = (str) => {
+  if (!str || typeof str !== 'string') return str || '';
+  return str
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .trim();
+};
+
 // Strip all viz blocks from content for display
 const stripVizData = (content) => {
   if (!content) return content;
@@ -11752,7 +11764,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  <h3 className="text-2xl font-bold tracking-tight leading-tight text-gray-600 mb-2 leading-tight">No Risks Identified</h3>
  <p className="text-base text-gray-600 leading-relaxed mb-6 max-w-md mx-auto">
- Screening of <span className="font-semibold tracking-wide text-gray-900">{kycResults.subject?.name}</span> returned no matches against sanctions lists, PEP databases, or adverse media sources.
+ Screening of <span className="font-semibold tracking-wide text-gray-900">{stripMarkdown(kycResults.subject?.name)}</span> returned no matches against sanctions lists, PEP databases, or adverse media sources.
  </p>
  
  <div className="inline-flex items-center gap-6 bg-gray-100/50 rounded-xl px-6 py-4 mb-6">
@@ -11798,12 +11810,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className={`bg-white border-l-4 ${getRiskBorder(kycResults.overallRisk)} rounded-xl p-6`}>
  <div className="flex items-start justify-between mb-4">
  <div>
- <h3 className="text-xl font-bold tracking-tight leading-tight">{kycResults.subject?.name}</h3>
- <p className="text-sm text-gray-600 mono tracking-wide">{kycResults.subject?.type}</p>
+ <h3 className="text-xl font-bold tracking-tight leading-tight">{stripMarkdown(kycResults.subject?.name)}</h3>
+ <p className="text-sm text-gray-600 mono tracking-wide">{stripMarkdown(kycResults.subject?.type)}</p>
  {kycResults.subject?.jurisdiction && (
  <p className="text-sm text-gray-500 mt-1">
  <Globe className="w-3 h-3 inline mr-1" />
- {kycResults.subject.jurisdiction}
+ {stripMarkdown(kycResults.subject.jurisdiction)}
  </p>
  )}
  {/* Show screening parameters */}
@@ -11848,7 +11860,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  rf.severity === 'MEDIUM' ? 'bg-gray-100 border border-gray-300 text-gray-700' :
  'bg-gray-200 text-gray-600'
  }`}>
- {rf.factor}
+ {stripMarkdown(rf.factor)}
  </span>
  ))}
  </div>
@@ -11887,7 +11899,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </span>
  )}
  </div>
- <p className="text-sm text-gray-600 leading-relaxed">{kycResults.ownershipAnalysis.summary}</p>
+ <p className="text-sm text-gray-600 leading-relaxed">{stripMarkdown(kycResults.ownershipAnalysis.summary)}</p>
  </div>
  </div>
 
@@ -11940,7 +11952,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  }`}>
  <div className="flex items-center justify-between mb-2">
  <div className="flex items-center gap-3">
- <span className="font-medium tracking-wide">{owner.name}</span>
+ <span className="font-medium tracking-wide">{stripMarkdown(owner.name)}</span>
  {owner.pepStatus && (
  <span className="px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 text-xs rounded">PEP</span>
  )}
@@ -12062,7 +12074,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <span className="font-medium tracking-wide text-gray-700">{leak.database}</span>
  <span className="text-xs text-gray-500 mono tracking-wide">{leak.date}</span>
  </div>
- <p className="text-base text-gray-900 leading-relaxed">{leak.finding}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{stripMarkdown(leak.finding)}</p>
  </div>
  ))}
  </div>
@@ -12108,9 +12120,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </span>
  </div>
  {match.matchedName && (
- <p className="text-base text-gray-900 leading-relaxed mb-1">Listed as: <span className="font-medium tracking-wide">{match.matchedName}</span></p>
+ <p className="text-base text-gray-900 leading-relaxed mb-1">Listed as: <span className="font-medium tracking-wide">{stripMarkdown(match.matchedName)}</span></p>
  )}
- <p className="text-sm text-gray-600 leading-relaxed">{match.details}</p>
+ <p className="text-sm text-gray-600 leading-relaxed">{stripMarkdown(match.details)}</p>
  {match.listingDate && (
  <p className="text-xs text-gray-500 mt-2">Listed: {match.listingDate}</p>
  )}
@@ -12158,7 +12170,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div key={idx} className="bg-gray-100/50 rounded-lg p-4">
  <div className="flex items-center gap-3 mb-2">
  <Globe className="w-4 h-4 text-gray-500" />
- <span className="font-medium tracking-wide">{match.position || match.name}</span>
+ <span className="font-medium tracking-wide">{stripMarkdown(match.position || match.name)}</span>
  <span className={`px-2 py-0.5 rounded text-xs ${getRiskColor(match.riskLevel)}`}>
  {match.riskLevel}
  </span>
@@ -12226,7 +12238,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {kycResults.adverseMedia.articles.map((article, idx) => (
  <div key={idx} className="bg-gray-100/50 rounded-lg p-4">
  <div className="flex items-start justify-between mb-2">
- <h5 className="font-medium tracking-wide text-gray-700 flex-1">{article.headline}</h5>
+ <h5 className="font-medium tracking-wide text-gray-700 flex-1">{stripMarkdown(article.headline)}</h5>
  <div className="flex items-center gap-2 shrink-0 ml-2">
  {article.relevance && (
  <span className={`text-xs px-2 py-0.5 rounded ${
@@ -12240,7 +12252,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <span className="text-xs text-gray-500 mono tracking-wide">{article.date}</span>
  </div>
  </div>
- <p className="text-sm text-gray-600 leading-relaxed mb-2">{article.summary}</p>
+ <p className="text-sm text-gray-600 leading-relaxed mb-2">{stripMarkdown(article.summary)}</p>
  <div className="flex items-center gap-3 text-xs text-gray-500">
  <span>{article.source}</span>
  <span className="px-2 py-0.5 bg-gray-200 rounded">{article.category}</span>
@@ -12273,7 +12285,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="grid md:grid-cols-3 gap-4">
  <div className="bg-gray-100/50 rounded-lg p-4">
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">OFAC IMPLICATIONS</p>
- <p className="text-base text-gray-900 leading-relaxed">{kycResults.regulatoryGuidance.ofacImplications}</p>
+ <p className="text-base text-gray-900 leading-relaxed">{stripMarkdown(kycResults.regulatoryGuidance.ofacImplications)}</p>
  </div>
  <div className="bg-gray-100/50 rounded-lg p-4">
  <p className="text-xs font-medium text-gray-500 mono uppercase tracking-wider mb-1">DUE DILIGENCE LEVEL</p>
@@ -12292,7 +12304,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex flex-wrap gap-1">
  {kycResults.regulatoryGuidance.filingRequirements?.map((req, idx) => (
  <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 rounded">
- {req}
+ {stripMarkdown(req)}
  </span>
  )) || <span className="text-sm text-gray-600 leading-relaxed">None required</span>}
  </div>
@@ -12323,9 +12335,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  }`}>
  {rec.priority}
  </span>
- <span className="font-medium tracking-wide text-gray-900">{rec.action}</span>
+ <span className="font-medium tracking-wide text-gray-900">{stripMarkdown(rec.action)}</span>
  </div>
- <p className="text-sm text-gray-600 leading-relaxed">{rec.rationale}</p>
+ <p className="text-sm text-gray-600 leading-relaxed">{stripMarkdown(rec.rationale)}</p>
  </div>
  ))}
  </div>

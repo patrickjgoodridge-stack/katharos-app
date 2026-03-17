@@ -21,6 +21,40 @@ import { processScreeningEvent } from '../../services/intelligenceService.js';
 
 export const config = { maxDuration: 300 };
 
+// ── Strip markdown syntax from plain text strings ──
+function stripMarkdown(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str
+    .replace(/#{1,6}\s*/g, '')           // headers
+    .replace(/\*\*(.+?)\*\*/g, '$1')     // bold
+    .replace(/\*(.+?)\*/g, '$1')         // italic
+    .replace(/__(.+?)__/g, '$1')         // bold alt
+    .replace(/_(.+?)_/g, '$1')           // italic alt
+    .trim();
+}
+
+// ── Recursively sanitize all string values in an object ──
+function sanitizeResult(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return stripMarkdown(obj);
+  if (Array.isArray(obj)) return obj.map(sanitizeResult);
+  if (typeof obj === 'object') {
+    const cleaned = {};
+    for (const [key, val] of Object.entries(obj)) {
+      // Preserve enum-like fields that must stay exact
+      if (['status', 'overallRisk', 'riskLevel', 'severity', 'decision',
+           'dueDiligenceRequired', 'matchType', 'type', 'priority',
+           'blockchain', 'ownershipType', 'level'].includes(key)) {
+        cleaned[key] = val;
+      } else {
+        cleaned[key] = sanitizeResult(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 // ── Pinecone Knowledge Base (RAG) ──
 let _pc = null, _pcIdx = null;
 function getPinecone() {
@@ -487,13 +521,16 @@ export default async function handler(req, res) {
 
     finalResult._durationMs = Date.now() - startTime;
 
+    // Sanitize: strip any markdown syntax from string fields before sending to UI
+    const sanitized = sanitizeResult(finalResult);
+
     // Fire-and-forget: process screening for intelligence systems
     const sessionId = req.body.sessionId || req.headers['x-session-id'] || 'unknown';
-    processScreeningEvent(sessionId, kycQuery, finalResult.overallRisk || 'UNKNOWN', `scr_${Date.now()}`).catch(e => {
+    processScreeningEvent(sessionId, kycQuery, sanitized.overallRisk || 'UNKNOWN', `scr_${Date.now()}`).catch(e => {
       console.warn('[Intelligence] Post-screening processing failed:', e.message);
     });
 
-    return res.status(200).json(finalResult);
+    return res.status(200).json(sanitized);
 
   } catch (error) {
     console.error('Unified screening error:', error);
@@ -909,12 +946,14 @@ OFAC 50% RULE: Entity owned 50%+ aggregate by blocked persons is itself blocked.
 
 CRITICAL FOR OWNERSHIP EXTRACTION: When you identify ANY person in your analysis, you MUST check if they appear in the sanctioned individuals list above and include ALL their owned companies in the entities array.
 
+CRITICAL OUTPUT FORMAT: You are returning a JSON object, NOT a markdown document. Do NOT use markdown syntax anywhere in your output — no **bold**, no ## headers, no * bullets, no _ italics. All field values must be plain text strings only. Do not include meta-instructions like "semicolon-separated list" in field values — provide the actual data.
+
 Return a JSON object with this EXACT structure (all fields required):
 {
  "subject": {
  "name": "string",
  "type": "INDIVIDUAL|ENTITY|WALLET",
- "aliases": ["array of known aliases or empty array"],
+ "aliases": ["COSCO Shipping Group", "China COSCO Shipping", "COSCO Group"],
  "jurisdiction": "string or null",
  "incorporationDate": "YYYY-MM-DD or null",
  "stateOwned": true|false,
