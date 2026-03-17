@@ -267,13 +267,23 @@ const renderBlock = (block, idx) => {
           <tbody>
             {rows.map((row, ri) => (
               <tr key={ri} style={{ borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
-                {row.map((cell, ci) => (
-                  <td key={ci} style={{
-                    padding: '10px 10px 10px 0', fontSize: '13px',
-                    color: ci === 0 ? '#e5e7eb' : TEXT_SECONDARY,
-                    fontWeight: ci === 0 ? 500 : 400,
-                  }}>{renderInline(cell.replace(/\*{1,2}/g, ''))}</td>
-                ))}
+                {row.map((cell, ci) => {
+                  const cleaned = cell.replace(/\*{1,2}/g, '');
+                  // Color scores: +100, +15 etc → red; 0 or dash → muted
+                  const isScore = /^[+]?\d+$/.test(cleaned.trim());
+                  const scoreVal = isScore ? parseInt(cleaned.trim().replace('+', '')) : 0;
+                  const risk = detectRiskLevel(cleaned);
+                  let cellColor = ci === 0 ? '#e5e7eb' : TEXT_SECONDARY;
+                  if (isScore && scoreVal > 0) cellColor = '#ef4444';
+                  if (risk) cellColor = RISK_COLORS[risk];
+                  return (
+                    <td key={ci} style={{
+                      padding: '10px 10px 10px 0', fontSize: '13px',
+                      color: cellColor,
+                      fontWeight: ci === 0 || isScore || risk ? 500 : 400,
+                    }}>{renderInline(cleaned)}</td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
