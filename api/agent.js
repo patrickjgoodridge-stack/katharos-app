@@ -680,6 +680,18 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 Match % = confidence that this entity is correctly identified and connected (0-100%).
 Source = where this entity was found (OFAC SDN List / OCCRP / Companies House / Panama Papers / Corporate Registry / etc.)
 
+## CORPORATE NETWORK
+[ASCII tree diagram showing the ownership/control hierarchy. Use box-drawing characters (├── └── │). Include jurisdiction in parentheses after each entity. Add risk badges in brackets for flagged entities: [SANCTIONED], [SDN], [CONVICTED], [DPA], [HIGH RISK], [DESIGNATED], [BLOCKED]. Example:]
+\`\`\`
+Glencore PLC (Switzerland)
+├── Glencore International AG (Switzerland) [CONVICTED]
+│   ├── Glencore Energy UK Ltd (UK) [DPA]
+│   └── Glencore Ltd (UK)
+├── Katanga Mining Ltd (DRC) [SANCTIONED]
+└── Chemoil Energy Ltd (Singapore)
+\`\`\`
+[Build the tree from entities discovered during investigation. Show parent-subsidiary relationships, beneficial ownership chains, and control structures. Max 3 levels deep unless deeper structure is critical.]
+
 ## REGULATORY CONTEXT
 [One row per jurisdiction found in the entity network.]
 
@@ -926,6 +938,7 @@ Run this checklist before writing final output:
 21. Have I included PROGRAMS AND AUTHORITIES listing every EO, GL, statute, or list referenced in the report?
 22. Have I included MONITORING SCHEDULE with next review date based on risk level?
 23. Does each entity in ENTITY NETWORK have a Match % and Source column?
+24. Have I included CORPORATE NETWORK as an ASCII tree diagram in a code block showing the ownership/control hierarchy?
 
 If any check fails, do not write final output. Close the gap first.
 
@@ -946,6 +959,7 @@ Output your findings in the structured format defined in OUTPUT PROTOCOL above. 
 - ## MONITORING SCHEDULE renders as a standard card with bold field labels.
 - CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these via existing bold risk-keyword detection. Each finding MUST include a Source: line that renders as 10px uppercase muted label followed by linked text.
 - ENTITY NETWORK table MUST include Match % and Source columns. Match % values below 70% render in amber, below 50% in red.
+- CORPORATE NETWORK MUST be an ASCII tree diagram inside a fenced code block (\`\`\`). Use box-drawing characters (├── └── │) for the hierarchy. The renderer auto-detects tree characters and renders them as a styled network diagram with teal connectors, colored risk badges, and muted jurisdiction tags. Add [SANCTIONED], [SDN], [CONVICTED], [DPA], [DESIGNATED], [BLOCKED], [HIGH RISK] badges after flagged entities.
 - COVERAGE GAP MUST be a comparison table (Standard Screening vs This Investigation) with rows for entities, jurisdictions, programs screened, and coverage percentage.
 - SCORING BREAKDOWN MUST use +N for risk factors and -N for mitigating factors — the renderer colors +N red and -N green.
 - RECOMMENDED ACTIONS MUST split into urgency tiers: **IMMEDIATE** (red left-border treatment), **SHORT-TERM** (amber), **ONGOING** (grey) — the renderer detects these bold labels automatically.

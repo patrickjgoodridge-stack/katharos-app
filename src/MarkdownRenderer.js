@@ -54,6 +54,7 @@ const sectionIcons = {
   'DESIGNATION TIMELINE': Gavel,
   'SCORING BREAKDOWN': AlertTriangle,
   'COVERAGE GAP': Search,
+  'CORPORATE NETWORK': Network,
 };
 
 // Get risk level styling - Katharos dark theme (from screen-3-investigation.html)
@@ -490,6 +491,145 @@ const CustomEmphasis = ({ children }) => {
   );
 };
 
+// Detect if a code block contains an ASCII tree diagram
+const isTreeDiagram = (text) => {
+  const treeChars = (text.match(/[├└│─┌┐┬┤┘┴┼]/g) || []).length;
+  return treeChars >= 3;
+};
+
+// Styled network tree diagram component
+const NetworkTreeDiagram = ({ content }) => {
+  const lines = content.split('\n').filter(l => l.trim());
+
+  const renderLine = (line, idx) => {
+    // Split into tree connector prefix and content
+    const match = line.match(/^([│├└┌─┬┤┘┴┼\s]*(?:──\s?)?)(.*)$/);
+    const connector = match ? match[1] : '';
+    const text = match ? match[2] : line;
+
+    // Detect risk badges in brackets
+    const parts = [];
+    let remaining = text;
+    const badgeRegex = /\[(SANCTIONED|SDN|CONVICTED|DESIGNATED|HIGH RISK|OFAC|BLOCKED|DPA|PLEA|ENFORCEMENT)\]/gi;
+    let badgeMatch;
+    let lastIndex = 0;
+
+    while ((badgeMatch = badgeRegex.exec(remaining)) !== null) {
+      if (badgeMatch.index > lastIndex) {
+        parts.push({ type: 'text', value: remaining.slice(lastIndex, badgeMatch.index) });
+      }
+      parts.push({ type: 'badge', value: badgeMatch[1].toUpperCase() });
+      lastIndex = badgeMatch.index + badgeMatch[0].length;
+    }
+    if (lastIndex < remaining.length) {
+      parts.push({ type: 'text', value: remaining.slice(lastIndex) });
+    }
+    if (parts.length === 0) parts.push({ type: 'text', value: remaining });
+
+    // Detect jurisdiction in parentheses
+    const renderTextPart = (val, key) => {
+      const jurisdictionRegex = /(\([^)]+\))/g;
+      const segments = val.split(jurisdictionRegex);
+      return segments.map((seg, i) => {
+        if (jurisdictionRegex.test(seg) || (seg.startsWith('(') && seg.endsWith(')'))) {
+          return <span key={`${key}-${i}`} style={{ color: '#6b7280', fontSize: '12px' }}>{seg}</span>;
+        }
+        // Detect risk keywords in entity names
+        const upperSeg = seg.toUpperCase();
+        if (upperSeg.includes('⚠') || upperSeg.includes('WARNING')) {
+          return <span key={`${key}-${i}`} style={{ color: '#f59e0b' }}>{seg}</span>;
+        }
+        return <span key={`${key}-${i}`} style={{ color: '#e5e5e5' }}>{seg}</span>;
+      });
+    };
+
+    // Is this a root/header node (no connector prefix)?
+    const isRoot = connector.trim() === '' && idx === 0;
+
+    return (
+      <div key={idx} style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        lineHeight: '1.8',
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        fontSize: '13px',
+      }}>
+        {/* Tree connectors in teal */}
+        <span style={{ color: '#4ecdc4', whiteSpace: 'pre', opacity: 0.7 }}>{connector}</span>
+        {/* Node content */}
+        <span style={{
+          fontWeight: isRoot ? 600 : 400,
+          fontSize: isRoot ? '14px' : '13px',
+          color: isRoot ? '#ffffff' : '#e5e5e5',
+        }}>
+          {parts.map((part, i) => {
+            if (part.type === 'badge') {
+              const badgeColor = ['SANCTIONED', 'SDN', 'BLOCKED', 'DESIGNATED', 'OFAC'].includes(part.value)
+                ? { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', text: '#ef4444' }
+                : ['CONVICTED', 'DPA', 'PLEA', 'ENFORCEMENT'].includes(part.value)
+                ? { bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.4)', text: '#f97316' }
+                : { bg: 'rgba(234, 179, 8, 0.15)', border: 'rgba(234, 179, 8, 0.4)', text: '#eab308' };
+              return (
+                <span key={i} style={{
+                  display: 'inline-block',
+                  background: badgeColor.bg,
+                  border: `1px solid ${badgeColor.border}`,
+                  color: badgeColor.text,
+                  padding: '1px 6px',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  letterSpacing: '0.5px',
+                  marginLeft: '6px',
+                  verticalAlign: 'middle',
+                }}>
+                  {part.value}
+                </span>
+              );
+            }
+            return renderTextPart(part.value, i);
+          })}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b3a 100%)',
+      border: '1px solid rgba(78, 205, 196, 0.15)',
+      borderRadius: '8px',
+      padding: '0',
+      marginBottom: '16px',
+      marginTop: '8px',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 16px',
+        borderBottom: '1px solid rgba(78, 205, 196, 0.1)',
+        background: 'rgba(78, 205, 196, 0.05)',
+      }}>
+        <Network style={{ width: '14px', height: '14px', color: '#4ecdc4' }} />
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          color: '#4ecdc4',
+          letterSpacing: '1px',
+          textTransform: 'uppercase',
+        }}>Corporate Network</span>
+      </div>
+      {/* Tree content */}
+      <div style={{ padding: '14px 18px', overflowX: 'auto' }}>
+        {lines.map((line, idx) => renderLine(line, idx))}
+      </div>
+    </div>
+  );
+};
+
 // Custom code component (for inline code)
 const CustomCode = ({ children }) => {
   return (
@@ -578,6 +718,11 @@ const MarkdownRenderer = React.memo(({ content, onExploreClick, darkMode = false
     code: ({ inline, children, ...props }) => {
       if (inline) {
         return <CustomCode {...props}>{children}</CustomCode>;
+      }
+      // Detect ASCII tree diagrams and render as styled network chart
+      const codeText = String(children || '');
+      if (isTreeDiagram(codeText)) {
+        return <NetworkTreeDiagram content={codeText} />;
       }
       return (
         <pre className={`${darkMode ? 'bg-gray-800' : 'bg-slate-100'} p-4 rounded-lg overflow-x-auto my-3`}>
