@@ -405,13 +405,15 @@ const CustomTd = ({ children }) => {
   const scoreMatch = text.match(/^\+?(\d+)/);
   let cellStyle = { fontSize: '14px', padding: '12px 16px', borderBottom: '1px solid #3a3a3a', color: '#a1a1a1' };
 
-  if (scoreMatch) {
-    const val = parseInt(scoreMatch[1]);
-    if (val >= 50) {
-      cellStyle = { ...cellStyle, color: '#ef4444', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
-    } else if (val <= 25) {
-      cellStyle = { ...cellStyle, color: '#10b981', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
-    }
+  // +N scores = risk factors (red), -N scores = mitigating (green)
+  const signedMatch = text.match(/^([+-])(\d+)/);
+  if (signedMatch) {
+    const sign = signedMatch[1];
+    const color = sign === '+' ? '#ef4444' : '#10b981';
+    cellStyle = { ...cellStyle, color, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
+  } else if (scoreMatch) {
+    // Plain number (no sign) — neutral white
+    cellStyle = { ...cellStyle, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
   }
 
   // Color risk-level keywords in table cells
