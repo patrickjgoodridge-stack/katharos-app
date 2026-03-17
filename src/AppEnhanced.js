@@ -13307,29 +13307,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
    const stripped = stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
-   // Scout mode: use MarkdownRenderer (same as streaming)
-   if (investigationMode === 'scout') {
-     return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
-   }
-   const sections = splitReportSections(stripped);
-   const exploreHandler = (text) => {
-     setConversationInput(`Tell me more about: ${text}`);
-     setTimeout(() => {
-       if (bottomInputRef.current) {
-         bottomInputRef.current.focus();
-       } else if (mainInputRef.current) {
-         mainInputRef.current.focus();
-       }
-     }, 50);
-   };
-   if (sections) {
-     return sections.map((section, sIdx) => (
-       <ReportSection key={sIdx} index={sIdx}>
-         <MarkdownRenderer content={section} darkMode={darkMode} onExploreClick={exploreHandler} />
-       </ReportSection>
-     ));
-   }
-   return <MarkdownRenderer content={stripped} darkMode={darkMode} onExploreClick={exploreHandler} />;
+   return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
  </div>
  {parseHtmlArtifacts(msg.content).map((artifact, ai) => {
