@@ -13307,9 +13307,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
    const stripped = stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
-   // Scout mode: use greyscale card-based formatter
+   // Scout mode: use MarkdownRenderer (same as streaming)
    if (investigationMode === 'scout') {
-     return <ScoutReport content={stripped} />;
+     return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
    }
    const sections = splitReportSections(stripped);
    const exploreHandler = (text) => {
