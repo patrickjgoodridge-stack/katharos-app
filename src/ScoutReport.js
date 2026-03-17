@@ -37,17 +37,12 @@ const RISK_BORDER = {
 // Detect risk level from text
 const detectRiskLevel = (text) => {
   if (!text) return null;
+  // BLOCKED/REJECT/DO NOT TRANSACT map to CRITICAL
+  if (/\b(BLOCKED|REJECT|DO\s+NOT\s+TRANSACT)\b/i.test(text)) return 'CRITICAL';
   const m = text.match(/\b(CRITICAL|HIGH|MEDIUM|LOW)\b/i);
   return m ? m[1].toUpperCase() : null;
 };
 
-// Color score values: positive = red, zero/dash = muted
-const colorScore = (text) => {
-  if (!text) return TEXT_MUTED;
-  const num = parseInt(text.replace(/[^0-9-]/g, ''));
-  if (isNaN(num) || num === 0) return TEXT_MUTED;
-  return '#ef4444';
-};
 
 const cardStyle = {
   background: CARD_BG,
@@ -57,29 +52,10 @@ const cardStyle = {
   marginBottom: '12px',
 };
 
-// ── Color risk words in plain text fragments ──
-const colorRiskWords = (text, baseKey) => {
+// ── Render plain text (no risk coloring in body text) ──
+const renderPlainText = (text, baseKey) => {
   if (!text) return null;
-  const parts = [];
-  let remaining = text;
-  let key = baseKey || 0;
-
-  while (remaining.length > 0) {
-    const m = remaining.match(/\b(CRITICAL|HIGH|MEDIUM|LOW)\b/);
-    if (!m) {
-      parts.push(<span key={key++}>{remaining}</span>);
-      break;
-    }
-    if (m.index > 0) {
-      parts.push(<span key={key++}>{remaining.slice(0, m.index)}</span>);
-    }
-    const level = m[1].toUpperCase();
-    parts.push(
-      <span key={key++} style={{ color: RISK_COLORS[level], fontWeight: 600 }}>{m[1]}</span>
-    );
-    remaining = remaining.slice(m.index + m[0].length);
-  }
-  return parts;
+  return [<span key={baseKey || 0}>{text}</span>];
 };
 
 // ── Inline markdown parser (bold, italic, links, code) ──
@@ -105,20 +81,18 @@ const renderInline = (text) => {
     ].filter(Boolean).sort((a, b) => a.index - b.index);
 
     if (matches.length === 0) {
-      parts.push(...(colorRiskWords(remaining, key) || []));
+      parts.push(...(renderPlainText(remaining, key) || []));
       break;
     }
 
     const first = matches[0];
     if (first.match[1]) {
-      parts.push(...(colorRiskWords(first.match[1], key) || []));
+      parts.push(...(renderPlainText(first.match[1], key) || []));
       key += 10;
     }
 
     if (first.type === 'bold') {
-      const boldRisk = detectRiskLevel(first.match[2]);
-      const boldColor = boldRisk ? RISK_COLORS[boldRisk] : TEXT_PRIMARY;
-      parts.push(<span key={key++} style={{ color: boldColor, fontWeight: boldRisk ? 600 : 500 }}>{first.match[2]}</span>);
+      parts.push(<span key={key++} style={{ color: TEXT_PRIMARY, fontWeight: 500 }}>{first.match[2]}</span>);
       remaining = remaining.slice(first.match[0].length);
     } else if (first.type === 'link') {
       parts.push(
@@ -293,19 +267,13 @@ const renderBlock = (block, idx) => {
           <tbody>
             {rows.map((row, ri) => (
               <tr key={ri} style={{ borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
-                {row.map((cell, ci) => {
-                  const cleaned = cell.replace(/\*{1,2}/g, '');
-                  const risk = detectRiskLevel(cleaned);
-                  const scoreColor = colorScore(cleaned);
-                  const cellColor = risk ? RISK_COLORS[risk] : (scoreColor !== TEXT_MUTED ? scoreColor : (ci === 0 ? '#e5e7eb' : TEXT_SECONDARY));
-                  return (
-                    <td key={ci} style={{
-                      padding: '10px 10px 10px 0', fontSize: '13px',
-                      color: cellColor,
-                      fontWeight: ci === 0 || risk || scoreColor !== TEXT_MUTED ? 500 : 400,
-                    }}>{renderInline(cleaned)}</td>
-                  );
-                })}
+                {row.map((cell, ci) => (
+                  <td key={ci} style={{
+                    padding: '10px 10px 10px 0', fontSize: '13px',
+                    color: ci === 0 ? '#e5e7eb' : TEXT_SECONDARY,
+                    fontWeight: ci === 0 ? 500 : 400,
+                  }}>{renderInline(cell.replace(/\*{1,2}/g, ''))}</td>
+                ))}
               </tr>
             ))}
           </tbody>

@@ -298,7 +298,7 @@ const ContentBlock = ({ block, index }) => {
           const rowText = row.join(' ').toLowerCase();
           const isTotal = /\b(total|final)\b/.test(rowText);
           return (
-            <View key={i} style={[i % 2 === 0 ? styles.tableRowAlt : styles.tableRow, isTotal && { backgroundColor: '#E2E8F0' }]}>
+            <View key={i} style={[i % 2 === 0 ? styles.tableRowAlt : styles.tableRow, isTotal && { backgroundColor: '#E2E8F0' }]} wrap={false}>
               {row.map((cell, j) => (
                 <Text key={j} style={[
                   styles.tableCell,
@@ -346,7 +346,9 @@ const ContentBlock = ({ block, index }) => {
 
   if (type === 'paragraph' && block.content) {
     return block.content.map((para, i) => (
-      <RichText key={`p-${index}-${i}`} segments={para.segments || [{ text: para.text || '' }]} style={styles.paragraph} />
+      <View key={`p-${index}-${i}`} wrap={false}>
+        <RichText segments={para.segments || [{ text: para.text || '' }]} style={styles.paragraph} />
+      </View>
     ));
   }
 
@@ -369,8 +371,8 @@ const Section = ({ section }) => {
   const totalItems = (blocks || []).reduce((sum, b) => sum + (b.items ? b.items.length : 0), 0);
 
   return (
-    <View style={styles.sectionContainer} wrap={false}>
-      <View style={styles.sectionHeader}>
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader} minPresenceAhead={60}>
         <Text style={styles.sectionTitle}>{title.replace(/:\s*.+$/, '')}</Text>
         {totalItems > 0 && <Text style={styles.sectionCount}>({totalItems})</Text>}
       </View>
