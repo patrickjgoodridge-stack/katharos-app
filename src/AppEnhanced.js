@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown, Binoculars } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -30,6 +30,13 @@ import WorkflowControls from './WorkflowControls';
 import ActivityFeed from './ActivityFeed';
 import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
 import { fetchTeamUsers } from './userService';
+
+// Filled binoculars icon for Scout mode
+const BinocularsIcon = ({ size = 14, className = '', style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 512 512" fill="currentColor" className={className} style={style}>
+    <path d="M416 48c-27.6 0-52.8 11.2-71 29.2L336 96l-16-16c-12.5-12.5-32.8-12.5-45.3 0L256 98.7l-18.7-18.7c-12.5-12.5-32.8-12.5-45.3 0L176 96l-9-18.8C148.8 59.2 123.6 48 96 48 43 48 0 91 0 144v112c0 70.7 57.3 128 128 128h16c53 0 96-43 96-96v-32h32v32c0 53 43 96 96 96h16c70.7 0 128-57.3 128-128V144c0-53-43-96-96-96zM192 320c0 26.5-21.5 48-48 48h-16c-44.2 0-80-35.8-80-80V144c0-26.5 21.5-48 48-48s48 21.5 48 48v176zm272-32c0 44.2-35.8 80-80 80h-16c-26.5 0-48-21.5-48-48V144c0-26.5 21.5-48 48-48s48 21.5 48 48v144z"/>
+  </svg>
+);
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -13067,7 +13074,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
    >
-     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <Binoculars className="w-3 h-3" />}
+     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <BinocularsIcon size={12} />}
      <span>{investigationMode === 'cipher' ? 'Cipher' : 'Scout'}</span>
      <ChevronDown className="w-3 h-3" />
    </button>
@@ -13079,7 +13086,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
          onMouseEnter={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = '#383838'; }}
          onMouseLeave={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = 'transparent'; }}
        >
-         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><Binoculars style={{ width: 14, height: 14, flexShrink: 0 }} /> Scout</span>
+         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><BinocularsIcon size={14} style={{ flexShrink: 0 }} /> Scout</span>
          <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Basic Screenings</span>
        </button>
        <button
@@ -13858,7 +13865,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  investigationMode === 'scout' ? 'bg-gray-100/50' : ''
  }`}
  >
- <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Binoculars style={{ width: 14, height: 14 }} /> Scout</div>
+ <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><BinocularsIcon size={14} /> Scout</div>
  <div className="text-[10px] text-gray-500 ml-5">Lightweight Screenings</div>
  </button>
  </div>
