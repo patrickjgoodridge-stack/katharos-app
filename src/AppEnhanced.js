@@ -13262,7 +13262,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex-1 overflow-y-auto p-7" onScroll={handleScrollContainer}>
  <div className="space-y-6" style={{ maxWidth: '700px', margin: '0 auto' }}>
  {(() => {
- return conversationMessages.map((msg, idx) => (
+ // Use case transcript as source of truth — conversationMessages can lose the assistant message on navigation
+ const caseForMessages = currentCaseId ? cases.find(c => c.id === currentCaseId) : null;
+ const messages = (caseForMessages?.conversationTranscript?.length > conversationMessages.length)
+   ? caseForMessages.conversationTranscript
+   : conversationMessages;
+ return messages.map((msg, idx) => (
  <div key={idx}>
  {msg.role === 'user' ? (
  /* User message - chat bubble on the right */
@@ -13286,10 +13291,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
-   const stripped = stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   const rawContent = String(msg.content || '');
+   const stripped = stripVizData(rawContent).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   if (!stripped) return <div style={{ color: '#6b7280', fontStyle: 'italic', padding: '12px 0' }}>Report content unavailable</div>;
    const isReport = stripped.includes('## OVERALL RISK') || stripped.includes('## SUBJECT IDENTITY');
    if (isReport) {
-     const graphs = parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+     const graphs = parseHtmlArtifacts(rawContent).map((artifact, ai) => {
        if (artifact.type === 'network') {
          const netData = extractNetworkData(artifact.html);
          if (netData && netData.nodes.length > 0) {
@@ -13304,7 +13311,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  })()}
  </div>
  {/* Non-report graph artifacts rendered after content */}
- {!((stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## OVERALL RISK') || (stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## SUBJECT IDENTITY')) && parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+ {!((stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## OVERALL RISK') || (stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## SUBJECT IDENTITY')) && parseHtmlArtifacts(String(msg.content || '')).map((artifact, ai) => {
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
