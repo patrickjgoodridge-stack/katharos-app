@@ -13,6 +13,7 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
+import ReportTabs from './ReportTabs';
 import ScoutReport from './ScoutReport';
 import InlineChatGraph from './InlineChatGraph';
 import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
@@ -13307,10 +13308,24 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
    const stripped = stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   const isReport = stripped.includes('## OVERALL RISK') || stripped.includes('## SUBJECT IDENTITY');
+   if (isReport) {
+     const graphs = parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+       if (artifact.type === 'network') {
+         const netData = extractNetworkData(artifact.html);
+         if (netData && netData.nodes.length > 0) {
+           return <GraphErrorBoundary key={ai}><ChatNetworkGraph graphData={netData} /></GraphErrorBoundary>;
+         }
+       }
+       return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
+     });
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} />;
+   }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
  </div>
- {parseHtmlArtifacts(msg.content).map((artifact, ai) => {
+ {/* Non-report graph artifacts rendered after content */}
+ {!((stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## OVERALL RISK') || (stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## SUBJECT IDENTITY')) && parseHtmlArtifacts(msg.content).map((artifact, ai) => {
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
@@ -13544,9 +13559,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    ))}
 
    {/* Show streaming text */}
-   {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-     <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} darkMode={darkMode} />
-   )}
+   {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (() => {
+     const streamText = stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+     const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## SUBJECT IDENTITY');
+     if (isReport) {
+       return <ReportTabs content={streamText} darkMode={darkMode} />;
+     }
+     return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
+   })()}
  </div>
  </div>
  )}

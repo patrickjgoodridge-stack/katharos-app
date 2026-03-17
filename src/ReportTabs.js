@@ -1,0 +1,223 @@
+// ReportTabs.js — 5-tab report view for Scout mode investigations
+import React, { useState, useMemo } from 'react';
+import {
+  FileText,
+  Search,
+  Network,
+  Lightbulb,
+  Shield,
+} from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
+
+// Tab configuration — maps sections to tabs by H2 heading keywords
+const TAB_CONFIG = [
+  {
+    id: 'summary',
+    label: 'Summary',
+    icon: FileText,
+    sections: ['SUBJECT IDENTITY', 'PEP STATUS', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
+  },
+  {
+    id: 'evidence',
+    label: 'Evidence',
+    icon: Search,
+    sections: ['CRITICAL FINDINGS', 'ADVERSE MEDIA', 'DESIGNATION TIMELINE', 'GENERAL LICENSES', 'OWNERSHIP HISTORY'],
+  },
+  {
+    id: 'network',
+    label: 'Network',
+    icon: Network,
+    sections: ['ENTITY NETWORK', 'CORPORATE NETWORK', 'REGULATORY CONTEXT'],
+  },
+  {
+    id: 'actions',
+    label: 'Actions',
+    icon: Lightbulb,
+    sections: ['RECOMMENDED ACTIONS', 'FINANCIAL EXPOSURE', 'MONITORING SCHEDULE', 'PROGRAMS AND AUTHORITIES'],
+  },
+  {
+    id: 'audit',
+    label: 'Audit',
+    icon: Shield,
+    sections: ['COVERAGE GAP', 'GAPS AND LIMITATIONS'],
+  },
+];
+
+// Split markdown content into sections by ## headers
+const splitMarkdownSections = (markdown) => {
+  if (!markdown) return [];
+
+  const sections = [];
+  // Split on lines starting with ## (but not ### or more)
+  const parts = markdown.split(/^(?=## )/m);
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    // Extract heading from the first line if it starts with ##
+    const headingMatch = trimmed.match(/^## (.+)/);
+    if (headingMatch) {
+      sections.push({
+        heading: headingMatch[1].trim(),
+        content: trimmed,
+      });
+    } else {
+      // Preamble content (before first H2) — assign to summary
+      sections.push({
+        heading: '__preamble__',
+        content: trimmed,
+      });
+    }
+  }
+
+  return sections;
+};
+
+// Determine which tab a section belongs to
+const getTabForSection = (heading) => {
+  const upper = heading.toUpperCase();
+  for (const tab of TAB_CONFIG) {
+    for (const keyword of tab.sections) {
+      if (upper.includes(keyword)) {
+        return tab.id;
+      }
+    }
+  }
+  // Default unmatched sections to summary
+  return 'summary';
+};
+
+// Main ReportTabs component
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs }) => {
+  const [activeTab, setActiveTab] = useState('summary');
+
+  // Parse sections and assign to tabs
+  const tabSections = useMemo(() => {
+    const sections = splitMarkdownSections(content);
+    const grouped = {};
+    for (const tab of TAB_CONFIG) {
+      grouped[tab.id] = [];
+    }
+
+    for (const section of sections) {
+      const tabId = getTabForSection(section.heading);
+      if (grouped[tabId]) {
+        grouped[tabId].push(section);
+      } else {
+        grouped.summary.push(section);
+      }
+    }
+
+    return grouped;
+  }, [content]);
+
+  // Count sections per tab (for badges)
+  const tabCounts = useMemo(() => {
+    const counts = {};
+    for (const tab of TAB_CONFIG) {
+      counts[tab.id] = tabSections[tab.id]?.length || 0;
+    }
+    return counts;
+  }, [tabSections]);
+
+  // Build markdown for active tab
+  const activeContent = useMemo(() => {
+    const sections = tabSections[activeTab] || [];
+    return sections.map(s => s.content).join('\n\n');
+  }, [tabSections, activeTab]);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Tab Bar */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        background: '#1a1a1a',
+        borderBottom: '1px solid #2a2a2a',
+        display: 'flex',
+        gap: '0',
+        padding: '0 4px',
+        marginBottom: '8px',
+      }}>
+        {TAB_CONFIG.map(tab => {
+          const isActive = activeTab === tab.id;
+          const count = tabCounts[tab.id];
+          const Icon = tab.icon;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 14px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: isActive ? '2px solid #f59e0b' : '2px solid transparent',
+                color: isActive ? '#f59e0b' : '#6b7280',
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                transition: 'color 0.15s, border-color 0.15s',
+                whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.color = '#a1a1a1';
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.color = '#6b7280';
+              }}
+            >
+              <Icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+              <span>{tab.label}</span>
+              {count > 0 && (
+                <span style={{
+                  fontSize: '10px',
+                  color: isActive ? 'rgba(245, 158, 11, 0.6)' : '#4a4a4a',
+                  fontWeight: 500,
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      <div style={{ minHeight: '200px' }}>
+        {activeContent ? (
+          <MarkdownRenderer content={activeContent} darkMode={darkMode} />
+        ) : (
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: '#4a4a4a',
+            fontSize: '13px',
+            fontStyle: 'italic',
+          }}>
+            {tabCounts[activeTab] === 0 ? 'Waiting for data...' : 'No content available'}
+          </div>
+        )}
+
+        {/* Network tab: render graph visualizations */}
+        {activeTab === 'network' && networkGraphs && networkGraphs.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            {networkGraphs}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+ReportTabs.displayName = 'ReportTabs';
+
+export default ReportTabs;
