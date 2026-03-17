@@ -5,7 +5,6 @@ import { AlertTriangle } from 'lucide-react';
 // INVESTIGATION REPORT — Scout Mode Report Renderer
 // ═══════════════════════════════════════════════════════════════
 
-const GOLD = '#c9a84c';
 const CRIT_BG = '#7f1d1d';
 const CRIT_TEXT = '#ef4444';
 const CRIT_BORDER = '#dc2626';

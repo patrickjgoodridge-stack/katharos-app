@@ -13,7 +13,6 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
-import InvestigationReport from './InvestigationReport';
 import InlineChatGraph from './InlineChatGraph';
 import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
