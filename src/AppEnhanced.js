@@ -909,6 +909,19 @@ const samplesDropdownRef = useRef(null);
  // Keep currentCaseIdRef in sync with state for async handlers
  useEffect(() => { currentCaseIdRef.current = currentCaseId; }, [currentCaseId]);
 
+ // Restore conversationMessages from case transcript whenever we navigate back to a case
+ // This ensures messages aren't lost when switching between pages
+ useEffect(() => {
+   if (!currentCaseId || currentPage !== 'newCase') return;
+   const currentCase = cases.find(c => c.id === currentCaseId);
+   if (!currentCase?.conversationTranscript?.length) return;
+   // Only restore if conversationMessages is out of sync (fewer messages than transcript)
+   if (conversationMessages.length < currentCase.conversationTranscript.length) {
+     setConversationMessages(currentCase.conversationTranscript);
+     setConversationStarted(true);
+   }
+ }, [currentCaseId, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
  // Handle case deep-link: ?case=ID (runs once when cases first load)
  useEffect(() => {
    if (deepLinkHandledRef.current) return;
