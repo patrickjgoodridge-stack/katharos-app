@@ -49,6 +49,11 @@ const sectionIcons = {
   'KEY ASSOCIATES': Users,
   'RELATED ENTITIES': Network,
   'RECOMMENDED ACTIONS': Lightbulb,
+  'MATCH CONFIDENCE': Shield,
+  'GENERAL LICENSES': FileText,
+  'DESIGNATION TIMELINE': Gavel,
+  'SCORING BREAKDOWN': AlertTriangle,
+  'COVERAGE GAP': Search,
 };
 
 // Get risk level styling - Katharos dark theme (from screen-3-investigation.html)
@@ -186,6 +191,27 @@ const CustomHeading = ({ level, children }) => {
           <div>
             <span style={styles.textStyle}>{displayText}</span>
             {riskScore && <span style={styles.scoreStyle}>{riskScore} / 100</span>}
+          </div>
+        </div>
+      );
+    }
+
+    // Match Confidence banner — quality signal before the verdict
+    if (text.toUpperCase().includes('MATCH CONFIDENCE')) {
+      const confMatch = text.match(/MATCH\s+CONFIDENCE\s*:\s*(HIGH|MEDIUM|LOW)/i);
+      const pctMatch = text.match(/(\d+)\s*%/);
+      const confLevel = confMatch ? confMatch[1].toUpperCase() : null;
+      const confPct = pctMatch ? pctMatch[1] : null;
+      const confStyles = confLevel ? getRiskStyles(confLevel === 'HIGH' ? 'LOW' : confLevel === 'LOW' ? 'HIGH' : 'MEDIUM', darkMode) : styles;
+
+      return (
+        <div style={confStyles.bgStyle} className="flex items-center gap-3.5">
+          <div style={confStyles.iconBgStyle}>
+            <Shield style={{ width: '20px', height: '20px', color: confStyles.iconColor }} />
+          </div>
+          <div>
+            <span style={confStyles.textStyle}>MATCH CONFIDENCE: {confLevel || 'UNKNOWN'}</span>
+            {confPct && <span style={confStyles.scoreStyle}>{confPct}%</span>}
           </div>
         </div>
       );
