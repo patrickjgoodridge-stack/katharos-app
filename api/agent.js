@@ -656,6 +656,14 @@ When the investigation is complete, output your structured report in this exact 
 **Primary jurisdictions:** [Countries of operation]
 **Last updated:** [Date of this investigation]
 
+## PEP STATUS
+[Include for all subjects. State "Non-PEP" classification if no political exposure found.]
+**Classification:** [PEP / Non-PEP / PEP Associate]
+**Tier:** [Tier 1 — Head of State / Tier 2 — Senior Official / Tier 3 — Associate / N/A]
+**Position held:** [Current or most recent public position — or "None identified"]
+**Family members of note:** [Names and relationships — or "None identified"]
+**EDD obligations:** [What enhanced due diligence applies under FATF/FinCEN/EU AMLD — or "Standard CDD sufficient"]
+
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
 [One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
 
@@ -671,9 +679,33 @@ When the investigation is complete, output your structured report in this exact 
 
 ## ENTITY NETWORK
 
-| Entity | Type | Jurisdiction | Risk | Sanctioned | Connection |
-|--------|------|-------------|------|------------|------------|
+| Entity | Type | Jurisdiction | Risk | Sanctioned | Match % | Connection | Source |
+|--------|------|-------------|------|------------|---------|------------|--------|
 | [one row per entity discovered] |
+
+Match % = confidence that this entity is correctly identified and connected (0-100%).
+Source = where this entity was found (OFAC SDN List / OCCRP / Companies House / Panama Papers / Corporate Registry / etc.)
+
+## REGULATORY CONTEXT
+[One row per jurisdiction found in the entity network.]
+
+| Jurisdiction | Opacity | FATF Status | Key Risk | Notes |
+|-------------|---------|-------------|----------|-------|
+| [Country] | [High/Medium/Low] | [Listed/Grey/Clean] | [one phrase] | [one line] |
+
+## ADVERSE MEDIA
+[Include only when material adverse media is found. Omit entirely if nothing material. Order most recent first.]
+
+| Date | Outlet | Headline | Relevance | Source |
+|------|--------|----------|-----------|--------|
+| [YYYY-MM-DD] | [Publication] | [Headline] | [High/Medium/Low] | [URL or publication name] |
+
+## OWNERSHIP HISTORY
+[Include only when material ownership changes, name changes, dissolutions, or pre/post-designation sales are found. Omit if none. Order most recent first.]
+
+| Date | Event | Entity | Detail | Compliance Note |
+|------|-------|--------|--------|-----------------|
+| [YYYY-MM-DD] | [Formed/Renamed/Dissolved/Sold/Restructured] | [Entity name] | [one line] | [one line] |
 
 ## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
 Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
@@ -686,6 +718,18 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 |------|---------|-----------|------------------|-----|-----------|
 | [YYYY-MM-DD] | [Program name] | [OFAC/EU/UK OFSI/UN] | [Entity name] | [Yes/No] | [Date or N/A] |
 
+## RISK SCORE BREAKDOWN
+
+| Factor | Weight | Score | Reasoning |
+|--------|--------|-------|-----------|
+| OFAC SDN designation | 40% | [0-40] | [one line] |
+| Secondary sanctions risk | 20% | [0-20] | [one line] |
+| Adverse media | 15% | [0-15] | [one line] |
+| PEP exposure | 10% | [0-10] | [one line] |
+| Entity complexity | 10% | [0-10] | [one line] |
+| Jurisdiction risk | 5% | [0-5] | [one line] |
+| **Final Score** | **100%** | **[Total]/100** | **[CRITICAL/HIGH/MEDIUM/LOW]** |
+
 ## GENERAL LICENSES
 [Include this section ONLY when active general licenses apply to the subject or their designated entities. This is the most-missed compliance signal — compliance teams know about designations but miss GL windows. Omit entirely when no GLs apply.]
 
@@ -693,11 +737,21 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 |----|-------|--------|---------|-----------------|
 | [GL number] | [What the license authorizes] | [Issue date] | [Expiry date] | [What compliance team must do before expiry] |
 
+## PROGRAMS AND AUTHORITIES
+[One row per EO, GL, statute, or list name referenced anywhere in this report.]
+
+| Reference | Program | Authority | Description |
+|-----------|---------|-----------|-------------|
+| [EO number / GL number / statute / list name] | [Program name] | [Issuing authority] | [one line plain-English description] |
+
 ## CRITICAL FINDINGS
-[Number findings and prefix each with severity level. The renderer auto-colors **CRITICAL**, **HIGH**, **MEDIUM** bold text.]
+[Number findings and prefix each with severity level. The renderer auto-colors **CRITICAL**, **HIGH**, **MEDIUM** bold text. Each finding MUST include a Source line.]
 1. **[CRITICAL]** [Finding title] — [one sentence: what standard screening misses and why it matters]
+   Source: [OFAC SDN List / OCCRP / ICIJ / Companies House / etc. — link if available]
 2. **[HIGH]** [Finding title] — [one sentence]
+   Source: [source]
 3. **[MEDIUM]** [Finding title] — [one sentence]
+   Source: [source]
 
 ## COVERAGE GAP
 
@@ -707,6 +761,12 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 | Jurisdictions covered | [N] | [N] |
 | Programs screened | [N] | [N] |
 | Coverage | [N]% | 100% |
+
+## FINANCIAL EXPOSURE
+**Estimated transaction exposure:** [Dollar amount at risk or "Unknown"]
+**Potential OFAC penalty range:** [Civil: up to $X per violation / Criminal: up to $X — cite the relevant statute]
+**Comparable enforcement actions:** [1-2 lines on similar cases and penalties — or "No comparable cases identified"]
+**Business impact:** [One sentence on operational consequence of non-compliance]
 
 ## GAPS AND LIMITATIONS
 [What could not be verified, what would close each gap]
@@ -723,6 +783,11 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 - [Monitoring, periodic rescreening, watchlist alerts]
 
 Bottom line: [One-sentence final assessment]
+
+## MONITORING SCHEDULE
+**Next review:** [Date — based on risk level: CRITICAL=continuous, HIGH=monthly, MEDIUM=quarterly, LOW=annually]
+**Trigger events:** [What would require immediate re-investigation — new designation, adverse media, transaction attempt]
+**Assigned to:** [Leave blank for client to fill]
 
 ## INVESTIGATION PROTOCOL — EXECUTE ON EVERY SEARCH
 
@@ -852,7 +917,14 @@ Run this checklist before writing final output:
 13. Have I included DESIGNATION TIMELINE (with GL? and GL Expiry columns) for any sanctioned entities?
 14. Is my COVERAGE GAP a comparison table with entities, jurisdictions, programs screened, and coverage %?
 15. Are my RECOMMENDED ACTIONS split into IMMEDIATE / SHORT-TERM / ONGOING urgency tiers?
-16. Are my CRITICAL FINDINGS numbered with **[CRITICAL]** / **[HIGH]** / **[MEDIUM]** severity prefixes?
+16. Are my CRITICAL FINDINGS numbered with **[CRITICAL]** / **[HIGH]** / **[MEDIUM]** severity prefixes, each with a Source line?
+17. Have I included PEP STATUS — even if the subject is Non-PEP?
+18. Have I included REGULATORY CONTEXT with a row per jurisdiction in the entity network?
+19. Have I included RISK SCORE BREAKDOWN with weighted factors totaling 100%?
+20. Have I included FINANCIAL EXPOSURE with penalty range and comparable enforcement actions?
+21. Have I included PROGRAMS AND AUTHORITIES listing every EO, GL, statute, or list referenced in the report?
+22. Have I included MONITORING SCHEDULE with next review date based on risk level?
+23. Does each entity in ENTITY NETWORK have a Match % and Source column?
 
 If any check fails, do not write final output. Close the gap first.
 
@@ -860,15 +932,26 @@ If any check fails, do not write final output. Close the gap first.
 
 Output your findings in the structured format defined in OUTPUT PROTOCOL above. Follow these rendering rules:
 - The OVERALL RISK header MUST be an H2 with the risk level keyword (CRITICAL/HIGH/MEDIUM/LOW) for UI risk-level styling.
-- ## MATCH CONFIDENCE MUST be an H2 with HIGH/MEDIUM/LOW for the confidence badge color. It appears between ENTITY NETWORK and CRITICAL FINDINGS.
-- All tables (ENTITY NETWORK, SCORING BREAKDOWN, COVERAGE GAP, DESIGNATION TIMELINE, GENERAL LICENSES) MUST be markdown tables so the UI renders them as styled tables.
+- ## MATCH CONFIDENCE MUST be an H2 with HIGH/MEDIUM/LOW for the confidence badge color and pulse animation.
+- All tables (ENTITY NETWORK, SCORING BREAKDOWN, RISK SCORE BREAKDOWN, COVERAGE GAP, DESIGNATION TIMELINE, GENERAL LICENSES, REGULATORY CONTEXT, ADVERSE MEDIA, OWNERSHIP HISTORY, PROGRAMS AND AUTHORITIES) MUST be markdown tables so the UI renders them as styled tables.
+- ## PEP STATUS renders as a standard card with bold field labels. Include for ALL subjects — state "Non-PEP" if no political exposure.
 - ## DESIGNATION TIMELINE and ## GENERAL LICENSES render as standard dark tables. Include GL? and GL Expiry columns in the timeline.
-- CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these via existing bold risk-keyword detection.
+- ## RISK SCORE BREAKDOWN table: Weight column renders as muted text, Score column renders with risk coloring (high scores red, low scores green), Final Score row renders as a summary/total row in white bold.
+- ## REGULATORY CONTEXT table: Opacity column — High=red, Medium=amber, Low=green. FATF Status — Listed=red, Grey=amber, Clean=green.
+- ## ADVERSE MEDIA table: Relevance column — High=red, Medium=amber, Low=grey.
+- ## OWNERSHIP HISTORY renders as a standard dark table.
+- ## FINANCIAL EXPOSURE renders as a standard card with bold field labels.
+- ## PROGRAMS AND AUTHORITIES renders as a standard dark table, Reference column in amber.
+- ## MONITORING SCHEDULE renders as a standard card with bold field labels.
+- CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these via existing bold risk-keyword detection. Each finding MUST include a Source: line that renders as 10px uppercase muted label followed by linked text.
+- ENTITY NETWORK table MUST include Match % and Source columns. Match % values below 70% render in amber, below 50% in red.
 - COVERAGE GAP MUST be a comparison table (Standard Screening vs This Investigation) with rows for entities, jurisdictions, programs screened, and coverage percentage.
 - SCORING BREAKDOWN MUST use +N for risk factors and -N for mitigating factors — the renderer colors +N red and -N green.
 - RECOMMENDED ACTIONS MUST split into urgency tiers: **IMMEDIATE** (red left-border treatment), **SHORT-TERM** (amber), **ONGOING** (grey) — the renderer detects these bold labels automatically.
 - Include DESIGNATION TIMELINE only when SDN/sanctions designations exist. Omit for clean subjects.
 - Include GENERAL LICENSES only when active GLs apply. This is the highest-value intelligence gap — compliance teams miss GL expiry windows.
+- Include ADVERSE MEDIA only when material adverse media is found. Omit if nothing material.
+- Include OWNERSHIP HISTORY only when material ownership changes exist. Omit if none.
 
 ALWAYS state the coverage gap. This is the core value proposition — the entities that standard screening misses are where the actual compliance exposure lives.
 
