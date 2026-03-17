@@ -448,7 +448,7 @@ export default function Katharos() {
  const [showEmailModal, setShowEmailModal] = useState(false); // eslint-disable-line no-unused-vars
 
  // Investigation mode state
- const [investigationMode, setInvestigationMode] = useState('cipher'); // 'cipher' or 'scout'
+ const [investigationMode, setInvestigationMode] = useState('scout'); // 'scout' or 'cipher'
  const [showModeDropdown, setShowModeDropdown] = useState(false);
 
  // Scout state
@@ -13043,7 +13043,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  style={{ width: '100%', resize: 'none', background: 'transparent', border: 'none', outline: 'none', fontSize: '15px', color: '#ffffff', lineHeight: 1.5, fontFamily: "'Inter', -apple-system, sans-serif" }}
  autoFocus
  />
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #3a3a3a' }}>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #3a3a3a' }}>
  <div className="flex items-center gap-2">
  <input type="file" ref={fileInputRef} onChange={handleFileInput} multiple accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.heic" className="hidden" />
  <div className="relative group">
@@ -13055,33 +13055,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
- <button
- onClick={() => {
- if (String(conversationInput || '').trim() || files.length > 0) {
-   setConversationStarted(true);
-   const newCaseId = createCaseFromFirstMessage(conversationInput, files);
-   if (investigationMode === 'scout') {
-     _sendConversationMessage(newCaseId, conversationInput, files);
-   } else {
-     handleAgentMessage(newCaseId, conversationInput, files);
-   }
- }
- }}
- disabled={!String(conversationInput || '').trim() && files.length === 0}
- style={{
-   width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#b8733a',
-   display: 'flex', alignItems: 'center', justifyContent: 'center',
-   opacity: (!String(conversationInput || '').trim() && files.length === 0) ? 0.5 : 1,
-   transition: 'background 0.15s, opacity 0.15s',
- }}
- >
- <ArrowRight className="w-4 h-4" style={{ color: '#fff', transform: 'rotate(-90deg)' }} />
- </button>
- </div>
- {/* Mode Selector Dropdown */}
- <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
- <div className="relative" ref={modeDropdownRef}>
+ <div className="relative" ref={modeDropdownRef} style={{ marginLeft: 'auto' }}>
    <button
      onClick={() => setShowModeDropdown(!showModeDropdown)}
      style={{
@@ -13119,7 +13093,29 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        </button>
      </div>
    )}
- </div>
+ </div> <button
+ onClick={() => {
+ if (String(conversationInput || '').trim() || files.length > 0) {
+   setConversationStarted(true);
+   const newCaseId = createCaseFromFirstMessage(conversationInput, files);
+   if (investigationMode === 'scout') {
+     _sendConversationMessage(newCaseId, conversationInput, files);
+   } else {
+     handleAgentMessage(newCaseId, conversationInput, files);
+   }
+ }
+ }}
+ disabled={!String(conversationInput || '').trim() && files.length === 0}
+ style={{
+   width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#b8733a',
+   display: 'flex', alignItems: 'center', justifyContent: 'center',
+   opacity: (!String(conversationInput || '').trim() && files.length === 0) ? 0.5 : 1,
+   transition: 'background 0.15s, opacity 0.15s',
+ }}
+ >
+ <ArrowRight className="w-4 h-4" style={{ color: '#fff', transform: 'rotate(-90deg)' }} />
+ </button>
  </div>
  </div>
 
