@@ -316,7 +316,7 @@ const ContentBlock = ({ block, index }) => {
 
   if (type === 'key-value' && block.items) {
     return block.items.map((item, i) => (
-      <View key={`kv-${index}-${i}`} style={styles.kvRow}>
+      <View key={`kv-${index}-${i}`} style={styles.kvRow} wrap={false}>
         <Text style={styles.kvLabel}>{item.label}</Text>
         <RichText segments={item.valueSegments || [{ text: item.value || '' }]} style={styles.kvValue} />
       </View>
@@ -325,7 +325,7 @@ const ContentBlock = ({ block, index }) => {
 
   if (type === 'numbered' && block.items) {
     return block.items.map((item, i) => (
-      <View key={`num-${index}-${i}`} style={styles.numberedItem}>
+      <View key={`num-${index}-${i}`} style={styles.numberedItem} wrap={false}>
         <View style={styles.numberedHeader}>
           <Text style={styles.numberedNum}>{i + 1}.</Text>
           <RichText segments={item.titleSegments || [{ text: item.title || '' }]} style={styles.numberedTitle} />
@@ -337,7 +337,7 @@ const ContentBlock = ({ block, index }) => {
 
   if (type === 'list' && block.items) {
     return block.items.map((item, i) => (
-      <View key={`list-${index}-${i}`} style={styles.listItem}>
+      <View key={`list-${index}-${i}`} style={styles.listItem} wrap={false}>
         <Text style={styles.listBullet}>•</Text>
         <RichText segments={item.segments || [{ text: item.text || '' }]} style={styles.listContent} />
       </View>

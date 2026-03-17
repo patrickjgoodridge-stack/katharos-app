@@ -12,12 +12,74 @@ const TEXT_SECONDARY = '#d1d5db';
 const TEXT_MUTED = '#6b7280';
 const FONT = "'Inter', system-ui, -apple-system, sans-serif";
 
+// Risk accent colors
+const RISK_COLORS = {
+  CRITICAL: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#22c55e',
+};
+
+const RISK_BG = {
+  CRITICAL: '#7f1d1d',
+  HIGH: '#422006',
+  MEDIUM: '#422006',
+  LOW: 'rgba(34, 197, 94, 0.12)',
+};
+
+const RISK_BORDER = {
+  CRITICAL: '#dc2626',
+  HIGH: '#d97706',
+  MEDIUM: '#ca8a04',
+  LOW: '#166534',
+};
+
+// Detect risk level from text
+const detectRiskLevel = (text) => {
+  if (!text) return null;
+  const m = text.match(/\b(CRITICAL|HIGH|MEDIUM|LOW)\b/i);
+  return m ? m[1].toUpperCase() : null;
+};
+
+// Color score values: positive = red, zero/dash = muted
+const colorScore = (text) => {
+  if (!text) return TEXT_MUTED;
+  const num = parseInt(text.replace(/[^0-9-]/g, ''));
+  if (isNaN(num) || num === 0) return TEXT_MUTED;
+  return '#ef4444';
+};
+
 const cardStyle = {
   background: CARD_BG,
   border: `1px solid ${CARD_BORDER}`,
   borderRadius: '8px',
   padding: '20px',
   marginBottom: '12px',
+};
+
+// ── Color risk words in plain text fragments ──
+const colorRiskWords = (text, baseKey) => {
+  if (!text) return null;
+  const parts = [];
+  let remaining = text;
+  let key = baseKey || 0;
+
+  while (remaining.length > 0) {
+    const m = remaining.match(/\b(CRITICAL|HIGH|MEDIUM|LOW)\b/);
+    if (!m) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+    if (m.index > 0) {
+      parts.push(<span key={key++}>{remaining.slice(0, m.index)}</span>);
+    }
+    const level = m[1].toUpperCase();
+    parts.push(
+      <span key={key++} style={{ color: RISK_COLORS[level], fontWeight: 600 }}>{m[1]}</span>
+    );
+    remaining = remaining.slice(m.index + m[0].length);
+  }
+  return parts;
 };
 
 // ── Inline markdown parser (bold, italic, links, code) ──
@@ -43,17 +105,20 @@ const renderInline = (text) => {
     ].filter(Boolean).sort((a, b) => a.index - b.index);
 
     if (matches.length === 0) {
-      parts.push(<span key={key++}>{remaining}</span>);
+      parts.push(...(colorRiskWords(remaining, key) || []));
       break;
     }
 
     const first = matches[0];
     if (first.match[1]) {
-      parts.push(<span key={key++}>{first.match[1]}</span>);
+      parts.push(...(colorRiskWords(first.match[1], key) || []));
+      key += 10;
     }
 
     if (first.type === 'bold') {
-      parts.push(<span key={key++} style={{ color: TEXT_PRIMARY, fontWeight: 500 }}>{first.match[2]}</span>);
+      const boldRisk = detectRiskLevel(first.match[2]);
+      const boldColor = boldRisk ? RISK_COLORS[boldRisk] : TEXT_PRIMARY;
+      parts.push(<span key={key++} style={{ color: boldColor, fontWeight: boldRisk ? 600 : 500 }}>{first.match[2]}</span>);
       remaining = remaining.slice(first.match[0].length);
     } else if (first.type === 'link') {
       parts.push(
@@ -228,13 +293,19 @@ const renderBlock = (block, idx) => {
           <tbody>
             {rows.map((row, ri) => (
               <tr key={ri} style={{ borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
-                {row.map((cell, ci) => (
-                  <td key={ci} style={{
-                    padding: '10px 10px 10px 0', fontSize: '13px',
-                    color: ci === 0 ? '#e5e7eb' : TEXT_SECONDARY,
-                    fontWeight: ci === 0 ? 500 : 400,
-                  }}>{renderInline(cell.replace(/\*{1,2}/g, ''))}</td>
-                ))}
+                {row.map((cell, ci) => {
+                  const cleaned = cell.replace(/\*{1,2}/g, '');
+                  const risk = detectRiskLevel(cleaned);
+                  const scoreColor = colorScore(cleaned);
+                  const cellColor = risk ? RISK_COLORS[risk] : (scoreColor !== TEXT_MUTED ? scoreColor : (ci === 0 ? '#e5e7eb' : TEXT_SECONDARY));
+                  return (
+                    <td key={ci} style={{
+                      padding: '10px 10px 10px 0', fontSize: '13px',
+                      color: cellColor,
+                      fontWeight: ci === 0 || risk || scoreColor !== TEXT_MUTED ? 500 : 400,
+                    }}>{renderInline(cleaned)}</td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -271,17 +342,22 @@ const renderBlock = (block, idx) => {
         </div>
       );
 
-    case 'callout':
+    case 'callout': {
+      const risk = detectRiskLevel(block.text);
+      const bg = risk ? RISK_BG[risk] : '#222';
+      const border = risk ? RISK_BORDER[risk] : '#333';
+      const textColor = risk ? RISK_COLORS[risk] : TEXT_PRIMARY;
       return (
         <div key={idx} style={{
-          background: '#222', border: `1px solid #333`, borderRadius: '8px',
+          background: bg, border: `1px solid ${border}`, borderRadius: '8px',
           padding: '16px 20px', marginBottom: '8px',
         }}>
-          <div style={{ fontSize: '14px', color: TEXT_PRIMARY, lineHeight: 1.7, fontWeight: 400 }}>
+          <div style={{ fontSize: '14px', color: textColor, lineHeight: 1.7, fontWeight: 500 }}>
             {renderInline(block.text)}
           </div>
         </div>
       );
+    }
 
     case 'paragraph':
       return (
