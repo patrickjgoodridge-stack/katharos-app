@@ -13558,11 +13558,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      </div>
    </div>
    ) : (
-   /* Scout: Simple "Analyzing" progress bar — centered */
+   /* Scout: Simple "Analyzing" progress bar — centered, hidden once report text arrives */
+   !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
      <ScreeningProgressBar startedAt={screeningStartRef.current ? new Date(screeningStartRef.current).toISOString() : new Date().toISOString()} isScreening={false} />
    </div>
-   )}
+   ))}
 
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
