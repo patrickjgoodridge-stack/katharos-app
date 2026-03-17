@@ -5025,7 +5025,27 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
            lines.push('🚨 CRITICAL: Live screening data confirms significant risk. Your risk score MUST reflect this data at 100/100 CRITICAL/BLOCKED. Do NOT downgrade based on training knowledge.');
          }
 
-         lines.push(`Sources checked: ${(pipelineRes.sourcesChecked || []).join(', ')}`);
+         // Map source names to searchable URLs
+        const sourceUrls = {
+          'OFAC SDN': 'https://sanctionssearch.ofac.treas.gov/',
+          'OpenSanctions': 'https://www.opensanctions.org/',
+          'Web Intelligence': 'https://www.google.com/search?q=' + encodeURIComponent(queryToScreen || ''),
+          'Treasury Announcements': 'https://home.treasury.gov/policy-issues/office-of-foreign-assets-control-sanctions-programs-and-information',
+          'EU Sanctions': 'https://sanctionsmap.eu/',
+          'UN Sanctions': 'https://www.un.org/securitycouncil/sanctions/information',
+          'UK OFSI': 'https://www.gov.uk/government/publications/the-uk-sanctions-list',
+          'ICIJ Offshore Leaks': 'https://offshoreleaks.icij.org/search?q=' + encodeURIComponent(queryToScreen || ''),
+          'OpenCorporates': 'https://opencorporates.com/companies?q=' + encodeURIComponent(queryToScreen || ''),
+          'SEC EDGAR': 'https://www.sec.gov/cgi-bin/browse-edgar?company=' + encodeURIComponent(queryToScreen || ''),
+          'DOJ': 'https://www.justice.gov/',
+          'OCCRP Aleph': 'https://aleph.occrp.org/',
+          'CourtListener': 'https://www.courtlistener.com/?q=' + encodeURIComponent(queryToScreen || ''),
+        };
+        const sourcesWithUrls = (pipelineRes.sourcesChecked || []).map(s => {
+          const url = sourceUrls[s];
+          return url ? `[${s}](${url})` : s;
+        });
+        lines.push(`Sources checked: ${sourcesWithUrls.join(', ')}`);
 
          liveSanctionsContext = '\n\n' + lines.join('\n') + '\n';
        }
@@ -5359,9 +5379,12 @@ FOR NEWS AND MEDIA CITATIONS — use Google search links so users can verify:
 
 SOURCE PLACEMENT — INLINE, NOT AT THE END:
 - Place source links INLINE with each claim, directly next to the relevant fact
-- Do NOT collect all sources into a section at the end
+- Do NOT collect all sources into a plain-text list at the end
 - For sanctions/registries: link to the actual database search page
 - For news/media: provide a Google search link with specific terms so the user can find the article
+- The "Sources checked" data in your context already includes markdown links — preserve them in your output
+- EVERY source mention must be a clickable markdown link: [Source Name](URL)
+- NEVER output plain-text source names like "OFAC SDN (confirmed)" — always hyperlink them: [OFAC SDN](https://sanctionssearch.ofac.treas.gov/) (confirmed)
 
 YOU MUST NOT:
 ✗ Ask for documents - the user wants a screening, not document analysis
