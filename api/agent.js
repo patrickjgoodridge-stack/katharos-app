@@ -967,6 +967,7 @@ Output your findings in the structured format defined in OUTPUT PROTOCOL above. 
 - Include GENERAL LICENSES only when active GLs apply. This is the highest-value intelligence gap — compliance teams miss GL expiry windows.
 - Include ADVERSE MEDIA only when material adverse media is found. Omit if nothing material.
 - Include OWNERSHIP HISTORY only when material ownership changes exist. Omit if none.
+- PROSE STYLING: In all prose paragraphs (SUBJECT IDENTITY description, PEP STATUS narrative, FINANCIAL EXPOSURE details, GAPS AND LIMITATIONS, RECOMMENDED ACTIONS body text, and any other narrative sections), bold key terms using **markdown bold**. Bold: entity names, company names, person names, jurisdictions/countries, legal terms (FCPA, DPA, plea agreement, sanctions, OFAC), risk indicators (high-risk, sanctioned, convicted, designated), dollar amounts, dates of significance, regulatory bodies (DOJ, CFTC, SEC, SFO), and industry terms (commodity trading, beneficial ownership, shell company, intermediary). This makes reports scannable — investigators should be able to skim bolded terms to grasp the key facts without reading every sentence.
 
 ALWAYS state the coverage gap. This is the core value proposition — the entities that standard screening misses are where the actual compliance exposure lives.
 
