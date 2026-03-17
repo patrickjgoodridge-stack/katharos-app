@@ -5,7 +5,6 @@ import React from 'react';
 // Preserves all content verbatim. Only applies visual formatting.
 // ═══════════════════════════════════════════════════════════════
 
-const BG = '#0d0d0d';
 const CARD_BG = '#1a1a1a';
 const CARD_BORDER = '#2a2a2a';
 const TEXT_PRIMARY = '#ffffff';
