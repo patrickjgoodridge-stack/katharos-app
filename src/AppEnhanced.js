@@ -394,6 +394,14 @@ export default function Katharos() {
      return stored ? JSON.parse(stored) : [];
    } catch { return []; }
  });
+ const [casesLoading, setCasesLoading] = useState(() => {
+   // Only show loading if localStorage has no cases (Supabase fetch pending)
+   try {
+     const stored = localStorage.getItem('marlowe_cases');
+     const parsed = stored ? JSON.parse(stored) : [];
+     return parsed.length === 0;
+   } catch { return true; }
+ });
  const [activeCase, setActiveCase] = useState(null);
  const [currentCaseId, setCurrentCaseId] = useState(null); // Track current case for auto-save
  const [files, setFiles] = useState([]);
@@ -812,20 +820,24 @@ const samplesDropdownRef = useRef(null);
  const loadCases = async () => {
    if (!isSupabaseConfigured()) {
      console.log('[Cases] Supabase not configured, using local state only');
+     setCasesLoading(false);
      return;
    }
    if (!user) {
      console.log('[Cases] No user logged in, skipping case load');
+     setCasesLoading(false);
      return;
    }
 
    console.log('[Cases] Loading cases for user:', user.email, 'workspace:', workspaceId);
+   setCasesLoading(true);
 
    try {
      const { data, error } = await fetchUserCases(workspaceId, user.email);
 
      if (error) {
        console.error('[Cases] Database error loading cases:', error);
+       setCasesLoading(false);
        return;
      }
 
@@ -842,10 +854,19 @@ const samplesDropdownRef = useRef(null);
      }
    } catch (err) {
      console.error('[Cases] Unexpected error loading cases:', err);
+   } finally {
+     setCasesLoading(false);
    }
  };
  loadCases();
  }, [user, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Clear viewingCaseId if the case doesn't exist (e.g. after cases reload)
+ useEffect(() => {
+   if (viewingCaseId && cases.length > 0 && !cases.find(c => c.id === viewingCaseId)) {
+     setViewingCaseId(null);
+   }
+ }, [viewingCaseId, cases]);
 
  // Load screening history from Supabase when user logs in
  useEffect(() => {
@@ -12531,7 +12552,19 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
  {/* Content */}
  <div style={{ padding: '24px 32px' }}>
- {cases.length === 0 ? (
+ {casesLoading ? (
+<div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '6px', padding: '40px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+{[1, 2, 3].map(i => (
+<div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: '#1a1a1a', borderRadius: '6px', animation: 'pulse 1.5s ease-in-out infinite', opacity: 0.6 }}>
+<div style={{ width: '36px', height: '36px', background: '#3a3a3a', borderRadius: '8px', flexShrink: 0 }} />
+<div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+<div style={{ width: `${60 + i * 10}%`, height: '12px', background: '#3a3a3a', borderRadius: '4px' }} />
+<div style={{ width: `${30 + i * 5}%`, height: '10px', background: '#2d2d2d', borderRadius: '4px' }} />
+</div>
+</div>
+))}
+</div>
+) : cases.length === 0 ? (
  <div style={{ background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '6px', padding: '80px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
  <div style={{ width: '48px', height: '48px', background: '#1a1a1a', border: '1px solid #3a3a3a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
  <Folder style={{ width: '22px', height: '22px', color: '#858585' }} />
@@ -12694,7 +12727,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  /* Case Detail View - Katharos Style */
  (() => {
    const viewingCase = getCaseById(viewingCaseId);
-   if (!viewingCase) { setViewingCaseId(null); return null; }
+   if (!viewingCase) return null;
    return (
      <div className="flex flex-col h-full" style={{ marginLeft: '56px', background: '#1a1a1a' }}>
        {/* Case Header */}

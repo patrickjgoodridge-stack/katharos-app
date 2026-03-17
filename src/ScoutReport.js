@@ -95,7 +95,7 @@ const renderInline = (text) => {
     } else if (first.type === 'link') {
       parts.push(
         <a key={key++} href={first.match[3]} target="_blank" rel="noopener noreferrer"
-          style={{ color: '#9ca3af', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+          style={{ color: '#d97706', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
           {first.match[2]}
         </a>
       );
@@ -156,12 +156,27 @@ const parseBlocks = (markdown) => {
       continue;
     }
 
-    // Numbered list
+    // Numbered list — collect each item with its body paragraphs
     if (trimmed.match(/^\d+[.)]\s/)) {
       const items = [];
-      while (i < lines.length && lines[i].trim().match(/^\d+[.)]\s/)) {
-        items.push(lines[i].trim().replace(/^\d+[.)]\s*/, ''));
-        i++;
+      while (i < lines.length) {
+        const cur = lines[i].trim();
+        const numMatch = cur.match(/^\d+[.)]\s(.*)/);
+        if (numMatch) {
+          // Start new item: collect title line + body lines until next numbered item or section
+          const itemLines = [numMatch[1]];
+          i++;
+          while (i < lines.length) {
+            const next = lines[i].trim();
+            if (next.match(/^\d+[.)]\s/) || next.match(/^#{1,4}\s+/) || next.startsWith('|')) break;
+            if (next) itemLines.push(next);
+            else if (itemLines.length > 1) itemLines.push(''); // preserve paragraph breaks within item
+            i++;
+          }
+          items.push(itemLines.join('\n').trim());
+        } else {
+          break;
+        }
       }
       blocks.push({ type: 'numbered', items });
       continue;
@@ -307,25 +322,49 @@ const renderBlock = (block, idx) => {
 
     case 'numbered':
       return (
-        <div key={idx} style={{ marginBottom: '8px' }}>
+        <div key={idx} style={{ marginBottom: '4px' }}>
           {block.items.map((item, ii) => {
-            // Split on first ** bold ** to get title vs body
-            const boldSplit = item.match(/^\*\*(.+?)\*\*[:\s—-]*(.*)/s);
+            // Split on first **bold** to get title, then body lines
+            const boldSplit = item.match(/^\*\*(.+?)\*\*[:\s—-]*([\s\S]*)/);
+            const title = boldSplit ? boldSplit[1] : null;
+            const bodyText = boldSplit ? boldSplit[2].trim() : item;
+
+            // Split body into paragraphs, detect "Impact:" labels
+            const bodyParagraphs = bodyText ? bodyText.split(/\n\n|\n(?=\S)/).filter(p => p.trim()) : [];
+
             return (
               <div key={ii} style={{
-                display: 'flex', gap: '12px', padding: '12px 0',
-                borderBottom: ii < block.items.length - 1 ? `1px solid #1f1f1f` : 'none',
+                display: 'flex', gap: '12px', padding: '14px 0 14px 0',
+                borderLeft: `3px solid #d97706`, marginBottom: '8px',
+                paddingLeft: '16px', borderRadius: '2px',
               }}>
-                <span style={{ minWidth: '28px', color: '#d97706', fontWeight: 600, fontSize: '15px', flexShrink: 0 }}>{ii + 1}</span>
+                <span style={{ minWidth: '24px', color: '#d97706', fontWeight: 600, fontSize: '15px', flexShrink: 0 }}>{ii + 1}</span>
                 <div style={{ flex: 1 }}>
-                  {boldSplit ? (
-                    <>
-                      <div style={{ color: TEXT_PRIMARY, fontWeight: 500, fontSize: '14px', marginBottom: '4px' }}>{boldSplit[1]}</div>
-                      {boldSplit[2] && <div style={{ ...bodyTextStyle, fontSize: '13px' }}>{renderInline(boldSplit[2])}</div>}
-                    </>
-                  ) : (
-                    <div style={{ ...bodyTextStyle }}>{renderInline(item)}</div>
+                  {title && (
+                    <div style={{ color: TEXT_PRIMARY, fontWeight: 500, fontSize: '14px', marginBottom: bodyParagraphs.length > 0 ? '6px' : 0 }}>
+                      {title}
+                    </div>
                   )}
+                  {bodyParagraphs.map((para, pi) => {
+                    const impactMatch = para.match(/^(Impact|Implication|Consequence|Note|Source|Risk|Significance):?\s*(.*)/is);
+                    if (impactMatch) {
+                      return (
+                        <div key={pi} style={{ marginBottom: pi < bodyParagraphs.length - 1 ? '4px' : 0 }}>
+                          <span style={{
+                            fontSize: '10px', fontWeight: 600, color: TEXT_MUTED,
+                            letterSpacing: '0.1em', textTransform: 'uppercase',
+                            marginRight: '8px',
+                          }}>{impactMatch[1]}</span>
+                          <span style={{ ...bodyTextStyle, fontSize: '13px' }}>{renderInline(impactMatch[2])}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={pi} style={{ ...bodyTextStyle, fontSize: '13px', marginBottom: pi < bodyParagraphs.length - 1 ? '4px' : 0 }}>
+                        {renderInline(para.trim())}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
