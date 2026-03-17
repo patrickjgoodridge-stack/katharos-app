@@ -31,10 +31,10 @@ import ActivityFeed from './ActivityFeed';
 import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
 import { fetchTeamUsers } from './userService';
 
-// Filled binoculars icon for Scout mode
+// Filled binoculars icon for Scout mode — matches reference image
 const BinocularsIcon = ({ size = 14, className = '', style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 512 512" fill="currentColor" className={className} style={style}>
-    <path d="M416 48c-27.6 0-52.8 11.2-71 29.2L336 96l-16-16c-12.5-12.5-32.8-12.5-45.3 0L256 98.7l-18.7-18.7c-12.5-12.5-32.8-12.5-45.3 0L176 96l-9-18.8C148.8 59.2 123.6 48 96 48 43 48 0 91 0 144v112c0 70.7 57.3 128 128 128h16c53 0 96-43 96-96v-32h32v32c0 53 43 96 96 96h16c70.7 0 128-57.3 128-128V144c0-53-43-96-96-96zM192 320c0 26.5-21.5 48-48 48h-16c-44.2 0-80-35.8-80-80V144c0-26.5 21.5-48 48-48s48 21.5 48 48v176zm272-32c0 44.2-35.8 80-80 80h-16c-26.5 0-48-21.5-48-48V144c0-26.5 21.5-48 48-48s48 21.5 48 48v144z"/>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
+    <path d="M21.2 13.4c0-2.7-1.1-5.2-2.9-7L17 5.1c-.4-.4-.9-.6-1.4-.6s-1 .2-1.4.6L13 6.3c-.3-.1-.7-.2-1-.2s-.7.1-1 .2L9.8 5.1c-.4-.4-.9-.6-1.4-.6s-1 .2-1.4.6L5.7 6.4c-1.8 1.8-2.9 4.3-2.9 7C2.8 17.1 6 20.3 9.7 20.3c1.5 0 2.8-.5 3.9-1.3h.8c1.1.8 2.4 1.3 3.9 1.3 3.7 0 6.9-3.2 6.9-6.9zM7.2 16.8c-1.9 0-3.4-1.5-3.4-3.4s1.5-3.4 3.4-3.4 3.4 1.5 3.4 3.4-1.5 3.4-3.4 3.4zm5.3-5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4.3 5.5c-1.9 0-3.4-1.5-3.4-3.4s1.5-3.4 3.4-3.4 3.4 1.5 3.4 3.4-1.5 3.4-3.4 3.4z" fillRule="evenodd"/>
   </svg>
 );
 
@@ -13115,7 +13115,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  disabled={!String(conversationInput || '').trim() && files.length === 0}
  style={{
    width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#b8733a',
+   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#9a7d2e',
    display: 'flex', alignItems: 'center', justifyContent: 'center',
    opacity: (!String(conversationInput || '').trim() && files.length === 0) ? 0.5 : 1,
    transition: 'background 0.15s, opacity 0.15s',
