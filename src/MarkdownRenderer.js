@@ -443,18 +443,14 @@ const CustomTr = ({ children }) => {
 // .score-value: color: #ef4444, font-weight: 600, font-family: JetBrains Mono, font-size: 13px
 const CustomTd = ({ children }) => {
   const text = getPlainText(children);
-  const scoreMatch = text.match(/^\+?(\d+)/);
   let cellStyle = { fontSize: '14px', padding: '12px 16px', borderBottom: '1px solid #3a3a3a', color: '#e5e5e5' };
 
-  // +N scores = risk factors (red), -N scores = mitigating (green), plain numbers = red (scores)
+  // Only color explicitly signed numbers: +N = risk factor (red), -N = mitigating (green)
   const signedMatch = text.match(/^([+-])(\d+)/);
   if (signedMatch) {
     const sign = signedMatch[1];
     const color = sign === '+' ? '#ef4444' : '#10b981';
     cellStyle = { ...cellStyle, color, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
-  } else if (scoreMatch) {
-    // Plain number (no sign) — red (these are risk scores)
-    cellStyle = { ...cellStyle, color: '#ef4444', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' };
   }
 
   // Color risk-level keywords in table cells

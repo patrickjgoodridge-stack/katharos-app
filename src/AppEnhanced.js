@@ -13154,13 +13154,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  disabled={!String(conversationInput || '').trim() && files.length === 0}
  style={{
    width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#9a7d2e',
+   background: (!String(conversationInput || '').trim() && files.length === 0) ? '#444' : '#ffffff',
    display: 'flex', alignItems: 'center', justifyContent: 'center',
    opacity: (!String(conversationInput || '').trim() && files.length === 0) ? 0.5 : 1,
    transition: 'background 0.15s, opacity 0.15s',
  }}
  >
- <ArrowRight className="w-4 h-4" style={{ color: '#fff', transform: 'rotate(-90deg)' }} />
+ <ArrowRight className="w-4 h-4" style={{ color: '#1a1a1a', transform: 'rotate(-90deg)' }} />
  </button>
  </div>
  </div>
