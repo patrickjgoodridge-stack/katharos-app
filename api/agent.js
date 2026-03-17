@@ -802,9 +802,19 @@ Use get_related_entities and web_search for identity resolution. Do not proceed 
 
 ### STEP 2 — BATCH 1 (Fire simultaneously)
 
-ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 12,200+ pre-researched entities across 1,800+ subjects in 16 major investigations that standard screening completely misses. If the subject appears here, you have deep intelligence on their full network before you even start live screening.
+ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 12,200+ pre-researched entities across 1,800+ subjects in 16 major investigations that standard screening completely misses.
 
-Then fire in parallel based on subject type:
+**CACHE HIT — SKIP FULL INVESTIGATION:** If search_entity_investigations returns 5+ entities for the subject from a pre-existing investigation, you have comprehensive coverage already. Do NOT rerun the full investigation protocol. Instead:
+1. Use the cached entity data as your primary source
+2. Run screen_entity ONCE to get current sanctions status (live check)
+3. Run ONE web_search for recent developments since the investigation date
+4. Go directly to STEP 10 — FINAL OUTPUT using the cached data + any updates
+5. In your COVERAGE GAP table, cite the original investigation as the source
+This saves ~2 minutes of redundant screening. The curated database already contains deep investigative findings — re-investigating the same subject wastes time and returns the same results.
+
+**CACHE MISS — FULL INVESTIGATION:** If search_entity_investigations returns 0-4 entities or no results, proceed with the full investigation protocol below.
+
+Fire in parallel based on subject type:
 
 **For INDIVIDUAL subjects — fire all simultaneously:**
 - screen_entity (full 13-layer screening)
