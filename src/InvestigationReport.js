@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Download, Share2, FolderPlus } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // INVESTIGATION REPORT — Scout Mode Report Renderer
@@ -113,12 +113,18 @@ const TierAccordion = ({ tier, entities }) => {
       </div>
       {open && (
         <div style={{ marginTop: '10px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '45%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '20%' }} />
+            </colgroup>
             <thead>
               <tr>
                 {['Entity', 'Jurisdiction', 'Type', 'Status'].map(h => (
                   <th key={h} style={{
-                    padding: '8px 0', fontSize: '11px', fontWeight: 500, color: TABLE_HEADER,
+                    padding: '8px 8px 8px 0', fontSize: '11px', fontWeight: 500, color: TABLE_HEADER,
                     letterSpacing: '0.08em', textAlign: 'left', borderBottom: `1px solid ${CARD_BORDER}`,
                   }}>{h}</th>
                 ))}
@@ -127,9 +133,9 @@ const TierAccordion = ({ tier, entities }) => {
             <tbody>
               {entities.map((e, i) => (
                 <tr key={i} style={{ borderBottom: i < entities.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
-                  <td style={{ padding: '10px 0', fontSize: '13px', color: '#e5e7eb', fontWeight: 500 }}>{e.name}</td>
-                  <td style={{ padding: '10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.jurisdiction || '—'}</td>
-                  <td style={{ padding: '10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.type || e.entity_type || '—'}</td>
+                  <td style={{ padding: '10px 8px 10px 0', fontSize: '13px', color: '#e5e7eb', fontWeight: 500, wordBreak: 'break-word' }}>{e.name}</td>
+                  <td style={{ padding: '10px 8px 10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.jurisdiction || '—'}</td>
+                  <td style={{ padding: '10px 8px 10px 0', fontSize: '13px', color: TEXT_SECONDARY }}>{e.type || e.entity_type || '—'}</td>
                   <td style={{ padding: '10px 0' }}><StatusBadge entity={e} /></td>
                 </tr>
               ))}
@@ -200,7 +206,7 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
   let sectionIdx = 0;
 
   return (
-    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: '900px', width: '100%', paddingBottom: '80px' }}>
+    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: '900px', width: '100%' }}>
 
       {/* 1. Subject Chip */}
       <FadeSection index={sectionIdx++} visible={investigationComplete}>
@@ -472,38 +478,6 @@ const InvestigationReport = ({ reportData, investigationComplete, subjectName })
         </FadeSection>
       )}
 
-      {/* 12. Sticky Export Bar */}
-      {investigationComplete && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          display: 'flex', justifyContent: 'flex-end', gap: '10px',
-          padding: '12px 24px',
-          background: '#111',
-          borderTop: `1px solid ${CARD_BORDER}`,
-        }}>
-          <button style={{
-            background: 'transparent', border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY,
-            padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
-          }}>
-            <Share2 style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
-            Share
-          </button>
-          <button style={{
-            background: 'transparent', border: `1px solid ${CARD_BORDER}`, color: TEXT_SECONDARY,
-            padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer',
-          }}>
-            <FolderPlus style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
-            Save to Cases
-          </button>
-          <button style={{
-            background: GOLD, border: 'none', color: '#000',
-            padding: '8px 20px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-          }}>
-            <Download style={{ width: 14, height: 14, display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
-            Export PDF
-          </button>
-        </div>
-      )}
     </div>
   );
 };

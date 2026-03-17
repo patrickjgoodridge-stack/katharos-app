@@ -6890,124 +6890,6 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        }
      }
 
-     // Fallback: parse structured report from markdown if REPORT_JSON not present
-     if (!reportData && classifiedIntent === 'SCREEN' && fullText) {
-       try {
-         const md = fullText;
-         // Extract risk level
-         const riskMatch = md.match(/(?:OVERALL\s+RISK|Risk\s+(?:Level|Rating))[:\s]*\*{0,2}(CRITICAL|HIGH|MEDIUM|LOW)\*{0,2}/i);
-         const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : null;
-         // Extract risk score
-         const scoreMatch = md.match(/(?:Risk\s+Score|Score)[:\s]*\*{0,2}(\d{1,3})\s*(?:\/\s*100|\s*out\s*of\s*100)?\*{0,2}/i) || md.match(/(\d{1,3})\s*\/\s*100/);
-         const riskScore = scoreMatch ? parseInt(scoreMatch[1]) : null;
-
-         if (riskLevel && riskScore !== null) {
-           // Extract bottom line header (first bold header after risk banner)
-           const blMatch = md.match(/#{1,3}\s*(.+(?:REJECT|BLOCK|APPROVE|CAUTION|ESCALAT|CLEAR|DO NOT TRANSACT).+)/i) ||
-                           md.match(/\*{2}(.+(?:REJECT|BLOCK|APPROVE|CAUTION|ESCALAT|CLEAR|DO NOT TRANSACT).+)\*{2}/i);
-           const bottomLineHeader = blMatch ? blMatch[1].replace(/[*#]/g, '').trim() : '';
-
-           // Extract summary — first substantial paragraph after risk info
-           const summaryMatch = md.match(/(?:#{1,3}\s*(?:Summary|Analysis|Overview|Bottom Line|Executive Summary)[^\n]*\n+)([\s\S]*?)(?=\n#{1,3}\s|\n\*{2}Risk Score|$)/i);
-           let summary = '';
-           if (summaryMatch) {
-             summary = summaryMatch[1].trim().split('\n\n')[0].replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-           } else {
-             // Grab first paragraph that looks like prose (>50 chars, not a header)
-             const paragraphs = md.split('\n\n').filter(p => p.length > 50 && !p.startsWith('#') && !p.startsWith('|') && !p.match(/^\s*[-*]\s/));
-             if (paragraphs[0]) {
-               summary = paragraphs[0].replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-             }
-           }
-
-           // Extract score breakdown from table
-           const scoreBreakdown = [];
-           const tableMatch = md.match(/(?:Risk\s+Score\s+Breakdown|Score\s+Breakdown|Scoring)[^\n]*\n[\s\S]*?\n\|[\s-|]+\|\n([\s\S]*?)(?=\n\n|\n#{1,3}\s)/i);
-           if (tableMatch) {
-             const rows = tableMatch[1].split('\n').filter(r => r.includes('|') && !r.match(/^[\s|-]+$/));
-             for (const row of rows) {
-               const cells = row.split('|').map(c => c.trim()).filter(Boolean);
-               if (cells.length >= 2) {
-                 const factor = cells[0].replace(/\*{1,2}/g, '');
-                 const scoreVal = parseInt(cells[1].replace(/[^0-9-]/g, ''));
-                 const reasoning = cells[2] || '—';
-                 if (!isNaN(scoreVal) && !factor.match(/subtotal|total|final|cap/i)) {
-                   scoreBreakdown.push({ factor, score: scoreVal, reasoning });
-                 }
-               }
-             }
-           }
-
-           // Extract entities from tables
-           const entities = [];
-           const entityTableMatch = md.match(/(?:Entity\s+Network|Entities|Entity\s+List|Tier)[^\n]*\n[\s\S]*?\n\|[\s-|]+\|\n([\s\S]*?)(?=\n\n|\n#{1,3}\s)/i);
-           if (entityTableMatch) {
-             const rows = entityTableMatch[1].split('\n').filter(r => r.includes('|') && !r.match(/^[\s|-]+$/));
-             for (const row of rows) {
-               const cells = row.split('|').map(c => c.trim()).filter(Boolean);
-               if (cells.length >= 3) {
-                 entities.push({
-                   name: cells[0].replace(/\*{1,2}/g, ''),
-                   jurisdiction: cells[1] || '—',
-                   type: cells[2] || 'Company',
-                   role: cells[3] || '',
-                   tier: cells[4] ? parseInt(cells[4]) || 1 : 1,
-                   sanctioned: (cells[5] || '').match(/yes|sdn|sanctioned|designated/i) ? true : false
-                 });
-               }
-             }
-           }
-
-           // Extract findings
-           const findings = [];
-           const findingsMatch = md.match(/(?:#{1,3}\s*(?:Key\s+Findings|Critical\s+Findings|Findings))[^\n]*\n([\s\S]*?)(?=\n#{1,3}\s|$)/i);
-           if (findingsMatch) {
-             const items = findingsMatch[1].match(/(?:^|\n)\s*\d+\.\s*\*{0,2}([^*\n]+)\*{0,2}[:\s]*(.*?)(?=\n\s*\d+\.|\n\n|$)/g);
-             if (items) {
-               for (const item of items) {
-                 const m = item.match(/\d+\.\s*\*{0,2}([^*\n:]+)\*{0,2}[:\s—-]*(.*)/s);
-                 if (m) findings.push({ title: m[1].trim(), detail: m[2].trim().replace(/\*{1,2}/g, '') });
-               }
-             }
-           }
-
-           // Extract recommended actions
-           const actions = { immediate: [], shortTerm: [], ongoing: [] };
-           const actionsMatch = md.match(/(?:#{1,3}\s*(?:Recommended\s+Actions|Actions|Recommendations))[^\n]*\n([\s\S]*?)(?=\n#{1,3}\s|$)/i);
-           if (actionsMatch) {
-             const text = actionsMatch[1];
-             const immMatch = text.match(/(?:Immediate|Urgent)[^\n]*\n([\s\S]*?)(?=\n\*{0,2}(?:Short|Medium|Ongoing|Long)|$)/i);
-             if (immMatch) actions.immediate = immMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
-             const shortMatch = text.match(/(?:Short|Medium)[^\n]*\n([\s\S]*?)(?=\n\*{0,2}(?:Ongoing|Long)|$)/i);
-             if (shortMatch) actions.shortTerm = shortMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
-             const ongoingMatch = text.match(/(?:Ongoing|Long)[^\n]*\n([\s\S]*?)(?=$)/i);
-             if (ongoingMatch) actions.ongoing = ongoingMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
-           }
-
-           // Extract bottom line explanation
-           let bottomLine = '';
-           if (summary) {
-             bottomLine = summary;
-           }
-
-           reportData = {
-             riskLevel,
-             riskScore,
-             bottomLineHeader,
-             bottomLine,
-             summary,
-             scoreBreakdown,
-             entities,
-             findings,
-             actions,
-             notes: '',
-           };
-           console.log('[Katharos] Parsed report from markdown:', { riskLevel, riskScore, entities: entities.length, findings: findings.length });
-         }
-       } catch (e) {
-         console.warn('[Katharos] Failed to parse markdown report:', e);
-       }
-     }
 
      // Add completed message to conversation (update case directly)
      const vizType = detectVisualizationRequest(userMessage);
@@ -13366,12 +13248,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
-   // Scout mode: render structured InvestigationReport if reportData exists
-   if (msg.reportData) {
-     const caseName = cases.find(c => c.id === currentCaseId)?.name || '';
-     const subjectName = caseName.split(' - ')[0] || caseName || 'Entity';
-     return <InvestigationReport reportData={msg.reportData} investigationComplete={true} subjectName={subjectName} />;
-   }
    const stripped = stripVizData(msg.content);
    const sections = splitReportSections(stripped);
    const exploreHandler = (text) => {
@@ -13620,32 +13496,55 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      </div>
    </div>
    ) : (
-   /* Scout: Progress bar with countdown */
+   /* Scout: Animated investigation checklist */
    <div style={{
      padding: '16px 20px',
-     background: '#242424',
-     border: '1px solid #3a3a3a',
+     background: '#1a1a1a',
+     border: '1px solid #2a2a2a',
      borderRadius: '12px',
      marginBottom: '16px',
+     fontFamily: "'Inter', -apple-system, sans-serif",
    }}>
-     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-         <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#888' }} />
-         <span style={{ fontSize: '13px', color: '#aaa', fontFamily: "'Inter', -apple-system, sans-serif" }}>Screening...</span>
-       </div>
-       {screeningCountdown > 0 && (
-         <span style={{ fontSize: '12px', color: '#666', fontFamily: "'Inter', -apple-system, sans-serif" }}>
-           ~{screeningCountdown}s
-         </span>
-       )}
-     </div>
-     <div style={{ width: '100%', height: '3px', background: '#333', borderRadius: '2px', overflow: 'hidden' }}>
-       <div style={{
-         height: '100%', background: '#666', borderRadius: '2px',
-         transition: 'width 1s ease-linear',
-         width: `${countdownTotalRef.current > 0 ? Math.min(((countdownTotalRef.current - screeningCountdown) / countdownTotalRef.current) * 95 + 5, 100) : 10}%`,
-       }} />
-     </div>
+     {(() => {
+       const total = countdownTotalRef.current || 45;
+       const elapsed = total - screeningCountdown;
+       const pct = total > 0 ? elapsed / total : 0;
+       const steps = [
+         { label: 'Resolving entity identity', threshold: 0.05 },
+         { label: 'Screening sanctions lists', threshold: 0.20 },
+         { label: 'Mapping corporate network', threshold: 0.40 },
+         { label: 'Analyzing adverse media', threshold: 0.60 },
+         { label: 'Generating risk assessment', threshold: 0.80 },
+       ];
+       return (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+           {steps.map((step, i) => {
+             const done = pct >= steps[i + 1]?.threshold || (i === steps.length - 1 && pct >= 0.95);
+             const active = !done && pct >= step.threshold;
+             const pending = !done && !active;
+             return (
+               <div key={i} style={{
+                 display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px',
+                 color: done ? '#666' : active ? '#ccc' : '#444',
+                 transition: 'color 0.4s ease',
+               }}>
+                 {done ? (
+                   <CheckCircle2 style={{ width: 14, height: 14, color: '#4ade80', flexShrink: 0 }} />
+                 ) : active ? (
+                   <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: '#c9a84c', flexShrink: 0 }} />
+                 ) : (
+                   <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid #333', flexShrink: 0 }} />
+                 )}
+                 <span style={{
+                   textDecoration: done ? 'line-through' : 'none',
+                   opacity: pending ? 0.4 : 1,
+                 }}>{step.label}{active ? '...' : ''}</span>
+               </div>
+             );
+           })}
+         </div>
+       );
+     })()}
    </div>
    )}
 
