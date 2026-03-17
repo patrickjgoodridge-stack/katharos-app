@@ -1615,6 +1615,13 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
    return titleCase(entityName) || desc.substring(0, 50);
  };
 
+ // Detect if a name refers to a corporate entity vs individual
+ const detectEntityType = (name) => {
+   if (!name) return 'individual';
+   const corporateIndicators = /\b(LLC|Ltd|Inc|Corp|AG|GmbH|SA|PLC|Group|Holdings|Bank|Fund|Trust|Foundation|Partners|Capital|Ventures|Co\.|Company|Enterprise|International|Association|Institute|Council|Authority|Commission|Ministry|Bureau|Department|Organization|Organisation)\b/i;
+   return corporateIndicators.test(name) ? 'entity' : 'individual';
+ };
+
  // Generate smart case name based on context (files, entity count, description)
  const generateCaseName = (description, attachedFiles, entityCount = 1) => {
    // Humanize a filename: "lp_onboarding_packet.docx" -> "LP Onboarding Packet"
@@ -4474,6 +4481,30 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    const abortController = new AbortController();
    conversationAbortRef.current = abortController;
 
+   // Fire screening in parallel on initial investigation only (not follow-ups or resumes)
+   let screeningPromise = null;
+   const isInitialInvestigation = !resumeState &&
+     !(cases.find(c => c.id === caseId)?.conversationTranscript?.filter(m => m.role === 'assistant').length > 0);
+   if (isInitialInvestigation) {
+     const entityName = cases.find(c => c.id === caseId)?.name || userMessage.trim();
+     const entityType = detectEntityType(entityName);
+     screeningPromise = fetch(`${API_BASE}/api/screening/unified`, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         query: entityName,
+         type: entityType,
+         sessionId: eventLogger?.sessionId || 'unknown',
+       }),
+       signal: abortController.signal,
+     })
+     .then(r => r.ok ? r.json() : null)
+     .catch(err => {
+       if (err.name !== 'AbortError') console.error('[Screening] Parallel screening failed:', err.message);
+       return null;
+     });
+   }
+
    try {
      const existingCase = cases.find(c => c.id === caseId);
      const response = await fetch(`${API_BASE}/api/agent`, {
@@ -4578,6 +4609,32 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
          return updated;
        }));
        setConversationMessages(prev => [...prev, assistantMsg]);
+     }
+
+     // Resolve parallel screening and store on case
+     if (screeningPromise) {
+       const screeningResult = await screeningPromise;
+       if (screeningResult) {
+         setCases(prev => prev.map(c => {
+           if (c.id !== caseId) return c;
+           const historyItem = {
+             id: `scr_${Date.now()}`,
+             query: c.name || userMessage.trim(),
+             type: detectEntityType(c.name || userMessage),
+             result: screeningResult,
+             timestamp: new Date().toISOString(),
+             riskLevel: screeningResult.overallRisk,
+             riskScore: screeningResult.riskScore,
+           };
+           const updated = {
+             ...c,
+             kycData: screeningResult,
+             screenings: [historyItem, ...(c.screenings || [])],
+           };
+           if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
+           return updated;
+         }));
+       }
      }
 
    } catch (err) {
@@ -13242,7 +13299,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} />;
+     const caseKycData = cases.find(c => c.id === currentCaseId)?.kycData || null;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
@@ -13478,7 +13536,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      const streamText = stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
      const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## SUBJECT IDENTITY');
      if (isReport) {
-       return <ReportTabs content={streamText} darkMode={darkMode} />;
+       const caseKycData = cases.find(c => c.id === currentCaseId)?.kycData || null;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} />;
      }
      return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
    })()}

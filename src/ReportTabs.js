@@ -1,4 +1,4 @@
-// ReportTabs.js — 5-tab report view for Scout mode investigations
+// ReportTabs.js — 5-tab report view combining agent investigation + structured KYC data
 import React, { useState, useMemo } from 'react';
 import {
   FileText,
@@ -8,6 +8,15 @@ import {
   Shield,
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
+import {
+  KYCRiskHeader,
+  KYCSanctionsCard,
+  KYCPEPCard,
+  KYCAdverseMediaCard,
+  KYCOwnershipSection,
+  KYCRegulatoryCard,
+  KYCRecommendationsCard,
+} from './KYCCards';
 
 // Tab configuration — maps sections to tabs by H2 heading keywords
 const TAB_CONFIG = [
@@ -89,7 +98,7 @@ const getTabForSection = (heading) => {
 };
 
 // Main ReportTabs component
-const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs }) => {
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData }) => {
   const [activeTab, setActiveTab] = useState('summary');
 
   // Parse sections and assign to tabs
@@ -112,14 +121,25 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs }) => {
     return grouped;
   }, [content]);
 
-  // Count sections per tab (for badges)
+  // Count sections per tab (for badges) — include KYC data presence
   const tabCounts = useMemo(() => {
     const counts = {};
     for (const tab of TAB_CONFIG) {
       counts[tab.id] = tabSections[tab.id]?.length || 0;
     }
+    // Add KYC data indicators to counts
+    if (kycData) {
+      if (kycData.subject) counts.summary = Math.max(counts.summary, 1);
+      if (kycData.sanctions?.matches?.length || kycData.pep?.matches?.length || kycData.adverseMedia?.articles?.length) {
+        counts.evidence = Math.max(counts.evidence, 1);
+      }
+      if (kycData.ownershipAnalysis) counts.network = Math.max(counts.network, 1);
+      if (kycData.regulatoryGuidance || kycData.recommendations?.length) {
+        counts.actions = Math.max(counts.actions, 1);
+      }
+    }
     return counts;
-  }, [tabSections]);
+  }, [tabSections, kycData]);
 
   // Build markdown for active tab
   const activeContent = useMemo(() => {
@@ -193,18 +213,48 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs }) => {
 
       {/* Tab Content */}
       <div style={{ minHeight: '200px' }}>
+        {/* KYC structured data — ABOVE markdown for summary tab */}
+        {kycData && activeTab === 'summary' && (
+          <KYCRiskHeader data={kycData} />
+        )}
+
+        {/* Agent markdown content */}
         {activeContent ? (
           <MarkdownRenderer content={activeContent} darkMode={darkMode} />
         ) : (
-          <div style={{
-            padding: '40px 20px',
-            textAlign: 'center',
-            color: '#4a4a4a',
-            fontSize: '13px',
-            fontStyle: 'italic',
-          }}>
-            {tabCounts[activeTab] === 0 ? 'Waiting for data...' : 'No content available'}
-          </div>
+          !kycData && (
+            <div style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              color: '#4a4a4a',
+              fontSize: '13px',
+              fontStyle: 'italic',
+            }}>
+              Waiting for data...
+            </div>
+          )
+        )}
+
+        {/* KYC structured data — BELOW markdown for evidence tab */}
+        {kycData && activeTab === 'evidence' && (
+          <>
+            <KYCSanctionsCard data={kycData} />
+            <KYCPEPCard data={kycData} />
+            <KYCAdverseMediaCard data={kycData} />
+          </>
+        )}
+
+        {/* KYC structured data — BELOW markdown for network tab */}
+        {kycData && activeTab === 'network' && (
+          <KYCOwnershipSection data={kycData} />
+        )}
+
+        {/* KYC structured data — BELOW markdown for actions tab */}
+        {kycData && activeTab === 'actions' && (
+          <>
+            <KYCRegulatoryCard data={kycData} />
+            <KYCRecommendationsCard data={kycData} />
+          </>
         )}
 
         {/* Network tab: render graph visualizations */}
