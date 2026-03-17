@@ -373,6 +373,147 @@ const renderBlock = (block, idx) => {
   }
 };
 
+// ── Urgency tier colors for Recommended Actions ──
+const URGENCY = {
+  IMMEDIATE: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: '#7f1d1d' },
+  'SHORT-TERM': { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: '#78350f' },
+  ONGOING: { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.06)', border: '#374151' },
+};
+
+// ── Render Recommended Actions with urgency tiers ──
+const renderActionsSection = (content) => {
+  if (!content) return null;
+  const contentBlocks = parseBlocks(content);
+  // Find numbered list
+  const numberedBlock = contentBlocks.find(b => b.type === 'numbered');
+  const otherBlocks = contentBlocks.filter(b => b.type !== 'numbered');
+  if (!numberedBlock) return renderContent(content);
+
+  const items = numberedBlock.items;
+  // Split into tiers: 1-3 immediate, 4-5 short-term, 6+ ongoing
+  const tiers = [
+    { label: 'IMMEDIATE', items: items.slice(0, 3) },
+    { label: 'SHORT-TERM', items: items.slice(3, 5) },
+    { label: 'ONGOING', items: items.slice(5) },
+  ].filter(t => t.items.length > 0);
+
+  return (
+    <>
+      {otherBlocks.map((b, i) => renderBlock(b, i))}
+      {tiers.map((tier, ti) => {
+        const u = URGENCY[tier.label] || URGENCY.ONGOING;
+        return (
+          <div key={ti} style={{ marginBottom: ti < tiers.length - 1 ? '12px' : 0 }}>
+            <div style={{
+              fontSize: '9px', fontWeight: 700, color: u.color,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              marginBottom: '8px', paddingLeft: '2px',
+            }}>{tier.label}</div>
+            {tier.items.map((item, ii) => {
+              const boldSplit = item.match(/^\*\*(.+?)\*\*[:\s—-]*(.*)/s);
+              return (
+                <div key={ii} style={{
+                  background: u.bg, borderLeft: `3px solid ${u.color}`, borderRadius: '4px',
+                  padding: '10px 16px', marginBottom: '6px',
+                }}>
+                  {boldSplit ? (
+                    <>
+                      <div style={{ color: TEXT_PRIMARY, fontWeight: 500, fontSize: '13px' }}>{boldSplit[1]}</div>
+                      {boldSplit[2] && <div style={{ ...bodyTextStyle, fontSize: '12px', marginTop: '2px' }}>{renderInline(boldSplit[2])}</div>}
+                    </>
+                  ) : (
+                    <div style={{ ...bodyTextStyle, fontSize: '13px' }}>{renderInline(item)}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
+// ── Render Match Confidence with separated label/value and styled sublabels ──
+const renderConfidenceSection = (title, content) => {
+  if (!content) return null;
+  // Extract confidence level and percentage from title
+  const confMatch = title.match(/match\s+confidence:?\s*(HIGH|MEDIUM|LOW)\s*(?:[—-]\s*)?(\d+%?)?/i);
+  const confLevel = confMatch ? confMatch[1].toUpperCase() : null;
+  const confPct = confMatch ? confMatch[2] : null;
+  const confColor = confLevel === 'HIGH' ? '#22c55e' : confLevel === 'MEDIUM' ? '#eab308' : confLevel === 'LOW' ? '#ef4444' : TEXT_SECONDARY;
+
+  const contentBlocks = parseBlocks(content);
+
+  return (
+    <>
+      {/* Header row: label + badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div style={sectionLabelStyle}>Match Confidence</div>
+        {confLevel && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: confColor }}>{confLevel}</span>
+            {confPct && <span style={{ fontSize: '14px', color: TEXT_MUTED }}>— {confPct}</span>}
+          </div>
+        )}
+      </div>
+      {/* Content with sublabels */}
+      {contentBlocks.map((block, bi) => {
+        // Detect sublabels like "Factors supporting match" or "Factors reducing confidence"
+        if (block.type === 'section' && /factors?\s+(supporting|reducing|against)/i.test(block.title)) {
+          const subContent = block.content ? parseBlocks(block.content) : [];
+          return (
+            <div key={bi} style={{ marginBottom: '12px' }}>
+              <div style={{
+                fontSize: '10px', fontWeight: 600, color: TEXT_MUTED,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                marginBottom: '8px',
+              }}>{block.title}</div>
+              {subContent.map((sb, si) => {
+                if (sb.type === 'bullets') {
+                  return (
+                    <div key={si}>
+                      {sb.items.map((item, ii) => (
+                        <div key={ii} style={{
+                          padding: '8px 0 8px 12px', ...bodyTextStyle, fontSize: '13px',
+                          borderLeft: `2px solid ${CARD_BORDER}`,
+                          marginBottom: ii < sb.items.length - 1 ? '4px' : 0,
+                        }}>
+                          {renderInline(item)}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return renderBlock(sb, si);
+              })}
+            </div>
+          );
+        }
+        // Regular sub-content
+        if (block.type === 'bullets') {
+          return (
+            <div key={bi}>
+              {block.items.map((item, ii) => (
+                <div key={ii} style={{
+                  padding: '8px 0 8px 12px', ...bodyTextStyle, fontSize: '13px',
+                  borderLeft: `2px solid ${CARD_BORDER}`,
+                  marginBottom: ii < block.items.length - 1 ? '4px' : 0,
+                }}>
+                  {renderInline(item)}
+                </div>
+              ))}
+            </div>
+          );
+        }
+        return renderBlock(block, bi);
+      })}
+    </>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
@@ -496,9 +637,29 @@ const ScoutReport = ({ content }) => {
         </div>
       )}
 
-      {/* 5. SECTIONS — each in its own card */}
+      {/* 5. SECTIONS — each in its own card, with special renderers */}
       {sectionBlocks.map((section, si) => {
         const hasContent = section.content && section.content.trim();
+        const isActions = /recommended\s+actions?|action\s+items?/i.test(section.title);
+        const isConfidence = /match\s+confidence/i.test(section.title);
+
+        if (isConfidence) {
+          return (
+            <div key={`sec-${si}`} style={cardStyle}>
+              {renderConfidenceSection(section.title, section.content)}
+            </div>
+          );
+        }
+
+        if (isActions) {
+          return (
+            <div key={`sec-${si}`} style={cardStyle}>
+              <div style={sectionLabelStyle}>{section.title}</div>
+              {hasContent && renderActionsSection(section.content)}
+            </div>
+          );
+        }
+
         return (
           <div key={`sec-${si}`} style={cardStyle}>
             <div style={sectionLabelStyle}>{section.title}</div>
