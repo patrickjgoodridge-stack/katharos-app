@@ -13,6 +13,7 @@ import AuthPage from './AuthPage';
 import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } from './casesService';
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
+import ScoutReport from './ScoutReport';
 import InlineChatGraph from './InlineChatGraph';
 import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
@@ -13247,7 +13248,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
-   const stripped = stripVizData(msg.content);
+   const stripped = stripVizData(msg.content).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   // Scout mode: use greyscale card-based formatter
+   if (investigationMode === 'scout') {
+     return <ScoutReport content={stripped} />;
+   }
    const sections = splitReportSections(stripped);
    const exploreHandler = (text) => {
      setConversationInput(`Tell me more about: ${text}`);
@@ -13549,7 +13554,9 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-     <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} darkMode={darkMode} />
+     investigationMode === 'scout'
+       ? <ScoutReport content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} />
+       : <MarkdownRenderer content={stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()} darkMode={darkMode} />
    )}
  </div>
  </div>
