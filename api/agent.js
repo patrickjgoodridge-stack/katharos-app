@@ -667,16 +667,6 @@ When the investigation is complete, output your structured report in this exact 
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
 [One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
 
-## SCORING BREAKDOWN
-
-| Factor | Score |
-|--------|-------|
-| [Risk factor name] | +[N] |
-| [Risk factor name] | +[N] |
-| Subtotal | [N] |
-| Mitigating | -[N] |
-| **Final Score** | **[N]** |
-
 ## ENTITY NETWORK
 
 | Entity | Type | Jurisdiction | Risk | Sanctioned | Match % | Connection | Source |
@@ -719,15 +709,16 @@ Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 | [YYYY-MM-DD] | [Program name] | [OFAC/EU/UK OFSI/UN] | [Entity name] | [Yes/No] | [Date or N/A] |
 
 ## RISK SCORE BREAKDOWN
+[MANDATORY. Score each factor within its weighted range. Do NOT use +0 — if a factor contributes zero risk, use 0. Every factor MUST have a reasoning sentence even if score is 0. The six scores MUST sum to the Final Score which MUST match the OVERALL RISK score.]
 
 | Factor | Weight | Score | Reasoning |
 |--------|--------|-------|-----------|
-| OFAC SDN designation | 40% | [0-40] | [one line] |
-| Secondary sanctions risk | 20% | [0-20] | [one line] |
-| Adverse media | 15% | [0-15] | [one line] |
-| PEP exposure | 10% | [0-10] | [one line] |
-| Entity complexity | 10% | [0-10] | [one line] |
-| Jurisdiction risk | 5% | [0-5] | [one line] |
+| OFAC SDN designation | 40% | [0-40] | [one line — e.g. "Direct designation under EO 13846" or "No SDN match found"] |
+| Secondary sanctions risk | 20% | [0-20] | [one line — e.g. "OFAC 50% rule applies to 3 subsidiaries" or "No secondary exposure identified"] |
+| Adverse media | 15% | [0-15] | [one line — e.g. "Multiple enforcement actions 2022-2024" or "No material adverse media"] |
+| PEP exposure | 10% | [0-10] | [one line — e.g. "Tier 1 PEP — head of state-owned enterprise" or "No political exposure"] |
+| Entity complexity | 10% | [0-10] | [one line — e.g. "14 entities across 6 jurisdictions" or "Simple corporate structure"] |
+| Jurisdiction risk | 5% | [0-5] | [one line — e.g. "Operations in FATF grey-list jurisdiction" or "Low-risk jurisdictions only"] |
 | **Final Score** | **100%** | **[Total]/100** | **[CRITICAL/HIGH/MEDIUM/LOW]** |
 
 ## GENERAL LICENSES

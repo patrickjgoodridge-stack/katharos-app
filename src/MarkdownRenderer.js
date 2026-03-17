@@ -443,7 +443,7 @@ const CustomTr = ({ children }) => {
 const CustomTd = ({ children }) => {
   const text = getPlainText(children);
   const scoreMatch = text.match(/^\+?(\d+)/);
-  let cellStyle = { fontSize: '14px', padding: '12px 16px', borderBottom: '1px solid #3a3a3a', color: '#d4d4d4' };
+  let cellStyle = { fontSize: '14px', padding: '12px 16px', borderBottom: '1px solid #3a3a3a', color: '#e5e5e5' };
 
   // +N scores = risk factors (red), -N scores = mitigating (green), plain numbers = red (scores)
   const signedMatch = text.match(/^([+-])(\d+)/);
