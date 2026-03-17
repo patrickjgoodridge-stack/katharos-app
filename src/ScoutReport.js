@@ -388,6 +388,29 @@ const ScoutReport = ({ content }) => {
         if (group.type === 'section') {
           const block = group.block;
           const hasContent = block.content && block.content.trim();
+          const isRiskHeader = /overall\s+risk/i.test(block.title);
+
+          if (isRiskHeader) {
+            const risk = detectRiskLevel(block.title);
+            const riskColor = risk ? RISK_COLORS[risk] : '#ef4444';
+            const riskBg = risk ? RISK_BG[risk] : '#7f1d1d';
+            const riskBorder = risk ? RISK_BORDER[risk] : '#dc2626';
+            return (
+              <div key={gi} style={{
+                background: riskBg, border: `1px solid ${riskBorder}`, borderRadius: '8px',
+                padding: '20px 24px', marginBottom: '12px',
+              }}>
+                <div style={{
+                  fontSize: '18px', fontWeight: 700, color: riskColor,
+                  letterSpacing: '0.05em', textTransform: 'uppercase',
+                }}>
+                  {block.title}
+                </div>
+                {hasContent && <div style={{ marginTop: '14px' }}>{renderContent(block.content)}</div>}
+              </div>
+            );
+          }
+
           return (
             <div key={gi} style={cardStyle}>
               <div style={{
