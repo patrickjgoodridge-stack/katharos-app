@@ -4482,13 +4482,14 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    conversationAbortRef.current = abortController;
 
    // Fire screening in parallel on initial investigation only (not follow-ups or resumes)
-   let screeningPromise = null;
+   // Uses fire-and-forget pattern — stores result as soon as it arrives, even during agent streaming
    const isInitialInvestigation = !resumeState &&
      !(cases.find(c => c.id === caseId)?.conversationTranscript?.filter(m => m.role === 'assistant').length > 0);
    if (isInitialInvestigation) {
      const entityName = cases.find(c => c.id === caseId)?.name || userMessage.trim();
      const entityType = detectEntityType(entityName);
-     screeningPromise = fetch(`${API_BASE}/api/screening/unified`, {
+     console.log('[Screening] Firing parallel screening for:', entityName, entityType);
+     fetch(`${API_BASE}/api/screening/unified`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
@@ -4498,10 +4499,36 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
        }),
        signal: abortController.signal,
      })
-     .then(r => r.ok ? r.json() : null)
+     .then(r => {
+       console.log('[Screening] Response status:', r.status);
+       return r.ok ? r.json() : null;
+     })
+     .then(screeningResult => {
+       if (screeningResult) {
+         console.log('[Screening] Got result, storing kycData on case', caseId);
+         setCases(prev => prev.map(c => {
+           if (c.id !== caseId) return c;
+           const historyItem = {
+             id: `scr_${Date.now()}`,
+             query: c.name || userMessage.trim(),
+             type: detectEntityType(c.name || userMessage),
+             result: screeningResult,
+             timestamp: new Date().toISOString(),
+             riskLevel: screeningResult.overallRisk,
+             riskScore: screeningResult.riskScore,
+           };
+           return {
+             ...c,
+             kycData: screeningResult,
+             screenings: [historyItem, ...(c.screenings || [])],
+           };
+         }));
+       } else {
+         console.warn('[Screening] No result returned (null)');
+       }
+     })
      .catch(err => {
        if (err.name !== 'AbortError') console.error('[Screening] Parallel screening failed:', err.message);
-       return null;
      });
    }
 
@@ -4609,32 +4636,6 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
          return updated;
        }));
        setConversationMessages(prev => [...prev, assistantMsg]);
-     }
-
-     // Resolve parallel screening and store on case
-     if (screeningPromise) {
-       const screeningResult = await screeningPromise;
-       if (screeningResult) {
-         setCases(prev => prev.map(c => {
-           if (c.id !== caseId) return c;
-           const historyItem = {
-             id: `scr_${Date.now()}`,
-             query: c.name || userMessage.trim(),
-             type: detectEntityType(c.name || userMessage),
-             result: screeningResult,
-             timestamp: new Date().toISOString(),
-             riskLevel: screeningResult.overallRisk,
-             riskScore: screeningResult.riskScore,
-           };
-           const updated = {
-             ...c,
-             kycData: screeningResult,
-             screenings: [historyItem, ...(c.screenings || [])],
-           };
-           if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
-           return updated;
-         }));
-       }
      }
 
    } catch (err) {
