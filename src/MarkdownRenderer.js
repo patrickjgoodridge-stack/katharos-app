@@ -303,6 +303,20 @@ const CustomParagraph = ({ children }) => {
   const text = getPlainText(children);
   const darkMode = useContext(DarkModeContext); // eslint-disable-line no-unused-vars
 
+  // Urgency tier labels in RECOMMENDED ACTIONS: IMMEDIATE (red), SHORT-TERM (amber), ONGOING (grey)
+  const upperTrimmed = text.trim().toUpperCase();
+  if (upperTrimmed === 'IMMEDIATE' || upperTrimmed === 'SHORT-TERM' || upperTrimmed === 'ONGOING') {
+    const tierColors = { 'IMMEDIATE': '#ef4444', 'SHORT-TERM': '#f59e0b', 'ONGOING': '#6b7280' };
+    const borderColor = tierColors[upperTrimmed] || '#6b7280';
+    return (
+      <div style={{ borderLeft: `2px solid ${borderColor}`, paddingLeft: '12px', marginTop: '20px', marginBottom: '4px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: borderColor }}>
+          {children}
+        </span>
+      </div>
+    );
+  }
+
   // Check for bottom line callout - exact mockup: .bottom-line
   // border-left: 2px solid #ffffff, padding: 16px 20px, background: #2d2d2d, border-radius: 0 6px 6px 0
   if (text.toLowerCase().startsWith('bottom line:')) {

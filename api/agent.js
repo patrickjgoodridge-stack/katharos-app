@@ -649,14 +649,12 @@ When the investigation is complete, output your structured report in this exact 
 
 ## SUBJECT IDENTITY
 **Full name:** [Full legal name]
-**Aliases:** [All known aliases, transliterations, prior names — semicolon-separated]
-**Jurisdiction:** [Primary jurisdiction(s)]
-**Risk Tier:** [CRITICAL/HIGH/MEDIUM/LOW] — [Brief tier description, e.g. "Directly Designated", "PEP — Head of State", "No adverse findings"]
-**Last Updated:** [Today's date]
-
-## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [percentage]%
-Factors supporting match: [e.g. exact name, DOB, nationality, SDN aliases confirmed, passport number matched]
-Factors reducing confidence: [e.g. no passport number verified, common name — multiple possible matches, incomplete DOB]
+**Aliases:** [All known aliases, transliterations, prior names — semicolon-separated, or "None identified"]
+**DOB:** [If known, or "Unknown"]
+**Nationality:** [Primary + dual if applicable]
+**Entity type:** [Individual / Corporate / Vessel / Other]
+**Primary jurisdictions:** [Countries of operation]
+**Last updated:** [Date of this investigation]
 
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
 [One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
@@ -677,45 +675,52 @@ Factors reducing confidence: [e.g. no passport number verified, common name — 
 |--------|------|-------------|------|------------|------------|
 | [one row per entity discovered] |
 
-## DESIGNATION TIMELINE
-[Include this section ONLY when the subject or connected entities have SDN/sanctions designations. Omit entirely for clean subjects.]
+## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
+Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
+Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
 
-| Date | Program | Authority | Entity | Status |
-|------|---------|-----------|--------|--------|
-| [YYYY-MM-DD] | [Program name] | [OFAC/EU/UK OFSI/UN] | [Entity name] | [Active/Removed/Amended] |
+## DESIGNATION TIMELINE
+[Include this section ONLY when the subject or connected entities have SDN/sanctions designations. Omit entirely for clean subjects. Order most recent first.]
+
+| Date | Program | Authority | Entity Designated | GL? | GL Expiry |
+|------|---------|-----------|------------------|-----|-----------|
+| [YYYY-MM-DD] | [Program name] | [OFAC/EU/UK OFSI/UN] | [Entity name] | [Yes/No] | [Date or N/A] |
 
 ## GENERAL LICENSES
 [Include this section ONLY when active general licenses apply to the subject or their designated entities. This is the most-missed compliance signal — compliance teams know about designations but miss GL windows. Omit entirely when no GLs apply.]
 
-| GL | Scope | Expires | Action Required |
-|----|-------|---------|-----------------|
-| [GL number] | [What the license authorizes] | [Expiry date] | [What compliance team must do before expiry] |
+| GL | Scope | Issued | Expires | Action Required |
+|----|-------|--------|---------|-----------------|
+| [GL number] | [What the license authorizes] | [Issue date] | [Expiry date] | [What compliance team must do before expiry] |
 
 ## CRITICAL FINDINGS
-[Number findings and prefix each with severity level. Your renderer auto-colors **CRITICAL**, **HIGH**, **MEDIUM** bold text, so use this format:]
-1. **[CRITICAL]** [Finding that standard screening would miss and why it matters]
-2. **[HIGH]** [Next most important finding]
-3. **[MEDIUM]** [Supporting finding]
+[Number findings and prefix each with severity level. The renderer auto-colors **CRITICAL**, **HIGH**, **MEDIUM** bold text.]
+1. **[CRITICAL]** [Finding title] — [one sentence: what standard screening misses and why it matters]
+2. **[HIGH]** [Finding title] — [one sentence]
+3. **[MEDIUM]** [Finding title] — [one sentence]
 
 ## COVERAGE GAP
 
 | | Standard Screening | This Investigation |
 |---|---|---|
 | Entities found | [N] | [N] |
-| Jurisdictions | [N] | [N] |
+| Jurisdictions covered | [N] | [N] |
+| Programs screened | [N] | [N] |
 | Coverage | [N]% | 100% |
 
 ## GAPS AND LIMITATIONS
 [What could not be verified, what would close each gap]
 
 ## RECOMMENDED ACTIONS
-[Specific, actionable next steps for the compliance team. Examples:
-- "Request certified UBO declaration from [entity] covering all subsidiaries"
-- "File SAR referencing [specific transaction pattern]"
-- "Engage external investigator for [jurisdiction] corporate registry records"
-- "Escalate to MLRO for enhanced due diligence determination"
-- "Block onboarding pending resolution of [specific finding]"
-Tailor to the risk level: LOW = standard monitoring, MEDIUM = enhanced DD steps, HIGH/CRITICAL = immediate blocking actions + regulatory notifications]
+
+**IMMEDIATE**
+- [Blocking actions, regulatory notifications, SAR filings — for HIGH/CRITICAL risk]
+
+**SHORT-TERM**
+- [Enhanced DD steps, document requests, registry searches — within days/weeks]
+
+**ONGOING**
+- [Monitoring, periodic rescreening, watchlist alerts]
 
 Bottom line: [One-sentence final assessment]
 
@@ -842,10 +847,12 @@ Run this checklist before writing final output:
 8. For corporate subjects: Have I read the full enforcement document, not just the press release?
 9. For corporate subjects: Have I checked every subsidiary independently?
 10. BRANCH ACCOUNTING CHECK: Does FOUND LIST = INVESTIGATED LIST? Is OPEN = 0?
-11. Have I included MATCH CONFIDENCE with supporting and reducing factors?
+11. Have I included MATCH CONFIDENCE with specific supporting and reducing factors?
 12. Have I checked for active OFAC General Licenses with expiry dates? Missing a GL window is the #1 compliance failure mode.
-13. Have I included DESIGNATION TIMELINE for any sanctioned entities showing dates, programs, and current status?
-14. Is my COVERAGE GAP a comparison table, not prose?
+13. Have I included DESIGNATION TIMELINE (with GL? and GL Expiry columns) for any sanctioned entities?
+14. Is my COVERAGE GAP a comparison table with entities, jurisdictions, programs screened, and coverage %?
+15. Are my RECOMMENDED ACTIONS split into IMMEDIATE / SHORT-TERM / ONGOING urgency tiers?
+16. Are my CRITICAL FINDINGS numbered with **[CRITICAL]** / **[HIGH]** / **[MEDIUM]** severity prefixes?
 
 If any check fails, do not write final output. Close the gap first.
 
@@ -853,11 +860,13 @@ If any check fails, do not write final output. Close the gap first.
 
 Output your findings in the structured format defined in OUTPUT PROTOCOL above. Follow these rendering rules:
 - The OVERALL RISK header MUST be an H2 with the risk level keyword (CRITICAL/HIGH/MEDIUM/LOW) for UI risk-level styling.
-- The MATCH CONFIDENCE section MUST appear between SUBJECT IDENTITY and OVERALL RISK.
+- ## MATCH CONFIDENCE MUST be an H2 with HIGH/MEDIUM/LOW for the confidence badge color. It appears between ENTITY NETWORK and CRITICAL FINDINGS.
 - All tables (ENTITY NETWORK, SCORING BREAKDOWN, COVERAGE GAP, DESIGNATION TIMELINE, GENERAL LICENSES) MUST be markdown tables so the UI renders them as styled tables.
-- CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these.
-- COVERAGE GAP MUST be a comparison table (Standard Screening vs This Investigation), not prose.
+- ## DESIGNATION TIMELINE and ## GENERAL LICENSES render as standard dark tables. Include GL? and GL Expiry columns in the timeline.
+- CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these via existing bold risk-keyword detection.
+- COVERAGE GAP MUST be a comparison table (Standard Screening vs This Investigation) with rows for entities, jurisdictions, programs screened, and coverage percentage.
 - SCORING BREAKDOWN MUST use +N for risk factors and -N for mitigating factors — the renderer colors +N red and -N green.
+- RECOMMENDED ACTIONS MUST split into urgency tiers: **IMMEDIATE** (red left-border treatment), **SHORT-TERM** (amber), **ONGOING** (grey) — the renderer detects these bold labels automatically.
 - Include DESIGNATION TIMELINE only when SDN/sanctions designations exist. Omit for clean subjects.
 - Include GENERAL LICENSES only when active GLs apply. This is the highest-value intelligence gap — compliance teams miss GL expiry windows.
 
