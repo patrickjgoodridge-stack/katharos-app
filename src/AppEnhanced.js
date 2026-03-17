@@ -5393,6 +5393,8 @@ YOU MUST NOT:
 ✗ Use [Doc 1] format - there are no documents to cite
 ✗ Fabricate specific news article URLs — use Google search verification links instead
 ✗ Collect sources at the end — put them inline with each claim
+✗ Create a "Sources & References" or "Sources" section at the end — NEVER do this
+✗ List sources at the bottom of your response in any format — ALL citations must be inline
 
 EXAMPLE - If user asks "Screen Vladimir Potanin":
 "Added to the [UK Sanctions List](https://www.gov.uk/government/publications/the-uk-sanctions-list) in June 2022. Controls Norilsk Nickel with a 35.95% stake ([OpenCorporates](https://opencorporates.com/companies/ru/1025400000020)). Subject of extensive Reuters coverage regarding asset protection efforts ([verify](https://www.google.com/search?q=%22Vladimir+Potanin%22+Reuters+sanctions+assets))."

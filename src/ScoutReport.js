@@ -351,9 +351,9 @@ const ScoutReport = ({ content }) => {
   // Strip any hidden JSON blocks
   const cleaned = content.replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
 
-  // Parse top-level blocks, filter out Adverse Media section
+  // Parse top-level blocks, filter out Adverse Media and Sources sections
   const blocks = parseBlocks(cleaned).filter(b =>
-    !(b.type === 'section' && /adverse\s+media/i.test(b.title))
+    !(b.type === 'section' && /adverse\s+media|sources\s*[&and]*\s*references|references\s*[&and]*\s*sources|^sources$/i.test(b.title))
   );
 
   // Group blocks: sections get their own cards, consecutive non-section blocks get wrapped in a card
