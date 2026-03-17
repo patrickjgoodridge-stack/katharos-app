@@ -13558,56 +13558,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      </div>
    </div>
    ) : (
-   /* Scout: Animated investigation checklist */
-   <div style={{
-     padding: '16px 20px',
-     background: '#1a1a1a',
-     border: '1px solid #2a2a2a',
-     borderRadius: '12px',
-     marginBottom: '16px',
-     fontFamily: "'Inter', -apple-system, sans-serif",
-   }}>
-     {(() => {
-       const total = countdownTotalRef.current || 45;
-       const elapsed = total - screeningCountdown;
-       const pct = total > 0 ? elapsed / total : 0;
-       const steps = [
-         { label: 'Resolving entity identity', threshold: 0.05 },
-         { label: 'Screening sanctions lists', threshold: 0.20 },
-         { label: 'Mapping corporate network', threshold: 0.40 },
-         { label: 'Analyzing adverse media', threshold: 0.60 },
-         { label: 'Generating risk assessment', threshold: 0.80 },
-       ];
-       return (
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-           {steps.map((step, i) => {
-             const done = pct >= steps[i + 1]?.threshold || (i === steps.length - 1 && pct >= 0.95);
-             const active = !done && pct >= step.threshold;
-             const pending = !done && !active;
-             return (
-               <div key={i} style={{
-                 display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px',
-                 color: done ? '#666' : active ? '#ccc' : '#444',
-                 transition: 'color 0.4s ease',
-               }}>
-                 {done ? (
-                   <CheckCircle2 style={{ width: 14, height: 14, color: '#4ade80', flexShrink: 0 }} />
-                 ) : active ? (
-                   <Loader2 className="animate-spin" style={{ width: 14, height: 14, color: '#c9a84c', flexShrink: 0 }} />
-                 ) : (
-                   <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid #333', flexShrink: 0 }} />
-                 )}
-                 <span style={{
-                   textDecoration: done ? 'line-through' : 'none',
-                   opacity: pending ? 0.4 : 1,
-                 }}>{step.label}{active ? '...' : ''}</span>
-               </div>
-             );
-           })}
-         </div>
-       );
-     })()}
-   </div>
+   /* Scout: Simple "Analyzing" progress bar */
+   <ScreeningProgressBar startedAt={screeningStartRef.current ? new Date(screeningStartRef.current).toISOString() : new Date().toISOString()} isScreening={false} />
    )}
 
    {/* Show streaming text */}
