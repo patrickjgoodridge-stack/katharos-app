@@ -37,28 +37,31 @@ const RISK_BORDER = {
 // Detect risk level from text
 const detectRiskLevel = (text) => {
   if (!text) return null;
-  // BLOCKED/REJECT/DO NOT TRANSACT map to CRITICAL
   if (/\b(BLOCKED|REJECT|DO\s+NOT\s+TRANSACT)\b/i.test(text)) return 'CRITICAL';
   const m = text.match(/\b(CRITICAL|HIGH|MEDIUM|LOW)\b/i);
   return m ? m[1].toUpperCase() : null;
 };
 
-
 const cardStyle = {
   background: CARD_BG,
   border: `1px solid ${CARD_BORDER}`,
   borderRadius: '8px',
-  padding: '20px',
+  padding: '20px 24px',
   marginBottom: '12px',
 };
 
-// ── Render plain text (no risk coloring in body text) ──
-const renderPlainText = (text, baseKey) => {
-  if (!text) return null;
-  return [<span key={baseKey || 0}>{text}</span>];
+const sectionLabelStyle = {
+  fontSize: '10px', fontWeight: 600, color: TEXT_MUTED,
+  letterSpacing: '0.12em', textTransform: 'uppercase',
+  marginBottom: '14px',
 };
 
-// ── Inline markdown parser (bold, italic, links, code) ──
+const bodyTextStyle = {
+  fontSize: '14px', color: TEXT_SECONDARY, lineHeight: 1.7,
+  letterSpacing: '0.01em',
+};
+
+// ── Inline markdown parser (bold, links, code) ──
 const renderInline = (text) => {
   if (!text) return null;
   const parts = [];
@@ -66,14 +69,10 @@ const renderInline = (text) => {
   let key = 0;
 
   while (remaining.length > 0) {
-    // Bold: **text** or __text__
     const boldMatch = remaining.match(/^(.*?)\*\*(.+?)\*\*/s) || remaining.match(/^(.*?)__(.+?)__/s);
-    // Link: [text](url)
     const linkMatch = remaining.match(/^(.*?)\[([^\]]+)\]\(([^)]+)\)/);
-    // Inline code: `code`
     const codeMatch = remaining.match(/^(.*?)`([^`]+)`/);
 
-    // Find the earliest match
     const matches = [
       boldMatch && { type: 'bold', index: boldMatch[1].length, match: boldMatch },
       linkMatch && { type: 'link', index: linkMatch[1].length, match: linkMatch },
@@ -81,14 +80,13 @@ const renderInline = (text) => {
     ].filter(Boolean).sort((a, b) => a.index - b.index);
 
     if (matches.length === 0) {
-      parts.push(...(renderPlainText(remaining, key) || []));
+      parts.push(<span key={key++}>{remaining}</span>);
       break;
     }
 
     const first = matches[0];
     if (first.match[1]) {
-      parts.push(...(renderPlainText(first.match[1], key) || []));
-      key += 10;
+      parts.push(<span key={key++}>{first.match[1]}</span>);
     }
 
     if (first.type === 'bold') {
@@ -127,29 +125,27 @@ const parseBlocks = (markdown) => {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Skip empty lines
     if (!trimmed) { i++; continue; }
 
-    // Headers: ## or ###
+    // Headers
     const headerMatch = trimmed.match(/^(#{1,4})\s+(.+)/);
     if (headerMatch) {
       const level = headerMatch[1].length;
       const text = headerMatch[2].replace(/[*_]/g, '');
-      // Collect content until next header or end
       const content = [];
       i++;
       while (i < lines.length) {
         const nextLine = lines[i].trim();
         if (nextLine.match(/^#{1,4}\s+/)) break;
         if (nextLine) content.push(lines[i]);
-        else if (content.length > 0) content.push(''); // preserve paragraph breaks
+        else if (content.length > 0) content.push('');
         i++;
       }
       blocks.push({ type: 'section', level, title: text, content: content.join('\n').trim() });
       continue;
     }
 
-    // Table: starts with |
+    // Table
     if (trimmed.startsWith('|')) {
       const tableLines = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
@@ -160,7 +156,7 @@ const parseBlocks = (markdown) => {
       continue;
     }
 
-    // Numbered list: 1. or 1)
+    // Numbered list
     if (trimmed.match(/^\d+[.)]\s/)) {
       const items = [];
       while (i < lines.length && lines[i].trim().match(/^\d+[.)]\s/)) {
@@ -171,7 +167,7 @@ const parseBlocks = (markdown) => {
       continue;
     }
 
-    // Bullet list: - or *
+    // Bullet list
     if (trimmed.match(/^[-*]\s/)) {
       const items = [];
       while (i < lines.length && lines[i].trim().match(/^[-*]\s/)) {
@@ -182,9 +178,8 @@ const parseBlocks = (markdown) => {
       continue;
     }
 
-    // Callout detection: lines with REJECT, CRITICAL, DO NOT TRANSACT, BLOCKED, APPROVE
+    // Callout detection
     if (trimmed.match(/(?:IMMEDIATE\s+REJECT|DO\s+NOT\s+TRANSACT|BLOCKED|CRITICAL\s+RISK|APPROVE\s+WITH\s+CAUTION)/i) && !trimmed.startsWith('#')) {
-      // Collect this line and following paragraph
       const calloutLines = [trimmed];
       i++;
       while (i < lines.length && lines[i].trim() && !lines[i].trim().match(/^#{1,4}\s+/) && !lines[i].trim().startsWith('|')) {
@@ -197,6 +192,18 @@ const parseBlocks = (markdown) => {
 
     // Horizontal rule
     if (trimmed.match(/^[-*_]{3,}$/)) { i++; blocks.push({ type: 'hr' }); continue; }
+
+    // Bottom Line detection
+    if (/^bottom\s+line:?\s*/i.test(trimmed)) {
+      const blLines = [trimmed.replace(/^bottom\s+line:?\s*/i, '')];
+      i++;
+      while (i < lines.length && lines[i].trim() && !lines[i].trim().match(/^#{1,4}\s+/) && !lines[i].trim().startsWith('|')) {
+        blLines.push(lines[i].trim());
+        i++;
+      }
+      blocks.push({ type: 'bottomLine', text: blLines.join(' ').trim() });
+      continue;
+    }
 
     // Plain paragraph
     const paraLines = [];
@@ -217,7 +224,6 @@ const parseTable = (tableLines) => {
   if (tableLines.length < 2) return { headers: [], rows: [] };
   const parseLine = (line) => line.split('|').map(c => c.trim()).filter(Boolean);
   const headers = parseLine(tableLines[0]);
-  // Skip separator line (---|---|---)
   const dataStart = tableLines[1].match(/^[\s|:-]+$/) ? 2 : 1;
   const rows = tableLines.slice(dataStart).map(parseLine);
   return { headers, rows };
@@ -237,13 +243,7 @@ const renderBlock = (block, idx) => {
       const hasContent = block.content && block.content.trim();
       return (
         <div key={idx} style={cardStyle}>
-          <div style={{
-            fontSize: '11px', fontWeight: 500, color: TEXT_MUTED,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            marginBottom: hasContent ? '14px' : 0,
-          }}>
-            {block.title}
-          </div>
+          <div style={sectionLabelStyle}>{block.title}</div>
           {hasContent && renderContent(block.content)}
         </div>
       );
@@ -257,8 +257,8 @@ const renderBlock = (block, idx) => {
             <tr>
               {headers.map((h, hi) => (
                 <th key={hi} style={{
-                  padding: '8px 10px 8px 0', fontSize: '11px', fontWeight: 500, color: TEXT_MUTED,
-                  letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'left',
+                  padding: '10px 12px 10px 0', fontSize: '10px', fontWeight: 600, color: TEXT_MUTED,
+                  letterSpacing: '0.1em', textTransform: 'uppercase', textAlign: 'left',
                   borderBottom: `1px solid ${CARD_BORDER}`,
                 }}>{h.replace(/\*{1,2}/g, '')}</th>
               ))}
@@ -269,7 +269,6 @@ const renderBlock = (block, idx) => {
               <tr key={ri} style={{ borderBottom: ri < rows.length - 1 ? `1px solid #1f1f1f` : 'none' }}>
                 {row.map((cell, ci) => {
                   const cleaned = cell.replace(/\*{1,2}/g, '');
-                  // Color scores: +100, +15 etc → red; 0 or dash → muted
                   const isScore = /^[+]?\d+$/.test(cleaned.trim());
                   const scoreVal = isScore ? parseInt(cleaned.trim().replace('+', '')) : 0;
                   const risk = detectRiskLevel(cleaned);
@@ -278,9 +277,10 @@ const renderBlock = (block, idx) => {
                   if (risk) cellColor = RISK_COLORS[risk];
                   return (
                     <td key={ci} style={{
-                      padding: '10px 10px 10px 0', fontSize: '13px',
+                      padding: '14px 12px 14px 0', fontSize: '13px',
                       color: cellColor,
                       fontWeight: ci === 0 || isScore || risk ? 500 : 400,
+                      letterSpacing: '0.01em',
                     }}>{renderInline(cleaned)}</td>
                   );
                 })}
@@ -296,7 +296,7 @@ const renderBlock = (block, idx) => {
         <div key={idx} style={{ marginBottom: '8px' }}>
           {block.items.map((item, ii) => (
             <div key={ii} style={{
-              padding: '6px 0 6px 16px', fontSize: '13px', color: TEXT_SECONDARY, lineHeight: 1.6,
+              padding: '8px 0 8px 16px', ...bodyTextStyle,
               borderBottom: ii < block.items.length - 1 ? `1px solid #1f1f1f` : 'none',
             }}>
               {renderInline(item)}
@@ -308,15 +308,28 @@ const renderBlock = (block, idx) => {
     case 'numbered':
       return (
         <div key={idx} style={{ marginBottom: '8px' }}>
-          {block.items.map((item, ii) => (
-            <div key={ii} style={{
-              display: 'flex', gap: '8px', padding: '8px 0', fontSize: '13px',
-              borderBottom: ii < block.items.length - 1 ? `1px solid #1f1f1f` : 'none',
-            }}>
-              <span style={{ minWidth: '24px', color: TEXT_MUTED, fontWeight: 500, flexShrink: 0 }}>{ii + 1}</span>
-              <span style={{ color: TEXT_SECONDARY, lineHeight: 1.6 }}>{renderInline(item)}</span>
-            </div>
-          ))}
+          {block.items.map((item, ii) => {
+            // Split on first ** bold ** to get title vs body
+            const boldSplit = item.match(/^\*\*(.+?)\*\*[:\s—-]*(.*)/s);
+            return (
+              <div key={ii} style={{
+                display: 'flex', gap: '12px', padding: '12px 0',
+                borderBottom: ii < block.items.length - 1 ? `1px solid #1f1f1f` : 'none',
+              }}>
+                <span style={{ minWidth: '28px', color: '#d97706', fontWeight: 600, fontSize: '15px', flexShrink: 0 }}>{ii + 1}</span>
+                <div style={{ flex: 1 }}>
+                  {boldSplit ? (
+                    <>
+                      <div style={{ color: TEXT_PRIMARY, fontWeight: 500, fontSize: '14px', marginBottom: '4px' }}>{boldSplit[1]}</div>
+                      {boldSplit[2] && <div style={{ ...bodyTextStyle, fontSize: '13px' }}>{renderInline(boldSplit[2])}</div>}
+                    </>
+                  ) : (
+                    <div style={{ ...bodyTextStyle }}>{renderInline(item)}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
 
@@ -328,18 +341,26 @@ const renderBlock = (block, idx) => {
       return (
         <div key={idx} style={{
           background: bg, border: `1px solid ${border}`, borderRadius: '8px',
-          padding: '16px 20px', marginBottom: '8px',
+          padding: '16px 24px', marginBottom: '12px',
         }}>
-          <div style={{ fontSize: '14px', color: textColor, lineHeight: 1.7, fontWeight: 500 }}>
+          <div style={{ fontSize: '15px', color: textColor, lineHeight: 1.7, fontWeight: 600, letterSpacing: '0.02em' }}>
             {renderInline(block.text)}
           </div>
         </div>
       );
     }
 
+    case 'bottomLine':
+      return (
+        <div key={idx} style={cardStyle}>
+          <div style={sectionLabelStyle}>Bottom Line</div>
+          <p style={{ ...bodyTextStyle, margin: 0 }}>{renderInline(block.text)}</p>
+        </div>
+      );
+
     case 'paragraph':
       return (
-        <p key={idx} style={{ fontSize: '14px', color: TEXT_SECONDARY, lineHeight: 1.7, margin: '0 0 8px 0' }}>
+        <p key={idx} style={{ ...bodyTextStyle, margin: '0 0 8px 0' }}>
           {renderInline(block.text)}
         </p>
       );
@@ -358,86 +379,130 @@ const renderBlock = (block, idx) => {
 const ScoutReport = ({ content }) => {
   if (!content) return null;
 
-  // Strip any hidden JSON blocks
+  // Strip hidden JSON blocks
   const cleaned = content.replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
 
-  // Parse top-level blocks, filter out Adverse Media and Sources sections
-  const blocks = parseBlocks(cleaned).filter(b =>
+  // Parse all top-level blocks
+  const allBlocks = parseBlocks(cleaned);
+
+  // Filter out Adverse Media and Sources sections
+  const blocks = allBlocks.filter(b =>
     !(b.type === 'section' && /adverse\s+media|sources\s*[&and]*\s*references|references\s*[&and]*\s*sources|^sources$/i.test(b.title))
   );
 
-  // Group blocks: sections get their own cards, consecutive non-section blocks get wrapped in a card
-  const groups = [];
-  let currentGroup = [];
+  // ── Extract special elements for ordered layout ──
+  // 1. Overall Risk banner
+  const riskSection = blocks.find(b => b.type === 'section' && /overall\s+risk/i.test(b.title));
 
-  for (const block of blocks) {
-    if (block.type === 'section') {
-      // Flush any pending non-section blocks
-      if (currentGroup.length > 0) {
-        groups.push({ type: 'card', blocks: currentGroup });
-        currentGroup = [];
+  // 2. Callout blocks (BLOCKED, REJECT, etc.)
+  const calloutBlocks = blocks.filter(b => b.type === 'callout');
+
+  // 3. Bottom Line (can be a standalone block or inside a section's content)
+  let bottomLineText = null;
+  const bottomLineBlock = blocks.find(b => b.type === 'bottomLine');
+  if (bottomLineBlock) {
+    bottomLineText = bottomLineBlock.text;
+  } else {
+    // Check inside section content for "Bottom Line:" pattern
+    for (const b of blocks) {
+      if (b.type === 'section' && b.content) {
+        const blMatch = b.content.match(/(?:^|\n)\*?\*?Bottom\s+Line:?\*?\*?\s*(.+?)(?:\n\n|\n(?=##)|$)/is);
+        if (blMatch) {
+          bottomLineText = blMatch[1].trim();
+          // Remove bottom line from section content so it doesn't render twice
+          b.content = b.content.replace(/(?:^|\n)\*?\*?Bottom\s+Line:?\*?\*?\s*.+?(?:\n\n|\n(?=##)|$)/is, '\n').trim();
+        }
       }
-      groups.push({ type: 'section', block });
-    } else if (block.type === 'hr') {
-      // Don't wrap HRs in cards
-      if (currentGroup.length > 0) {
-        groups.push({ type: 'card', blocks: currentGroup });
-        currentGroup = [];
-      }
-    } else {
-      currentGroup.push(block);
     }
   }
-  if (currentGroup.length > 0) {
-    groups.push({ type: 'card', blocks: currentGroup });
+
+  // 4. Summary paragraphs (non-section blocks before first section, excluding callouts/bottomLine)
+  const firstSectionIdx = blocks.findIndex(b => b.type === 'section' && !/overall\s+risk/i.test(b.title));
+  const summaryBlocks = [];
+  for (let si = 0; si < (firstSectionIdx >= 0 ? firstSectionIdx : blocks.length); si++) {
+    const b = blocks[si];
+    if (b.type === 'paragraph') summaryBlocks.push(b);
   }
 
+  // 5. Regular sections (everything except risk header, already-extracted callouts/bottomLine/summary)
+  const sectionBlocks = blocks.filter(b =>
+    b.type === 'section' && !/overall\s+risk/i.test(b.title)
+  );
+
+  // Render
   return (
     <div style={{ fontFamily: FONT, maxWidth: '900px', width: '100%' }}>
-      {groups.map((group, gi) => {
-        if (group.type === 'section') {
-          const block = group.block;
-          const hasContent = block.content && block.content.trim();
-          const isRiskHeader = /overall\s+risk/i.test(block.title);
 
-          if (isRiskHeader) {
-            const risk = detectRiskLevel(block.title);
-            const riskColor = risk ? RISK_COLORS[risk] : '#ef4444';
-            const riskBg = risk ? RISK_BG[risk] : '#7f1d1d';
-            const riskBorder = risk ? RISK_BORDER[risk] : '#dc2626';
-            return (
-              <div key={gi} style={{
-                background: riskBg, border: `1px solid ${riskBorder}`, borderRadius: '8px',
-                padding: '20px 24px', marginBottom: '12px',
-              }}>
-                <div style={{
-                  fontSize: '18px', fontWeight: 700, color: riskColor,
-                  letterSpacing: '0.05em', textTransform: 'uppercase',
-                }}>
-                  {block.title}
-                </div>
-                {hasContent && <div style={{ marginTop: '14px' }}>{renderContent(block.content)}</div>}
-              </div>
-            );
-          }
-
-          return (
-            <div key={gi} style={cardStyle}>
-              <div style={{
-                fontSize: '11px', fontWeight: 500, color: TEXT_MUTED,
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                marginBottom: hasContent ? '14px' : 0,
-              }}>
-                {block.title}
-              </div>
-              {hasContent && renderContent(block.content)}
-            </div>
-          );
-        }
-        // Card wrapping loose blocks
+      {/* 1. RISK BANNER — full width, colored */}
+      {riskSection && (() => {
+        const risk = detectRiskLevel(riskSection.title);
+        const riskColor = risk ? RISK_COLORS[risk] : '#ef4444';
+        const riskBg = risk ? RISK_BG[risk] : '#7f1d1d';
+        const riskBorder = risk ? RISK_BORDER[risk] : '#dc2626';
         return (
-          <div key={gi} style={cardStyle}>
-            {group.blocks.map((block, bi) => renderBlock(block, bi))}
+          <div style={{
+            background: riskBg, border: `1px solid ${riskBorder}`, borderRadius: '8px',
+            padding: '20px 24px', marginBottom: '12px',
+          }}>
+            <div style={{
+              fontSize: '18px', fontWeight: 700, color: riskColor,
+              letterSpacing: '0.05em', textTransform: 'uppercase',
+            }}>
+              {riskSection.title}
+            </div>
+            {riskSection.content && (() => {
+              // Render risk section content (table, etc.) but strip out bottom line
+              const riskContent = riskSection.content.replace(/(?:^|\n)\*?\*?Bottom\s+Line:?\*?\*?\s*.+?(?:\n\n|\n(?=##)|$)/is, '\n').trim();
+              return riskContent ? <div style={{ marginTop: '14px' }}>{renderContent(riskContent)}</div> : null;
+            })()}
+          </div>
+        );
+      })()}
+
+      {/* 2. CALLOUT BLOCKS — full width, edge to edge */}
+      {calloutBlocks.map((block, ci) => {
+        const risk = detectRiskLevel(block.text);
+        const bg = risk ? RISK_BG[risk] : '#222';
+        const border = risk ? RISK_BORDER[risk] : '#333';
+        const textColor = risk ? RISK_COLORS[risk] : TEXT_PRIMARY;
+        return (
+          <div key={`callout-${ci}`} style={{
+            background: bg, border: `1px solid ${border}`, borderRadius: '8px',
+            padding: '16px 24px', marginBottom: '12px',
+          }}>
+            <div style={{ fontSize: '15px', color: textColor, lineHeight: 1.7, fontWeight: 600, letterSpacing: '0.02em' }}>
+              {renderInline(block.text)}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* 3. BOTTOM LINE — its own card, right after banners */}
+      {bottomLineText && (
+        <div style={cardStyle}>
+          <div style={sectionLabelStyle}>Bottom Line</div>
+          <p style={{ ...bodyTextStyle, margin: 0 }}>{renderInline(bottomLineText)}</p>
+        </div>
+      )}
+
+      {/* 4. SUMMARY — paragraphs before first section, their own card */}
+      {summaryBlocks.length > 0 && (
+        <div style={cardStyle}>
+          {summaryBlocks.map((b, si) => (
+            <p key={si} style={{ ...bodyTextStyle, margin: si < summaryBlocks.length - 1 ? '0 0 12px 0' : 0 }}>
+              {renderInline(b.text)}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* 5. SECTIONS — each in its own card */}
+      {sectionBlocks.map((section, si) => {
+        const hasContent = section.content && section.content.trim();
+        return (
+          <div key={`sec-${si}`} style={cardStyle}>
+            <div style={sectionLabelStyle}>{section.title}</div>
+            {hasContent && renderContent(section.content)}
           </div>
         );
       })}
