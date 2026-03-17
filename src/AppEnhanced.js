@@ -12514,7 +12514,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
 
  {!viewingCaseId ? (
- <div className="fade-in" style={{ marginLeft: '56px' }}>
+ <div style={{ marginLeft: '56px' }}>
  {/* Page Header */}
  <div style={{ padding: '28px 32px 0' }}>
  <div className="flex items-start justify-between">
@@ -12696,7 +12696,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    const viewingCase = getCaseById(viewingCaseId);
    if (!viewingCase) { setViewingCaseId(null); return null; }
    return (
-     <div className="fade-in flex flex-col h-full" style={{ marginLeft: '56px', background: '#1a1a1a' }}>
+     <div className="flex flex-col h-full" style={{ marginLeft: '56px', background: '#1a1a1a' }}>
        {/* Case Header */}
        <div style={{ padding: '24px 32px', borderBottom: '1px solid #3a3a3a', display: 'flex', alignItems: 'center', gap: '16px' }}>
          <button
