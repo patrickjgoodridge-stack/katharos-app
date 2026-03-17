@@ -1,6 +1,6 @@
 // Katharos v1.2 - Screening mode with knowledge-based analysis
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Upload, FileText, Clock, Users, AlertTriangle, ChevronRight, ChevronDown, ChevronLeft, Search, Zap, Eye, Link2, X, Loader2, Shield, Network, FileWarning, CheckCircle2, XCircle, HelpCircle, BookOpen, Target, Lightbulb, ArrowRight, MessageCircle, Send, Minimize2, Folder, Plus, Trash2, ArrowLeft, FolderOpen, Calendar /* eslint-disable-line no-unused-vars */, Pencil, Check, UserSearch, Building2, Globe, Newspaper, ShieldCheck, ShieldAlert, Home, GitBranch, Share2, Database, Scale, Flag, Download, FolderPlus, History, Tag, Moon, Sun, Briefcase, LogOut, User, Mail, Copy, Wallet, RefreshCw, Settings, ThumbsUp, ThumbsDown, Binoculars } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { jsPDF } from 'jspdf'; // eslint-disable-line no-unused-vars
 import * as pdfjsLib from 'pdfjs-dist';
@@ -30,14 +30,6 @@ import WorkflowControls from './WorkflowControls';
 import ActivityFeed from './ActivityFeed';
 import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
 import { fetchTeamUsers } from './userService';
-
-// Bold binoculars SVG — more visible at small sizes than lucide's thin stroke
-const BinocularsBold = ({ size = 14, className = '', style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
-    <path d="M2 12a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V7h-5a8 8 0 0 0-5 2 8 8 0 0 0-5-2H2Z" />
-    <path d="M6 7v10" /><path d="M18 7v10" />
-  </svg>
-);
 
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -13063,23 +13055,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
- <button
- onClick={() => {
- if (String(conversationInput || '').trim() || files.length > 0) {
- setConversationStarted(true);
- const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- if (investigationMode === 'scout') {
-   _sendConversationMessage(newCaseId, conversationInput, files);
- } else {
-   handleAgentMessage(newCaseId, conversationInput, files);
- }
- }
- }}
- disabled={!String(conversationInput || '').trim() && files.length === 0}
- className="katharos-send-btn"
- >
- <Send className="w-4 h-4" />
- </button>
  </div>
  {/* Mode Selector Dropdown */}
  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
@@ -13095,7 +13070,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
      onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
    >
-     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <BinocularsBold size={12} />}
+     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <Binoculars className="w-3 h-3" />}
      <span>{investigationMode === 'cipher' ? 'Cipher' : 'Scout'}</span>
      <ChevronDown className="w-3 h-3" />
    </button>
@@ -13107,7 +13082,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
          onMouseEnter={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = '#383838'; }}
          onMouseLeave={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = 'transparent'; }}
        >
-         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><BinocularsBold size={14} style={{ flexShrink: 0 }} /> Scout</span>
+         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><Binoculars style={{ width: 14, height: 14, flexShrink: 0 }} /> Scout</span>
          <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Basic Screenings</span>
        </button>
        <button
@@ -13864,7 +13839,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  investigationMode === 'scout' ? 'bg-gray-100/50' : ''
  }`}
  >
- <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><BinocularsBold size={14} /> Scout</div>
+ <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Binoculars style={{ width: 14, height: 14 }} /> Scout</div>
  <div className="text-[10px] text-gray-500 ml-5">Lightweight Screenings</div>
  </button>
  </div>
