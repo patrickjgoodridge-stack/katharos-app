@@ -6890,6 +6890,125 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
        }
      }
 
+     // Fallback: parse structured report from markdown if REPORT_JSON not present
+     if (!reportData && classifiedIntent === 'SCREEN' && fullText) {
+       try {
+         const md = fullText;
+         // Extract risk level
+         const riskMatch = md.match(/(?:OVERALL\s+RISK|Risk\s+(?:Level|Rating))[:\s]*\*{0,2}(CRITICAL|HIGH|MEDIUM|LOW)\*{0,2}/i);
+         const riskLevel = riskMatch ? riskMatch[1].toUpperCase() : null;
+         // Extract risk score
+         const scoreMatch = md.match(/(?:Risk\s+Score|Score)[:\s]*\*{0,2}(\d{1,3})\s*(?:\/\s*100|\s*out\s*of\s*100)?\*{0,2}/i) || md.match(/(\d{1,3})\s*\/\s*100/);
+         const riskScore = scoreMatch ? parseInt(scoreMatch[1]) : null;
+
+         if (riskLevel && riskScore !== null) {
+           // Extract bottom line header (first bold header after risk banner)
+           const blMatch = md.match(/#{1,3}\s*(.+(?:REJECT|BLOCK|APPROVE|CAUTION|ESCALAT|CLEAR|DO NOT TRANSACT).+)/i) ||
+                           md.match(/\*{2}(.+(?:REJECT|BLOCK|APPROVE|CAUTION|ESCALAT|CLEAR|DO NOT TRANSACT).+)\*{2}/i);
+           const bottomLineHeader = blMatch ? blMatch[1].replace(/[*#]/g, '').trim() : '';
+
+           // Extract summary — first substantial paragraph after risk info
+           const summaryMatch = md.match(/(?:#{1,3}\s*(?:Summary|Analysis|Overview|Bottom Line|Executive Summary)[^\n]*\n+)([\s\S]*?)(?=\n#{1,3}\s|\n\*{2}Risk Score|$)/i);
+           let summary = '';
+           if (summaryMatch) {
+             summary = summaryMatch[1].trim().split('\n\n')[0].replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+           } else {
+             // Grab first paragraph that looks like prose (>50 chars, not a header)
+             const paragraphs = md.split('\n\n').filter(p => p.length > 50 && !p.startsWith('#') && !p.startsWith('|') && !p.match(/^\s*[-*]\s/));
+             if (paragraphs[0]) {
+               summary = paragraphs[0].replace(/\*{2}([^*]+)\*{2}/g, '<b>$1</b>').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+             }
+           }
+
+           // Extract score breakdown from table
+           const scoreBreakdown = [];
+           const tableMatch = md.match(/(?:Risk\s+Score\s+Breakdown|Score\s+Breakdown|Scoring)[^\n]*\n[\s\S]*?\n\|[\s-|]+\|\n([\s\S]*?)(?=\n\n|\n#{1,3}\s)/i);
+           if (tableMatch) {
+             const rows = tableMatch[1].split('\n').filter(r => r.includes('|') && !r.match(/^[\s|-]+$/));
+             for (const row of rows) {
+               const cells = row.split('|').map(c => c.trim()).filter(Boolean);
+               if (cells.length >= 2) {
+                 const factor = cells[0].replace(/\*{1,2}/g, '');
+                 const scoreVal = parseInt(cells[1].replace(/[^0-9-]/g, ''));
+                 const reasoning = cells[2] || '—';
+                 if (!isNaN(scoreVal) && !factor.match(/subtotal|total|final|cap/i)) {
+                   scoreBreakdown.push({ factor, score: scoreVal, reasoning });
+                 }
+               }
+             }
+           }
+
+           // Extract entities from tables
+           const entities = [];
+           const entityTableMatch = md.match(/(?:Entity\s+Network|Entities|Entity\s+List|Tier)[^\n]*\n[\s\S]*?\n\|[\s-|]+\|\n([\s\S]*?)(?=\n\n|\n#{1,3}\s)/i);
+           if (entityTableMatch) {
+             const rows = entityTableMatch[1].split('\n').filter(r => r.includes('|') && !r.match(/^[\s|-]+$/));
+             for (const row of rows) {
+               const cells = row.split('|').map(c => c.trim()).filter(Boolean);
+               if (cells.length >= 3) {
+                 entities.push({
+                   name: cells[0].replace(/\*{1,2}/g, ''),
+                   jurisdiction: cells[1] || '—',
+                   type: cells[2] || 'Company',
+                   role: cells[3] || '',
+                   tier: cells[4] ? parseInt(cells[4]) || 1 : 1,
+                   sanctioned: (cells[5] || '').match(/yes|sdn|sanctioned|designated/i) ? true : false
+                 });
+               }
+             }
+           }
+
+           // Extract findings
+           const findings = [];
+           const findingsMatch = md.match(/(?:#{1,3}\s*(?:Key\s+Findings|Critical\s+Findings|Findings))[^\n]*\n([\s\S]*?)(?=\n#{1,3}\s|$)/i);
+           if (findingsMatch) {
+             const items = findingsMatch[1].match(/(?:^|\n)\s*\d+\.\s*\*{0,2}([^*\n]+)\*{0,2}[:\s]*(.*?)(?=\n\s*\d+\.|\n\n|$)/g);
+             if (items) {
+               for (const item of items) {
+                 const m = item.match(/\d+\.\s*\*{0,2}([^*\n:]+)\*{0,2}[:\s—-]*(.*)/s);
+                 if (m) findings.push({ title: m[1].trim(), detail: m[2].trim().replace(/\*{1,2}/g, '') });
+               }
+             }
+           }
+
+           // Extract recommended actions
+           const actions = { immediate: [], shortTerm: [], ongoing: [] };
+           const actionsMatch = md.match(/(?:#{1,3}\s*(?:Recommended\s+Actions|Actions|Recommendations))[^\n]*\n([\s\S]*?)(?=\n#{1,3}\s|$)/i);
+           if (actionsMatch) {
+             const text = actionsMatch[1];
+             const immMatch = text.match(/(?:Immediate|Urgent)[^\n]*\n([\s\S]*?)(?=\n\*{0,2}(?:Short|Medium|Ongoing|Long)|$)/i);
+             if (immMatch) actions.immediate = immMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
+             const shortMatch = text.match(/(?:Short|Medium)[^\n]*\n([\s\S]*?)(?=\n\*{0,2}(?:Ongoing|Long)|$)/i);
+             if (shortMatch) actions.shortTerm = shortMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
+             const ongoingMatch = text.match(/(?:Ongoing|Long)[^\n]*\n([\s\S]*?)(?=$)/i);
+             if (ongoingMatch) actions.ongoing = ongoingMatch[1].match(/[-*]\s*(.+)/g)?.map(a => a.replace(/^[-*]\s*/, '')) || [];
+           }
+
+           // Extract bottom line explanation
+           let bottomLine = '';
+           if (summary) {
+             bottomLine = summary;
+           }
+
+           reportData = {
+             riskLevel,
+             riskScore,
+             bottomLineHeader,
+             bottomLine,
+             summary,
+             scoreBreakdown,
+             entities,
+             findings,
+             actions,
+             notes: '',
+           };
+           console.log('[Katharos] Parsed report from markdown:', { riskLevel, riskScore, entities: entities.length, findings: findings.length });
+         }
+       } catch (e) {
+         console.warn('[Katharos] Failed to parse markdown report:', e);
+       }
+     }
+
      // Add completed message to conversation (update case directly)
      const vizType = detectVisualizationRequest(userMessage);
      const assistantMessage = {
