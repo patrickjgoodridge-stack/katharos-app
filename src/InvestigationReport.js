@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, ChevronDown, Download, Share2, FolderPlus } from 'lucide-react';
+import { AlertTriangle, Download, Share2, FolderPlus } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // INVESTIGATION REPORT — Scout Mode Report Renderer
@@ -11,7 +11,6 @@ const CRIT_TEXT = '#ef4444';
 const CRIT_BORDER = '#dc2626';
 const CARD_BG = '#1a1a1a';
 const CARD_BORDER = '#2a2a2a';
-const TEXT_PRIMARY = '#ffffff';
 const TEXT_SECONDARY = '#9ca3af';
 const TABLE_HEADER = '#6b7280';
 
