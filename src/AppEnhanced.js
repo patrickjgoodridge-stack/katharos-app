@@ -14,7 +14,7 @@ import { fetchUserCases, createCase, syncCase, deleteCase as deleteCaseFromDb } 
 import { isSupabaseConfigured } from './supabaseClient';
 import MarkdownRenderer from './MarkdownRenderer';
 import ReportTabs from './ReportTabs';
-import ScoutReport from './ScoutReport';
+
 import InlineChatGraph from './InlineChatGraph';
 import ChatNetworkGraph, { GraphErrorBoundary } from './ChatNetworkGraph';
 import UsageLimitModal from './UsageLimitModal';
@@ -172,40 +172,6 @@ const parseHtmlArtifacts = (content) => {
     artifacts.push({ html, label: vt.label, type: vt.type, filename: vt.filename });
   }
   return artifacts;
-};
-
-// Staggered fade-in for investigation report sections
-const ReportSection = ({ children, index }) => {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 100 + index * 120);
-    return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <div style={{
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0)' : 'translateY(8px)',
-      transition: 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out',
-    }}>
-      {children}
-    </div>
-  );
-};
-
-// Split investigation report content into sections by ## headers
-const splitReportSections = (content) => {
-  if (!content) return null;
-  // Only split if this looks like a structured investigation report
-  if (!content.includes('## OVERALL RISK') && !content.includes('## ENTITY NETWORK') && !content.includes('## SUBJECT IDENTITY')) {
-    return null;
-  }
-  const sections = [];
-  const parts = content.split(/(?=^## )/m);
-  for (const part of parts) {
-    const trimmed = part.trim();
-    if (trimmed) sections.push(trimmed);
-  }
-  return sections.length > 1 ? sections : null;
 };
 
 // Strip all viz blocks from content for display
