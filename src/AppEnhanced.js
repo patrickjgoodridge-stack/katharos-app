@@ -32,13 +32,6 @@ import ActivityFeed from './ActivityFeed';
 import { transitionCase, assignCase, escalateCase, reviewCase } from './workflowService';
 import { fetchTeamUsers } from './userService';
 
-// Filled binoculars icon for Scout mode — matches reference image
-const BinocularsIcon = ({ size = 14, className = '', style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
-    <path d="M21.2 13.4c0-2.7-1.1-5.2-2.9-7L17 5.1c-.4-.4-.9-.6-1.4-.6s-1 .2-1.4.6L13 6.3c-.3-.1-.7-.2-1-.2s-.7.1-1 .2L9.8 5.1c-.4-.4-.9-.6-1.4-.6s-1 .2-1.4.6L5.7 6.4c-1.8 1.8-2.9 4.3-2.9 7C2.8 17.1 6 20.3 9.7 20.3c1.5 0 2.8-.5 3.9-1.3h.8c1.1.8 2.4 1.3 3.9 1.3 3.7 0 6.9-3.2 6.9-6.9zM7.2 16.8c-1.9 0-3.4-1.5-3.4-3.4s1.5-3.4 3.4-3.4 3.4 1.5 3.4 3.4-1.5 3.4-3.4 3.4zm5.3-5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4.3 5.5c-1.9 0-3.4-1.5-3.4-3.4s1.5-3.4 3.4-3.4 3.4 1.5 3.4 3.4-1.5 3.4-3.4 3.4z" fillRule="evenodd"/>
-  </svg>
-);
-
 // Configure PDF.js worker - use local file
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
@@ -441,10 +434,6 @@ export default function Katharos() {
  // Email gate modal state - shows when user tries to enter without email
  const [showEmailModal, setShowEmailModal] = useState(false); // eslint-disable-line no-unused-vars
 
- // Investigation mode state
- const [investigationMode, setInvestigationMode] = useState('scout'); // 'scout' or 'cipher'
- const [showModeDropdown, setShowModeDropdown] = useState(false);
-
  // Scout state
  const [kycPage, setKycPage] = useState('newSearch'); // 'landing', 'newSearch', 'history', 'projects', 'results'
  const [kycQuery, setKycQuery] = useState('');
@@ -588,7 +577,6 @@ export default function Katharos() {
  const currentCaseIdRef = useRef(null); // Track current case for async handlers
  const sendingLockRef = useRef(new Set()); // Prevent concurrent sends to same case
  const deepLinkHandledRef = useRef(false); // Prevent deep-link re-triggering
- const modeDropdownRef = useRef(null);
  const uploadDropdownRef = useRef(null);
 
  // Keep Exploring — LLM-generated suggestions per case
@@ -718,23 +706,15 @@ const samplesDropdownRef = useRef(null);
  ];
  const [currentHeader] = useState(() => investigateHeaders[Math.floor(Math.random() * investigateHeaders.length)]);
 
- // Rotating placeholder examples - different for each mode
- const cipherPlaceholderExamples = [
+ // Rotating placeholder examples
+ const placeholderExamples = [
+ "Screen an individual (Try \"Oleg Deripaska\" or \"Fetullah Gulen\")",
+ "Check an entity (Try \"EN+ Group\" or \"COSCO Shipping\")",
  "Evaluate possible signs of fraud in these quarterly financials...",
  "What are the money laundering risks of the entities mentioned in this email chain...",
  "Analyze these cap tables for possible sanctions exposure...",
  "Identify potential red flags in this employee expense report...",
- "Describe any irregularities in these inventory records suggesting potential theft or mismanagement...",
- "What anomalies in this payroll data could indicate ghost employees...",
- "What warning signs indicate this insurance claim might be fraudulent..."
  ];
-
- const scoutPlaceholderExamples = [
- "Screen an individual (Try \"Oleg Deripaska\" or \"Fetullah Gulen\")",
- "Check an entity (Try \"EN+ Group\" or \"COSCO Shipping\")"
- ];
-
- const placeholderExamples = investigationMode === 'scout' ? scoutPlaceholderExamples : cipherPlaceholderExamples;
 
  // Cleanup in-flight requests on unmount
  useEffect(() => {
@@ -779,11 +759,6 @@ const samplesDropdownRef = useRef(null);
      console.warn('[Cases] Failed to save to localStorage:', err);
    }
  }, [cases]);
-
- // Reset placeholder index when mode changes to avoid out-of-bounds
- useEffect(() => {
- setPlaceholderIndex(0);
- }, [investigationMode]);
 
  // Rotate placeholder with fade timing - synchronized with CSS animation
  useEffect(() => {
@@ -994,12 +969,9 @@ const samplesDropdownRef = useRef(null);
  }
  }, [currentPage]);
 
- // Close mode dropdown when clicking outside
+ // Close dropdowns when clicking outside
  useEffect(() => {
  const handleClickOutside = (event) => {
- if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target)) {
- setShowModeDropdown(false);
- }
  if (uploadDropdownRef.current && !uploadDropdownRef.current.contains(event.target)) {
  setShowUploadDropdown(false);
  }
@@ -1013,13 +985,13 @@ setSamplesExpanded(false);
 }
  };
 
-if (showModeDropdown || showUploadDropdown || suggestionsExpanded || samplesExpanded) {
+if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
  document.addEventListener('mousedown', handleClickOutside);
  return () => {
  document.removeEventListener('mousedown', handleClickOutside);
  };
  }
-}, [showModeDropdown, showUploadDropdown, suggestionsExpanded, samplesExpanded]);
+}, [showUploadDropdown, suggestionsExpanded, samplesExpanded]);
 
  // Global click handler for clickable text in responses
  useEffect(() => {
@@ -7879,15 +7851,13 @@ Respond with a JSON object in this exact structure:
    }
  }, 3000); // Update every 3 seconds
 
- // Scout uses Sonnet, Cipher uses Opus
- // Higher tokens for Cipher (deep investigations), lower for Scout (quick screenings)
- const analysisModel = investigationMode === 'scout' ? 'claude-sonnet-4-20250514' : 'claude-opus-4-20250514';
- const maxTokens = investigationMode === 'scout' ? 8000 : 16000;
+ const analysisModel = 'claude-opus-4-20250514';
+ const maxTokens = 16000;
 
  // Create abort controller for timeout and cancellation
  const controller = new AbortController();
  analysisAbortRef.current = controller; // Store for cancel button
- const timeoutMs = investigationMode === 'scout' ? 180000 : 300000;
+ const timeoutMs = 300000;
  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
  const response = await fetch(`${API_BASE}/api/messages`, {
@@ -13089,14 +13059,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- if (investigationMode === 'scout') {
-   _sendConversationMessage(newCaseId, conversationInput, files);
- } else {
-   handleAgentMessage(newCaseId, conversationInput, files);
- }
+ handleAgentMessage(newCaseId, conversationInput, files);
  }
  }}
- placeholder={investigationMode === 'scout' ? "Enter a name or entity to screen." : "Enter a name, describe a case, or upload files."}
+ placeholder="Enter a name, entity, or describe a case to investigate."
  rows={3}
  style={{ width: '100%', resize: 'none', background: 'transparent', border: 'none', outline: 'none', fontSize: '15px', color: '#ffffff', lineHeight: 1.5, fontFamily: "'Inter', -apple-system, sans-serif" }}
  autoFocus
@@ -13113,54 +13079,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
- <div className="relative" ref={modeDropdownRef} style={{ marginLeft: 'auto' }}>
-   <button
-     onClick={() => setShowModeDropdown(!showModeDropdown)}
-     style={{
-       display: 'flex', alignItems: 'center', gap: '6px',
-       padding: '4px 10px', borderRadius: '6px', cursor: 'pointer',
-       background: 'transparent', border: 'none', color: '#888', fontSize: '12px',
-       fontFamily: "'Inter', -apple-system, sans-serif",
-     }}
-     onMouseEnter={(e) => e.currentTarget.style.color = '#ccc'}
-     onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
-   >
-     {investigationMode === 'cipher' ? <Search className="w-3 h-3" /> : <BinocularsIcon size={12} />}
-     <span>{investigationMode === 'cipher' ? 'Cipher' : 'Scout'}</span>
-     <ChevronDown className="w-3 h-3" />
-   </button>
-   {showModeDropdown && (
-     <div style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px', background: '#2d2d2d', border: '1px solid #3a3a3a', borderRadius: '8px', overflow: 'hidden', zIndex: 50, minWidth: '180px' }}>
-       <button
-         onClick={() => { setInvestigationMode('scout'); setShowModeDropdown(false); }}
-         style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '10px 14px', background: investigationMode === 'scout' ? '#333' : 'transparent', border: 'none', borderBottom: '1px solid #3a3a3a', cursor: 'pointer', textAlign: 'left' }}
-         onMouseEnter={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = '#383838'; }}
-         onMouseLeave={(e) => { if (investigationMode !== 'scout') e.currentTarget.style.background = 'transparent'; }}
-       >
-         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><BinocularsIcon size={14} style={{ flexShrink: 0 }} /> Scout</span>
-         <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Basic Screenings</span>
-       </button>
-       <button
-         onClick={() => { setInvestigationMode('cipher'); setShowModeDropdown(false); }}
-         style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '10px 14px', background: investigationMode === 'cipher' ? '#333' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-         onMouseEnter={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = '#383838'; }}
-         onMouseLeave={(e) => { if (investigationMode !== 'cipher') e.currentTarget.style.background = 'transparent'; }}
-       >
-         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, color: '#fff' }}><Search style={{ width: 14, height: 14, flexShrink: 0 }} /> Cipher</span>
-         <span style={{ fontSize: '11px', color: '#888', marginLeft: '20px' }}>Full Investigations</span>
-       </button>
-     </div>
-   )}
- </div> <button
+ <div style={{ marginLeft: 'auto' }} />
+ <button
  onClick={() => {
  if (String(conversationInput || '').trim() || files.length > 0) {
    setConversationStarted(true);
    const newCaseId = createCaseFromFirstMessage(conversationInput, files);
-   if (investigationMode === 'scout') {
-     _sendConversationMessage(newCaseId, conversationInput, files);
-   } else {
-     handleAgentMessage(newCaseId, conversationInput, files);
-   }
+   handleAgentMessage(newCaseId, conversationInput, files);
  }
  }}
  disabled={!String(conversationInput || '').trim() && files.length === 0}
@@ -13483,8 +13408,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex justify-center">
  <div style={{ maxWidth: '672px', width: '100%' }}>
 
-   {investigationMode === 'cipher' ? (
-   /* Cipher: Investigation Progress Card with tool steps */
+   {/* Investigation Progress Card with tool steps */}
    <div style={{
      background: '#242424',
      border: '1px solid #3a3a3a',
@@ -13548,13 +13472,6 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
      </div>
    </div>
-   ) : (
-   /* Scout: Simple "Analyzing" progress bar — centered, hidden once report text arrives */
-   !String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (
-   <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-     <ScreeningProgressBar startedAt={screeningStartRef.current ? new Date(screeningStartRef.current).toISOString() : new Date().toISOString()} isScreening={false} />
-   </div>
-   ))}
 
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (() => {
@@ -13675,11 +13592,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
-   if (investigationMode === 'scout') {
-     _sendConversationMessage(currentCaseId, conversationInput, files);
-   } else {
-     handleAgentMessage(currentCaseId, conversationInput, files);
-   }
+   handleAgentMessage(currentCaseId, conversationInput, files);
  }
  e.target.style.height = 'auto';
  }}
@@ -13699,11 +13612,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <button
  onClick={() => {
    if (!currentCaseId) return;
-   if (investigationMode === 'scout') {
-     _sendConversationMessage(currentCaseId, conversationInput, files);
-   } else {
-     handleAgentMessage(currentCaseId, conversationInput, files);
-   }
+   handleAgentMessage(currentCaseId, conversationInput, files);
  }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"
@@ -13860,55 +13769,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 
  <div className="flex items-center gap-3">
  <div className="flex items-center gap-0">
- {/* Mode Selector Dropdown */}
- <div className="relative group" ref={modeDropdownRef}>
- <button
- onClick={() => setShowModeDropdown(!showModeDropdown)}
- className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-2 py-2 rounded-l-lg transition-all flex items-center border-r border-gray-700"
- disabled={isAnalyzing}
- >
- <ChevronDown className="w-4 h-4" />
- </button>
- <span className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap transition-opacity pointer-events-none z-50 ${showModeDropdown ? "opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
- Select Mode
- </span>
-
- {showModeDropdown && (
- <div className="absolute top-full left-0 mt-2 w-48 bg-white/95 backdrop-blur-sm border border-gray-300/50 rounded-lg shadow-sm z-50">
- <button
- onClick={() => {
- setInvestigationMode('cipher');
- setShowModeDropdown(false);
- }}
- className={`w-full text-left px-3 py-2 hover:bg-gray-100/50 transition-colors border-b border-gray-200/50 rounded-t-lg ${
- investigationMode === 'cipher' ? 'bg-gray-100/50' : ''
- }`}
- >
- <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><Search style={{ width: 14, height: 14 }} /> Cipher</div>
- <div className="text-[10px] text-gray-500 ml-5">Deep Investigations</div>
- </button>
- <button
- onClick={() => {
- setInvestigationMode('scout');
- setShowModeDropdown(false);
- }}
- className={`w-full text-left px-3 py-2 hover:bg-gray-100/50 transition-colors rounded-b-lg ${
- investigationMode === 'scout' ? 'bg-gray-100/50' : ''
- }`}
- >
- <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5"><BinocularsIcon size={14} /> Scout</div>
- <div className="text-[10px] text-gray-500 ml-5">Lightweight Screenings</div>
- </button>
- </div>
- )}
- </div>
-
  {/* Start Investigation Button */}
  <div className="relative group">
  <button
  onClick={analyzeEvidence}
  disabled={isAnalyzing || backgroundAnalysis.isRunning || (!String(caseDescription || '').trim() && files.length === 0)}
- className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-r-lg transition-all flex items-center disabled:opacity-50"
+ className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-300 text-white disabled:text-gray-500 font-medium tracking-wide px-3 py-2 rounded-lg transition-all flex items-center disabled:opacity-50"
  >
  {(isAnalyzing || backgroundAnalysis.isRunning) ? (
  <Loader2 className="w-4 h-4 animate-spin" />
@@ -13929,14 +13795,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex flex-wrap justify-center gap-2 mt-4">
  <span className="text-xs text-gray-400 mr-1 self-center">Try:</span>
  {[
-   { name: 'Vladimir Putin', mode: 'scout' },
-   { name: 'Sinaloa Cartel', mode: 'scout' },
-   { name: 'Viktor Vekselberg', mode: 'scout' },
-   { name: 'Huawei Technologies', mode: 'scout' },
+   { name: 'Vladimir Putin' },
+   { name: 'Sinaloa Cartel' },
+   { name: 'Viktor Vekselberg' },
+   { name: 'Huawei Technologies' },
  ].map((s) => (
    <button
      key={s.name}
-     onClick={() => { setConversationInput(`Screen ${s.name}`); setInvestigationMode(s.mode); }}
+     onClick={() => { setConversationInput(`Screen ${s.name}`); }}
      className="px-3 py-1.5 text-xs rounded-full bg-gray-100 hover:bg-gray-100 text-gray-600 hover:text-gray-700 border border-gray-200 hover:border-gray-400 transition-colors"
    >
      {s.name}
