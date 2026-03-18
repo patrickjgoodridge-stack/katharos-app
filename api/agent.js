@@ -1154,6 +1154,15 @@ export default async function handler(req, res) {
               summary: summarizeToolResult(block.name, parsed),
             });
 
+            // Send full screening data to frontend for KYC card rendering
+            if (block.name === 'screen_entity') {
+              sendSSE(res, 'screening_data', {
+                subject: block.input.name,
+                type: block.input.type || 'individual',
+                result: parsed,
+              });
+            }
+
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,

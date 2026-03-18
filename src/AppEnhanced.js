@@ -1195,7 +1195,7 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
      pdfReports: [],
      networkArtifacts: [],
      screenings: [],
-     screeningStatus: 'loading', // Track screening lifecycle
+     screeningStatus: 'loading', // Will be set to 'done' when agent's screen_entity result arrives via SSE
      riskLevel: 'N/A',
      viewed: false,
      emailDomain: workspaceId || '',
@@ -1206,64 +1206,8 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
    setCurrentCaseId(newCaseId);
    setCaseName(generatedName);
 
-   // ── Fire screening pipeline immediately on case creation ──
-   // This runs in parallel with the agent investigation (handleAgentMessage).
-   // Uses newCaseId from local scope — no stale closure issues.
-   const screeningQuery = generatedName;
-   const screeningType = detectEntityType(screeningQuery);
-   console.log('[Screening] Firing on case creation:', newCaseId, '| query:', screeningQuery, '| type:', screeningType);
-
-   const screeningAbort = new AbortController();
-   screeningAbortRef.current = screeningAbort;
-
-   fetch(`${API_BASE}/api/screening/unified`, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-       query: screeningQuery,
-       type: screeningType,
-       sessionId: eventLogger?.sessionId || 'unknown',
-     }),
-     signal: screeningAbort.signal,
-   })
-   .then(async r => {
-     console.log('[Screening] Response:', r.status, r.ok);
-     if (r.ok) return r.json();
-     const errBody = await r.text().catch(() => 'unreadable');
-     console.error('[Screening] API error body:', errBody);
-     return null;
-   })
-   .then(screeningResult => {
-     if (screeningResult) {
-       console.log('[Screening] SUCCESS — risk:', screeningResult.overallRisk, '| score:', screeningResult.riskScore, '| caseId:', newCaseId);
-       setCases(prev => prev.map(c => {
-         if (c.id !== newCaseId) return c;
-         return {
-           ...c,
-           kycData: screeningResult,
-           screeningStatus: 'done',
-           screenings: [{
-             id: `scr_${Date.now()}`,
-             query: screeningQuery,
-             type: screeningType,
-             result: screeningResult,
-             timestamp: new Date().toISOString(),
-             riskLevel: screeningResult.overallRisk,
-             riskScore: screeningResult.riskScore,
-           }, ...(c.screenings || [])],
-         };
-       }));
-     } else {
-       console.warn('[Screening] No result (null or error response)');
-       setCases(prev => prev.map(c => c.id === newCaseId ? { ...c, screeningStatus: 'error' } : c));
-     }
-   })
-   .catch(err => {
-     if (err.name !== 'AbortError') {
-       console.error('[Screening] FAILED:', err.name, err.message);
-       setCases(prev => prev.map(c => c.id === newCaseId ? { ...c, screeningStatus: 'error' } : c));
-     }
-   });
+   // Screening data now comes through the agent SSE stream (screening_data event)
+   // when the agent calls screen_entity — no separate API call needed
 
    // Save to database
    if (isSupabaseConfigured() && user) {
@@ -4629,6 +4573,73 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
              case 'agent_done':
                break;
+
+             case 'screening_data': {
+               // Structured screening data from the agent's screen_entity tool call
+               console.log('[Screening] Got screening_data via SSE for case', caseId, '| subject:', evt.subject);
+               const sr = evt.result || {};
+               const kycData = {
+                 subject: { name: evt.subject, type: evt.type },
+                 overallRisk: sr.sanctions?.isMatch ? 'CRITICAL' :
+                   (sr.pep?.matches > 0 || sr.adverseMedia?.relevantArticles > 0) ? 'HIGH' :
+                   (sr.regulatory?.riskLevel === 'HIGH' || sr.courtRecords?.criminalCases > 0) ? 'HIGH' :
+                   sr.regulatory?.riskLevel === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+                 riskScore: sr.regulatory?.riskScore || 0,
+                 sanctions: {
+                   status: sr.sanctions?.isMatch ? 'MATCH' : sr.sanctions?.matches > 0 ? 'POTENTIAL_MATCH' : 'CLEAR',
+                   matches: (sr.sanctions?.details || []).map(d => ({
+                     list: d.listSource || d.source || 'OFAC SDN',
+                     matchedName: d.matchedName || d.name || evt.subject,
+                     matchScore: d.matchConfidence ? Math.round(d.matchConfidence * 100) : d.score,
+                     details: d.remarks || d.details || '',
+                     listingDate: d.listingDate || d.dateAdded || '',
+                   })),
+                 },
+                 pep: {
+                   status: sr.pep?.matches > 0 ? 'MATCH' : 'CLEAR',
+                   matches: (sr.pep?.details || []).map(d => ({
+                     name: d.name || evt.subject,
+                     position: d.position || d.title || '',
+                     country: d.country || d.jurisdiction || '',
+                     riskLevel: d.riskLevel || 'MEDIUM',
+                     status: d.status || 'Active',
+                     relationshipToSubject: d.relationship || 'Self',
+                   })),
+                 },
+                 adverseMedia: {
+                   status: sr.adverseMedia?.relevantArticles > 0 ? 'MATCH' : 'CLEAR',
+                   totalArticles: sr.adverseMedia?.totalArticles || 0,
+                   articles: (sr.adverseMedia?.details || []).map(a => ({
+                     headline: a.title || a.headline || '',
+                     source: a.source || a.publisher || '',
+                     date: a.date || a.publishDate || '',
+                     summary: a.summary || a.snippet || '',
+                     relevance: a.relevance || 'MEDIUM',
+                     category: a.category || 'OTHER',
+                   })),
+                 },
+                 regulatoryGuidance: sr.regulatory ? {
+                   ofacImplications: sr.sanctions?.isMatch ? 'Potential OFAC exposure detected' : 'No direct OFAC exposure identified',
+                   dueDiligenceRequired: sr.sanctions?.isMatch || sr.pep?.matches > 0 ? 'EDD' : sr.adverseMedia?.relevantArticles > 0 ? 'CDD' : 'SDD',
+                   filingRequirements: sr.sanctions?.isMatch ? ['SAR filing recommended', 'OFAC blocking report'] : [],
+                 } : null,
+                 recommendations: [
+                   ...(sr.sanctions?.isMatch ? [{ priority: 'HIGH', action: 'Review sanctions matches immediately', rationale: 'Direct sanctions match detected' }] : []),
+                   ...(sr.pep?.matches > 0 ? [{ priority: 'HIGH', action: 'Conduct enhanced PEP due diligence', rationale: sr.pep.matches + ' PEP indicator(s) found' }] : []),
+                   ...(sr.adverseMedia?.relevantArticles > 0 ? [{ priority: 'MEDIUM', action: 'Review adverse media findings', rationale: sr.adverseMedia.relevantArticles + ' relevant article(s)' }] : []),
+                   ...(sr.courtRecords?.totalCases > 0 ? [{ priority: 'MEDIUM', action: 'Review court records', rationale: sr.courtRecords.totalCases + ' case(s) found' }] : []),
+                 ],
+                 riskFactors: [
+                   ...(sr.sanctions?.isMatch ? [{ factor: 'Sanctions Match', severity: 'CRITICAL' }] : []),
+                   ...(sr.pep?.matches > 0 ? [{ factor: 'PEP Exposure', severity: 'HIGH' }] : []),
+                   ...(sr.adverseMedia?.relevantArticles > 0 ? [{ factor: 'Adverse Media', severity: 'MEDIUM' }] : []),
+                   ...(sr.courtRecords?.criminalCases > 0 ? [{ factor: 'Criminal Records', severity: 'HIGH' }] : []),
+                   ...(sr.regulatory?.flags || []).map(f => ({ factor: f, severity: 'MEDIUM' })),
+                 ],
+               };
+               setCases(prev => prev.map(c => c.id === caseId ? { ...c, kycData, screeningStatus: 'done' } : c));
+               break;
+             }
 
              default:
                break;
