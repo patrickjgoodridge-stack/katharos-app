@@ -24,7 +24,7 @@ const TAB_CONFIG = [
     id: 'summary',
     label: 'Summary',
     icon: FileText,
-    sections: ['SUBJECT IDENTITY', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
+    sections: ['ENTITY SUMMARY', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
   },
   {
     id: 'evidence',
@@ -118,11 +118,11 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       }
     }
 
-    // Pin SUBJECT IDENTITY to the top of the summary tab
+    // Pin ENTITY SUMMARY to the top of the summary tab
     if (grouped.summary.length > 1) {
       grouped.summary.sort((a, b) => {
-        const aIsIdentity = a.heading.toUpperCase().includes('SUBJECT IDENTITY');
-        const bIsIdentity = b.heading.toUpperCase().includes('SUBJECT IDENTITY');
+        const aIsIdentity = a.heading.toUpperCase().includes('ENTITY SUMMARY');
+        const bIsIdentity = b.heading.toUpperCase().includes('ENTITY SUMMARY');
         if (aIsIdentity && !bIsIdentity) return -1;
         if (!aIsIdentity && bIsIdentity) return 1;
         return 0;
@@ -158,9 +158,9 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
     if (activeTab === 'summary') {
       const isPinned = (s) => {
         const h = s.heading.toUpperCase();
-        return h.includes('SUBJECT IDENTITY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN') || h.includes('PEP STATUS');
+        return h.includes('ENTITY SUMMARY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN') || h.includes('PEP STATUS');
       };
-      const identity = sections.filter(s => s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
+      const identity = sections.filter(s => s.heading.toUpperCase().includes('ENTITY SUMMARY'));
       const confidence = sections.filter(s => s.heading.toUpperCase().includes('MATCH CONFIDENCE'));
       const overallRisk = sections.filter(s => {
         const h = s.heading.toUpperCase();
