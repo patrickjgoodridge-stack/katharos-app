@@ -1132,12 +1132,17 @@ export default async function handler(req, res) {
         try {
           const reportData = JSON.parse(jsonMatch[1].trim());
           sendSSE(res, 'report_json', reportData);
+          // Also send any text outside the JSON block as agent_text (status updates)
+          const textOutsideJson = iterationText.replace(/```json\s*[\s\S]*?```/, '').trim();
+          if (textOutsideJson) {
+            sendSSE(res, 'agent_text', { text: textOutsideJson });
+          }
         } catch (e) {
           // JSON parse failed — send as text fallback
           sendSSE(res, 'agent_text', { text: iterationText });
         }
-      } else if (iterationText && (iterationText.includes('## ') || !hasToolUse)) {
-        // Stream status updates and any non-JSON text
+      } else if (iterationText.trim()) {
+        // Stream all non-empty text (status updates, findings, etc.)
         sendSSE(res, 'agent_text', { text: iterationText });
       }
 

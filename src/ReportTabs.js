@@ -1,5 +1,5 @@
 // ReportTabs.js — Tabbed report view rendering structured JSON from agent investigations
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FileText,
   Search,
@@ -10,6 +10,20 @@ import {
   AlertTriangle,
   ShieldCheck,
 } from 'lucide-react';
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  Handle,
+  Position,
+  useNodesState,
+  useEdgesState,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import {
+  PieChart, Pie, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import MarkdownRenderer from './MarkdownRenderer';
 import {
   KYCRiskHeader,
@@ -167,28 +181,65 @@ const MatchConfidenceDetails = ({ data }) => {
   );
 };
 
-// ── Overall Risk ──
+// ── Overall Risk (with Recharts gauge) ──
 const OverallRiskSection = ({ data }) => {
   if (!data) return null;
   const color = getRiskColor(data.level);
+  const score = data.score || 0;
+  // Gauge: half-donut with score needle
+  const gaugeData = [{ value: score }, { value: 100 - score }];
+  const needleAngle = 180 - (score / 100) * 180;
+  const needleRad = (needleAngle * Math.PI) / 180;
+  // Needle coordinates (cx=90, cy=80, radius=60)
+  const nx = 90 + 55 * Math.cos(needleRad);
+  const ny = 80 - 55 * Math.sin(needleRad);
   return (
     <>
       <div style={{
-        background: `${color}15`, border: `1px solid ${color}30`, borderRadius: 8,
-        padding: '14px 20px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12,
+        background: `${color}10`, border: `1px solid ${color}30`, borderRadius: 8,
+        padding: '16px 20px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 16,
       }}>
-        <AlertTriangle style={{ width: 20, height: 20, color, flexShrink: 0 }} />
-        <span style={{ color, fontWeight: 700, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase' }}>
-          Overall Risk: {data.level}
-        </span>
-        <span style={{ color, fontSize: 16, fontWeight: 600, marginLeft: 4 }}>{data.score} / 100</span>
-      </div>
-      {data.summary && (
-        <div style={{ fontSize: 14, color: TEXT_PRIMARY, marginBottom: 16, lineHeight: 1.7 }}>
-          <span style={{ fontWeight: 700, color: TEXT_WHITE }}>{data.recommendation}</span>
-          {' — '}{data.summary}
+        <div style={{ width: 180, height: 100, flexShrink: 0 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={gaugeData}
+                cx="50%"
+                cy="80%"
+                startAngle={180}
+                endAngle={0}
+                innerRadius={45}
+                outerRadius={65}
+                dataKey="value"
+                stroke="none"
+              >
+                <Cell fill={color} />
+                <Cell fill="#2a2a2a" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Needle + score overlay */}
+          <svg viewBox="0 0 180 100" style={{ position: 'relative', marginTop: -100, display: 'block' }}>
+            <line x1="90" y1="80" x2={nx} y2={ny} stroke={TEXT_WHITE} strokeWidth="2" strokeLinecap="round" />
+            <circle cx="90" cy="80" r="4" fill={TEXT_WHITE} />
+            <text x="90" y="72" textAnchor="middle" fill={color} fontSize="20" fontWeight="700">{score}</text>
+          </svg>
         </div>
-      )}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <AlertTriangle style={{ width: 18, height: 18, color, flexShrink: 0 }} />
+            <span style={{ color, fontWeight: 700, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase' }}>
+              Overall Risk: {data.level}
+            </span>
+          </div>
+          {data.summary && (
+            <div style={{ fontSize: 14, color: TEXT_PRIMARY, lineHeight: 1.6, marginTop: 4 }}>
+              <span style={{ fontWeight: 700, color: TEXT_WHITE }}>{data.recommendation}</span>
+              {' — '}{data.summary}
+            </div>
+          )}
+        </div>
+      </div>
     </>
   );
 };
@@ -222,37 +273,75 @@ const CriticalFindingsSection = ({ data }) => {
   );
 };
 
-// ── Risk Score Breakdown ──
+// ── Risk Score Breakdown (with Recharts bar chart) ──
+const getScoreColor = (score) => {
+  if (score >= 20) return RISK_COLORS.CRITICAL;
+  if (score >= 10) return RISK_COLORS.HIGH;
+  if (score >= 5) return RISK_COLORS.MEDIUM;
+  return RISK_COLORS.LOW;
+};
 const RiskBreakdownSection = ({ data, totalScore, totalLevel }) => {
   if (!data?.length) return null;
+  const chartData = data.map(d => ({
+    ...d,
+    score: typeof d.score === 'number' ? d.score : parseInt(d.score) || 0,
+    fill: getScoreColor(typeof d.score === 'number' ? d.score : parseInt(d.score) || 0),
+  }));
   return (
     <>
       <SectionHeading>Risk Score Breakdown</SectionHeading>
-      <DarkTable
-        columns={[
-          { key: 'factor', label: 'Factor', bold: true },
-          { key: 'weight', label: 'Weight' },
-          { key: 'score', label: 'Score' },
-          { key: 'reasoning', label: 'Reasoning' },
-        ]}
-        rows={[
-          ...data,
-          { factor: 'Final Score', weight: '100%', score: `${totalScore}/100`, reasoning: totalLevel, _summary: true },
-        ]}
-        colorRules={{
-          weight: () => TEXT_MUTED,
-          score: (val, row) => {
-            if (row._summary) return TEXT_WHITE;
-            const n = typeof val === 'number' ? val : parseInt(val);
-            if (n >= 20) return RISK_COLORS.CRITICAL;
-            if (n >= 10) return RISK_COLORS.HIGH;
-            if (n >= 5) return RISK_COLORS.MEDIUM;
-            return RISK_COLORS.LOW;
-          },
-          factor: (_, row) => row._summary ? TEXT_WHITE : TEXT_PRIMARY,
-          reasoning: (_, row) => row._summary ? getRiskColor(row.reasoning) : TEXT_PRIMARY,
-        }}
-      />
+      <Card style={{ padding: '20px 20px 12px' }}>
+        <div style={{ width: '100%', height: Math.max(chartData.length * 44, 180) }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
+              <XAxis type="number" domain={[0, 50]} hide />
+              <YAxis
+                type="category"
+                dataKey="factor"
+                width={160}
+                tick={{ fill: TEXT_PRIMARY, fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: '#ffffff08' }}
+                contentStyle={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6, fontSize: 12 }}
+                labelStyle={{ color: TEXT_WHITE, fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: TEXT_PRIMARY }}
+                formatter={(value, _name, props) => [
+                  `${value} pts (${props.payload.weight})`,
+                  'Score',
+                ]}
+              />
+              <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={20}>
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {/* Reasoning list below chart */}
+        <div style={{ marginTop: 12, borderTop: `1px solid ${CARD_BORDER}`, paddingTop: 12 }}>
+          {data.map((d, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 12, lineHeight: 1.5 }}>
+              <span style={{
+                color: getScoreColor(typeof d.score === 'number' ? d.score : parseInt(d.score) || 0),
+                fontWeight: 600, minWidth: 28, textAlign: 'right',
+              }}>
+                {d.score}
+              </span>
+              <span style={{ color: TEXT_MUTED }}>{d.weight}</span>
+              <span style={{ color: TEXT_PRIMARY }}>{d.reasoning}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${CARD_BORDER}`, fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: TEXT_WHITE, minWidth: 28, textAlign: 'right' }}>{totalScore}</span>
+            <span style={{ color: TEXT_MUTED }}>100%</span>
+            <span style={{ color: getRiskColor(totalLevel) }}>TOTAL — {totalLevel}</span>
+          </div>
+        </div>
+      </Card>
     </>
   );
 };
@@ -285,163 +374,368 @@ const RedFlagsSection = ({ data }) => {
   );
 };
 
-// ── Entity Network table ──
+// ── Entity Network (react-flow graph + table) ──
+const NetworkNode = ({ data: d }) => {
+  const riskColor = d.risk ? getRiskColor(d.risk) : TEXT_MUTED;
+  const isSanctioned = d.sanctioned?.toLowerCase() === 'yes';
+  return (
+    <div style={{
+      border: `${isSanctioned ? 2 : 1}px solid ${isSanctioned ? RISK_COLORS.CRITICAL : riskColor}`,
+      borderRadius: 8, padding: '8px 14px', minWidth: 120, maxWidth: 180, textAlign: 'center',
+      background: isSanctioned ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
+    }}>
+      <Handle type="target" position={Position.Top} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
+      <div style={{ fontSize: 11, fontWeight: 600, color: isSanctioned ? RISK_COLORS.CRITICAL : TEXT_WHITE, marginBottom: 2 }}>{d.label}</div>
+      {d.type && <div style={{ fontSize: 9, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 0.5 }}>{d.type}</div>}
+      {d.jurisdiction && <div style={{ fontSize: 9, color: TEXT_MUTED }}>{d.jurisdiction}</div>}
+      {isSanctioned && (
+        <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 3, fontWeight: 700, background: `${RISK_COLORS.CRITICAL}20`, color: RISK_COLORS.CRITICAL, marginTop: 3, display: 'inline-block' }}>SANCTIONED</span>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
+    </div>
+  );
+};
+
+const networkNodeTypes = { network: NetworkNode };
+
+const buildNetworkGraph = (entities) => {
+  const nodes = [];
+  const edges = [];
+  // Place first entity (subject) at top center
+  const cols = Math.min(entities.length, 4);
+  const GAP_X = 200;
+  const GAP_Y = 120;
+
+  entities.forEach((ent, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const totalInRow = Math.min(entities.length - row * cols, cols);
+    const offsetX = ((cols - totalInRow) * GAP_X) / 2;
+    nodes.push({
+      id: `net-${i}`,
+      type: 'network',
+      position: { x: offsetX + col * GAP_X, y: row * GAP_Y },
+      data: {
+        label: ent.entity,
+        type: ent.type,
+        jurisdiction: ent.jurisdiction,
+        risk: ent.risk,
+        sanctioned: ent.sanctioned,
+      },
+    });
+    // Connect to first node if it has a connection description
+    if (i > 0 && ent.connection) {
+      edges.push({
+        id: `e-net-0-${i}`,
+        source: 'net-0',
+        target: `net-${i}`,
+        label: ent.connection?.length > 30 ? ent.connection.substring(0, 30) + '...' : ent.connection,
+        style: { stroke: getRiskColor(ent.risk) || CARD_BORDER, strokeWidth: 1 },
+        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
+        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
+        labelBgPadding: [3, 5],
+        labelBgBorderRadius: 3,
+      });
+    }
+  });
+
+  return { nodes, edges };
+};
+
 const EntityNetworkSection = ({ data }) => {
+  const [viewMode, setViewMode] = useState('graph');
+  const safeData = data?.length ? data : [];
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(safeData), [safeData]);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   if (!data?.length) return null;
+
+  const rows = Math.ceil(data.length / 4);
+  const graphHeight = Math.max(rows * 140 + 60, 280);
+
   return (
     <>
-      <SectionHeading>Entity Network</SectionHeading>
-      <DarkTable
-        columns={[
-          { key: 'entity', label: 'Entity', bold: true },
-          { key: 'type', label: 'Type' },
-          { key: 'jurisdiction', label: 'Jurisdiction' },
-          { key: 'risk', label: 'Risk' },
-          { key: 'sanctioned', label: 'Sanctioned' },
-          { key: 'matchPercent', label: 'Match %' },
-          { key: 'connection', label: 'Connection' },
-          { key: 'source', label: 'Source' },
-        ]}
-        colorRules={{
-          risk: (val) => getRiskColor(val),
-          sanctioned: (val) => val?.toLowerCase() === 'yes' ? RISK_COLORS.CRITICAL : TEXT_PRIMARY,
-          matchPercent: (val) => {
-            const n = typeof val === 'number' ? val : parseInt(val);
-            if (n < 50) return RISK_COLORS.CRITICAL;
-            if (n < 70) return RISK_COLORS.MEDIUM;
-            return RISK_COLORS.LOW;
-          },
-          source: () => AMBER,
-        }}
-        rows={data}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network</h2>
+        <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
+          {['graph', 'table'].map(mode => (
+            <button key={mode} onClick={() => setViewMode(mode)} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+              background: viewMode === mode ? '#3a3a3a' : 'transparent',
+              color: viewMode === mode ? TEXT_WHITE : TEXT_MUTED,
+              fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'inherit',
+            }}>{mode}</button>
+          ))}
+        </div>
+      </div>
+      {viewMode === 'graph' ? (
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ height: graphHeight, background: '#141414' }}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              nodeTypes={networkNodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.3 }}
+              minZoom={0.3}
+              maxZoom={1.5}
+              proOptions={{ hideAttribution: true }}
+              nodesDraggable={true}
+              nodesConnectable={false}
+              elementsSelectable={false}
+              panOnDrag={true}
+              zoomOnScroll={true}
+            >
+              <Background color="#2a2a2a" gap={20} size={1} />
+              <Controls showInteractive={false} style={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6 }} />
+            </ReactFlow>
+          </div>
+        </Card>
+      ) : (
+        <DarkTable
+          columns={[
+            { key: 'entity', label: 'Entity', bold: true },
+            { key: 'type', label: 'Type' },
+            { key: 'jurisdiction', label: 'Jurisdiction' },
+            { key: 'risk', label: 'Risk' },
+            { key: 'sanctioned', label: 'Sanctioned' },
+            { key: 'matchPercent', label: 'Match %' },
+            { key: 'connection', label: 'Connection' },
+            { key: 'source', label: 'Source' },
+          ]}
+          colorRules={{
+            risk: (val) => getRiskColor(val),
+            sanctioned: (val) => val?.toLowerCase() === 'yes' ? RISK_COLORS.CRITICAL : TEXT_PRIMARY,
+            matchPercent: (val) => {
+              const n = typeof val === 'number' ? val : parseInt(val);
+              if (n < 50) return RISK_COLORS.CRITICAL;
+              if (n < 70) return RISK_COLORS.MEDIUM;
+              return RISK_COLORS.LOW;
+            },
+            source: () => AMBER,
+          }}
+          rows={data}
+        />
+      )}
     </>
   );
 };
 
-// ── Corporate Structure (visual ownership diagram) ──
-const CorporateStructureSection = ({ data }) => {
-  if (!data) return null;
+// ── Corporate Structure (react-flow ownership graph) ──
+const BADGE_COLORS = {
+  SANCTIONED: RISK_COLORS.CRITICAL, SDN: RISK_COLORS.CRITICAL, CONVICTED: RISK_COLORS.CRITICAL,
+  DPA: RISK_COLORS.HIGH, DESIGNATED: RISK_COLORS.HIGH, BLOCKED: RISK_COLORS.CRITICAL,
+  'HIGH RISK': RISK_COLORS.HIGH,
+};
+
+// Custom node for react-flow ownership graph
+const OwnershipNode = ({ data: d }) => {
+  const borderColor = d.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER;
+  const bg = d.flagged ? `${RISK_COLORS.CRITICAL}10` : d.isParent ? '#252525' : '#1e1e1e';
+  const riskColor = d.risk ? getRiskColor(d.risk) : null;
+  return (
+    <div style={{
+      border: `${d.isParent ? 2 : 1}px solid ${borderColor}`,
+      borderRadius: 8,
+      padding: '10px 16px',
+      minWidth: d.isParent ? 180 : 140,
+      textAlign: 'center',
+      background: bg,
+      position: 'relative',
+    }}>
+      {d.hasParent && <Handle type="target" position={Position.Top} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />}
+      <div style={{
+        fontSize: d.isParent ? 14 : 12,
+        fontWeight: 600,
+        color: d.flagged ? RISK_COLORS.CRITICAL : TEXT_WHITE,
+        marginBottom: d.subtitle ? 4 : 0,
+      }}>{d.label}</div>
+      {d.subtitle && (
+        <div style={{ fontSize: 10, color: d.flagged ? RISK_COLORS.CRITICAL : TEXT_MUTED, marginTop: 2 }}>
+          {d.subtitle}
+        </div>
+      )}
+      {d.badges?.length > 0 && (
+        <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+          {d.badges.map((badge, i) => (
+            <span key={i} style={{
+              fontSize: 8, padding: '1px 5px', borderRadius: 3, fontWeight: 700, letterSpacing: 0.5,
+              background: `${BADGE_COLORS[badge] || TEXT_MUTED}20`,
+              color: BADGE_COLORS[badge] || TEXT_MUTED,
+              textTransform: 'uppercase',
+            }}>{badge}</span>
+          ))}
+        </div>
+      )}
+      {riskColor && (
+        <div style={{
+          position: 'absolute', top: -3, right: -3, width: 8, height: 8,
+          borderRadius: '50%', background: riskColor,
+        }} />
+      )}
+      {d.hasChildren && <Handle type="source" position={Position.Bottom} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />}
+    </div>
+  );
+};
+
+const ownershipNodeTypes = { ownership: OwnershipNode };
+
+const buildOwnershipGraph = (data) => {
+  const nodes = [];
+  const edges = [];
   const owners = data.owners || [];
   const subsidiaries = data.subsidiaries || [];
-  const BADGE_COLORS = {
-    SANCTIONED: RISK_COLORS.CRITICAL, SDN: RISK_COLORS.CRITICAL, CONVICTED: RISK_COLORS.CRITICAL,
-    DPA: RISK_COLORS.HIGH, DESIGNATED: RISK_COLORS.HIGH, BLOCKED: RISK_COLORS.CRITICAL,
-    'HIGH RISK': RISK_COLORS.HIGH,
-  };
+  const NODE_W = 180;
+  const GAP_X = 40;
+  const GAP_Y = 100;
+
+  // Parent node at top center
+  if (data.parentEntity) {
+    const totalOwners = Math.max(owners.length, 1);
+    const parentX = ((totalOwners - 1) * (NODE_W + GAP_X)) / 2;
+    nodes.push({
+      id: 'parent',
+      type: 'ownership',
+      position: { x: parentX, y: 0 },
+      data: {
+        label: data.parentEntity,
+        isParent: true,
+        hasParent: false,
+        hasChildren: owners.length > 0 || subsidiaries.length > 0,
+      },
+    });
+  }
+
+  // Owner nodes below parent
+  owners.forEach((owner, i) => {
+    const id = `owner-${i}`;
+    nodes.push({
+      id,
+      type: 'ownership',
+      position: { x: i * (NODE_W + GAP_X), y: GAP_Y },
+      data: {
+        label: owner.name,
+        subtitle: [
+          owner.percentage != null ? `${owner.percentage}%` : null,
+          owner.description,
+        ].filter(Boolean).join(' — '),
+        flagged: owner.flagged,
+        hasParent: !!data.parentEntity,
+        hasChildren: false,
+      },
+    });
+    if (data.parentEntity) {
+      edges.push({
+        id: `e-parent-${id}`,
+        source: 'parent',
+        target: id,
+        label: owner.percentage != null ? `${owner.percentage}%` : '',
+        style: { stroke: owner.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER, strokeWidth: 1.5 },
+        labelStyle: { fill: TEXT_MUTED, fontSize: 10, fontWeight: 600 },
+        labelBgStyle: { fill: '#1a1a1a', fillOpacity: 0.9 },
+        labelBgPadding: [4, 6],
+        labelBgBorderRadius: 3,
+      });
+    }
+  });
+
+  // Subsidiary nodes below parent (if no owners, or offset below owners)
+  const subY = owners.length > 0 ? GAP_Y * 2 : GAP_Y;
+  subsidiaries.forEach((sub, i) => {
+    const id = `sub-${i}`;
+    nodes.push({
+      id,
+      type: 'ownership',
+      position: { x: i * (NODE_W + GAP_X), y: subY },
+      data: {
+        label: sub.name,
+        subtitle: [sub.jurisdiction, sub.ownership].filter(Boolean).join(' · '),
+        flagged: false,
+        risk: sub.risk,
+        badges: sub.badges,
+        hasParent: !!data.parentEntity,
+        hasChildren: false,
+      },
+    });
+    if (data.parentEntity) {
+      edges.push({
+        id: `e-parent-${id}`,
+        source: 'parent',
+        target: id,
+        label: sub.ownership || '',
+        style: { stroke: CARD_BORDER, strokeWidth: 1 },
+        labelStyle: { fill: TEXT_MUTED, fontSize: 10 },
+        labelBgStyle: { fill: '#1a1a1a', fillOpacity: 0.9 },
+        labelBgPadding: [4, 6],
+        labelBgBorderRadius: 3,
+      });
+    }
+  });
+
+  return { nodes, edges };
+};
+
+const CorporateStructureSection = ({ data }) => {
+  const safeData = data || { parentEntity: '', owners: [], subsidiaries: [] };
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildOwnershipGraph(safeData), [safeData]);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  if (!data) return null;
+
+  // Calculate graph height based on content
+  const owners = data.owners || [];
+  const subsidiaries = data.subsidiaries || [];
+  const layers = 1 + (owners.length > 0 ? 1 : 0) + (subsidiaries.length > 0 ? 1 : 0);
+  const graphHeight = Math.max(layers * 120 + 40, 200);
 
   return (
     <>
       <SectionHeading>Ownership Structure</SectionHeading>
-      <Card style={{ padding: '24px 20px' }}>
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${CARD_BORDER}` }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: AMBER }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: TEXT_WHITE }}>Ultimate beneficial owners</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_WHITE }}>Ultimate beneficial owners</span>
           {data.structureType && (
             <span style={{
-              fontSize: 11, padding: '2px 10px', borderRadius: 4,
+              fontSize: 10, padding: '2px 8px', borderRadius: 4,
               background: '#2a2a2a', color: TEXT_MUTED, fontWeight: 500,
             }}>{data.structureType}</span>
           )}
         </div>
-
-        {/* Parent entity box */}
-        {data.parentEntity && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{
-              border: `1px solid ${CARD_BORDER}`, borderRadius: 8, padding: '10px 24px',
-              fontSize: 14, fontWeight: 600, color: TEXT_WHITE, background: '#252525',
-            }}>{data.parentEntity}</div>
-            {owners.length > 0 && (
-              <div style={{ width: 1, height: 24, background: CARD_BORDER }} />
-            )}
-          </div>
-        )}
-
-        {/* Owner boxes */}
-        {owners.length > 0 && (
-          <>
-            {/* Horizontal connector line */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 0 }}>
-              <div style={{
-                height: 1, background: CARD_BORDER,
-                width: `${Math.min(owners.length * 180, 600)}px`,
-              }} />
-            </div>
-            <div style={{
-              display: 'flex', justifyContent: 'center', gap: 24,
-              flexWrap: 'wrap', marginBottom: 16,
-            }}>
-              {owners.map((owner, i) => {
-                const isFlagged = owner.flagged;
-                const borderColor = isFlagged ? RISK_COLORS.CRITICAL : CARD_BORDER;
-                return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    {/* Vertical tick from horizontal line */}
-                    <div style={{ width: 1, height: 16, background: CARD_BORDER }} />
-                    <div style={{
-                      border: `1px solid ${borderColor}`, borderRadius: 8, padding: '12px 20px',
-                      minWidth: 140, textAlign: 'center',
-                      background: isFlagged ? `${RISK_COLORS.CRITICAL}10` : '#252525',
-                    }}>
-                      <div style={{
-                        fontSize: 13, fontWeight: 600,
-                        color: isFlagged ? RISK_COLORS.CRITICAL : TEXT_WHITE,
-                      }}>{owner.name}</div>
-                    </div>
-                    <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 6, textAlign: 'center' }}>
-                      {owner.percentage != null && <span style={{ color: TEXT_PRIMARY }}>{owner.percentage}%</span>}
-                      {owner.percentage != null && owner.description && ' — '}
-                      {owner.description && (
-                        <span style={{ color: isFlagged ? RISK_COLORS.CRITICAL : TEXT_MUTED }}>
-                          {owner.description}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {/* Subsidiaries */}
-        {subsidiaries.length > 0 && (
-          <>
-            <div style={{
-              borderTop: `1px solid ${CARD_BORDER}`, marginTop: 16, paddingTop: 16,
-            }}>
-              <div style={{
-                fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase',
-                color: TEXT_MUTED, marginBottom: 12,
-              }}>Subsidiaries</div>
-              {subsidiaries.map((sub, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
-                  fontSize: 13, color: TEXT_PRIMARY,
-                }}>
-                  <span style={{ color: TEXT_WHITE, fontWeight: 500 }}>{sub.name}</span>
-                  <span style={{ color: TEXT_MUTED }}>({sub.jurisdiction})</span>
-                  {sub.ownership && <span style={{ color: TEXT_MUTED }}>· {sub.ownership}</span>}
-                  {sub.badges?.map((badge, bi) => (
-                    <span key={bi} style={{
-                      fontSize: 10, padding: '1px 6px', borderRadius: 3, fontWeight: 600,
-                      background: `${BADGE_COLORS[badge] || TEXT_MUTED}20`,
-                      color: BADGE_COLORS[badge] || TEXT_MUTED,
-                    }}>{badge}</span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
+        {/* React Flow graph */}
+        <div style={{ height: graphHeight, background: '#141414' }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={ownershipNodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            minZoom={0.5}
+            maxZoom={1.5}
+            proOptions={{ hideAttribution: true }}
+            nodesDraggable={true}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            panOnDrag={true}
+            zoomOnScroll={true}
+          >
+            <Background color="#2a2a2a" gap={20} size={1} />
+            <Controls
+              showInteractive={false}
+              style={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6 }}
+            />
+          </ReactFlow>
+        </div>
         {/* Notes */}
         {data.notes && (
           <div style={{
-            marginTop: 16, padding: '12px 16px', borderRadius: 6,
-            background: '#2d2d2d', fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.6,
+            padding: '12px 20px', borderTop: `1px solid ${CARD_BORDER}`,
+            fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.6,
           }}>{data.notes}</div>
         )}
       </Card>

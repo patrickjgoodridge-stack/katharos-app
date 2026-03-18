@@ -4502,6 +4502,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      const decoder = new TextDecoder();
      let fullText = '';
      let buffer = '';
+     let reportDataReceived = null;
 
      while (true) {
        const { done, value } = await reader.read();
@@ -4637,6 +4638,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
              case 'report_json': {
                console.log('[Report] Got structured JSON report for case', caseId);
+               reportDataReceived = evt;
                setCases(prev => prev.map(c => c.id === caseId ? { ...c, reportData: evt } : c));
                break;
              }
@@ -4649,11 +4651,23 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      }
 
      // Save assistant message to transcript
-     if (fullText.trim()) {
-       const assistantMsg = { role: 'assistant', content: fullText, timestamp: new Date().toISOString(), isAgent: true };
+     if (fullText.trim() || reportDataReceived) {
+       const assistantMsg = {
+         role: 'assistant',
+         content: fullText || '',
+         timestamp: new Date().toISOString(),
+         isAgent: true,
+         ...(reportDataReceived && { reportData: reportDataReceived }),
+       };
+       // Extract risk level from JSON report if available
+       const jsonRiskLevel = reportDataReceived?.overallRisk?.level?.toUpperCase() || null;
        setCases(prev => prev.map(c => {
          if (c.id !== caseId) return c;
-         const updated = { ...c, conversationTranscript: [...(c.conversationTranscript || []), assistantMsg] };
+         const updated = {
+           ...c,
+           conversationTranscript: [...(c.conversationTranscript || []), assistantMsg],
+           ...(jsonRiskLevel && { riskLevel: jsonRiskLevel }),
+         };
          if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
          return updated;
        }));
@@ -13310,6 +13324,22 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {(() => {
    const rawContent = String(msg.content || '');
    const stripped = stripVizData(rawContent).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   // Check for structured JSON report (from agent JSON output)
+   const _caseObj1 = cases.find(c => c.id === currentCaseId);
+   const msgReportData = msg.reportData || _caseObj1?.reportData || null;
+   if (msgReportData) {
+     const caseKycData = _caseObj1?.kycData || null;
+     const graphs = parseHtmlArtifacts(rawContent).map((artifact, ai) => {
+       if (artifact.type === 'network') {
+         const netData = extractNetworkData(artifact.html);
+         if (netData && netData.nodes.length > 0) {
+           return <GraphErrorBoundary key={ai}><ChatNetworkGraph graphData={netData} /></GraphErrorBoundary>;
+         }
+       }
+       return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
+     });
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={msgReportData} />;
+   }
    if (!stripped) return <div style={{ color: '#6b7280', fontStyle: 'italic', padding: '12px 0' }}>Report content unavailable</div>;
    const isReport = stripped.includes('## OVERALL RISK') || stripped.includes('## SUBJECT IDENTITY');
    if (isReport) {
@@ -13322,16 +13352,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
-     const _caseObj1 = cases.find(c => c.id === currentCaseId);
      const caseKycData = _caseObj1?.kycData || null;
-     const caseReportData = _caseObj1?.reportData || null;
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={caseReportData} />;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
  </div>
  {/* Non-report graph artifacts rendered after content */}
- {!((stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## OVERALL RISK') || (stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## SUBJECT IDENTITY')) && parseHtmlArtifacts(String(msg.content || '')).map((artifact, ai) => {
+ {!(msg.reportData || cases.find(c => c.id === currentCaseId)?.reportData || (stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## OVERALL RISK') || (stripVizData(String(msg.content || '')).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim()).includes('## SUBJECT IDENTITY')) && parseHtmlArtifacts(String(msg.content || '')).map((artifact, ai) => {
    if (artifact.type === 'network') {
      const netData = extractNetworkData(artifact.html);
      if (netData && netData.nodes.length > 0) {
