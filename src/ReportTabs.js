@@ -870,25 +870,6 @@ const OwnershipHistorySection = ({ data }) => {
 };
 
 // ── Programs and Authorities ──
-const ProgramsSection = ({ data }) => {
-  if (!data?.length) return null;
-  return (
-    <>
-      <SectionHeading>Programs and Authorities</SectionHeading>
-      <DarkTable
-        columns={[
-          { key: 'reference', label: 'Reference', bold: true },
-          { key: 'program', label: 'Program' },
-          { key: 'authority', label: 'Authority' },
-          { key: 'description', label: 'Description' },
-        ]}
-        rows={data}
-        colorRules={{ reference: () => AMBER }}
-      />
-    </>
-  );
-};
-
 // ── Financial Exposure ──
 const FinancialExposureSection = ({ data }) => {
   if (!data) return null;
@@ -1026,7 +1007,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.generalLicenses?.length].filter(Boolean).length;
   tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length, r.regulatoryContext?.length].filter(Boolean).length;
   tabCounts.patterns = [r.typologies?.length].filter(Boolean).length;
-  tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule, r.programsAndAuthorities?.length].filter(Boolean).length;
+  tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule].filter(Boolean).length;
   tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
 
   // JSON renderer for each tab
@@ -1081,7 +1062,6 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <RecommendedActionsSection data={r.recommendedActions} />
             <FinancialExposureSection data={r.financialExposure} />
             <MonitoringScheduleSection data={r.monitoringSchedule} />
-            <ProgramsSection data={r.programsAndAuthorities} />
             {kycData && (
               <>
                 <KYCRegulatoryCard data={kycData} />
