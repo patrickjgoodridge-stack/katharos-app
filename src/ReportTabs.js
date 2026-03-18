@@ -30,7 +30,7 @@ const TAB_CONFIG = [
     id: 'evidence',
     label: 'Evidence',
     icon: Search,
-    sections: ['CRITICAL FINDINGS', 'ADVERSE MEDIA', 'DESIGNATION TIMELINE', 'GENERAL LICENSES', 'OWNERSHIP HISTORY'],
+    sections: ['RED FLAGS', 'CRITICAL FINDINGS', 'ADVERSE MEDIA', 'DESIGNATION TIMELINE', 'GENERAL LICENSES', 'OWNERSHIP HISTORY'],
   },
   {
     id: 'network',

@@ -728,6 +728,23 @@ Glencore PLC (Switzerland)
 | Jurisdiction risk | 5% | [0-5] | [one line — e.g. "Operations in FATF grey-list jurisdiction" or "Low-risk jurisdictions only"] |
 | **Final Score** | **100%** | **[Total]/100** | **[CRITICAL/HIGH/MEDIUM/LOW]** |
 
+## RED FLAGS
+[Top-of-evidence section. List the most critical compliance red flags discovered, each as a ### sub-heading with a one-paragraph explanation and a blockquote IMPACT statement. Include hyperlinks to source entities/designations where available. Order by severity. Example format:]
+
+### OFAC SDN Designation — Subsidiary Entity
+[Entity name](link) designated under [program] with [specific blocking provisions].
+
+> **IMPACT**
+> [One-sentence compliance consequence — e.g. "Any transaction with this subsidiary violates U.S. sanctions law and subjects U.S. persons to civil and criminal penalties."]
+
+### [Next Red Flag Title]
+[Description with bolded key terms.]
+
+> **IMPACT**
+> [Compliance consequence.]
+
+[Include 3-5 red flags maximum. Each must be a concrete, actionable finding — not a restatement of risk scores.]
+
 ## GENERAL LICENSES
 [Include this section ONLY when active general licenses apply to the subject or their designated entities. This is the most-missed compliance signal — compliance teams know about designations but miss GL windows. Omit entirely when no GLs apply.]
 
