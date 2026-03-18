@@ -660,7 +660,7 @@ When the investigation is complete, output your structured report in this exact 
 **EDD Obligations:** [What enhanced due diligence applies — or "Standard CDD sufficient"]
 
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
-[One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
+[One-sentence recommendation: **APPROVE** / **DO NOT TRANSACT** / **ESCALATE FOR EDD**]
 
 ## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
 Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
