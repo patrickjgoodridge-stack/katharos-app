@@ -6,6 +6,7 @@ import {
   Network,
   Lightbulb,
   Shield,
+  Fingerprint,
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import {
@@ -37,6 +38,12 @@ const TAB_CONFIG = [
     label: 'Network',
     icon: Network,
     sections: ['ENTITY NETWORK', 'CORPORATE NETWORK', 'CORPORATE STRUCTURE', 'REGULATORY CONTEXT'],
+  },
+  {
+    id: 'patterns',
+    label: 'Patterns',
+    icon: Fingerprint,
+    sections: ['TYPOLOGIES', 'EVASION PATTERNS', 'SANCTIONS EVASION', 'MONEY LAUNDERING'],
   },
   {
     id: 'actions',

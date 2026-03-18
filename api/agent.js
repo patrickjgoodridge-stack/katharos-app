@@ -694,6 +694,16 @@ Glencore PLC (Switzerland)
 |-------------|---------|-------------|----------|-------|
 | [Country] | [High/Medium/Low] | [Listed/Grey/Clean] | [one phrase] | [one line] |
 
+## TYPOLOGIES
+[Identify the specific financial crime patterns observed in this entity's network. Each typology should be a ### sub-heading with a description of the pattern, how it manifests in this case, and the compliance implication. Include only patterns supported by evidence found during investigation.]
+
+### [Typology Name — e.g. "Sanctions Evasion via Subsidiary Restructuring"]
+**Pattern:** [One-sentence description of the general typology]
+**Evidence in this case:** [How this pattern manifests specifically — entity names, dates, jurisdictions]
+**Compliance implication:** [What this means for transaction screening and due diligence]
+
+[Include 2-5 typologies. Common patterns to check for: sanctions evasion through corporate restructuring, layered ownership to obscure beneficial ownership, use of nominee directors/shareholders, jurisdiction shopping to exploit regulatory gaps, trade-based money laundering, misuse of general licenses, front companies for sanctioned state actors, crypto/digital asset sanctions circumvention.]
+
 ## ADVERSE MEDIA
 [Include only when material adverse media is found. Omit entirely if nothing material. Order most recent first.]
 
