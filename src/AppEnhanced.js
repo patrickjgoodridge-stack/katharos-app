@@ -1619,12 +1619,6 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
    return titleCase(entityName) || desc.substring(0, 50);
  };
 
- // Detect if a name refers to a corporate entity vs individual
- const detectEntityType = (name) => {
-   if (!name) return 'individual';
-   const corporateIndicators = /\b(LLC|Ltd|Inc|Corp|AG|GmbH|SA|PLC|Group|Holdings|Bank|Fund|Trust|Foundation|Partners|Capital|Ventures|Co\.|Company|Enterprise|International|Association|Institute|Council|Authority|Commission|Ministry|Bureau|Department|Organization|Organisation)\b/i;
-   return corporateIndicators.test(name) ? 'entity' : 'individual';
- };
 
  // Generate smart case name based on context (files, entity count, description)
  const generateCaseName = (description, attachedFiles, entityCount = 1) => {
