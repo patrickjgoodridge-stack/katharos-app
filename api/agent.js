@@ -648,21 +648,16 @@ During the investigation, you may output brief one-line status updates ONLY when
 When the investigation is complete, output your structured report in this exact format:
 
 ## ENTITY SUMMARY
-**Full name:** [Full legal name]
-**Aliases:** [All known aliases, transliterations, prior names — semicolon-separated, or "None identified"]
-**DOB:** [If known, or "Unknown"]
-**Nationality:** [Primary + dual if applicable]
-**Entity type:** [Individual / Corporate / Vessel / Other]
-**Primary jurisdictions:** [Countries of operation]
-**Last updated:** [Date of this investigation]
-
-## PEP STATUS
-[Include for all subjects. State "Non-PEP" classification if no political exposure found.]
-**Classification:** [PEP / Non-PEP / PEP Associate]
-**Tier:** [Tier 1 — Head of State / Tier 2 — Senior Official / Tier 3 — Associate / N/A]
-**Position held:** [Current or most recent public position — or "None identified"]
-**Family members of note:** [Names and relationships — or "None identified"]
-**EDD obligations:** [What enhanced due diligence applies under FATF/FinCEN/EU AMLD — or "Standard CDD sufficient"]
+**Legal Name:** [Full legal registered name; if subsidiary is designated, include both parent and subsidiary]
+**Type:** [Entity classification — e.g. State-Owned Shipping Conglomerate | Subsidiary: Ship Management Company]
+**Status:** [Sanctions/designation status — e.g. Parent: DOD Chinese Military Company | Subsidiary: OFAC SDN Designated]
+**Nationality/Citizenship:** [Country of origin, listing jurisdiction, operational base]
+**Jurisdiction:** [All jurisdictions of incorporation, listing, and material operations]
+**Key Business:** [Core business activities — comma-separated]
+**Parent Company:** [Ultimate parent entity if applicable, or "N/A"]
+**Designation Details:** [Specific list, executive order, or enforcement basis — or "None"]
+**PEP Status:** [PEP / Non-PEP / PEP Associate — include tier and position if applicable]
+**EDD Obligations:** [What enhanced due diligence applies — or "Standard CDD sufficient"]
 
 ## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
 [One-sentence recommendation: APPROVE / DO NOT TRANSACT / ESCALATE FOR EDD]
