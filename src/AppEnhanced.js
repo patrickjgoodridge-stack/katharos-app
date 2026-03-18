@@ -13338,7 +13338,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={msgReportData} />;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={msgReportData} userName={user?.name} />;
    }
    if (!stripped) return <div style={{ color: '#6b7280', fontStyle: 'italic', padding: '12px 0' }}>Report content unavailable</div>;
    const isReport = stripped.includes('## OVERALL RISK') || stripped.includes('## SUBJECT IDENTITY');
@@ -13353,7 +13353,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
      const caseKycData = _caseObj1?.kycData || null;
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} />;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} userName={user?.name} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
@@ -13591,12 +13591,12 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      const caseReportData2 = _caseObj2?.reportData || null;
      if (caseReportData2) {
        const caseKycData = _caseObj2?.kycData || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} reportData={caseReportData2} />;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} reportData={caseReportData2} userName={user?.name} />;
      }
      const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## ENTITY SUMMARY');
      if (isReport) {
        const caseKycData = _caseObj2?.kycData || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} />;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} userName={user?.name} />;
      }
      return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
    })()}

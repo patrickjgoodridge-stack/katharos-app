@@ -968,7 +968,7 @@ const RecommendedActionsSection = ({ data }) => {
 };
 
 // ── Monitoring Schedule ──
-const MonitoringScheduleSection = ({ data }) => {
+const MonitoringScheduleSection = ({ data, userName }) => {
   if (!data) return null;
   return (
     <>
@@ -976,7 +976,7 @@ const MonitoringScheduleSection = ({ data }) => {
       <Card>
         <KVRow label="Next review" value={data.nextReview} />
         <KVRow label="Trigger events" value={data.triggerEvents} />
-        <KVRow label="Assigned to" value={data.assignedTo || '—'} />
+        <KVRow label="Assigned to" value={userName || data.assignedTo || 'Unassigned'} />
       </Card>
     </>
   );
@@ -997,7 +997,7 @@ const TAB_CONFIG = [
 // ══════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════
-const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData }) => {
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData, userName }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const r = reportData || {};
 
@@ -1061,7 +1061,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <>
             <RecommendedActionsSection data={r.recommendedActions} />
             <FinancialExposureSection data={r.financialExposure} />
-            <MonitoringScheduleSection data={r.monitoringSchedule} />
+            <MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} />
             {kycData && (
               <>
                 <KYCRegulatoryCard data={kycData} />
