@@ -1023,8 +1023,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   // Count non-empty sections per tab for badges
   const tabCounts = {};
   tabCounts.summary = [r.entitySummary, r.matchConfidence, r.overallRisk, r.criticalFindings?.length, r.riskScoreBreakdown?.length].filter(Boolean).length;
-  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.generalLicenses?.length, r.ownershipHistory?.length].filter(Boolean).length;
-  tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.regulatoryContext?.length].filter(Boolean).length;
+  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.generalLicenses?.length].filter(Boolean).length;
+  tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length, r.regulatoryContext?.length].filter(Boolean).length;
   tabCounts.patterns = [r.typologies?.length].filter(Boolean).length;
   tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule, r.programsAndAuthorities?.length].filter(Boolean).length;
   tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
@@ -1051,7 +1051,6 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <AdverseMediaSection data={r.adverseMedia} />
             <DesignationTimelineSection data={r.designationTimeline} />
             <GeneralLicensesSection data={r.generalLicenses} />
-            <OwnershipHistorySection data={r.ownershipHistory} />
             {kycData && (
               <>
                 <KYCSanctionsCard data={kycData} />
@@ -1066,6 +1065,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <>
             <EntityNetworkSection data={r.entityNetwork} />
             <CorporateStructureSection data={r.corporateStructure} />
+            <OwnershipHistorySection data={r.ownershipHistory} />
             <RegulatoryContextSection data={r.regulatoryContext} />
             {kycData && <KYCOwnershipSection data={kycData} />}
             {networkGraphs && networkGraphs.length > 0 && (
