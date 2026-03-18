@@ -2788,6 +2788,82 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
 };
 
 
+// Export full structured JSON report as PDF (all tabs)
+const exportFullReportAsPdf = async (reportData) => {
+  if (!reportData) return;
+  setIsGeneratingCaseReport(true);
+  try {
+    const { createRoot } = await import('react-dom/client');
+
+    // Build subject name and risk level from report data
+    let subjectName = reportData.entitySummary?.legalName || caseName || 'Compliance Report';
+    subjectName = subjectName.replace(/\s*-\s*(?:CRITICAL|HIGH|MEDIUM|LOW|N\/A|UNKNOWN)\s*-\s*\w+\s+\d{4}$/i, '').trim();
+    const riskLevel = reportData.overallRisk?.level?.toUpperCase() || 'N/A';
+
+    // Create offscreen container
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '800px';
+    document.body.appendChild(container);
+
+    // Render ReportTabs in PDF mode
+    const root = createRoot(container);
+    root.render(
+      React.createElement(ReportTabs, {
+        reportData,
+        exportAllAsPdf: true,
+        userName: user?.name,
+        darkMode: true,
+      })
+    );
+
+    // Wait for render + Recharts animations
+    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 500)));
+
+    const { pdfBlob } = await captureDomToPdf(container, { subjectName, riskLevel });
+
+    // Clean up
+    root.unmount();
+    document.body.removeChild(container);
+
+    // Download
+    const dateStr = new Date().toISOString().split('T')[0];
+    const subjectSlug = subjectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30);
+    const fileName = `${subjectSlug}-${dateStr}.pdf`;
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Store to case
+    if (currentCaseId) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        addPdfReportToCase(currentCaseId, {
+          id: Math.random().toString(36).substr(2, 9),
+          name: fileName,
+          createdAt: new Date().toISOString(),
+          dataUri: reader.result,
+          riskLevel,
+          entityName: subjectName,
+        });
+      };
+      reader.readAsDataURL(pdfBlob);
+    }
+  } catch (error) {
+    console.error('PDF export error:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    setIsGeneratingCaseReport(false);
+  }
+};
+
  // Export entire case as PDF report
  const exportCaseAsPdf = async (caseData) => {
    if (!caseData) return;
@@ -13401,9 +13477,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  {copiedMessageId === idx ? 'Copied!' : 'Copy'}
  </button>
  {/* Export PDF button for screening results and substantial analysis */}
- {(msg.content.includes('OVERALL RISK') || msg.content.includes('## ') || (msg.content.length > 800 && (msg.content.includes('Risk') || msg.content.includes('Screening') || msg.content.includes('Analysis') || msg.content.includes('Findings')))) && (
+ {(msg.reportData || cases.find(c => c.id === currentCaseId)?.reportData || msg.content.includes('OVERALL RISK') || msg.content.includes('## ') || (msg.content.length > 800 && (msg.content.includes('Risk') || msg.content.includes('Screening') || msg.content.includes('Analysis') || msg.content.includes('Findings')))) && (
  <button
- onClick={() => exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content))}
+ onClick={() => {
+   const rd = msg.reportData || cases.find(c => c.id === currentCaseId)?.reportData;
+   if (rd) {
+     exportFullReportAsPdf(rd);
+   } else {
+     exportMessageAsPdf(`chat-message-${idx}`, stripVizData(msg.content));
+   }
+ }}
  disabled={isGeneratingCaseReport}
  className="katharos-btn primary"
  style={{ opacity: isGeneratingCaseReport ? 0.5 : 1 }}

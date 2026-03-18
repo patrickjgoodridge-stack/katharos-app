@@ -822,7 +822,7 @@ RULES:
 - Set optional arrays to [] (not null) when not applicable: adverseMedia, ownershipHistory, designationTimeline, generalLicenses.
 - corporateStructure uses \\n for newlines in the tree string.
 - Include 3-5 redFlags maximum. Each must be concrete and actionable.
-- Include 2-5 typologies. Only patterns supported by evidence.
+- Include all typologies supported by evidence.
 - criticalFindings ordered by severity: CRITICAL first, then HIGH, then MEDIUM.
 - Every factor in riskScoreBreakdown MUST have a corresponding entry in criticalFindings. If you scored it, it's a finding.
 - All string values may contain plain text only — no markdown formatting (no ** bold, no links).

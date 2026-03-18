@@ -52,10 +52,10 @@ const AMBER = '#f59e0b';
 const getRiskColor = (level) => RISK_COLORS[level?.toUpperCase()] || TEXT_MUTED;
 
 // ── Section heading ──
-const SectionHeading = ({ children }) => (
+const SectionHeading = ({ children, forPdf }) => (
   <h2 style={{
     fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase',
-    color: TEXT_WHITE, marginTop: 32, marginBottom: 16, fontFamily: 'inherit',
+    color: forPdf ? '#111' : TEXT_WHITE, marginTop: 32, marginBottom: 16, fontFamily: 'inherit',
   }}>{children}</h2>
 );
 
@@ -442,7 +442,7 @@ const buildNetworkGraph = (entities) => {
   return { nodes, edges };
 };
 
-const EntityNetworkSection = ({ data }) => {
+const EntityNetworkSection = ({ data, forPdf }) => {
   const [viewMode, setViewMode] = useState('graph');
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : []), [data]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
@@ -451,23 +451,26 @@ const EntityNetworkSection = ({ data }) => {
 
   const rows = Math.ceil(data.length / 4);
   const graphHeight = Math.max(rows * 140 + 60, 280);
+  const showTable = forPdf || viewMode === 'table';
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network</h2>
-        <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
-          {['graph', 'table'].map(mode => (
-            <button key={mode} onClick={() => setViewMode(mode)} style={{
-              fontSize: 11, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
-              background: viewMode === mode ? '#3a3a3a' : 'transparent',
-              color: viewMode === mode ? TEXT_WHITE : TEXT_MUTED,
-              fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'inherit',
-            }}>{mode}</button>
-          ))}
-        </div>
+        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: forPdf ? '#111' : TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network</h2>
+        {!forPdf && (
+          <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
+            {['graph', 'table'].map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)} style={{
+                fontSize: 11, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                background: viewMode === mode ? '#3a3a3a' : 'transparent',
+                color: viewMode === mode ? TEXT_WHITE : TEXT_MUTED,
+                fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'inherit',
+              }}>{mode}</button>
+            ))}
+          </div>
+        )}
       </div>
-      {viewMode === 'graph' ? (
+      {!showTable ? (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ height: graphHeight, background: '#141414' }}>
             <ReactFlow
@@ -676,15 +679,38 @@ const buildOwnershipGraph = (data) => {
   return { nodes, edges };
 };
 
-const CorporateStructureSection = ({ data }) => {
+const CorporateStructureSection = ({ data, forPdf }) => {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildOwnershipGraph(data || { parentEntity: '', owners: [], subsidiaries: [] }), [data]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   if (!data) return null;
 
-  // Calculate graph height based on content
   const owners = data.owners || [];
   const subsidiaries = data.subsidiaries || [];
+
+  if (forPdf) {
+    const rows = [
+      ...owners.map(o => ({ name: o.name, role: 'Owner', detail: o.percentage != null ? `${o.percentage}%` : o.description || '', flagged: o.flagged ? 'Yes' : '' })),
+      ...subsidiaries.map(s => ({ name: s.name, role: 'Subsidiary', detail: [s.jurisdiction, s.ownership].filter(Boolean).join(' · '), flagged: '' })),
+    ];
+    return (
+      <>
+        <SectionHeading forPdf>Ownership Structure — {data.parentEntity}</SectionHeading>
+        <DarkTable
+          columns={[
+            { key: 'name', label: 'Entity', bold: true },
+            { key: 'role', label: 'Role' },
+            { key: 'detail', label: 'Detail' },
+            { key: 'flagged', label: 'Flagged' },
+          ]}
+          rows={rows}
+          forPdf={forPdf}
+          colorRules={{ flagged: (v) => v === 'Yes' ? RISK_COLORS.CRITICAL : undefined }}
+        />
+      </>
+    );
+  }
+
   const layers = 1 + (owners.length > 0 ? 1 : 0) + (subsidiaries.length > 0 ? 1 : 0);
   const graphHeight = Math.max(layers * 120 + 40, 200);
 
@@ -997,7 +1023,7 @@ const TAB_CONFIG = [
 // ══════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════
-const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData, userName }) => {
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData, userName, exportAllAsPdf }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const r = reportData || {};
 
@@ -1006,9 +1032,59 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   tabCounts.summary = [r.entitySummary, r.matchConfidence, r.overallRisk, r.criticalFindings?.length, r.riskScoreBreakdown?.length].filter(Boolean).length;
   tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.generalLicenses?.length].filter(Boolean).length;
   tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length, r.regulatoryContext?.length].filter(Boolean).length;
-  tabCounts.patterns = [r.typologies?.length].filter(Boolean).length;
+  tabCounts.patterns = r.typologies?.length || 0;
   tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule].filter(Boolean).length;
   tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
+
+  // PDF export: render all sections sequentially, no tabs
+  if (exportAllAsPdf && reportData) {
+    const dividerStyle = {
+      fontSize: 16, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase',
+      color: '#111', marginTop: 40, marginBottom: 16, paddingBottom: 8,
+      borderBottom: '2px solid #d4d4d4', fontFamily: 'inherit',
+    };
+    return (
+      <div style={{ padding: 20, width: 800 }}>
+        {/* Summary */}
+        <h1 style={dividerStyle}>Summary</h1>
+        <EntitySummarySection data={r.entitySummary} />
+        <MatchConfidenceSection data={r.matchConfidence} />
+        <MatchConfidenceDetails data={r.matchConfidence} />
+        <OverallRiskSection data={r.overallRisk} />
+        <CriticalFindingsSection data={r.criticalFindings} />
+        <RiskBreakdownSection data={r.riskScoreBreakdown} totalScore={r.overallRisk?.score} totalLevel={r.overallRisk?.level} />
+
+        {/* Evidence */}
+        <h1 style={dividerStyle}>Evidence</h1>
+        <RedFlagsSection data={r.redFlags} />
+        <AdverseMediaSection data={r.adverseMedia} />
+        <DesignationTimelineSection data={r.designationTimeline} />
+        <GeneralLicensesSection data={r.generalLicenses} />
+
+        {/* Network */}
+        <h1 style={dividerStyle}>Network</h1>
+        <EntityNetworkSection data={r.entityNetwork} forPdf />
+        <CorporateStructureSection data={r.corporateStructure} forPdf />
+        <OwnershipHistorySection data={r.ownershipHistory} />
+        <RegulatoryContextSection data={r.regulatoryContext} />
+
+        {/* Patterns */}
+        <h1 style={dividerStyle}>Patterns</h1>
+        <TypologiesSection data={r.typologies} />
+
+        {/* Actions */}
+        <h1 style={dividerStyle}>Recommended Actions</h1>
+        <RecommendedActionsSection data={r.recommendedActions} />
+        <FinancialExposureSection data={r.financialExposure} />
+        <MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} />
+
+        {/* Audit */}
+        <h1 style={dividerStyle}>Audit</h1>
+        <CoverageGapSection data={r.coverageGap} />
+        <GapsSection data={r.gapsAndLimitations} />
+      </div>
+    );
+  }
 
   // JSON renderer for each tab
   const renderJsonTab = () => {
