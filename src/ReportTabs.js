@@ -24,13 +24,13 @@ const TAB_CONFIG = [
     id: 'summary',
     label: 'Summary',
     icon: FileText,
-    sections: ['ENTITY SUMMARY', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
+    sections: ['ENTITY SUMMARY', 'OVERALL RISK', 'MATCH CONFIDENCE', 'CRITICAL FINDINGS', 'RISK SCORE BREAKDOWN'],
   },
   {
     id: 'evidence',
     label: 'Evidence',
     icon: Search,
-    sections: ['RED FLAGS', 'CRITICAL FINDINGS', 'ADVERSE MEDIA', 'DESIGNATION TIMELINE', 'GENERAL LICENSES', 'OWNERSHIP HISTORY'],
+    sections: ['RED FLAGS', 'ADVERSE MEDIA', 'DESIGNATION TIMELINE', 'GENERAL LICENSES', 'OWNERSHIP HISTORY'],
   },
   {
     id: 'network',
@@ -153,24 +153,25 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   }, [tabSections, kycData]);
 
   // Build markdown for active tab, separating pinned sections
-  const { subjectIdentityContent, matchConfidenceContent, overallRiskContent, activeContent } = useMemo(() => {
+  const { subjectIdentityContent, matchConfidenceContent, overallRiskContent, criticalFindingsContent, riskBreakdownContent, activeContent } = useMemo(() => {
     const sections = tabSections[activeTab] || [];
     if (activeTab === 'summary') {
       const isPinned = (s) => {
         const h = s.heading.toUpperCase();
-        return h.includes('ENTITY SUMMARY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN') || h.includes('PEP STATUS');
+        return h.includes('ENTITY SUMMARY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('CRITICAL FINDINGS') || h.includes('RISK SCORE BREAKDOWN') || h.includes('PEP STATUS');
       };
       const identity = sections.filter(s => s.heading.toUpperCase().includes('ENTITY SUMMARY'));
       const confidence = sections.filter(s => s.heading.toUpperCase().includes('MATCH CONFIDENCE'));
-      const overallRisk = sections.filter(s => {
-        const h = s.heading.toUpperCase();
-        return h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN');
-      });
+      const overallRisk = sections.filter(s => s.heading.toUpperCase().includes('OVERALL RISK'));
+      const criticalFindings = sections.filter(s => s.heading.toUpperCase().includes('CRITICAL FINDINGS'));
+      const riskBreakdown = sections.filter(s => s.heading.toUpperCase().includes('RISK SCORE BREAKDOWN'));
       const rest = sections.filter(s => !isPinned(s));
       return {
         subjectIdentityContent: identity.map(s => s.content).join('\n\n'),
         matchConfidenceContent: confidence.map(s => s.content).join('\n\n'),
         overallRiskContent: overallRisk.map(s => s.content).join('\n\n'),
+        criticalFindingsContent: criticalFindings.map(s => s.content).join('\n\n'),
+        riskBreakdownContent: riskBreakdown.map(s => s.content).join('\n\n'),
         activeContent: rest.map(s => s.content).join('\n\n'),
       };
     }
@@ -178,6 +179,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       subjectIdentityContent: '',
       matchConfidenceContent: '',
       overallRiskContent: '',
+      criticalFindingsContent: '',
+      riskBreakdownContent: '',
       activeContent: sections.map(s => s.content).join('\n\n'),
     };
   }, [tabSections, activeTab]);
@@ -258,9 +261,19 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <MarkdownRenderer content={matchConfidenceContent} darkMode={darkMode} />
         )}
 
-        {/* Overall Risk + Risk Score Breakdown pinned below Match Confidence */}
+        {/* Overall Risk pinned below Match Confidence */}
         {activeTab === 'summary' && overallRiskContent && (
           <MarkdownRenderer content={overallRiskContent} darkMode={darkMode} />
+        )}
+
+        {/* Critical Findings pinned below Overall Risk */}
+        {activeTab === 'summary' && criticalFindingsContent && (
+          <MarkdownRenderer content={criticalFindingsContent} darkMode={darkMode} />
+        )}
+
+        {/* Risk Score Breakdown pinned below Critical Findings */}
+        {activeTab === 'summary' && riskBreakdownContent && (
+          <MarkdownRenderer content={riskBreakdownContent} darkMode={darkMode} />
         )}
 
         {/* KYC structured data — below pinned sections, above other markdown */}
