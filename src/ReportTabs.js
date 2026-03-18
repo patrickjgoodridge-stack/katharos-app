@@ -118,6 +118,17 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       }
     }
 
+    // Pin SUBJECT IDENTITY to the top of the summary tab
+    if (grouped.summary.length > 1) {
+      grouped.summary.sort((a, b) => {
+        const aIsIdentity = a.heading.toUpperCase().includes('SUBJECT IDENTITY');
+        const bIsIdentity = b.heading.toUpperCase().includes('SUBJECT IDENTITY');
+        if (aIsIdentity && !bIsIdentity) return -1;
+        if (!aIsIdentity && bIsIdentity) return 1;
+        return 0;
+      });
+    }
+
     return grouped;
   }, [content]);
 
@@ -141,10 +152,21 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
     return counts;
   }, [tabSections, kycData]);
 
-  // Build markdown for active tab
-  const activeContent = useMemo(() => {
+  // Build markdown for active tab, separating Subject Identity for pinning
+  const { subjectIdentityContent, activeContent } = useMemo(() => {
     const sections = tabSections[activeTab] || [];
-    return sections.map(s => s.content).join('\n\n');
+    if (activeTab === 'summary') {
+      const identity = sections.filter(s => s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
+      const rest = sections.filter(s => !s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
+      return {
+        subjectIdentityContent: identity.map(s => s.content).join('\n\n'),
+        activeContent: rest.map(s => s.content).join('\n\n'),
+      };
+    }
+    return {
+      subjectIdentityContent: '',
+      activeContent: sections.map(s => s.content).join('\n\n'),
+    };
   }, [tabSections, activeTab]);
 
   return (
@@ -213,7 +235,12 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
 
       {/* Tab Content */}
       <div style={{ minHeight: '200px' }}>
-        {/* KYC structured data — ABOVE markdown for summary tab */}
+        {/* Subject Identity pinned to top of summary tab */}
+        {activeTab === 'summary' && subjectIdentityContent && (
+          <MarkdownRenderer content={subjectIdentityContent} darkMode={darkMode} />
+        )}
+
+        {/* KYC structured data — below Subject Identity, above other markdown */}
         {kycData && activeTab === 'summary' && (
           <KYCRiskHeader data={kycData} />
         )}
@@ -222,7 +249,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         {activeContent ? (
           <MarkdownRenderer content={activeContent} darkMode={darkMode} />
         ) : (
-          !kycData && (
+          !kycData && !subjectIdentityContent && (
             <div style={{
               padding: '40px 20px',
               textAlign: 'center',
