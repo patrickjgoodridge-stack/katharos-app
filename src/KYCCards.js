@@ -521,7 +521,7 @@ export const KYCOwnershipSection = ({ data }) => {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEXT_MUTED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/>
               </svg>
-              Corporate Network ({oa.corporateStructure.length} Entities)
+              Corporate Structure ({oa.corporateStructure.length} Entities)
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {oa.corporateStructure.map((entity, i) => (

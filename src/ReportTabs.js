@@ -36,7 +36,7 @@ const TAB_CONFIG = [
     id: 'network',
     label: 'Network',
     icon: Network,
-    sections: ['ENTITY NETWORK', 'CORPORATE NETWORK', 'REGULATORY CONTEXT'],
+    sections: ['ENTITY NETWORK', 'CORPORATE NETWORK', 'CORPORATE STRUCTURE', 'REGULATORY CONTEXT'],
   },
   {
     id: 'actions',

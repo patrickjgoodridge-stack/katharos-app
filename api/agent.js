@@ -812,25 +812,25 @@ For entities: full legal registered name, all known trade names and prior names,
 
 Use get_related_entities and web_search for identity resolution. Do not proceed to Batch 1 until identity is confirmed.
 
-### STEP 2 — BATCH 1 (Fire simultaneously)
+### STEP 2 — DATABASE CHECK FIRST (MANDATORY)
 
-ALWAYS start by searching the curated entity investigation database using search_entity_investigations. This is your highest-value data source — it contains 12,200+ pre-researched entities across 1,800+ subjects in 16 major investigations that standard screening completely misses.
+BEFORE running any screening tools, call search_entity_investigations ALONE. This is your highest-value data source — 12,200+ pre-researched entities across 1,800+ subjects. Wait for the result before deciding your next step.
 
-**CACHE HIT — SKIP FULL INVESTIGATION:** If search_entity_investigations returns 5+ entities for the subject from a pre-existing investigation, you have comprehensive coverage already. Do NOT rerun the full investigation protocol. Instead:
-1. Use the cached entity data as your primary source
-2. Run screen_entity ONCE to get current sanctions status (live check)
-3. Run ONE web_search for recent developments since the investigation date
-4. Go directly to STEP 10 — FINAL OUTPUT using the cached data + any updates
-5. In your COVERAGE GAP table, cite the original investigation as the source
-This saves ~2 minutes of redundant screening. The curated database already contains deep investigative findings — re-investigating the same subject wastes time and returns the same results.
+**CACHE HIT (5+ entities returned):** The subject has been comprehensively investigated. DO NOT run the full protocol. Follow this FAST PATH only:
+1. Call screen_entity ONCE (live sanctions/PEP status check)
+2. That is it. No web_search, no trace_ownership, no knowledge_base_search, no search_corporate_records.
+3. Write STEP 10 — FINAL OUTPUT immediately using the cached entity data + the live screen_entity result.
+4. In COVERAGE GAP, cite the original investigation as source.
+This must complete in 2 tool calls total (search_entity_investigations + screen_entity). No exceptions. Do NOT run additional tools on a cache hit — the investigation database already contains deep findings.
 
-**CACHE MISS — FULL INVESTIGATION:** If search_entity_investigations returns 0-4 entities or no results, proceed with the full investigation protocol below.
+**CACHE MISS (0-4 entities):** Proceed to BATCH 1 below.
+
+### BATCH 1 (Cache miss only — fire simultaneously)
 
 Fire in parallel based on subject type:
 
 **For INDIVIDUAL subjects — fire all simultaneously:**
 - screen_entity (full 13-layer screening)
-- search_entity_investigations (curated investigation database)
 - web_search: "[full legal name]" OFAC SDN sanctioned designated
 - web_search: "[full legal name]" Cyprus BVI Cayman offshore holdings structure
 - web_search: "[full legal name]" beneficial owner shareholder director
@@ -840,7 +840,6 @@ Fire in parallel based on subject type:
 
 **For CORPORATE ENTITY subjects — fire all simultaneously:**
 - screen_entity (full 13-layer screening)
-- search_entity_investigations (curated investigation database)
 - web_search: "[full legal name]" DOJ FCPA "plea agreement" OR "deferred prosecution" settlement
 - web_search: "[full legal name]" subsidiaries "wholly owned" OR "majority owned"
 - web_search: "[full legal name]" ICIJ "offshore leaks" OR "panama papers" OR "paradise papers"
