@@ -4635,6 +4635,12 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
                break;
              }
 
+             case 'report_json': {
+               console.log('[Report] Got structured JSON report for case', caseId);
+               setCases(prev => prev.map(c => c.id === caseId ? { ...c, reportData: evt } : c));
+               break;
+             }
+
              default:
                break;
            }
@@ -13318,8 +13324,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      });
      const _caseObj1 = cases.find(c => c.id === currentCaseId);
      const caseKycData = _caseObj1?.kycData || null;
-     const caseScreeningStatus = _caseObj1?.screeningStatus || null;
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} screeningStatus={caseScreeningStatus} />;
+     const caseReportData = _caseObj1?.reportData || null;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={caseReportData} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
@@ -13553,12 +13559,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (() => {
      const streamText = stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
-     const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## SUBJECT IDENTITY');
-     if (isReport) {
-       const _caseObj2 = cases.find(c => c.id === currentCaseId);
+     const _caseObj2 = cases.find(c => c.id === currentCaseId);
+     const caseReportData2 = _caseObj2?.reportData || null;
+     if (caseReportData2) {
        const caseKycData = _caseObj2?.kycData || null;
-       const caseScreeningStatus = _caseObj2?.screeningStatus || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} screeningStatus={caseScreeningStatus} />;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} reportData={caseReportData2} />;
+     }
+     const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## ENTITY SUMMARY');
+     if (isReport) {
+       const caseKycData = _caseObj2?.kycData || null;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} />;
      }
      return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
    })()}

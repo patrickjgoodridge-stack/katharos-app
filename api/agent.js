@@ -645,174 +645,186 @@ Do NOT output branch accounting blocks. Track branches internally but do not emi
 
 During the investigation, you may output brief one-line status updates ONLY when a significant finding surfaces. Examples: "SANCTIONS HIT: [entity name]" or "OFAC 50% rule triggered: [entity] via [parent]". Keep these to one line each. No paragraphs of reasoning between tool calls.
 
-When the investigation is complete, output your structured report in this exact format:
+When the investigation is complete, output your final report as a SINGLE JSON code block. Wrap it in \`\`\`json ... \`\`\`. No markdown sections. No text before or after the JSON block (in the same message). The JSON must conform EXACTLY to this schema:
 
-## ENTITY SUMMARY
-**Legal Name:** [Full legal registered name; if subsidiary is designated, include both parent and subsidiary]
-**Type:** [Entity classification — e.g. State-Owned Shipping Conglomerate | Subsidiary: Ship Management Company]
-**Status:** [Sanctions/designation status — e.g. Parent: DOD Chinese Military Company | Subsidiary: OFAC SDN Designated]
-**Nationality/Citizenship:** [Country of origin, listing jurisdiction, operational base]
-**Jurisdiction:** [All jurisdictions of incorporation, listing, and material operations]
-**Key Business:** [Core business activities — comma-separated]
-**Parent Company:** [Ultimate parent entity if applicable, or "N/A"]
-**Designation Details:** [Specific list, executive order, or enforcement basis — or "None"]
-**PEP Status:** [PEP / Non-PEP / PEP Associate — include tier and position if applicable]
-**EDD Obligations:** [What enhanced due diligence applies — or "Standard CDD sufficient"]
-
-## OVERALL RISK: [CRITICAL/HIGH/MEDIUM/LOW] — [Score]/100
-[One-sentence recommendation: **APPROVE** / **DO NOT TRANSACT** / **ESCALATE FOR EDD**]
-
-## MATCH CONFIDENCE: [HIGH/MEDIUM/LOW] — [N]%
-Factors supporting: [exact name match, DOB confirmed, SDN alias confirmed, passport number matched, etc.]
-Factors reducing: [common name, no passport verified, incomplete DOB, etc.]
-
-## ENTITY NETWORK
-
-| Entity | Type | Jurisdiction | Risk | Sanctioned | Match % | Connection | Source |
-|--------|------|-------------|------|------------|---------|------------|--------|
-| [one row per entity discovered] |
-
-Match % = confidence that this entity is correctly identified and connected (0-100%).
-Source = where this entity was found (OFAC SDN List / OCCRP / Companies House / Panama Papers / Corporate Registry / etc.)
-
-## CORPORATE NETWORK
-[ASCII tree diagram showing the ownership/control hierarchy. Use box-drawing characters (├── └── │). Include jurisdiction in parentheses after each entity. Add risk badges in brackets for flagged entities: [SANCTIONED], [SDN], [CONVICTED], [DPA], [HIGH RISK], [DESIGNATED], [BLOCKED]. Example:]
+\`\`\`json
+{
+  "entitySummary": {
+    "legalName": "Full legal registered name; if subsidiary is designated, include both parent and subsidiary",
+    "type": "Entity classification — e.g. State-Owned Shipping Conglomerate | Subsidiary: Ship Management Company",
+    "status": "Sanctions/designation status — e.g. Parent: DOD Chinese Military Company | Subsidiary: OFAC SDN Designated",
+    "nationality": "Country of origin, listing jurisdiction, operational base",
+    "jurisdiction": "All jurisdictions of incorporation, listing, and material operations",
+    "keyBusiness": "Core business activities — comma-separated",
+    "parentCompany": "Ultimate parent entity if applicable, or N/A",
+    "designationDetails": "Specific list, executive order, or enforcement basis — or None",
+    "pepStatus": "PEP / Non-PEP / PEP Associate — include tier and position if applicable",
+    "eddObligations": "What enhanced due diligence applies — or Standard CDD sufficient"
+  },
+  "matchConfidence": {
+    "level": "HIGH or MEDIUM or LOW",
+    "percentage": 95,
+    "factorsSupporting": ["exact entity match", "confirmed DOD designation", "verified state ownership"],
+    "factorsReducing": ["common name variants across jurisdictions"]
+  },
+  "overallRisk": {
+    "level": "CRITICAL or HIGH or MEDIUM or LOW",
+    "score": 85,
+    "recommendation": "APPROVE or DO NOT TRANSACT or ESCALATE FOR EDD",
+    "summary": "One-sentence explanation of the recommendation"
+  },
+  "criticalFindings": [
+    {
+      "severity": "CRITICAL or HIGH or MEDIUM",
+      "title": "Finding title",
+      "description": "What standard screening misses and why it matters",
+      "source": "OFAC SDN List / OCCRP / ICIJ / Companies House / etc."
+    }
+  ],
+  "riskScoreBreakdown": [
+    { "factor": "OFAC SDN designation", "weight": "40%", "score": 40, "reasoning": "Direct designation under EO 13846" },
+    { "factor": "Secondary sanctions risk", "weight": "20%", "score": 15, "reasoning": "OFAC 50% rule applies to 3 subsidiaries" },
+    { "factor": "Adverse media", "weight": "15%", "score": 10, "reasoning": "Multiple enforcement actions 2022-2024" },
+    { "factor": "PEP exposure", "weight": "10%", "score": 10, "reasoning": "Tier 1 PEP — head of state-owned enterprise" },
+    { "factor": "Entity complexity", "weight": "10%", "score": 7, "reasoning": "14 entities across 6 jurisdictions" },
+    { "factor": "Jurisdiction risk", "weight": "5%", "score": 3, "reasoning": "Operations in FATF grey-list jurisdiction" }
+  ],
+  "redFlags": [
+    {
+      "title": "OFAC SDN Designation — Subsidiary Entity",
+      "description": "Entity designated under Iran sanctions program with comprehensive blocking provisions including foreign exchange restrictions, banking transaction prohibitions, and investment bans.",
+      "impact": "Any transaction with this subsidiary violates U.S. sanctions law and subjects U.S. persons to civil and criminal penalties."
+    }
+  ],
+  "entityNetwork": [
+    {
+      "entity": "Entity name",
+      "type": "Subsidiary / Parent / Affiliate",
+      "jurisdiction": "Country",
+      "risk": "CRITICAL or HIGH or MEDIUM or LOW",
+      "sanctioned": "Yes or No or Partial Match",
+      "matchPercent": 95,
+      "connection": "How connected to subject",
+      "source": "OFAC SDN List / Companies House / etc."
+    }
+  ],
+  "corporateStructure": {
+    "parentEntity": "Top-level entity name (the subject or its ultimate parent)",
+    "structureType": "Complex structure / Simple structure / State-owned / Conglomerate",
+    "owners": [
+      {
+        "name": "Owner name — individual, trust, fund, or entity",
+        "percentage": 48,
+        "description": "OFAC listed / BVI trust / undisclosed / state-owned / nominee",
+        "flagged": true
+      }
+    ],
+    "subsidiaries": [
+      {
+        "name": "Subsidiary name",
+        "jurisdiction": "Country",
+        "ownership": "100% / majority / minority",
+        "risk": "CRITICAL / HIGH / MEDIUM / LOW / CLEAN",
+        "badges": ["SANCTIONED", "SDN", "CONVICTED", "DPA", "DESIGNATED", "BLOCKED", "HIGH RISK"]
+      }
+    ],
+    "notes": "Key compliance note about the ownership structure — nominee concerns, undisclosed tranches, OFAC 50% rule implications, etc."
+  },
+  "regulatoryContext": [
+    {
+      "jurisdiction": "Country name",
+      "opacity": "High or Medium or Low",
+      "fatfStatus": "Listed or Grey or Clean",
+      "keyRisk": "One phrase",
+      "notes": "One line"
+    }
+  ],
+  "typologies": [
+    {
+      "name": "Sanctions Evasion via Subsidiary Restructuring",
+      "pattern": "One-sentence description of the general typology",
+      "evidence": "How this pattern manifests specifically — entity names, dates, jurisdictions",
+      "complianceImplication": "What this means for transaction screening and due diligence"
+    }
+  ],
+  "adverseMedia": [
+    {
+      "date": "YYYY-MM-DD",
+      "outlet": "Publication name",
+      "headline": "Article headline",
+      "relevance": "High or Medium or Low",
+      "source": "URL or publication name"
+    }
+  ],
+  "ownershipHistory": [
+    {
+      "date": "YYYY-MM-DD",
+      "event": "Formed / Renamed / Dissolved / Sold / Restructured",
+      "entity": "Entity name",
+      "detail": "One line description",
+      "complianceNote": "One line compliance relevance"
+    }
+  ],
+  "designationTimeline": [
+    {
+      "date": "YYYY-MM-DD",
+      "program": "Program name",
+      "authority": "OFAC / EU / UK OFSI / UN",
+      "entityDesignated": "Entity name",
+      "gl": "Yes or No",
+      "glExpiry": "Date or N/A"
+    }
+  ],
+  "generalLicenses": [
+    {
+      "gl": "GL number",
+      "scope": "What the license authorizes",
+      "issued": "Issue date",
+      "expires": "Expiry date",
+      "actionRequired": "What compliance team must do before expiry"
+    }
+  ],
+  "programsAndAuthorities": [
+    {
+      "reference": "EO number / GL number / statute / list name",
+      "program": "Program name",
+      "authority": "Issuing authority",
+      "description": "One line plain-English description"
+    }
+  ],
+  "financialExposure": {
+    "transactionExposure": "Dollar amount at risk or Unknown",
+    "penaltyRange": "Civil: up to $X per violation / Criminal: up to $X",
+    "comparableEnforcement": "1-2 lines on similar cases and penalties",
+    "businessImpact": "One sentence on operational consequence of non-compliance"
+  },
+  "coverageGap": {
+    "standardScreening": { "entities": 5, "jurisdictions": 2, "programs": 1, "coverage": "15%" },
+    "thisInvestigation": { "entities": 33, "jurisdictions": 8, "programs": 4, "coverage": "100%" }
+  },
+  "gapsAndLimitations": "What could not be verified and what would close each gap",
+  "recommendedActions": {
+    "immediate": ["Blocking actions, regulatory notifications, SAR filings"],
+    "shortTerm": ["Enhanced DD steps, document requests, registry searches"],
+    "ongoing": ["Monitoring, periodic rescreening, watchlist alerts"],
+    "bottomLine": "One-sentence final assessment"
+  },
+  "monitoringSchedule": {
+    "nextReview": "Date — CRITICAL=continuous, HIGH=monthly, MEDIUM=quarterly, LOW=annually",
+    "triggerEvents": "What would require immediate re-investigation",
+    "assignedTo": ""
+  }
+}
 \`\`\`
-Glencore PLC (Switzerland)
-├── Glencore International AG (Switzerland) [CONVICTED]
-│   ├── Glencore Energy UK Ltd (UK) [DPA]
-│   └── Glencore Ltd (UK)
-├── Katanga Mining Ltd (DRC) [SANCTIONED]
-└── Chemoil Energy Ltd (Singapore)
-\`\`\`
-[Build the tree from entities discovered during investigation. Show parent-subsidiary relationships, beneficial ownership chains, and control structures. Max 3 levels deep unless deeper structure is critical.]
 
-## REGULATORY CONTEXT
-[One row per jurisdiction found in the entity network.]
-
-| Jurisdiction | Opacity | FATF Status | Key Risk | Notes |
-|-------------|---------|-------------|----------|-------|
-| [Country] | [High/Medium/Low] | [Listed/Grey/Clean] | [one phrase] | [one line] |
-
-## TYPOLOGIES
-[Identify the specific financial crime patterns observed in this entity's network. Each typology should be a ### sub-heading with a description of the pattern, how it manifests in this case, and the compliance implication. Include only patterns supported by evidence found during investigation.]
-
-### [Typology Name — e.g. "Sanctions Evasion via Subsidiary Restructuring"]
-**Pattern:** [One-sentence description of the general typology]
-**Evidence in this case:** [How this pattern manifests specifically — entity names, dates, jurisdictions]
-**Compliance implication:** [What this means for transaction screening and due diligence]
-
-[Include 2-5 typologies. Common patterns to check for: sanctions evasion through corporate restructuring, layered ownership to obscure beneficial ownership, use of nominee directors/shareholders, jurisdiction shopping to exploit regulatory gaps, trade-based money laundering, misuse of general licenses, front companies for sanctioned state actors, crypto/digital asset sanctions circumvention.]
-
-## ADVERSE MEDIA
-[Include only when material adverse media is found. Omit entirely if nothing material. Order most recent first.]
-
-| Date | Outlet | Headline | Relevance | Source |
-|------|--------|----------|-----------|--------|
-| [YYYY-MM-DD] | [Publication] | [Headline] | [High/Medium/Low] | [URL or publication name] |
-
-## OWNERSHIP HISTORY
-[Include only when material ownership changes, name changes, dissolutions, or pre/post-designation sales are found. Omit if none. Order most recent first.]
-
-| Date | Event | Entity | Detail | Compliance Note |
-|------|-------|--------|--------|-----------------|
-| [YYYY-MM-DD] | [Formed/Renamed/Dissolved/Sold/Restructured] | [Entity name] | [one line] | [one line] |
-
-## DESIGNATION TIMELINE
-[Include this section ONLY when the subject or connected entities have SDN/sanctions designations. Omit entirely for clean subjects. Order most recent first.]
-
-| Date | Program | Authority | Entity Designated | GL? | GL Expiry |
-|------|---------|-----------|------------------|-----|-----------|
-| [YYYY-MM-DD] | [Program name] | [OFAC/EU/UK OFSI/UN] | [Entity name] | [Yes/No] | [Date or N/A] |
-
-## RISK SCORE BREAKDOWN
-[MANDATORY. Score each factor within its weighted range. Do NOT use +0 — if a factor contributes zero risk, use 0. Every factor MUST have a reasoning sentence even if score is 0. The six scores MUST sum to the Final Score which MUST match the OVERALL RISK score.]
-
-| Factor | Weight | Score | Reasoning |
-|--------|--------|-------|-----------|
-| OFAC SDN designation | 40% | [0-40] | [one line — e.g. "Direct designation under EO 13846" or "No SDN match found"] |
-| Secondary sanctions risk | 20% | [0-20] | [one line — e.g. "OFAC 50% rule applies to 3 subsidiaries" or "No secondary exposure identified"] |
-| Adverse media | 15% | [0-15] | [one line — e.g. "Multiple enforcement actions 2022-2024" or "No material adverse media"] |
-| PEP exposure | 10% | [0-10] | [one line — e.g. "Tier 1 PEP — head of state-owned enterprise" or "No political exposure"] |
-| Entity complexity | 10% | [0-10] | [one line — e.g. "14 entities across 6 jurisdictions" or "Simple corporate structure"] |
-| Jurisdiction risk | 5% | [0-5] | [one line — e.g. "Operations in FATF grey-list jurisdiction" or "Low-risk jurisdictions only"] |
-| **Final Score** | **100%** | **[Total]/100** | **[CRITICAL/HIGH/MEDIUM/LOW]** |
-
-## RED FLAGS
-[Top-of-evidence section. List the most critical compliance red flags discovered, each as a ### sub-heading with a one-paragraph explanation and a blockquote IMPACT statement. Include hyperlinks to source entities/designations where available. Order by severity. Example format:]
-
-### OFAC SDN Designation — Subsidiary Entity
-[Entity name](link) designated under [program] with [specific blocking provisions].
-
-> **IMPACT**
-> [One-sentence compliance consequence — e.g. "Any transaction with this subsidiary violates U.S. sanctions law and subjects U.S. persons to civil and criminal penalties."]
-
-### [Next Red Flag Title]
-[Description with bolded key terms.]
-
-> **IMPACT**
-> [Compliance consequence.]
-
-[Include 3-5 red flags maximum. Each must be a concrete, actionable finding — not a restatement of risk scores.]
-
-## GENERAL LICENSES
-[Include this section ONLY when active general licenses apply to the subject or their designated entities. This is the most-missed compliance signal — compliance teams know about designations but miss GL windows. Omit entirely when no GLs apply.]
-
-| GL | Scope | Issued | Expires | Action Required |
-|----|-------|--------|---------|-----------------|
-| [GL number] | [What the license authorizes] | [Issue date] | [Expiry date] | [What compliance team must do before expiry] |
-
-## PROGRAMS AND AUTHORITIES
-[One row per EO, GL, statute, or list name referenced anywhere in this report.]
-
-| Reference | Program | Authority | Description |
-|-----------|---------|-----------|-------------|
-| [EO number / GL number / statute / list name] | [Program name] | [Issuing authority] | [one line plain-English description] |
-
-## CRITICAL FINDINGS
-[Number findings and prefix each with severity level. The renderer auto-colors **CRITICAL**, **HIGH**, **MEDIUM** bold text. Each finding MUST include a Source line.]
-1. **[CRITICAL]** [Finding title] — [one sentence: what standard screening misses and why it matters]
-   Source: [OFAC SDN List / OCCRP / ICIJ / Companies House / etc. — link if available]
-2. **[HIGH]** [Finding title] — [one sentence]
-   Source: [source]
-3. **[MEDIUM]** [Finding title] — [one sentence]
-   Source: [source]
-
-## COVERAGE GAP
-
-| | Standard Screening | This Investigation |
-|---|---|---|
-| Entities found | [N] | [N] |
-| Jurisdictions covered | [N] | [N] |
-| Programs screened | [N] | [N] |
-| Coverage | [N]% | 100% |
-
-## FINANCIAL EXPOSURE
-**Estimated transaction exposure:** [Dollar amount at risk or "Unknown"]
-**Potential OFAC penalty range:** [Civil: up to $X per violation / Criminal: up to $X — cite the relevant statute]
-**Comparable enforcement actions:** [1-2 lines on similar cases and penalties — or "No comparable cases identified"]
-**Business impact:** [One sentence on operational consequence of non-compliance]
-
-## GAPS AND LIMITATIONS
-[What could not be verified, what would close each gap]
-
-## RECOMMENDED ACTIONS
-
-**IMMEDIATE**
-- [Blocking actions, regulatory notifications, SAR filings — for HIGH/CRITICAL risk]
-
-**SHORT-TERM**
-- [Enhanced DD steps, document requests, registry searches — within days/weeks]
-
-**ONGOING**
-- [Monitoring, periodic rescreening, watchlist alerts]
-
-Bottom line: [One-sentence final assessment]
-
-## MONITORING SCHEDULE
-**Next review:** [Date — based on risk level: CRITICAL=continuous, HIGH=monthly, MEDIUM=quarterly, LOW=annually]
-**Trigger events:** [What would require immediate re-investigation — new designation, adverse media, transaction attempt]
-**Assigned to:** [Leave blank for client to fill]
+RULES:
+- The six riskScoreBreakdown scores MUST sum to overallRisk.score.
+- Set optional arrays to [] (not null) when not applicable: adverseMedia, ownershipHistory, designationTimeline, generalLicenses.
+- corporateStructure uses \\n for newlines in the tree string.
+- Include 3-5 redFlags maximum. Each must be concrete and actionable.
+- Include 2-5 typologies. Only patterns supported by evidence.
+- criticalFindings ordered by severity: CRITICAL first, then HIGH, then MEDIUM.
+- All string values may contain plain text only — no markdown formatting (no ** bold, no links).
 
 ## INVESTIGATION PROTOCOL — EXECUTE ON EVERY SEARCH
 
@@ -965,32 +977,7 @@ If any check fails, do not write final output. Close the gap first.
 
 ### STEP 10 — FINAL OUTPUT
 
-Output your findings in the structured format defined in OUTPUT PROTOCOL above. Follow these rendering rules:
-- The OVERALL RISK header MUST be an H2 with the risk level keyword (CRITICAL/HIGH/MEDIUM/LOW) for UI risk-level styling.
-- ## MATCH CONFIDENCE MUST be an H2 with HIGH/MEDIUM/LOW for the confidence badge color and pulse animation.
-- All tables (ENTITY NETWORK, SCORING BREAKDOWN, RISK SCORE BREAKDOWN, COVERAGE GAP, DESIGNATION TIMELINE, GENERAL LICENSES, REGULATORY CONTEXT, ADVERSE MEDIA, OWNERSHIP HISTORY, PROGRAMS AND AUTHORITIES) MUST be markdown tables so the UI renders them as styled tables.
-- ## PEP STATUS renders as a standard card with bold field labels. Include for ALL subjects — state "Non-PEP" if no political exposure.
-- ## DESIGNATION TIMELINE and ## GENERAL LICENSES render as standard dark tables. Include GL? and GL Expiry columns in the timeline.
-- ## RISK SCORE BREAKDOWN table: Weight column renders as muted text, Score column renders with risk coloring (high scores red, low scores green), Final Score row renders as a summary/total row in white bold.
-- ## REGULATORY CONTEXT table: Opacity column — High=red, Medium=amber, Low=green. FATF Status — Listed=red, Grey=amber, Clean=green.
-- ## ADVERSE MEDIA table: Relevance column — High=red, Medium=amber, Low=grey.
-- ## OWNERSHIP HISTORY renders as a standard dark table.
-- ## FINANCIAL EXPOSURE renders as a standard card with bold field labels.
-- ## PROGRAMS AND AUTHORITIES renders as a standard dark table, Reference column in amber.
-- ## MONITORING SCHEDULE renders as a standard card with bold field labels.
-- CRITICAL FINDINGS MUST be numbered with severity prefixes: **[CRITICAL]**, **[HIGH]**, **[MEDIUM]** — the renderer auto-colors these via existing bold risk-keyword detection. Each finding MUST include a Source: line that renders as 10px uppercase muted label followed by linked text.
-- ENTITY NETWORK table MUST include Match % and Source columns. Match % values below 70% render in amber, below 50% in red.
-- CORPORATE NETWORK MUST be an ASCII tree diagram inside a fenced code block (\`\`\`). Use box-drawing characters (├── └── │) for the hierarchy. The renderer auto-detects tree characters and renders them as a styled network diagram with teal connectors, colored risk badges, and muted jurisdiction tags. Add [SANCTIONED], [SDN], [CONVICTED], [DPA], [DESIGNATED], [BLOCKED], [HIGH RISK] badges after flagged entities.
-- COVERAGE GAP MUST be a comparison table (Standard Screening vs This Investigation) with rows for entities, jurisdictions, programs screened, and coverage percentage.
-- SCORING BREAKDOWN MUST use +N for risk factors and -N for mitigating factors — the renderer colors +N red and -N green.
-- RECOMMENDED ACTIONS MUST split into urgency tiers: **IMMEDIATE** (red left-border treatment), **SHORT-TERM** (amber), **ONGOING** (grey) — the renderer detects these bold labels automatically.
-- Include DESIGNATION TIMELINE only when SDN/sanctions designations exist. Omit for clean subjects.
-- Include GENERAL LICENSES only when active GLs apply. This is the highest-value intelligence gap — compliance teams miss GL expiry windows.
-- Include ADVERSE MEDIA only when material adverse media is found. Omit if nothing material.
-- Include OWNERSHIP HISTORY only when material ownership changes exist. Omit if none.
-- PROSE STYLING: In all prose paragraphs (ENTITY SUMMARY description, PEP STATUS narrative, FINANCIAL EXPOSURE details, GAPS AND LIMITATIONS, RECOMMENDED ACTIONS body text, and any other narrative sections), bold key terms using **markdown bold**. Bold: entity names, company names, person names, jurisdictions/countries, legal terms (FCPA, DPA, plea agreement, sanctions, OFAC), risk indicators (high-risk, sanctioned, convicted, designated), dollar amounts, dates of significance, regulatory bodies (DOJ, CFTC, SEC, SFO), and industry terms (commodity trading, beneficial ownership, shell company, intermediary). This makes reports scannable — investigators should be able to skim bolded terms to grasp the key facts without reading every sentence.
-
-ALWAYS state the coverage gap. This is the core value proposition — the entities that standard screening misses are where the actual compliance exposure lives.
+Output your findings as the JSON code block defined in OUTPUT PROTOCOL above. The JSON must be valid and complete. ALWAYS include the coverageGap — this is the core value proposition.
 
 ### STEP 11 — PERSIST DISCOVERIES
 
@@ -1139,9 +1126,18 @@ export default async function handler(req, res) {
         }
       }
 
-      // Only stream narration text that contains report content (## headers).
-      // Intermediate agent thinking ("I'll conduct...", "CACHE HIT...") is suppressed.
-      if (iterationText && (iterationText.includes('## ') || !hasToolUse)) {
+      // Check if the text contains a JSON report code block
+      const jsonMatch = iterationText.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const reportData = JSON.parse(jsonMatch[1].trim());
+          sendSSE(res, 'report_json', reportData);
+        } catch (e) {
+          // JSON parse failed — send as text fallback
+          sendSSE(res, 'agent_text', { text: iterationText });
+        }
+      } else if (iterationText && (iterationText.includes('## ') || !hasToolUse)) {
+        // Stream status updates and any non-JSON text
         sendSSE(res, 'agent_text', { text: iterationText });
       }
 
