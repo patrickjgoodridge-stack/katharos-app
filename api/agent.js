@@ -1117,8 +1117,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // Stream ALL narration text to client — intermediate and final
-      if (iterationText) {
+      // Only stream narration text that contains report content (## headers).
+      // Intermediate agent thinking ("I'll conduct...", "CACHE HIT...") is suppressed.
+      if (iterationText && (iterationText.includes('## ') || !hasToolUse)) {
         sendSSE(res, 'agent_text', { text: iterationText });
       }
 
