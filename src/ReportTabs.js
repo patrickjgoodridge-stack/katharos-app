@@ -24,7 +24,7 @@ const TAB_CONFIG = [
     id: 'summary',
     label: 'Summary',
     icon: FileText,
-    sections: ['SUBJECT IDENTITY', 'PEP STATUS', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
+    sections: ['SUBJECT IDENTITY', 'OVERALL RISK', 'MATCH CONFIDENCE', 'RISK SCORE BREAKDOWN'],
   },
   {
     id: 'evidence',
@@ -158,7 +158,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
     if (activeTab === 'summary') {
       const isPinned = (s) => {
         const h = s.heading.toUpperCase();
-        return h.includes('SUBJECT IDENTITY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN');
+        return h.includes('SUBJECT IDENTITY') || h.includes('MATCH CONFIDENCE') || h.includes('OVERALL RISK') || h.includes('RISK SCORE BREAKDOWN') || h.includes('PEP STATUS');
       };
       const identity = sections.filter(s => s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
       const confidence = sections.filter(s => s.heading.toUpperCase().includes('MATCH CONFIDENCE'));
