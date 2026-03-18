@@ -1191,12 +1191,13 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
      files: attachedFiles || [],
      analysis: null,
      chatHistory: [],
-     conversationTranscript: [], // Store full conversation
-     pdfReports: [], // Store generated PDF reports
-     networkArtifacts: [], // Store network graph snapshots
-     screenings: [], // Store KYC screening results
+     conversationTranscript: [],
+     pdfReports: [],
+     networkArtifacts: [],
+     screenings: [],
+     screeningStatus: 'loading', // Track screening lifecycle
      riskLevel: 'N/A',
-     viewed: false, // Track if case has been viewed
+     viewed: false,
      emailDomain: workspaceId || '',
      createdByEmail: user?.email || '',
    };
@@ -1205,7 +1206,66 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
    setCurrentCaseId(newCaseId);
    setCaseName(generatedName);
 
-   // Save to database immediately
+   // ── Fire screening pipeline immediately on case creation ──
+   // This runs in parallel with the agent investigation (handleAgentMessage).
+   // Uses newCaseId from local scope — no stale closure issues.
+   const screeningQuery = generatedName;
+   const screeningType = detectEntityType(screeningQuery);
+   console.log('[Screening] Firing on case creation:', newCaseId, '| query:', screeningQuery, '| type:', screeningType);
+
+   const screeningAbort = new AbortController();
+   screeningAbortRef.current = screeningAbort;
+
+   fetch(`${API_BASE}/api/screening/unified`, {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       query: screeningQuery,
+       type: screeningType,
+       sessionId: eventLogger?.sessionId || 'unknown',
+     }),
+     signal: screeningAbort.signal,
+   })
+   .then(async r => {
+     console.log('[Screening] Response:', r.status, r.ok);
+     if (r.ok) return r.json();
+     const errBody = await r.text().catch(() => 'unreadable');
+     console.error('[Screening] API error body:', errBody);
+     return null;
+   })
+   .then(screeningResult => {
+     if (screeningResult) {
+       console.log('[Screening] SUCCESS — risk:', screeningResult.overallRisk, '| score:', screeningResult.riskScore, '| caseId:', newCaseId);
+       setCases(prev => prev.map(c => {
+         if (c.id !== newCaseId) return c;
+         return {
+           ...c,
+           kycData: screeningResult,
+           screeningStatus: 'done',
+           screenings: [{
+             id: `scr_${Date.now()}`,
+             query: screeningQuery,
+             type: screeningType,
+             result: screeningResult,
+             timestamp: new Date().toISOString(),
+             riskLevel: screeningResult.overallRisk,
+             riskScore: screeningResult.riskScore,
+           }, ...(c.screenings || [])],
+         };
+       }));
+     } else {
+       console.warn('[Screening] No result (null or error response)');
+       setCases(prev => prev.map(c => c.id === newCaseId ? { ...c, screeningStatus: 'error' } : c));
+     }
+   })
+   .catch(err => {
+     if (err.name !== 'AbortError') {
+       console.error('[Screening] FAILED:', err.name, err.message);
+       setCases(prev => prev.map(c => c.id === newCaseId ? { ...c, screeningStatus: 'error' } : c));
+     }
+   });
+
+   // Save to database
    if (isSupabaseConfigured() && user) {
      console.log('[Cases] Saving new case to database:', newCaseId, generatedName);
      createCase(newCase).then(({ data, error }) => {
@@ -4481,56 +4541,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
    const abortController = new AbortController();
    conversationAbortRef.current = abortController;
 
-   // Fire screening in parallel on initial investigation only (not follow-ups or resumes)
-   // Uses fire-and-forget pattern — stores result as soon as it arrives, even during agent streaming
-   const isInitialInvestigation = !resumeState &&
-     !(cases.find(c => c.id === caseId)?.conversationTranscript?.filter(m => m.role === 'assistant').length > 0);
-   if (isInitialInvestigation) {
-     const entityName = cases.find(c => c.id === caseId)?.name || userMessage.trim();
-     const entityType = detectEntityType(entityName);
-     console.log('[Screening] Firing parallel screening for:', entityName, entityType);
-     fetch(`${API_BASE}/api/screening/unified`, {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({
-         query: entityName,
-         type: entityType,
-         sessionId: eventLogger?.sessionId || 'unknown',
-       }),
-       signal: abortController.signal,
-     })
-     .then(r => {
-       console.log('[Screening] Response status:', r.status);
-       return r.ok ? r.json() : null;
-     })
-     .then(screeningResult => {
-       if (screeningResult) {
-         console.log('[Screening] Got result, storing kycData on case', caseId);
-         setCases(prev => prev.map(c => {
-           if (c.id !== caseId) return c;
-           const historyItem = {
-             id: `scr_${Date.now()}`,
-             query: c.name || userMessage.trim(),
-             type: detectEntityType(c.name || userMessage),
-             result: screeningResult,
-             timestamp: new Date().toISOString(),
-             riskLevel: screeningResult.overallRisk,
-             riskScore: screeningResult.riskScore,
-           };
-           return {
-             ...c,
-             kycData: screeningResult,
-             screenings: [historyItem, ...(c.screenings || [])],
-           };
-         }));
-       } else {
-         console.warn('[Screening] No result returned (null)');
-       }
-     })
-     .catch(err => {
-       if (err.name !== 'AbortError') console.error('[Screening] Parallel screening failed:', err.message);
-     });
-   }
+   // Screening is fired from createCaseFromFirstMessage — no duplicate call here
 
    try {
      const existingCase = cases.find(c => c.id === caseId);
@@ -13300,8 +13311,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
-     const caseKycData = cases.find(c => c.id === currentCaseId)?.kycData || null;
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} />;
+     const _caseObj1 = cases.find(c => c.id === currentCaseId);
+     const caseKycData = _caseObj1?.kycData || null;
+     const caseScreeningStatus = _caseObj1?.screeningStatus || null;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} screeningStatus={caseScreeningStatus} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
@@ -13537,8 +13550,10 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      const streamText = stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
      const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## SUBJECT IDENTITY');
      if (isReport) {
-       const caseKycData = cases.find(c => c.id === currentCaseId)?.kycData || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} />;
+       const _caseObj2 = cases.find(c => c.id === currentCaseId);
+       const caseKycData = _caseObj2?.kycData || null;
+       const caseScreeningStatus = _caseObj2?.screeningStatus || null;
+       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} screeningStatus={caseScreeningStatus} />;
      }
      return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
    })()}
@@ -13662,7 +13677,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  />
  {currentCaseId && getCaseStreamingState(currentCaseId).isStreaming ? (
  <button
- onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); }}
+ onClick={() => { if (conversationAbortRef.current) conversationAbortRef.current.abort(); if (screeningAbortRef.current) screeningAbortRef.current.abort(); }}
  style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
  title="Stop generating"
  >

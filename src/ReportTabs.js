@@ -98,7 +98,7 @@ const getTabForSection = (heading) => {
 };
 
 // Main ReportTabs component
-const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData }) => {
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, screeningStatus }) => {
   const [activeTab, setActiveTab] = useState('summary');
 
   // Parse sections and assign to tabs
@@ -213,6 +213,37 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
 
       {/* Tab Content */}
       <div style={{ minHeight: '200px' }}>
+        {/* Screening loading indicator */}
+        {!kycData && screeningStatus === 'loading' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '12px 16px', marginBottom: '12px',
+            background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)',
+            borderRadius: '8px', fontSize: '13px', color: '#f59e0b',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            <span>Loading screening data...</span>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* Screening error indicator */}
+        {!kycData && screeningStatus === 'error' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '12px 16px', marginBottom: '12px',
+            background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)',
+            borderRadius: '8px', fontSize: '13px', color: '#ef4444',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <span>Screening data unavailable — check console for details</span>
+          </div>
+        )}
+
         {/* KYC structured data — ABOVE markdown for summary tab */}
         {kycData && activeTab === 'summary' && (
           <KYCRiskHeader data={kycData} />
