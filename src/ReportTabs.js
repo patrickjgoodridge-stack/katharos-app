@@ -444,8 +444,7 @@ const buildNetworkGraph = (entities) => {
 
 const EntityNetworkSection = ({ data }) => {
   const [viewMode, setViewMode] = useState('graph');
-  const safeData = data?.length ? data : [];
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(safeData), [safeData]);
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : []), [data]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   if (!data?.length) return null;
@@ -678,8 +677,7 @@ const buildOwnershipGraph = (data) => {
 };
 
 const CorporateStructureSection = ({ data }) => {
-  const safeData = data || { parentEntity: '', owners: [], subsidiaries: [] };
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildOwnershipGraph(safeData), [safeData]);
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildOwnershipGraph(data || { parentEntity: '', owners: [], subsidiaries: [] }), [data]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   if (!data) return null;
