@@ -152,19 +152,26 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
     return counts;
   }, [tabSections, kycData]);
 
-  // Build markdown for active tab, separating Subject Identity for pinning
-  const { subjectIdentityContent, activeContent } = useMemo(() => {
+  // Build markdown for active tab, separating pinned sections
+  const { subjectIdentityContent, matchConfidenceContent, activeContent } = useMemo(() => {
     const sections = tabSections[activeTab] || [];
     if (activeTab === 'summary') {
+      const isPinned = (s) => {
+        const h = s.heading.toUpperCase();
+        return h.includes('SUBJECT IDENTITY') || h.includes('MATCH CONFIDENCE');
+      };
       const identity = sections.filter(s => s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
-      const rest = sections.filter(s => !s.heading.toUpperCase().includes('SUBJECT IDENTITY'));
+      const confidence = sections.filter(s => s.heading.toUpperCase().includes('MATCH CONFIDENCE'));
+      const rest = sections.filter(s => !isPinned(s));
       return {
         subjectIdentityContent: identity.map(s => s.content).join('\n\n'),
+        matchConfidenceContent: confidence.map(s => s.content).join('\n\n'),
         activeContent: rest.map(s => s.content).join('\n\n'),
       };
     }
     return {
       subjectIdentityContent: '',
+      matchConfidenceContent: '',
       activeContent: sections.map(s => s.content).join('\n\n'),
     };
   }, [tabSections, activeTab]);
@@ -240,7 +247,12 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <MarkdownRenderer content={subjectIdentityContent} darkMode={darkMode} />
         )}
 
-        {/* KYC structured data — below Subject Identity, above other markdown */}
+        {/* Match Confidence pinned below Subject Identity */}
+        {activeTab === 'summary' && matchConfidenceContent && (
+          <MarkdownRenderer content={matchConfidenceContent} darkMode={darkMode} />
+        )}
+
+        {/* KYC structured data — below pinned sections, above other markdown */}
         {kycData && activeTab === 'summary' && (
           <KYCRiskHeader data={kycData} />
         )}
