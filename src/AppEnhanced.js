@@ -12795,7 +12795,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         pct = Math.min(100, 10 + textFill + milestones);
       }
     
-      const screeningDone = !isStreaming && completedChars > 200;
+      const hasReportData = !!caseItem.reportData;
+      const screeningDone = !isStreaming && (completedChars > 200 || hasReportData);
       if (screeningDone) pct = 100;
       const barColor = screeningDone ? '#22c55e' : isStreaming ? '#d4a017' : '#6b6b6b';
       return (
