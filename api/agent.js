@@ -827,6 +827,7 @@ RULES:
 - Set optional arrays to [] (not null) when not applicable: adverseMedia, ownershipHistory, designationTimeline, generalLicenses.
 - corporateStructure uses \\n for newlines in the tree string.
 - Include 3-5 redFlags maximum. Each must be concrete and actionable.
+- entityNetwork MUST include EVERY entity discovered during the investigation — associates, family members, subsidiaries, shell companies, intermediaries, connected sanctioned parties, ALL of them. Do not limit or truncate. For a well-connected subject like an oligarch or conglomerate, expect 10-30+ entities. This array populates the interactive network graph.
 - Include ALL typologies supported by evidence — typically 4-8 for a corporate entity. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available.
 - criticalFindings ordered by severity: CRITICAL first, then HIGH, then MEDIUM.
 - Every factor in riskScoreBreakdown MUST have a corresponding entry in criticalFindings. If you scored it, it's a finding.

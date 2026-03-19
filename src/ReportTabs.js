@@ -1,5 +1,5 @@
 // ReportTabs.js — Tabbed report view rendering structured JSON from agent investigations
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   FileText,
   Search,
@@ -393,15 +393,24 @@ const RedFlagsSection = ({ data }) => {
 
 // ── Entity Network (react-flow graph + table) ──
 const NetworkNode = ({ data: d }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
   const riskColor = d.risk ? getRiskColor(d.risk) : TEXT_MUTED;
   const isSanctioned = d.sanctioned?.toLowerCase() === 'yes';
   const badges = d.badges || [];
+  const isClickable = d.onNodeClick && d.type !== 'Parent';
   return (
-    <div style={{
-      border: `${isSanctioned || d.flagged ? 2 : 1}px solid ${isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : riskColor}`,
-      borderRadius: 8, padding: '8px 14px', minWidth: 120, maxWidth: 180, textAlign: 'center',
-      background: isSanctioned || d.flagged ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
-    }}>
+    <div
+      style={{
+        border: `${isSanctioned || d.flagged ? 2 : 1}px solid ${isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : riskColor}`,
+        borderRadius: 8, padding: '8px 14px', minWidth: 120, maxWidth: 180, textAlign: 'center',
+        background: isSanctioned || d.flagged ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
+        cursor: isClickable ? 'pointer' : 'default',
+        position: 'relative',
+      }}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onClick={(e) => { if (isClickable) { e.stopPropagation(); d.onNodeClick(d); } }}
+    >
       <Handle type="target" position={Position.Top} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
       <div style={{ fontSize: 11, fontWeight: 600, color: isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : TEXT_WHITE, marginBottom: 2 }}>{d.label}</div>
       {d.type && <div style={{ fontSize: 9, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 0.5 }}>{d.type}</div>}
@@ -421,14 +430,59 @@ const NetworkNode = ({ data: d }) => {
           ))}
         </div>
       )}
+      {isClickable && (
+        <div style={{ fontSize: 8, color: AMBER, marginTop: 3, opacity: 0.7 }}>Click to explore</div>
+      )}
       <Handle type="source" position={Position.Bottom} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
+      {/* Hover tooltip */}
+      {showTooltip && (d.connection || d.risk || d.matchPercent) && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+          marginBottom: 8, zIndex: 1000, pointerEvents: 'none',
+          background: '#1a1a1a', border: `1px solid ${CARD_BORDER}`, borderRadius: 6,
+          padding: '10px 14px', minWidth: 220, maxWidth: 300, textAlign: 'left',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_WHITE, marginBottom: 6 }}>{d.label}</div>
+          {d.connection && (
+            <div style={{ fontSize: 11, color: TEXT_PRIMARY, lineHeight: 1.5, marginBottom: 4 }}>
+              <span style={{ color: TEXT_MUTED, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Connection: </span>
+              {d.connection}
+            </div>
+          )}
+          {d.risk && (
+            <div style={{ fontSize: 11, marginBottom: 4 }}>
+              <span style={{ color: TEXT_MUTED, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Risk: </span>
+              <span style={{ color: getRiskColor(d.risk), fontWeight: 600 }}>{d.risk}</span>
+            </div>
+          )}
+          {isSanctioned && (
+            <div style={{ fontSize: 11, marginBottom: 4 }}>
+              <span style={{ color: RISK_COLORS.CRITICAL, fontWeight: 600 }}>OFAC SDN Designated</span>
+            </div>
+          )}
+          {d.matchPercent != null && d.matchPercent !== '' && (
+            <div style={{ fontSize: 11, marginBottom: 4 }}>
+              <span style={{ color: TEXT_MUTED, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Match: </span>
+              <span style={{ color: AMBER, fontWeight: 600 }}>{d.matchPercent}%</span>
+            </div>
+          )}
+          {d.source && (
+            <div style={{ fontSize: 10, color: AMBER, marginTop: 2 }}>{d.source}</div>
+          )}
+          <div style={{
+            position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)',
+            width: 10, height: 10, background: '#1a1a1a', borderRight: `1px solid ${CARD_BORDER}`, borderBottom: `1px solid ${CARD_BORDER}`,
+          }} />
+        </div>
+      )}
     </div>
   );
 };
 
 const networkNodeTypes = { network: NetworkNode };
 
-const buildNetworkGraph = (entities, ownership) => {
+const buildNetworkGraph = (entities, ownership, onNodeClick) => {
   const nodes = [];
   const edges = [];
   const GAP_X = 220;
@@ -448,7 +502,7 @@ const buildNetworkGraph = (entities, ownership) => {
       id: 'own-parent',
       type: 'network',
       position: { x: parentX, y: 0 },
-      data: { label: parentName, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '' },
+      data: { label: parentName, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '', onNodeClick },
     });
     usedNames.add(parentName.toLowerCase());
     ownershipRows = 1;
@@ -467,6 +521,9 @@ const buildNetworkGraph = (entities, ownership) => {
           risk: owner.flagged ? 'HIGH' : '',
           sanctioned: '',
           flagged: owner.flagged,
+          connection: owner.description || '',
+          matchPercent: owner.percentage,
+          onNodeClick,
         },
       });
       usedNames.add(owner.name.toLowerCase());
@@ -498,6 +555,8 @@ const buildNetworkGraph = (entities, ownership) => {
           risk: sub.risk || '',
           sanctioned: '',
           badges: sub.badges || [],
+          connection: sub.ownership || '',
+          onNodeClick,
         },
       });
       usedNames.add(sub.name.toLowerCase());
@@ -536,6 +595,10 @@ const buildNetworkGraph = (entities, ownership) => {
         jurisdiction: ent.jurisdiction,
         risk: ent.risk,
         sanctioned: ent.sanctioned,
+        connection: ent.connection,
+        matchPercent: ent.matchPercent,
+        source: ent.source,
+        onNodeClick,
       },
     });
     // Connect to parent node or first entity
@@ -560,7 +623,29 @@ const buildNetworkGraph = (entities, ownership) => {
 
 const EntityNetworkSection = ({ data, forPdf, ownership }) => {
   const [viewMode, setViewMode] = useState('graph');
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : [], ownership), [data, ownership]);
+  const [focusedEntity, setFocusedEntity] = useState(null);
+
+  // When a node is clicked, show a focused view of that entity's connections
+  const handleNodeClick = useCallback((nodeData) => {
+    if (!nodeData || nodeData.type === 'Parent') return;
+    setFocusedEntity(prev => prev?.label === nodeData.label ? null : nodeData);
+  }, []);
+
+  // Build focused subgraph when an entity is selected
+  const focusedGraph = useMemo(() => {
+    if (!focusedEntity) return null;
+    const name = focusedEntity.label;
+    const allEntities = data || [];
+    // Build a mini graph centered on the clicked entity showing its connections
+    const miniOwnership = { parentEntity: name, owners: [], subsidiaries: [] };
+    // Show all other entities as connections from this entity
+    const relatedEntities = allEntities.filter(e =>
+      (e.entity || '').toLowerCase() !== name.toLowerCase()
+    ).slice(0, 8);
+    return buildNetworkGraph(relatedEntities, miniOwnership, handleNodeClick);
+  }, [focusedEntity, data, handleNodeClick]);
+
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : [], ownership, handleNodeClick), [data, ownership, handleNodeClick]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
   const hasOwnership = ownership?.parentEntity || ownership?.owners?.length || ownership?.subsidiaries?.length;
@@ -650,6 +735,47 @@ const EntityNetworkSection = ({ data, forPdf, ownership }) => {
             }),
           ]}
         />
+      )}
+      {/* Focused entity drill-down panel */}
+      {focusedEntity && focusedGraph && !showTable && (
+        <Card style={{ padding: 0, overflow: 'hidden', marginTop: 12, border: `1px solid ${AMBER}40` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${CARD_BORDER}`, background: '#1a1a1a' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: AMBER }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: TEXT_WHITE, letterSpacing: 1, textTransform: 'uppercase' }}>
+                Network View: {focusedEntity.label}
+              </span>
+              {focusedEntity.risk && (
+                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, fontWeight: 600, background: `${getRiskColor(focusedEntity.risk)}20`, color: getRiskColor(focusedEntity.risk) }}>
+                  {focusedEntity.risk}
+                </span>
+              )}
+            </div>
+            <button onClick={() => setFocusedEntity(null)} style={{
+              fontSize: 10, padding: '3px 8px', borderRadius: 4, border: `1px solid ${CARD_BORDER}`,
+              background: 'transparent', color: TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit',
+            }}>Close</button>
+          </div>
+          <div style={{ height: 280, background: '#141414' }}>
+            <ReactFlow
+              nodes={focusedGraph.nodes}
+              edges={focusedGraph.edges}
+              nodeTypes={networkNodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.3 }}
+              minZoom={0.3}
+              maxZoom={1.5}
+              proOptions={{ hideAttribution: true }}
+              nodesDraggable={true}
+              nodesConnectable={false}
+              elementsSelectable={false}
+              panOnDrag={true}
+              zoomOnScroll={true}
+            >
+              <Background color="#2a2a2a" gap={20} size={1} />
+            </ReactFlow>
+          </div>
+        </Card>
       )}
     </>
   );
