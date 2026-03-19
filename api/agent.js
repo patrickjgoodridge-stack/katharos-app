@@ -673,6 +673,7 @@ When the investigation is complete, output your final report as a SINGLE JSON co
     "recommendation": "APPROVE or DO NOT TRANSACT or ESCALATE FOR EDD",
     "summary": "One-sentence explanation of the recommendation"
   },
+  "executiveSummary": "A 300-500 word narrative overview of the investigation findings written for a compliance officer. Cover: who the subject is, what was found (sanctions, enforcement, ownership issues), key risk drivers, network complexity, and the bottom-line recommendation. Write in clear, direct prose — no bullet points. This is the executive briefing a senior compliance officer reads before reviewing the detailed findings.",
   "criticalFindings": [
     {
       "severity": "CRITICAL or HIGH or MEDIUM",
@@ -761,6 +762,19 @@ When the investigation is complete, output your final report as a SINGLE JSON co
       "source": "URL or publication name"
     }
   ],
+  "litigationHistory": [
+    {
+      "date": "YYYY-MM-DD",
+      "caseType": "Civil Suit / Class Action / Bankruptcy / Judgment / Arbitration / Tax Dispute",
+      "caption": "Case name or caption — e.g. SEC v. Entity Name",
+      "court": "Court or tribunal name",
+      "status": "Pending / Settled / Dismissed / Judgment Entered / Ongoing",
+      "amount": "Dollar amount if known, or N/A",
+      "relevance": "One-sentence compliance relevance",
+      "source": "Court filing / PACER / news / corporate disclosure",
+      "sourceUrl": "https://example.com/case-filing"
+    }
+  ],
   "ownershipHistory": [
     {
       "date": "YYYY-MM-DD",
@@ -809,9 +823,9 @@ When the investigation is complete, output your final report as a SINGLE JSON co
   },
   "gapsAndLimitations": "What could not be verified and what would close each gap",
   "recommendedActions": {
-    "immediate": ["Blocking actions, regulatory notifications, SAR filings"],
-    "shortTerm": ["Enhanced DD steps, document requests, registry searches"],
-    "ongoing": ["Monitoring, periodic rescreening, watchlist alerts"],
+    "immediate": ["Action 1", "Action 2", "Action 3", "Action 4", "...include ALL immediate blocking actions, regulatory notifications, SAR filings, asset freezes"],
+    "shortTerm": ["Action 1", "Action 2", "Action 3", "Action 4", "...include ALL enhanced DD steps, document requests, registry searches, counterparty notifications"],
+    "ongoing": ["Action 1", "Action 2", "Action 3", "Action 4", "...include ALL monitoring, periodic rescreening, watchlist alerts, regulatory tracking"],
     "bottomLine": "One-sentence final assessment"
   },
   "monitoringSchedule": {
@@ -824,13 +838,14 @@ When the investigation is complete, output your final report as a SINGLE JSON co
 
 RULES:
 - The six riskScoreBreakdown scores MUST sum to overallRisk.score.
-- Set optional arrays to [] (not null) when not applicable: adverseMedia, ownershipHistory, designationTimeline, generalLicenses.
+- Set optional arrays to [] (not null) when not applicable: adverseMedia, litigationHistory, ownershipHistory, designationTimeline, generalLicenses.
+- litigationHistory: include ALL civil suits, class actions, judgments, bankruptcies, arbitrations, and tax disputes — not just criminal/regulatory enforcement. Search court records, PACER, corporate disclosures, and news for civil litigation history.
 - corporateStructure uses \\n for newlines in the tree string.
-- Include 3-5 redFlags maximum. Each must be concrete and actionable.
+- Include ALL redFlags supported by evidence, up to 10. Each must be concrete and actionable with a specific impact statement. For high-risk subjects, expect 5-10 red flags.
 - entityNetwork MUST include EVERY entity discovered during the investigation — associates, family members, subsidiaries, shell companies, intermediaries, connected sanctioned parties, ALL of them. Do not limit or truncate. For a well-connected subject like an oligarch or conglomerate, expect 10-30+ entities. This array populates the interactive network graph.
-- Include ALL typologies supported by evidence — typically 4-8 for a corporate entity. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available.
-- criticalFindings ordered by severity: CRITICAL first, then HIGH, then MEDIUM.
-- Every factor in riskScoreBreakdown MUST have a corresponding entry in criticalFindings. If you scored it, it's a finding.
+- Include ALL typologies supported by evidence, up to 10. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available. For well-connected subjects like oligarchs, sanctioned conglomerates, or multi-entity networks, 6-10 typologies is expected.
+- criticalFindings: include ALL findings discovered during the investigation, ordered by severity (CRITICAL first, then HIGH, then MEDIUM). Do not cap or truncate. Every factor in riskScoreBreakdown MUST have a corresponding entry, plus any additional findings from the investigation. For complex subjects, expect 6-12+ critical findings.
+- recommendedActions: include ALL relevant actions per tier. For CRITICAL/HIGH risk subjects, expect 4-8 immediate actions, 4-8 short-term actions, and 3-6 ongoing actions. Be specific — name the exact regulatory body, filing type, or screening step.
 - All string values may contain plain text only — no markdown formatting (no ** bold, no links).
 - Every claim in criticalFindings, redFlags, typologies, and adverseMedia MUST include a source citation and sourceUrl when a public URL exists. Use real URLs from OFAC, DOJ, FinCEN, FATF, ICIJ, SEC, court filing databases, or news outlets. If no public URL exists, set sourceUrl to "".
 

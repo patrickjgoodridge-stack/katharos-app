@@ -5,10 +5,11 @@ import {
   Search,
   Network,
   Lightbulb,
-  Shield,
   Fingerprint,
   AlertTriangle,
   ShieldCheck,
+  Clock,
+  PenLine,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -244,6 +245,21 @@ const OverallRiskSection = ({ data }) => {
   );
 };
 
+// ── Executive Summary ──
+const ExecutiveSummarySection = ({ data }) => {
+  if (!data) return null;
+  return (
+    <>
+      <SectionHeading>Summary</SectionHeading>
+      <Card>
+        <p style={{ fontSize: 14, color: TEXT_PRIMARY, lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>
+          {data}
+        </p>
+      </Card>
+    </>
+  );
+};
+
 // ── Critical Findings ──
 const CriticalFindingsSection = ({ data }) => {
   if (!data?.length) return null;
@@ -253,7 +269,7 @@ const CriticalFindingsSection = ({ data }) => {
       {data.map((f, i) => {
         const color = getRiskColor(f.severity);
         return (
-          <div key={i} style={{ marginBottom: 16, lineHeight: 1.7 }}>
+          <div key={i} data-pdf-section="" style={{ marginBottom: 16, lineHeight: 1.7 }}>
             <div style={{ fontSize: 14 }}>
               <span style={{ color, fontWeight: 700 }}>{f.severity}</span>
               {' '}
@@ -424,7 +440,8 @@ const RedFlagsSection = ({ data }) => {
     <>
       <SectionHeading>Red Flags</SectionHeading>
       {data.map((flag, i) => (
-        <Card key={i} style={{ borderLeft: `3px solid ${RISK_COLORS.CRITICAL}` }}>
+        <div key={i} data-pdf-section="">
+        <Card style={{ borderLeft: `3px solid ${RISK_COLORS.CRITICAL}` }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT_WHITE, marginBottom: 8, marginTop: 0 }}>
             {flag.title}
           </h3>
@@ -451,6 +468,7 @@ const RedFlagsSection = ({ data }) => {
             </div>
           )}
         </Card>
+        </div>
       ))}
     </>
   );
@@ -875,7 +893,8 @@ const TypologiesSection = ({ data }) => {
     <>
       <SectionHeading>Typologies</SectionHeading>
       {data.map((t, i) => (
-        <Card key={i}>
+        <div key={i} data-pdf-section="">
+        <Card>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT_WHITE, marginBottom: 12, marginTop: 0 }}>
             {t.name}
           </h3>
@@ -894,6 +913,7 @@ const TypologiesSection = ({ data }) => {
             </div>
           )}
         </Card>
+        </div>
       ))}
     </>
   );
@@ -918,6 +938,53 @@ const AdverseMediaSection = ({ data }) => {
           relevance: (val) => val?.toLowerCase() === 'high' ? RISK_COLORS.CRITICAL : val?.toLowerCase() === 'medium' ? RISK_COLORS.MEDIUM : TEXT_MUTED,
         }}
       />
+    </>
+  );
+};
+
+// ── Litigation History ──
+const LitigationHistorySection = ({ data }) => {
+  if (!data?.length) return null;
+  const statusColor = (s) => {
+    const v = (s || '').toLowerCase();
+    if (v.includes('pending') || v.includes('ongoing')) return RISK_COLORS.HIGH;
+    if (v.includes('settled') || v.includes('judgment')) return RISK_COLORS.MEDIUM;
+    if (v.includes('dismissed')) return RISK_COLORS.LOW;
+    return TEXT_MUTED;
+  };
+  return (
+    <>
+      <SectionHeading>Litigation History</SectionHeading>
+      {data.map((item, i) => (
+        <div key={i} data-pdf-section="">
+        <Card>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div>
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: AMBER }}>{item.caseType}</span>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: TEXT_WHITE, margin: '4px 0 0 0' }}>{item.caption}</h3>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: statusColor(item.status), whiteSpace: 'nowrap', marginLeft: 12 }}>{item.status}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 24, fontSize: 12, color: TEXT_MUTED, marginBottom: 8 }}>
+            {item.date && <span>{item.date}</span>}
+            {item.court && <span>{item.court}</span>}
+            {item.amount && item.amount !== 'N/A' && <span style={{ color: RISK_COLORS.HIGH }}>{item.amount}</span>}
+          </div>
+          {item.relevance && <p style={{ fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.6, margin: 0 }}>{item.relevance}</p>}
+          {item.source && (
+            <div style={{ fontSize: 11, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 1, marginTop: 8 }}>
+              Source: {item.sourceUrl ? (
+                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: AMBER, textDecoration: 'none' }}>
+                  {item.source} ↗
+                </a>
+              ) : (
+                <span style={{ color: AMBER }}>{item.source}</span>
+              )}
+            </div>
+          )}
+        </Card>
+        </div>
+      ))}
     </>
   );
 };
@@ -1100,29 +1167,46 @@ const MonitoringScheduleSection = ({ data, userName }) => {
 // TAB CONFIG
 // ══════════════════════════════════════
 const TAB_CONFIG = [
-  { id: 'summary', label: 'Summary', icon: FileText },
+  { id: 'summary', label: 'Overview', icon: FileText },
   { id: 'evidence', label: 'Evidence', icon: Search },
   { id: 'network', label: 'Network', icon: Network },
   { id: 'patterns', label: 'Patterns', icon: Fingerprint },
   { id: 'actions', label: 'Actions', icon: Lightbulb },
-  { id: 'audit', label: 'Audit', icon: Shield },
+  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'notes', label: 'Notes', icon: PenLine },
 ];
 
 // ══════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════
-const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData, userName, exportAllAsPdf }) => {
+const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycData, reportData, userName, exportAllAsPdf, caseId }) => {
   const [activeTab, setActiveTab] = useState('summary');
   const r = reportData || {};
+
+  // Notes persistence via localStorage
+  const notesKey = caseId ? `katharos_notes_${caseId}` : null;
+  const [notes, setNotes] = useState(() => {
+    if (notesKey) {
+      try { return localStorage.getItem(notesKey) || ''; } catch { return ''; }
+    }
+    return '';
+  });
+  const handleNotesChange = useCallback((e) => {
+    const val = e.target.value;
+    setNotes(val);
+    if (notesKey) {
+      try { localStorage.setItem(notesKey, val); } catch {}
+    }
+  }, [notesKey]);
 
   // Count non-empty sections per tab for badges
   const tabCounts = {};
   tabCounts.summary = [r.entitySummary, r.matchConfidence, r.overallRisk, r.criticalFindings?.length, r.riskScoreBreakdown?.length].filter(Boolean).length;
-  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.regulatoryContext?.length, r.generalLicenses?.length].filter(Boolean).length;
+  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.litigationHistory?.length, r.regulatoryContext?.length, r.generalLicenses?.length].filter(Boolean).length;
   tabCounts.network = [r.entityNetwork?.length || r.corporateStructure, r.ownershipHistory?.length].filter(Boolean).length;
   tabCounts.patterns = r.typologies?.length || 0;
-  tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule].filter(Boolean).length;
-  tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
+  tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule, r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
+  tabCounts.timeline = [r.designationTimeline?.length, r.ownershipHistory?.length].filter(Boolean).length;
 
   // PDF export: render all sections sequentially, no tabs
   if (exportAllAsPdf && reportData) {
@@ -1142,19 +1226,19 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         <S><OverallRiskSection data={r.overallRisk} /></S>
         <S><CriticalFindingsSection data={r.criticalFindings} /></S>
         <S><RiskBreakdownSection data={r.riskScoreBreakdown} totalScore={r.overallRisk?.score} totalLevel={r.overallRisk?.level} /></S>
+        <S><ExecutiveSummarySection data={r.executiveSummary} /></S>
 
         {/* Evidence */}
         <S><h1 style={dividerStyle}>Evidence</h1></S>
         <S><RedFlagsSection data={r.redFlags} /></S>
         <S><AdverseMediaSection data={r.adverseMedia} /></S>
+        <S><LitigationHistorySection data={r.litigationHistory} /></S>
         <S><RegulatoryContextSection data={r.regulatoryContext} /></S>
-        <S><DesignationTimelineSection data={r.designationTimeline} /></S>
         <S><GeneralLicensesSection data={r.generalLicenses} /></S>
 
         {/* Network */}
         <S><h1 style={dividerStyle}>Network</h1></S>
         <S><EntityNetworkSection data={r.entityNetwork} forPdf ownership={r.corporateStructure} /></S>
-        <S><OwnershipHistorySection data={r.ownershipHistory} /></S>
 
         {/* Patterns */}
         <S><h1 style={dividerStyle}>Patterns</h1></S>
@@ -1165,11 +1249,13 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         <S><RecommendedActionsSection data={r.recommendedActions} /></S>
         <S><FinancialExposureSection data={r.financialExposure} /></S>
         <S><MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} /></S>
-
-        {/* Audit */}
-        <S><h1 style={dividerStyle}>Audit</h1></S>
         <S><CoverageGapSection data={r.coverageGap} /></S>
         <S><GapsSection data={r.gapsAndLimitations} /></S>
+
+        {/* Timeline */}
+        <S><h1 style={dividerStyle}>Timeline</h1></S>
+        <S><DesignationTimelineSection data={r.designationTimeline} /></S>
+        <S><OwnershipHistorySection data={r.ownershipHistory} /></S>
       </div>
     );
   }
@@ -1187,6 +1273,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <CriticalFindingsSection data={r.criticalFindings} />
             <RiskBreakdownSection data={r.riskScoreBreakdown} totalScore={r.overallRisk?.score} totalLevel={r.overallRisk?.level} />
             {kycData && <KYCRiskHeader data={kycData} />}
+            <ExecutiveSummarySection data={r.executiveSummary} />
           </>
         );
       case 'evidence':
@@ -1194,8 +1281,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <>
             <RedFlagsSection data={r.redFlags} />
             <AdverseMediaSection data={r.adverseMedia} />
+            <LitigationHistorySection data={r.litigationHistory} />
             <RegulatoryContextSection data={r.regulatoryContext} />
-            <DesignationTimelineSection data={r.designationTimeline} />
             <GeneralLicensesSection data={r.generalLicenses} />
             {kycData && (
               <>
@@ -1210,7 +1297,6 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         return (
           <>
             <EntityNetworkSection data={r.entityNetwork} ownership={r.corporateStructure} />
-            <OwnershipHistorySection data={r.ownershipHistory} />
             {kycData && <KYCOwnershipSection data={kycData} />}
             {networkGraphs && networkGraphs.length > 0 && (
               <div style={{ marginTop: 16 }}>{networkGraphs}</div>
@@ -1225,6 +1311,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <RecommendedActionsSection data={r.recommendedActions} />
             <FinancialExposureSection data={r.financialExposure} />
             <MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} />
+            <CoverageGapSection data={r.coverageGap} />
+            <GapsSection data={r.gapsAndLimitations} />
             {kycData && (
               <>
                 <KYCRegulatoryCard data={kycData} />
@@ -1233,12 +1321,41 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             )}
           </>
         );
-      case 'audit':
+      case 'timeline':
         return (
           <>
-            <CoverageGapSection data={r.coverageGap} />
-            <GapsSection data={r.gapsAndLimitations} />
+            <DesignationTimelineSection data={r.designationTimeline} />
+            <OwnershipHistorySection data={r.ownershipHistory} />
           </>
+        );
+      case 'notes':
+        return (
+          <div style={{ padding: '8px 0' }}>
+            <textarea
+              value={notes}
+              onChange={handleNotesChange}
+              placeholder="Add your notes here — observations, follow-up items, questions for the team..."
+              style={{
+                width: '100%',
+                minHeight: 400,
+                padding: 16,
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: '#e5e5e5',
+                background: '#1e1e1e',
+                border: '1px solid #3a3a3a',
+                borderRadius: 8,
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
+              onFocus={(e) => { e.target.style.borderColor = '#f59e0b'; }}
+              onBlur={(e) => { e.target.style.borderColor = '#3a3a3a'; }}
+            />
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8, textAlign: 'right' }}>
+              {notes.length > 0 ? `${notes.length} characters` : 'Notes are saved automatically'}
+            </div>
+          </div>
         );
       default:
         return null;

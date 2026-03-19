@@ -472,6 +472,8 @@ export default function Katharos() {
  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
  const [isGeneratingCaseReport, setIsGeneratingCaseReport] = useState(false);
  const [viewingCaseId, setViewingCaseId] = useState(null); // For Case Detail page view
+ const [selectedReportIdx, setSelectedReportIdx] = useState(0); // For multi-report selector
+ const [exportAllDropdownOpen, setExportAllDropdownOpen] = useState(false); // Export All dropdown
 
  // KYC Chat state
  const [kycChatOpen, setKycChatOpen] = useState(false);
@@ -926,6 +928,7 @@ const samplesDropdownRef = useRef(null);
        setConversationMessages(targetCase.conversationTranscript);
      }
      setCurrentCaseId(targetCase.id);
+     setSelectedReportIdx(0);
      setCaseName(String(targetCase.name || ''));
      setConversationStarted((targetCase.conversationTranscript?.length || 0) > 0);
    }
@@ -1204,6 +1207,7 @@ if (showUploadDropdown || suggestionsExpanded || samplesExpanded) {
 
    setCases(prev => [newCase, ...prev]);
    setCurrentCaseId(newCaseId);
+   setSelectedReportIdx(0);
    setCaseName(generatedName);
 
    // Screening data now comes through the agent SSE stream (screening_data event)
@@ -2655,23 +2659,24 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
     ? sectionBreaks.map(y => Math.round(y * canvasScale)).filter(y => y > 0 && y < canvasH)
     : null;
 
-  // Page break: if section breaks are provided, only break at section boundaries
-  const findBestBreak = (targetY) => {
+  // Page break: prefer section boundaries, enforce minimum 35% page utilization
+  const findBestBreak = (targetY, srcY) => {
     if (targetY >= canvasH) return canvasH;
+    const minUtilization = canvasPagePx * 0.35; // Don't create pages less than 35% full
 
     if (sectionYs) {
-      // Find the last section boundary that fits on this page
+      // Find the last section boundary that fits on this page with minimum utilization
       let bestBreak = null;
       for (const sy of sectionYs) {
-        if (sy <= targetY && sy > targetY - canvasPagePx) {
+        if (sy <= targetY && sy > srcY + minUtilization) {
           bestBreak = sy;
         }
       }
       if (bestBreak) return bestBreak;
     }
 
-    // Fallback: scan canvas rows for uniform-color gaps
-    const searchRange = Math.floor(canvasPagePx * 0.15);
+    // Fallback: scan canvas rows for uniform-color gaps (whitespace between items)
+    const searchRange = Math.floor(canvasPagePx * 0.20);
     const startY = Math.max(0, Math.floor(targetY - searchRange));
     const endY = Math.min(canvasH - 1, Math.floor(targetY));
     let bestY = Math.floor(targetY);
@@ -2697,7 +2702,7 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
   let srcY = 0;
   while (srcY < canvasH) {
     const idealEnd = srcY + canvasPagePx;
-    const sliceEnd = idealEnd >= canvasH ? canvasH : findBestBreak(idealEnd);
+    const sliceEnd = idealEnd >= canvasH ? canvasH : findBestBreak(idealEnd, srcY);
     const h = sliceEnd - srcY;
     if (h <= 0) break;
     slices.push({ y: srcY, h });
@@ -2806,6 +2811,132 @@ const exportMessageAsPdf = async (elementId, markdownContent) => {
   }
 };
 
+
+// Collect all reports from a case's conversation transcript
+const collectCaseReports = useCallback((caseId) => {
+  const caseObj = cases.find(c => c.id === caseId);
+  if (!caseObj) return [];
+  const reports = [];
+  const seen = new Set();
+  (caseObj.conversationTranscript || []).forEach(m => {
+    if (m.role === 'assistant' && m.reportData) {
+      const name = m.reportData.entitySummary?.legalName || m.reportData.entitySummary?.name || 'Unknown';
+      const key = name + '|' + (m.reportData.overallRisk?.level || '');
+      if (!seen.has(key)) {
+        seen.add(key);
+        reports.push(m.reportData);
+      }
+    }
+  });
+  // Also include case-level reportData if not already captured
+  if (caseObj.reportData) {
+    const name = caseObj.reportData.entitySummary?.legalName || caseObj.reportData.entitySummary?.name || 'Unknown';
+    const key = name + '|' + (caseObj.reportData.overallRisk?.level || '');
+    if (!seen.has(key)) {
+      reports.push(caseObj.reportData);
+    }
+  }
+  return reports;
+}, [cases]);
+
+// Export multiple reports as individual PDFs (one per entity)
+const exportIndividualReportsPdf = async (reports) => {
+  if (!reports || reports.length === 0) return;
+  setIsGeneratingCaseReport(true);
+  try {
+    for (const rd of reports) {
+      await exportFullReportAsPdf(rd);
+      await new Promise(r => setTimeout(r, 300)); // small gap between downloads
+    }
+  } finally {
+    setIsGeneratingCaseReport(false);
+  }
+};
+
+// Export all reports combined into one PDF
+const exportCombinedReportAsPdf = async (reports) => {
+  if (!reports || reports.length === 0) return;
+  setIsGeneratingCaseReport(true);
+  try {
+    const { createRoot } = await import('react-dom/client');
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '800px';
+    document.body.appendChild(container);
+
+    // Render all reports sequentially with dividers
+    const root = createRoot(container);
+    root.render(
+      React.createElement('div', null,
+        ...reports.map((rd, i) => React.createElement('div', { key: i },
+          i > 0 && React.createElement('div', {
+            'data-pdf-section': '',
+            style: { height: '40px', borderTop: '3px solid #d97706', marginTop: '30px', marginBottom: '20px' }
+          }),
+          React.createElement('div', {
+            'data-pdf-section': '',
+            style: { padding: '12px 16px', background: '#f5f5f5', borderRadius: '8px', marginBottom: '16px' }
+          },
+            React.createElement('h2', { style: { margin: 0, fontSize: '18px', color: '#1a1a1a', fontWeight: 700 } },
+              rd.entitySummary?.legalName || 'Entity Report'),
+            React.createElement('span', { style: { fontSize: '12px', color: '#666' } },
+              ` — ${rd.overallRisk?.level?.toUpperCase() || 'N/A'} RISK`)
+          ),
+          React.createElement(ReportTabs, {
+            reportData: rd,
+            exportAllAsPdf: true,
+            userName: user?.name,
+            darkMode: true,
+          })
+        ))
+      )
+    );
+
+    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 800)));
+    const sectionEls = container.querySelectorAll('[data-pdf-section]');
+    const containerTop = container.getBoundingClientRect().top;
+    const sectionBreaks = [...sectionEls].map(el => el.getBoundingClientRect().top - containerTop);
+    const subjectName = reports.length > 1
+      ? `Combined-Report-${reports.length}-Entities`
+      : (reports[0].entitySummary?.legalName || 'Report');
+    const riskLevel = 'COMBINED';
+    const { pdfBlob } = await captureDomToPdf(container, { subjectName, riskLevel, sectionBreaks });
+    root.unmount();
+    document.body.removeChild(container);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const fileName = `combined-report-${reports.length}-entities-${dateStr}.pdf`;
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (currentCaseId) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        addPdfReportToCase(currentCaseId, {
+          id: Math.random().toString(36).substr(2, 9),
+          name: fileName,
+          createdAt: new Date().toISOString(),
+          dataUri: reader.result,
+          riskLevel,
+          entityName: subjectName,
+        });
+      };
+      reader.readAsDataURL(pdfBlob);
+    }
+  } catch (error) {
+    console.error('Combined PDF export error:', error);
+    alert('Error generating combined PDF. Please try again.');
+  } finally {
+    setIsGeneratingCaseReport(false);
+  }
+};
 
 // Export full structured JSON report as PDF (all tabs)
 const exportFullReportAsPdf = async (reportData) => {
@@ -3483,7 +3614,8 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
      const file = new File([blob], fileName, { type: mimeType });
      await processFiles([file]);
      setSamplesExpanded(false);
-     setConversationInput('Analyze this document');
+     const isLpPacket = fileName.toLowerCase().includes('onboarding') || fileName.toLowerCase().includes('lp_');
+     setConversationInput(isLpPacket ? 'Screen all the individuals in this LP onboarding packet' : 'Analyze this document');
    } catch (err) {
      console.error('Error loading sample document:', err);
    }
@@ -4635,7 +4767,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      const decoder = new TextDecoder();
      let fullText = '';
      let buffer = '';
-     let reportDataReceived = null;
+     let gotReportJson = false;
 
      while (true) {
        const { done, value } = await reader.read();
@@ -4771,8 +4903,28 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
              case 'report_json': {
                console.log('[Report] Got structured JSON report for case', caseId);
-               reportDataReceived = evt;
-               setCases(prev => prev.map(c => c.id === caseId ? { ...c, reportData: evt } : c));
+               gotReportJson = true;
+               // Save each report immediately as a separate message in transcript
+               const reportMsg = {
+                 role: 'assistant',
+                 content: '',
+                 timestamp: new Date().toISOString(),
+                 isAgent: true,
+                 reportData: evt,
+               };
+               const RISK_ORDER = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+               const incomingRisk = evt?.overallRisk?.level?.toUpperCase() || null;
+               setCases(prev => prev.map(c => {
+                 if (c.id !== caseId) return c;
+                 const curRisk = c.riskLevel;
+                 const useNewRisk = incomingRisk && (!curRisk || curRisk === 'N/A' || (RISK_ORDER[incomingRisk] || 0) > (RISK_ORDER[curRisk] || 0));
+                 return {
+                   ...c,
+                   reportData: evt,
+                   ...(useNewRisk && { riskLevel: incomingRisk }),
+                   conversationTranscript: [...(c.conversationTranscript || []), reportMsg],
+                 };
+               }));
                break;
              }
 
@@ -4783,23 +4935,20 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
        }
      }
 
-     // Save assistant message to transcript
-     if (fullText.trim() || reportDataReceived) {
+     // Save text-only assistant message to transcript (report messages already saved during streaming)
+     // Skip agent narration text when structured reports were received — the reports ARE the output
+     if (fullText.trim() && !gotReportJson) {
        const assistantMsg = {
          role: 'assistant',
-         content: fullText || '',
+         content: fullText,
          timestamp: new Date().toISOString(),
          isAgent: true,
-         ...(reportDataReceived && { reportData: reportDataReceived }),
        };
-       // Extract risk level from JSON report if available
-       const jsonRiskLevel = reportDataReceived?.overallRisk?.level?.toUpperCase() || null;
        setCases(prev => prev.map(c => {
          if (c.id !== caseId) return c;
          const updated = {
            ...c,
            conversationTranscript: [...(c.conversationTranscript || []), assistantMsg],
-           ...(jsonRiskLevel && { riskLevel: jsonRiskLevel }),
          };
          if (isSupabaseConfigured() && user) syncCase(updated).catch(console.error);
          return updated;
@@ -12855,8 +13004,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
         pct = Math.min(100, 10 + textFill + milestones);
       }
     
-      const hasReportData = !!caseItem.reportData;
-      const screeningDone = !isStreaming && (completedChars > 200 || hasReportData);
+      const hasReportData = !!caseItem.reportData || assistantMsgs.some(m => !!m.reportData);
+      const screeningDone = !isStreaming && (completedChars > 200 || hasReportData || hasRisk);
       if (screeningDone) pct = 100;
       const barColor = screeningDone ? '#22c55e' : isStreaming ? '#d4a017' : '#6b6b6b';
       return (
@@ -12894,7 +13043,11 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </td>
  <td style={{ padding: '14px 20px', color: '#858585', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
  <td style={{ padding: '14px 20px', color: '#858585', fontSize: '13px' }}>{caseItem.conversationTranscript?.length || 0} message{(caseItem.conversationTranscript?.length || 0) !== 1 ? 's' : ''}</td>
- <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: caseItem.riskLevel === 'CRITICAL' ? '#ef4444' : caseItem.riskLevel === 'HIGH' ? '#f97316' : caseItem.riskLevel === 'MEDIUM' ? '#eab308' : caseItem.riskLevel === 'LOW' ? '#10b981' : '#6b6b6b' }}>{(!caseItem.riskLevel || caseItem.riskLevel === 'N/A') ? '—' : caseItem.riskLevel}</td>
+ {(() => {
+  const rl = caseItem.riskLevel && caseItem.riskLevel !== 'N/A' ? caseItem.riskLevel : (caseItem.reportData?.overallRisk?.level?.toUpperCase() || null);
+  const rColor = rl === 'CRITICAL' ? '#ef4444' : rl === 'HIGH' ? '#f97316' : rl === 'MEDIUM' ? '#eab308' : rl === 'LOW' ? '#10b981' : '#6b6b6b';
+  return <td style={{ padding: '14px 20px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: rColor }}>{rl || '—'}</td>;
+})()}
  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
  <button
@@ -12936,7 +13089,13 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
            <p style={{ fontSize: '12px', color: '#6b6b6b', marginTop: '2px' }}>Created {new Date(viewingCase.createdAt).toLocaleDateString()}</p>
          </div>
          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-           {viewingCase.riskLevel && viewingCase.riskLevel !== 'N/A' && (
+           {(() => {
+            const _vrl = (viewingCase.riskLevel && viewingCase.riskLevel !== 'N/A') ? viewingCase.riskLevel : (viewingCase.reportData?.overallRisk?.level?.toUpperCase() || null);
+            if (!_vrl) return null;
+            const _vc = _vrl === 'CRITICAL' ? '#ef4444' : _vrl === 'HIGH' ? '#f97316' : _vrl === 'MEDIUM' ? '#eab308' : _vrl === 'LOW' ? '#10b981' : '#858585';
+            const _vbg = _vrl === 'CRITICAL' ? 'rgba(239,68,68,0.1)' : _vrl === 'HIGH' ? 'rgba(249,115,22,0.1)' : _vrl === 'MEDIUM' ? 'rgba(234,179,8,0.1)' : _vrl === 'LOW' ? 'rgba(16,185,129,0.1)' : 'rgba(133,133,133,0.1)';
+            const _vbd = _vrl === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : _vrl === 'HIGH' ? '1px solid rgba(249,115,22,0.25)' : _vrl === 'MEDIUM' ? '1px solid rgba(234,179,8,0.25)' : _vrl === 'LOW' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(133,133,133,0.25)';
+            return (
            <span style={{
              fontSize: '11px',
              fontWeight: 600,
@@ -12944,13 +13103,14 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
              textTransform: 'uppercase',
              padding: '6px 14px',
              borderRadius: '4px',
-             background: viewingCase.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.1)' : viewingCase.riskLevel === 'HIGH' ? 'rgba(249,115,22,0.1)' : viewingCase.riskLevel === 'MEDIUM' ? 'rgba(234,179,8,0.1)' : viewingCase.riskLevel === 'LOW' ? 'rgba(16,185,129,0.1)' : 'rgba(133,133,133,0.1)',
-             color: viewingCase.riskLevel === 'CRITICAL' ? '#ef4444' : viewingCase.riskLevel === 'HIGH' ? '#f97316' : viewingCase.riskLevel === 'MEDIUM' ? '#eab308' : viewingCase.riskLevel === 'LOW' ? '#10b981' : '#858585',
-             border: viewingCase.riskLevel === 'CRITICAL' ? '1px solid rgba(239,68,68,0.25)' : viewingCase.riskLevel === 'HIGH' ? '1px solid rgba(249,115,22,0.25)' : viewingCase.riskLevel === 'MEDIUM' ? '1px solid rgba(234,179,8,0.25)' : viewingCase.riskLevel === 'LOW' ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(133,133,133,0.25)'
+             background: _vbg,
+             color: _vc,
+             border: _vbd,
            }}>
-             {viewingCase.riskLevel} RISK
+             {_vrl} RISK
            </span>
-           )}
+           );
+           })()}
            <button
              onClick={() => exportCaseAsPdf(viewingCase)}
              disabled={isGeneratingCaseReport}
@@ -13435,6 +13595,16 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  const messages = (caseForMessages?.conversationTranscript?.length > conversationMessages.length)
    ? caseForMessages.conversationTranscript
    : conversationMessages;
+
+// Collect all structured reports for multi-entity selector
+const allReports = collectCaseReports(currentCaseId);
+const hasMultipleReports = allReports.length > 1;
+const isCurrentlyStreaming = getCaseStreamingState(currentCaseId).isStreaming;
+let firstReportMsgIdx = -1;
+if (hasMultipleReports && !isCurrentlyStreaming) {
+  messages.forEach((m, i) => { if (m.role === 'assistant' && m.reportData && firstReportMsgIdx === -1) firstReportMsgIdx = i; });
+}
+
  return messages.map((msg, idx) => (
  <div key={idx}>
  {msg.role === 'user' ? (
@@ -13454,8 +13624,137 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <span className="text-sm">{msg.content}</span>
  </div>
  </div>
+ ) : hasMultipleReports && !isCurrentlyStreaming && msg.reportData ? (
+ /* Multi-report: consolidated selector on first report msg, hide others */
+ idx === firstReportMsgIdx ? (
+ <div>
+ {(() => {
+   const safeIdx = Math.min(selectedReportIdx, allReports.length - 1);
+   const activeReport = allReports[safeIdx];
+   const riskColors = { CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#22c55e' };
+   const _caseObjMR = cases.find(c => c.id === currentCaseId);
+   const caseKycDataMR = _caseObjMR?.kycData || null;
+   return (
+     <>
+       <div style={{
+         display: 'flex', alignItems: 'center', gap: '8px',
+         background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: '10px',
+         padding: '8px 12px', marginBottom: '12px', flexWrap: 'wrap',
+       }}>
+         <button
+           onClick={() => setSelectedReportIdx(Math.max(0, safeIdx - 1))}
+           disabled={safeIdx === 0}
+           style={{ background: 'none', border: 'none', cursor: safeIdx === 0 ? 'default' : 'pointer', padding: '4px', color: safeIdx === 0 ? '#3a3a3a' : '#858585', flexShrink: 0 }}
+         ><ChevronLeft style={{ width: '16px', height: '16px' }} /></button>
+         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+           {allReports.map((rd, i) => {
+             const eName = rd.entitySummary?.legalName || rd.entitySummary?.name || 'Entity ' + (i + 1);
+             const shortName = eName.length > 24 ? eName.substring(0, 22) + '...' : eName;
+             const risk = rd.overallRisk?.level?.toUpperCase() || 'N/A';
+             const isActive = i === safeIdx;
+             return (
+               <button key={i} onClick={() => setSelectedReportIdx(i)} style={{
+                 display: 'flex', alignItems: 'center', gap: '6px',
+                 padding: '5px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                 background: isActive ? '#2a2a2a' : 'transparent',
+                 outline: isActive ? '1px solid #d97706' : '1px solid transparent',
+                 transition: 'all 0.15s',
+               }}>
+                 <span style={{
+                   width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                   background: riskColors[risk] || '#6b6b6b',
+                 }} />
+                 <span style={{
+                   fontSize: '12px', fontWeight: isActive ? 600 : 400,
+                   color: isActive ? '#f5f5f5' : '#a1a1a1',
+                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px',
+                 }}>{shortName}</span>
+               </button>
+             );
+           })}
+         </div>
+         <button
+           onClick={() => setSelectedReportIdx(Math.min(allReports.length - 1, safeIdx + 1))}
+           disabled={safeIdx === allReports.length - 1}
+           style={{ background: 'none', border: 'none', cursor: safeIdx === allReports.length - 1 ? 'default' : 'pointer', padding: '4px', color: safeIdx === allReports.length - 1 ? '#3a3a3a' : '#858585', flexShrink: 0 }}
+         ><ChevronRight style={{ width: '16px', height: '16px' }} /></button>
+         <span style={{ fontSize: '11px', color: '#6b6b6b', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
+           {safeIdx + 1}/{allReports.length}
+         </span>
+         <div style={{ position: 'relative', flexShrink: 0 }}>
+           <button
+             onClick={() => setExportAllDropdownOpen(!exportAllDropdownOpen)}
+             disabled={isGeneratingCaseReport}
+             style={{
+               display: 'flex', alignItems: 'center', gap: '5px',
+               padding: '5px 10px', borderRadius: '6px', cursor: 'pointer',
+               background: '#d97706', border: 'none', color: '#fff',
+               fontSize: '11px', fontWeight: 600, opacity: isGeneratingCaseReport ? 0.5 : 1,
+             }}
+           >
+             {isGeneratingCaseReport ? <Loader2 className="animate-spin" style={{ width: '12px', height: '12px' }} /> : <Download style={{ width: '12px', height: '12px' }} />}
+             Export All
+             <ChevronDown style={{ width: '10px', height: '10px' }} />
+           </button>
+           {exportAllDropdownOpen && (
+             <div style={{
+               position: 'absolute', top: '100%', right: 0, marginTop: '4px', zIndex: 50,
+               background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: '8px',
+               overflow: 'hidden', minWidth: '180px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+             }}>
+               <button onClick={() => { setExportAllDropdownOpen(false); exportIndividualReportsPdf(allReports); }} style={{
+                 display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'transparent',
+                 color: '#d4d4d4', fontSize: '13px', textAlign: 'left', cursor: 'pointer',
+               }} onMouseEnter={e => e.currentTarget.style.background = '#333'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                 Individual Reports
+               </button>
+               <div style={{ height: '1px', background: '#3a3a3a' }} />
+               <button onClick={() => { setExportAllDropdownOpen(false); exportCombinedReportAsPdf(allReports); }} style={{
+                 display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'transparent',
+                 color: '#d4d4d4', fontSize: '13px', textAlign: 'left', cursor: 'pointer',
+               }} onMouseEnter={e => e.currentTarget.style.background = '#333'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                 Combined Report
+               </button>
+             </div>
+           )}
+         </div>
+       </div>
+       <div id={'chat-message-' + idx} className="pdf-capture-target">
+         <ReportTabs content="" darkMode={darkMode} kycData={caseKycDataMR} reportData={activeReport} userName={user?.name} caseId={currentCaseId} />
+       </div>
+       <div className="flex justify-between items-center mt-4 pt-3" style={{ borderTop: '1px solid #3a3a3a' }}>
+         <div style={{ position: 'relative', display: 'flex', gap: '2px' }}>
+           <button onClick={() => submitMessageFeedback(idx, 'positive')} title="Helpful"
+             style={{ background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', color: messageFeedback[currentCaseId + '-' + idx] === 'positive' ? '#22c55e' : '#6b6b6b', transition: 'color 0.15s' }}
+           ><ThumbsUp style={{ width: '15px', height: '15px' }} /></button>
+           <button onClick={() => setFeedbackDropdownOpen(feedbackDropdownOpen === 'chat-' + idx ? null : 'chat-' + idx)} title="Not helpful"
+             style={{ background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', color: messageFeedback[currentCaseId + '-' + idx] === 'negative' ? '#ef4444' : '#6b6b6b', transition: 'color 0.15s' }}
+           ><ThumbsDown style={{ width: '15px', height: '15px' }} /></button>
+           {feedbackDropdownOpen === ('chat-' + idx) && (
+             <FeedbackCategoryDropdown onSelect={(cat, text) => submitMessageFeedback(idx, 'negative', cat, text)} isDark={true} />
+           )}
+         </div>
+         <div className="flex gap-2">
+           <button onClick={() => exportFullReportAsPdf(activeReport)} disabled={isGeneratingCaseReport}
+             className="katharos-btn primary" style={{ opacity: isGeneratingCaseReport ? 0.5 : 1 }}>
+             {isGeneratingCaseReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+             Export PDF
+           </button>
+         </div>
+       </div>
+     </>
+   );
+ })()}
+ </div>
+ ) : null
  ) : (
- /* Assistant message - full width analysis result */
+ /* Assistant message - full width analysis result (single report or non-report) */
+ (() => {
+   // Hide agent narration text when structured reports exist (covers old + new investigations)
+   const _caseForCheck = cases.find(c => c.id === currentCaseId);
+   const caseHasReports = allReports.length > 0 || !!_caseForCheck?.reportData;
+   if (msg.isAgent && !msg.reportData && caseHasReports) return null;
+   return (
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
  {(() => {
@@ -13475,7 +13774,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        }
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={msgReportData} userName={user?.name} />;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} reportData={msgReportData} userName={user?.name} caseId={currentCaseId} />;
    }
    if (!stripped) return <div style={{ color: '#6b7280', fontStyle: 'italic', padding: '12px 0' }}>Report content unavailable</div>;
    const isReport = stripped.includes('## OVERALL RISK') || stripped.includes('## SUBJECT IDENTITY');
@@ -13490,7 +13789,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
        return <InlineChatGraph key={ai} html={artifact.html} label={artifact.label} type={artifact.type} filename={artifact.filename} />;
      });
      const caseKycData = _caseObj1?.kycData || null;
-     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} userName={user?.name} />;
+     return <ReportTabs content={stripped} darkMode={darkMode} networkGraphs={graphs} kycData={caseKycData} userName={user?.name} caseId={currentCaseId} />;
    }
    return <MarkdownRenderer content={stripped} darkMode={darkMode} />;
  })()}
@@ -13559,6 +13858,8 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  </div>
  </div>
  </div>
+ );
+ })()
  )}
  </div>
  ));
@@ -13707,21 +14008,109 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      );
    })()}
 
-   {/* Show streaming text */}
-   {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (() => {
-     const streamText = stripVizData(getCaseStreamingState(currentCaseId).streamingText).replace(/<!--REPORT_JSON:[\s\S]*?-->/g, '').trim();
+   {/* Show report selector + tabs for completed reports */}
+   {(() => {
+     const allReports = collectCaseReports(currentCaseId);
      const _caseObj2 = cases.find(c => c.id === currentCaseId);
-     const caseReportData2 = _caseObj2?.reportData || null;
-     if (caseReportData2) {
-       const caseKycData = _caseObj2?.kycData || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} reportData={caseReportData2} userName={user?.name} />;
+     const caseKycData = _caseObj2?.kycData || null;
+     if (allReports.length > 0) {
+       const safeIdx = Math.min(selectedReportIdx, allReports.length - 1);
+       const activeReport = allReports[safeIdx];
+       const riskColors = { CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#22c55e' };
+       return (
+         <>
+           {/* Report Selector Bar */}
+           {allReports.length > 1 && (
+             <div style={{
+               display: 'flex', alignItems: 'center', gap: '8px',
+               background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: '10px',
+               padding: '8px 12px', marginBottom: '12px', flexWrap: 'wrap',
+             }}>
+               <button
+                 onClick={() => setSelectedReportIdx(Math.max(0, safeIdx - 1))}
+                 disabled={safeIdx === 0}
+                 style={{ background: 'none', border: 'none', cursor: safeIdx === 0 ? 'default' : 'pointer', padding: '4px', color: safeIdx === 0 ? '#3a3a3a' : '#858585', flexShrink: 0 }}
+               ><ChevronLeft style={{ width: '16px', height: '16px' }} /></button>
+               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                 {allReports.map((rd, i) => {
+                   const name = rd.entitySummary?.legalName || rd.entitySummary?.name || `Entity ${i + 1}`;
+                   const shortName = name.length > 24 ? name.substring(0, 22) + '...' : name;
+                   const risk = rd.overallRisk?.level?.toUpperCase() || 'N/A';
+                   const isActive = i === safeIdx;
+                   return (
+                     <button key={i} onClick={() => setSelectedReportIdx(i)} style={{
+                       display: 'flex', alignItems: 'center', gap: '6px',
+                       padding: '5px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                       background: isActive ? '#2a2a2a' : 'transparent',
+                       outline: isActive ? '1px solid #d97706' : '1px solid transparent',
+                       transition: 'all 0.15s',
+                     }}>
+                       <span style={{
+                         width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                         background: riskColors[risk] || '#6b6b6b',
+                       }} />
+                       <span style={{
+                         fontSize: '12px', fontWeight: isActive ? 600 : 400,
+                         color: isActive ? '#f5f5f5' : '#a1a1a1',
+                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px',
+                       }}>{shortName}</span>
+                     </button>
+                   );
+                 })}
+               </div>
+               <button
+                 onClick={() => setSelectedReportIdx(Math.min(allReports.length - 1, safeIdx + 1))}
+                 disabled={safeIdx === allReports.length - 1}
+                 style={{ background: 'none', border: 'none', cursor: safeIdx === allReports.length - 1 ? 'default' : 'pointer', padding: '4px', color: safeIdx === allReports.length - 1 ? '#3a3a3a' : '#858585', flexShrink: 0 }}
+               ><ChevronRight style={{ width: '16px', height: '16px' }} /></button>
+               <span style={{ fontSize: '11px', color: '#6b6b6b', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
+                 {safeIdx + 1}/{allReports.length}
+               </span>
+               {/* Export All button with dropdown */}
+               <div style={{ position: 'relative', flexShrink: 0 }}>
+                 <button
+                   onClick={() => setExportAllDropdownOpen(!exportAllDropdownOpen)}
+                   disabled={isGeneratingCaseReport}
+                   style={{
+                     display: 'flex', alignItems: 'center', gap: '5px',
+                     padding: '5px 10px', borderRadius: '6px', cursor: 'pointer',
+                     background: '#d97706', border: 'none', color: '#fff',
+                     fontSize: '11px', fontWeight: 600, opacity: isGeneratingCaseReport ? 0.5 : 1,
+                   }}
+                 >
+                   {isGeneratingCaseReport ? <Loader2 className="animate-spin" style={{ width: '12px', height: '12px' }} /> : <Download style={{ width: '12px', height: '12px' }} />}
+                   Export All
+                   <ChevronDown style={{ width: '10px', height: '10px' }} />
+                 </button>
+                 {exportAllDropdownOpen && (
+                   <div style={{
+                     position: 'absolute', top: '100%', right: 0, marginTop: '4px', zIndex: 50,
+                     background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: '8px',
+                     overflow: 'hidden', minWidth: '180px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                   }}>
+                     <button onClick={() => { setExportAllDropdownOpen(false); exportIndividualReportsPdf(allReports); }} style={{
+                       display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'transparent',
+                       color: '#d4d4d4', fontSize: '13px', textAlign: 'left', cursor: 'pointer',
+                     }} onMouseEnter={e => e.currentTarget.style.background = '#333'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                       Individual Reports
+                     </button>
+                     <div style={{ height: '1px', background: '#3a3a3a' }} />
+                     <button onClick={() => { setExportAllDropdownOpen(false); exportCombinedReportAsPdf(allReports); }} style={{
+                       display: 'block', width: '100%', padding: '10px 14px', border: 'none', background: 'transparent',
+                       color: '#d4d4d4', fontSize: '13px', textAlign: 'left', cursor: 'pointer',
+                     }} onMouseEnter={e => e.currentTarget.style.background = '#333'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                       Combined Report
+                     </button>
+                   </div>
+                 )}
+               </div>
+             </div>
+           )}
+           <ReportTabs content="" darkMode={darkMode} kycData={caseKycData} reportData={activeReport} userName={user?.name} caseId={currentCaseId} />
+         </>
+       );
      }
-     const isReport = streamText.includes('## OVERALL RISK') || streamText.includes('## ENTITY SUMMARY');
-     if (isReport) {
-       const caseKycData = _caseObj2?.kycData || null;
-       return <ReportTabs content={streamText} darkMode={darkMode} kycData={caseKycData} userName={user?.name} />;
-     }
-     return <MarkdownRenderer content={streamText} darkMode={darkMode} />;
+     return null;
    })()}
  </div>
  </div>
