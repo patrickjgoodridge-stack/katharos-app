@@ -378,18 +378,31 @@ const RedFlagsSection = ({ data }) => {
 const NetworkNode = ({ data: d }) => {
   const riskColor = d.risk ? getRiskColor(d.risk) : TEXT_MUTED;
   const isSanctioned = d.sanctioned?.toLowerCase() === 'yes';
+  const badges = d.badges || [];
   return (
     <div style={{
-      border: `${isSanctioned ? 2 : 1}px solid ${isSanctioned ? RISK_COLORS.CRITICAL : riskColor}`,
+      border: `${isSanctioned || d.flagged ? 2 : 1}px solid ${isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : riskColor}`,
       borderRadius: 8, padding: '8px 14px', minWidth: 120, maxWidth: 180, textAlign: 'center',
-      background: isSanctioned ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
+      background: isSanctioned || d.flagged ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
     }}>
       <Handle type="target" position={Position.Top} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
-      <div style={{ fontSize: 11, fontWeight: 600, color: isSanctioned ? RISK_COLORS.CRITICAL : TEXT_WHITE, marginBottom: 2 }}>{d.label}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : TEXT_WHITE, marginBottom: 2 }}>{d.label}</div>
       {d.type && <div style={{ fontSize: 9, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 0.5 }}>{d.type}</div>}
       {d.jurisdiction && <div style={{ fontSize: 9, color: TEXT_MUTED }}>{d.jurisdiction}</div>}
       {isSanctioned && (
         <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 3, fontWeight: 700, background: `${RISK_COLORS.CRITICAL}20`, color: RISK_COLORS.CRITICAL, marginTop: 3, display: 'inline-block' }}>SANCTIONED</span>
+      )}
+      {badges.length > 0 && (
+        <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 3, flexWrap: 'wrap' }}>
+          {badges.map((badge, i) => (
+            <span key={i} style={{
+              fontSize: 7, padding: '1px 4px', borderRadius: 3, fontWeight: 700, letterSpacing: 0.5,
+              background: `${BADGE_COLORS[badge] || TEXT_MUTED}20`,
+              color: BADGE_COLORS[badge] || TEXT_MUTED,
+              textTransform: 'uppercase',
+            }}>{badge}</span>
+          ))}
+        </div>
       )}
       <Handle type="source" position={Position.Bottom} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />
     </div>
@@ -398,23 +411,108 @@ const NetworkNode = ({ data: d }) => {
 
 const networkNodeTypes = { network: NetworkNode };
 
-const buildNetworkGraph = (entities) => {
+const buildNetworkGraph = (entities, ownership) => {
   const nodes = [];
   const edges = [];
-  // Place first entity (subject) at top center
-  const cols = Math.min(entities.length, 4);
-  const GAP_X = 200;
-  const GAP_Y = 120;
+  const GAP_X = 220;
+  const GAP_Y = 130;
+  const usedNames = new Set();
 
-  entities.forEach((ent, i) => {
+  // --- Ownership layer (top) ---
+  const owners = ownership?.owners || [];
+  const subsidiaries = ownership?.subsidiaries || [];
+  const parentName = ownership?.parentEntity || '';
+  let ownershipRows = 0;
+
+  if (parentName) {
+    const totalOwners = Math.max(owners.length, 1);
+    const parentX = ((totalOwners - 1) * GAP_X) / 2;
+    nodes.push({
+      id: 'own-parent',
+      type: 'network',
+      position: { x: parentX, y: 0 },
+      data: { label: parentName, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '' },
+    });
+    usedNames.add(parentName.toLowerCase());
+    ownershipRows = 1;
+
+    owners.forEach((owner, i) => {
+      const id = `own-o-${i}`;
+      const subtitle = owner.percentage != null ? `${owner.percentage}%` : owner.description || '';
+      nodes.push({
+        id,
+        type: 'network',
+        position: { x: i * GAP_X, y: GAP_Y },
+        data: {
+          label: owner.name,
+          type: 'Owner',
+          jurisdiction: '',
+          risk: owner.flagged ? 'HIGH' : '',
+          sanctioned: '',
+          flagged: owner.flagged,
+        },
+      });
+      usedNames.add(owner.name.toLowerCase());
+      edges.push({
+        id: `e-own-p-${i}`,
+        source: 'own-parent',
+        target: id,
+        label: subtitle,
+        style: { stroke: owner.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER, strokeWidth: 1.5 },
+        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
+        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
+        labelBgPadding: [3, 5],
+        labelBgBorderRadius: 3,
+      });
+    });
+    if (owners.length > 0) ownershipRows = 2;
+
+    subsidiaries.forEach((sub, i) => {
+      const id = `own-s-${i}`;
+      const subY = (ownershipRows) * GAP_Y;
+      nodes.push({
+        id,
+        type: 'network',
+        position: { x: i * GAP_X, y: subY },
+        data: {
+          label: sub.name,
+          type: 'Subsidiary',
+          jurisdiction: sub.jurisdiction || '',
+          risk: sub.risk || '',
+          sanctioned: '',
+          badges: sub.badges || [],
+        },
+      });
+      usedNames.add(sub.name.toLowerCase());
+      edges.push({
+        id: `e-own-ps-${i}`,
+        source: 'own-parent',
+        target: id,
+        label: sub.ownership || '',
+        style: { stroke: CARD_BORDER, strokeWidth: 1 },
+        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
+        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
+        labelBgPadding: [3, 5],
+        labelBgBorderRadius: 3,
+      });
+    });
+    if (subsidiaries.length > 0) ownershipRows++;
+  }
+
+  // --- Entity network layer (below ownership) ---
+  const networkEntities = (entities || []).filter(ent => !usedNames.has((ent.entity || '').toLowerCase()));
+  const startY = ownershipRows * GAP_Y + (ownershipRows > 0 ? 40 : 0);
+  const cols = Math.min(networkEntities.length || 1, 4);
+
+  networkEntities.forEach((ent, i) => {
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const totalInRow = Math.min(entities.length - row * cols, cols);
+    const totalInRow = Math.min(networkEntities.length - row * cols, cols);
     const offsetX = ((cols - totalInRow) * GAP_X) / 2;
     nodes.push({
       id: `net-${i}`,
       type: 'network',
-      position: { x: offsetX + col * GAP_X, y: row * GAP_Y },
+      position: { x: offsetX + col * GAP_X, y: startY + row * GAP_Y },
       data: {
         label: ent.entity,
         type: ent.type,
@@ -423,11 +521,12 @@ const buildNetworkGraph = (entities) => {
         sanctioned: ent.sanctioned,
       },
     });
-    // Connect to first node if it has a connection description
-    if (i > 0 && ent.connection) {
+    // Connect to parent node or first entity
+    const sourceId = parentName ? 'own-parent' : (i > 0 ? 'net-0' : null);
+    if (sourceId && ent.connection) {
       edges.push({
-        id: `e-net-0-${i}`,
-        source: 'net-0',
+        id: `e-net-${sourceId}-${i}`,
+        source: sourceId,
         target: `net-${i}`,
         label: ent.connection?.length > 30 ? ent.connection.substring(0, 30) + '...' : ent.connection,
         style: { stroke: getRiskColor(ent.risk) || CARD_BORDER, strokeWidth: 1 },
@@ -442,21 +541,23 @@ const buildNetworkGraph = (entities) => {
   return { nodes, edges };
 };
 
-const EntityNetworkSection = ({ data, forPdf }) => {
+const EntityNetworkSection = ({ data, forPdf, ownership }) => {
   const [viewMode, setViewMode] = useState('graph');
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : []), [data]);
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildNetworkGraph(data?.length ? data : [], ownership), [data, ownership]);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
-  if (!data?.length) return null;
+  const hasOwnership = ownership?.parentEntity || ownership?.owners?.length || ownership?.subsidiaries?.length;
+  if (!data?.length && !hasOwnership) return null;
 
-  const rows = Math.ceil(data.length / 4);
-  const graphHeight = Math.max(rows * 140 + 60, 280);
+  const totalNodes = (data?.length || 0) + (ownership?.owners?.length || 0) + (ownership?.subsidiaries?.length || 0) + (ownership?.parentEntity ? 1 : 0);
+  const rows = Math.ceil(totalNodes / 4);
+  const graphHeight = Math.max(rows * 140 + 60, 350);
   const showTable = forPdf || viewMode === 'table';
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: forPdf ? '#111' : TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network</h2>
+        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: forPdf ? '#111' : TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network & Ownership</h2>
         {!forPdf && (
           <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
             {['graph', 'table'].map(mode => (
@@ -518,7 +619,19 @@ const EntityNetworkSection = ({ data, forPdf }) => {
             },
             source: () => AMBER,
           }}
-          rows={data}
+          rows={[
+            ...(ownership?.parentEntity ? [{ entity: ownership.parentEntity, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '', matchPercent: '', connection: '', source: '' }] : []),
+            ...(ownership?.owners || []).map(o => ({ entity: o.name, type: 'Owner', jurisdiction: '', risk: o.flagged ? 'HIGH' : '', sanctioned: '', matchPercent: o.percentage != null ? o.percentage : '', connection: o.description || '', source: '' })),
+            ...(ownership?.subsidiaries || []).map(s => ({ entity: s.name, type: 'Subsidiary', jurisdiction: s.jurisdiction || '', risk: s.risk || '', sanctioned: '', matchPercent: '', connection: s.ownership || '', source: '' })),
+            ...(data || []).filter(ent => {
+              const ownerNames = new Set([
+                ...(ownership?.parentEntity ? [ownership.parentEntity.toLowerCase()] : []),
+                ...(ownership?.owners || []).map(o => o.name.toLowerCase()),
+                ...(ownership?.subsidiaries || []).map(s => s.name.toLowerCase()),
+              ]);
+              return !ownerNames.has((ent.entity || '').toLowerCase());
+            }),
+          ]}
         />
       )}
     </>
@@ -1031,7 +1144,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   const tabCounts = {};
   tabCounts.summary = [r.entitySummary, r.matchConfidence, r.overallRisk, r.criticalFindings?.length, r.riskScoreBreakdown?.length].filter(Boolean).length;
   tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.regulatoryContext?.length, r.generalLicenses?.length].filter(Boolean).length;
-  tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length].filter(Boolean).length;
+  tabCounts.network = [r.entityNetwork?.length || r.corporateStructure, r.ownershipHistory?.length].filter(Boolean).length;
   tabCounts.patterns = r.typologies?.length || 0;
   tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule].filter(Boolean).length;
   tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
@@ -1065,8 +1178,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
 
         {/* Network */}
         <S><h1 style={dividerStyle}>Network</h1></S>
-        <S><EntityNetworkSection data={r.entityNetwork} forPdf /></S>
-        <S><CorporateStructureSection data={r.corporateStructure} forPdf /></S>
+        <S><EntityNetworkSection data={r.entityNetwork} forPdf ownership={r.corporateStructure} /></S>
         <S><OwnershipHistorySection data={r.ownershipHistory} /></S>
 
         {/* Patterns */}
@@ -1122,8 +1234,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       case 'network':
         return (
           <>
-            <EntityNetworkSection data={r.entityNetwork} />
-            <CorporateStructureSection data={r.corporateStructure} />
+            <EntityNetworkSection data={r.entityNetwork} ownership={r.corporateStructure} />
             <OwnershipHistorySection data={r.ownershipHistory} />
             {kycData && <KYCOwnershipSection data={kycData} />}
             {networkGraphs && networkGraphs.length > 0 && (
