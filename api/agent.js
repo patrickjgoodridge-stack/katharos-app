@@ -645,7 +645,30 @@ Do NOT output branch accounting blocks. Track branches internally but do not emi
 
 During the investigation, you may output brief one-line status updates ONLY when a significant finding surfaces. Examples: "SANCTIONS HIT: [entity name]" or "OFAC 50% rule triggered: [entity] via [parent]". Keep these to one line each. No paragraphs of reasoning between tool calls.
 
-When the investigation is complete, output your final report as a SINGLE JSON code block. Wrap it in \`\`\`json ... \`\`\`. No markdown sections. No text before or after the JSON block (in the same message). The JSON must conform EXACTLY to this schema:
+When the investigation is complete, output your final report as a JSON code block. Wrap it in \`\`\`json ... \`\`\`. No markdown sections. No text before or after the JSON block (in the same message).
+
+**CRITICAL — MULTI-ENTITY INVESTIGATIONS (LP PACKETS, BATCH SCREENING, LISTS OF NAMES):**
+When the user uploads a document containing multiple people/entities (LP onboarding packet, investor list, batch screening request, list of names), you MUST:
+1. FIRST: Extract every individual person's name from the document. List them.
+2. THEN: Screen EACH person INDIVIDUALLY using your tools (screen_entity, search_sanctions, etc.) — one at a time.
+3. FINALLY: Output a SEPARATE \`\`\`json code block for EACH INDIVIDUAL PERSON. Each person gets their own complete JSON report with their own entitySummary, risk score, findings, and recommendations.
+
+**NEVER** combine multiple people into a single report. **NEVER** create a "fund-level" or "group" report. If the document says "LP Onboarding Packet" with 10 investors, you output 10 separate JSON blocks — one per investor. The user said "screen all the INDIVIDUALS" — that means individual reports.
+
+Example: If the document contains John Smith, Jane Doe, and Bob Johnson, you output:
+\`\`\`json
+{ "entitySummary": { "legalName": "John Smith", ... }, ... }
+\`\`\`
+\`\`\`json
+{ "entitySummary": { "legalName": "Jane Doe", ... }, ... }
+\`\`\`
+\`\`\`json
+{ "entitySummary": { "legalName": "Bob Johnson", ... }, ... }
+\`\`\`
+
+The UI renders these as switchable individual report cards. A single combined report is WRONG.
+
+The JSON must conform EXACTLY to this schema:
 
 \`\`\`json
 {
@@ -673,7 +696,7 @@ When the investigation is complete, output your final report as a SINGLE JSON co
     "recommendation": "APPROVE or DO NOT TRANSACT or ESCALATE FOR EDD",
     "summary": "One-sentence explanation of the recommendation"
   },
-  "executiveSummary": "A 300-500 word narrative overview of the investigation findings written for a compliance officer. Cover: who the subject is, what was found (sanctions, enforcement, ownership issues), key risk drivers, network complexity, and the bottom-line recommendation. Write in clear, direct prose — no bullet points. This is the executive briefing a senior compliance officer reads before reviewing the detailed findings.",
+  "executiveSummary": "MANDATORY — NEVER OMIT. A 300-500 word narrative overview written for a compliance officer. Cover: who the subject is, what was found (sanctions, enforcement, ownership issues), key risk drivers, network complexity, and the bottom-line recommendation. Write in clear, direct prose — no bullet points. Use **double asterisks** to bold key terms: entity names, sanctions programs, enforcement actions, risk levels, jurisdiction names, and the final recommendation. Example: '**COSCO Shipping** is designated under the **Iran sanctions program** with a **CRITICAL** risk level.' This is the executive briefing a senior compliance officer reads before reviewing the detailed findings. This field MUST always be present and non-empty.",
   "criticalFindings": [
     {
       "severity": "CRITICAL or HIGH or MEDIUM",
@@ -702,8 +725,8 @@ When the investigation is complete, output your final report as a SINGLE JSON co
   ],
   "entityNetwork": [
     {
-      "entity": "Entity name",
-      "type": "Subsidiary / Parent / Affiliate",
+      "entity": "Entity or person name",
+      "type": "Subsidiary / Parent / Affiliate / Shell Company / Trust / Fund / Joint Venture / Associate / Family Member / Nominee / Director / Intermediary / Proxy",
       "jurisdiction": "Country",
       "risk": "CRITICAL or HIGH or MEDIUM or LOW",
       "sanctioned": "Yes or No or Partial Match",
@@ -841,12 +864,12 @@ RULES:
 - Set optional arrays to [] (not null) when not applicable: adverseMedia, litigationHistory, ownershipHistory, designationTimeline, generalLicenses.
 - litigationHistory: include ALL civil suits, class actions, judgments, bankruptcies, arbitrations, and tax disputes — not just criminal/regulatory enforcement. Search court records, PACER, corporate disclosures, and news for civil litigation history.
 - corporateStructure uses \\n for newlines in the tree string.
-- Include ALL redFlags supported by evidence, up to 10. Each must be concrete and actionable with a specific impact statement. For high-risk subjects, expect 5-10 red flags.
+- Include ALL redFlags supported by evidence. Do NOT cap or truncate. Each must be concrete and actionable with a specific impact statement. For high-risk subjects, expect 5-15 red flags.
 - entityNetwork MUST include EVERY entity discovered during the investigation — associates, family members, subsidiaries, shell companies, intermediaries, connected sanctioned parties, ALL of them. Do not limit or truncate. For a well-connected subject like an oligarch or conglomerate, expect 10-30+ entities. This array populates the interactive network graph.
-- Include ALL typologies supported by evidence, up to 10. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available. For well-connected subjects like oligarchs, sanctioned conglomerates, or multi-entity networks, 6-10 typologies is expected.
-- criticalFindings: include ALL findings discovered during the investigation, ordered by severity (CRITICAL first, then HIGH, then MEDIUM). Do not cap or truncate. Every factor in riskScoreBreakdown MUST have a corresponding entry, plus any additional findings from the investigation. For complex subjects, expect 6-12+ critical findings.
+- Include ALL typologies supported by evidence. Do NOT cap or truncate. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available. For well-connected subjects, expect 6-15 typologies.
+- criticalFindings: include ALL findings discovered during the investigation, ordered by severity (CRITICAL first, then HIGH, then MEDIUM). Do NOT cap or truncate. Every factor in riskScoreBreakdown MUST have a corresponding entry, plus any additional findings from the investigation. For complex subjects, expect 6-15+ critical findings.
 - recommendedActions: include ALL relevant actions per tier. For CRITICAL/HIGH risk subjects, expect 4-8 immediate actions, 4-8 short-term actions, and 3-6 ongoing actions. Be specific — name the exact regulatory body, filing type, or screening step.
-- All string values may contain plain text only — no markdown formatting (no ** bold, no links).
+- String values use plain text. The ONLY exception: executiveSummary may use **double asterisks** for bold emphasis on key terms.
 - Every claim in criticalFindings, redFlags, typologies, and adverseMedia MUST include a source citation and sourceUrl when a public URL exists. Use real URLs from OFAC, DOJ, FinCEN, FATF, ICIJ, SEC, court filing databases, or news outlets. If no public URL exists, set sourceUrl to "".
 
 ## INVESTIGATION PROTOCOL — EXECUTE ON EVERY SEARCH
@@ -1000,7 +1023,7 @@ If any check fails, do not write final output. Close the gap first.
 
 ### STEP 10 — FINAL OUTPUT
 
-Output your findings as the JSON code block defined in OUTPUT PROTOCOL above. The JSON must be valid and complete. ALWAYS include the coverageGap — this is the core value proposition.
+Output your findings as the JSON code block defined in OUTPUT PROTOCOL above. The JSON must be valid and complete. ALWAYS include the coverageGap — this is the core value proposition. ALWAYS include executiveSummary — a 300-500 word narrative. Never omit it, even on cache hits.
 
 ### STEP 11 — PERSIST DISCOVERIES
 
@@ -1149,7 +1172,7 @@ The user has already received their investigation report. Now they want to discu
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 16000,
+          max_tokens: 32000,
           system: systemPrompt,
           messages: conversationMessages,
           tools,
@@ -1181,19 +1204,27 @@ The user has already received their investigation report. Now they want to discu
         }
       }
 
-      // Check if the text contains a JSON report code block
-      const jsonMatch = iterationText.match(/```json\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          const reportData = JSON.parse(jsonMatch[1].trim());
-          sendSSE(res, 'report_json', reportData);
-          // Also send any text outside the JSON block as agent_text (status updates)
-          const textOutsideJson = iterationText.replace(/```json\s*[\s\S]*?```/, '').trim();
-          if (textOutsideJson) {
-            sendSSE(res, 'agent_text', { text: textOutsideJson });
+      // Check if the text contains JSON report code block(s) — supports multiple for multi-entity investigations
+      const jsonMatches = [...iterationText.matchAll(/```json\s*([\s\S]*?)```/g)];
+      if (jsonMatches.length > 0) {
+        let parsedAny = false;
+        for (const jm of jsonMatches) {
+          try {
+            const reportData = JSON.parse(jm[1].trim());
+            sendSSE(res, 'report_json', reportData);
+            parsedAny = true;
+          } catch (e) {
+            // Individual JSON parse failed — skip this block
+            console.warn('[Agent] Failed to parse JSON report block:', e.message);
           }
-        } catch (e) {
-          // JSON parse failed — send as text fallback
+        }
+        // Send any text outside the JSON blocks as agent_text
+        const textOutsideJson = iterationText.replace(/```json\s*[\s\S]*?```/g, '').trim();
+        if (textOutsideJson) {
+          sendSSE(res, 'agent_text', { text: textOutsideJson });
+        }
+        if (!parsedAny) {
+          // All JSON blocks failed to parse — send as text fallback
           sendSSE(res, 'agent_text', { text: iterationText });
         }
       } else if (iterationText.trim()) {
@@ -1292,6 +1323,14 @@ The user has already received their investigation report. Now they want to discu
       if (hasToolUse && toolResults.length > 0) {
         conversationMessages.push({ role: 'assistant', content });
         conversationMessages.push({ role: 'user', content: toolResults });
+        continue;
+      }
+
+      // If max_tokens hit, continue the conversation to get remaining output
+      if (stop_reason === 'max_tokens') {
+        console.log('[Agent] Hit max_tokens — continuing for remaining output');
+        conversationMessages.push({ role: 'assistant', content });
+        conversationMessages.push({ role: 'user', content: 'Continue. Output the remaining JSON report blocks for any individuals not yet covered.' });
         continue;
       }
 

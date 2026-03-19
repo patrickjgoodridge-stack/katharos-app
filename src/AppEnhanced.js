@@ -4934,8 +4934,8 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
        }
      }
 
-     // Save text-only assistant message to transcript (report messages already saved during streaming)
-     // Skip agent narration text when structured reports were received — the reports ARE the output
+     // Save text response to transcript ONLY if no structured report was received.
+     // When report_json was received, the reports are the output — skip narration text.
      if (fullText.trim() && !gotReportJson) {
        const assistantMsg = {
          role: 'assistant',
@@ -4973,7 +4973,7 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
  // Streaming conversation function - Claude-like interface
  // Now accepts caseId to support parallel conversations
- const _sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => { // eslint-disable-line no-unused-vars
+ const _sendConversationMessage = async (caseId, userMessage, attachedFiles = []) => {
    if (!userMessage.trim() && attachedFiles.length === 0) return;
    if (!caseId) {
      console.error('sendConversationMessage called without caseId');
@@ -7434,6 +7434,62 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
      setIsStreaming(false); // Legacy
    }
  };
+
+ // ═══════════════════════════════════════════════════════════════
+ // MESSAGE DISPATCHER — routes to agent (SCREEN) or conversation (everything else)
+ // ═══════════════════════════════════════════════════════════════
+ const dispatchMessage = useCallback((caseId, userMessage, attachedFiles = [], resumeState = null) => {
+   if (resumeState) {
+     // Resuming agent conversation — always agent
+     handleAgentMessage(caseId, userMessage, attachedFiles, resumeState);
+     return;
+   }
+   const trimmed = (userMessage || '').trim();
+   if (!trimmed && attachedFiles.length === 0) return;
+
+   // Quick intent check — is this a screening request?
+   const existingCase = cases.find(c => c.id === caseId);
+   const priorMessages = existingCase?.conversationTranscript || [];
+   const hasExistingResults = priorMessages.some(msg => msg.role === 'assistant' && (msg.content?.length > 200 || msg.reportData));
+
+   // Sentence-structure words that don't appear in entity names
+   const sentenceWords = /\b(the|this|that|these|those|they|their|them|me|you|your|our|my|his|her|its|it|is|are|was|were|has|have|do|does|did|be|been|can|could|would|should|will|shall|just|also|only|even|very|too|still|here|there|now|about|into|please|not|no)\b/i;
+   const wordCount = trimmed.split(/\s+/).length;
+
+   // Detect wallet addresses
+   const walletPatterns = [
+     { re: /0x[a-fA-F0-9]{40}/ }, { re: /(bc1)[a-zA-HJ-NP-Z0-9]{25,90}/ },
+     { re: /[13][a-km-zA-HJ-NP-Z1-9]{25,34}/ }, { re: /T[a-zA-Z0-9]{33}/ },
+   ];
+   const hasWallet = walletPatterns.some(({ re }) => re.test(trimmed));
+
+   // Non-screening intents
+   const isQuestion = trimmed.endsWith('?') || /^(what|why|how|explain|define|when did|where did|where is|where are)\b/i.test(trimmed);
+   const isHypothetical = /^(what if|would|could|hypothetically|assuming|suppose|imagine)\b/i.test(trimmed);
+   const isSummarize = /^(summarize|recap|overview|sum up|give me a summary|what have we found|what do we know|status|so far)\b/i.test(trimmed);
+   const isGenerate = /^(export|draft|create|generate|write|produce|build|prepare|format|make)\b/i.test(trimmed) || /\b(as a pdf|sar narrative|write up|create a report|compliance report|generate report)\b/i.test(trimmed);
+   const isCommand = /^(start a new|save|clear|switch|reset|open|close|new investigation|new case|go back|undo)\b/i.test(trimmed);
+   const isCompare = /^(compare|are these|are they|which of)\b/i.test(trimmed) || /\b(compare|related to each|connection between|side by side|versus|vs\.?)\b/i.test(trimmed);
+   const isFollowUp = hasExistingResults && (/^(tell me more|expand on|elaborate|go deeper|what about the|what.s the connection|why is that|and what about|what else|how about)\b/i.test(trimmed) || /^(and |but |also |so )/i.test(trimmed));
+   const isInvestigate = /^(show me|show all|list|map|trace|find|analyze|look into|look at|look for|check for|dig into|research|uncover|identify|assess|evaluate|review|examine|explore|investigate the|investigate whether|investigate how|search for|search the)\b/i.test(trimmed)
+     || /\b(show me all|show me the|analyze this|analyze the|review this|review the|assess this|assess the|evaluate this|evaluate the|examine this|examine the)\b/i.test(trimmed);
+   const isValidate = /^(confirm|verify|double.?check|is it true|is this|are they still|check if|validate)\b/i.test(trimmed);
+
+   const isNonScreen = isQuestion || isHypothetical || isSummarize || isGenerate || isCommand || isCompare || isFollowUp || isInvestigate || isValidate;
+
+   if (!hasWallet && isNonScreen) {
+     // Non-screening intent → regular conversation path (no agent tools, just LLM)
+     console.log('[Katharos] Dispatch → conversation (non-SCREEN intent)');
+     activeIntentRef.current = 'CONVERSATION';
+     _sendConversationMessage(caseId, userMessage, attachedFiles);
+   } else {
+     // SCREEN intent or ambiguous → agent path with tools
+     console.log('[Katharos] Dispatch → agent (SCREEN intent)');
+     activeIntentRef.current = 'SCREEN';
+     handleAgentMessage(caseId, userMessage, attachedFiles);
+   }
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [cases]);
 
  // Scroll conversation to bottom (only if user hasnt scrolled up and not on first message)
  useEffect(() => {
@@ -13449,7 +13505,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  e.preventDefault();
  setConversationStarted(true);
  const newCaseId = createCaseFromFirstMessage(conversationInput, files);
- handleAgentMessage(newCaseId, conversationInput, files);
+ dispatchMessage(newCaseId, conversationInput, files);
  }
  }}
  placeholder="Enter a name, entity, or describe a case to investigate."
@@ -13475,7 +13531,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  if (String(conversationInput || '').trim() || files.length > 0) {
    setConversationStarted(true);
    const newCaseId = createCaseFromFirstMessage(conversationInput, files);
-   handleAgentMessage(newCaseId, conversationInput, files);
+   dispatchMessage(newCaseId, conversationInput, files);
  }
  }}
  disabled={!String(conversationInput || '').trim() && files.length === 0}
@@ -13599,12 +13655,19 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
 const allReports = collectCaseReports(currentCaseId);
 const hasMultipleReports = allReports.length > 1;
 const isCurrentlyStreaming = getCaseStreamingState(currentCaseId).isStreaming;
+
+// Filter out agent narration text (CACHE HIT, HIGHEST PRIORITY, etc.) when reports exist
+const caseHasAnyReports = allReports.length > 0 || !!caseForMessages?.reportData;
+const filteredMessages = caseHasAnyReports
+  ? messages.filter(m => m.role === 'user' || m.reportData)
+  : messages;
+
 let firstReportMsgIdx = -1;
 if (hasMultipleReports && !isCurrentlyStreaming) {
-  messages.forEach((m, i) => { if (m.role === 'assistant' && m.reportData && firstReportMsgIdx === -1) firstReportMsgIdx = i; });
+  filteredMessages.forEach((m, i) => { if (m.role === 'assistant' && m.reportData && firstReportMsgIdx === -1) firstReportMsgIdx = i; });
 }
 
- return messages.map((msg, idx) => (
+ return filteredMessages.map((msg, idx) => (
  <div key={idx}>
  {msg.role === 'user' ? (
  /* User message - chat bubble on the right */
@@ -13749,10 +13812,6 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
  ) : (
  /* Assistant message - full width analysis result (single report or non-report) */
  (() => {
-   // Hide agent narration text when structured reports exist (covers old + new investigations)
-   const _caseForCheck = cases.find(c => c.id === currentCaseId);
-   const caseHasReports = allReports.length > 0 || !!_caseForCheck?.reportData;
-   if (!msg.reportData && caseHasReports) return null;
    return (
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
@@ -13963,13 +14022,38 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
  <div className="flex justify-center">
  <div style={{ maxWidth: '672px', width: '100%' }}>
 
-   {/* Investigation Progress Bar */}
+   {/* Investigation Progress Bar (screening) or Streaming Markdown (non-screening) */}
    {(() => {
+     const currentIntent = activeIntentRef.current;
+     const isScreeningIntent = currentIntent !== 'CONVERSATION' || agentToolCards.length > 0;
+     const streamText = getCaseStreamingState(currentCaseId).streamingText || '';
+
+     // Non-screening: show streaming markdown as it arrives
+     if (!isScreeningIntent) {
+       if (!streamText) {
+         return (
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px 0' }}>
+             <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b' }} />
+             <span style={{ fontSize: '13px', color: '#858585' }}>Thinking...</span>
+           </div>
+         );
+       }
+       return (
+         <div style={{ marginBottom: '16px' }}>
+           <MarkdownRenderer content={streamText} darkMode={darkMode} />
+           <Loader2 className="animate-spin" style={{ width: '12px', height: '12px', color: '#f59e0b', marginTop: '8px' }} />
+         </div>
+       );
+     }
+
+     // Screening: show detailed investigation progress bar
      const total = agentToolCards.length;
      const done = agentToolCards.filter(tc => tc.status === 'done' || tc.status === 'error').length;
-     const running = agentToolCards.find(tc => tc.status === 'running');
-     const currentLabel = running ? getToolLabel(running.name, running.input) : (total === 0 ? 'Starting investigation...' : 'Processing...');
+     const running = agentToolCards.filter(tc => tc.status === 'running');
      const pct = total > 0 ? Math.round((done / total) * 100) : 5;
+     const completedCards = agentToolCards.filter(tc => tc.status === 'done' || tc.status === 'error');
+     const recentCompleted = completedCards.slice(-4);
+     const visibleCards = [...recentCompleted, ...running];
      return (
        <div style={{
          background: '#242424',
@@ -13989,9 +14073,9 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
            <span style={{
              fontSize: '11px', color: '#858585',
              fontFamily: "'JetBrains Mono', monospace",
-           }}>{total > 0 ? `${done}/${total}` : ''}</span>
+           }}>{total > 0 ? `${done} of ${total} steps` : ''}</span>
          </div>
-         <div style={{ height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden', marginBottom: '10px' }}>
+         <div style={{ height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden', marginBottom: '12px' }}>
            <div style={{
              width: `${pct}%`, height: '100%',
              background: 'linear-gradient(90deg, #b8860b, #eab308)',
@@ -13999,10 +14083,40 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
              transition: 'width 0.5s ease-out',
            }} />
          </div>
-         <span style={{
-           fontSize: '12px', color: '#858585',
-           fontFamily: "'Inter', -apple-system, sans-serif",
-         }}>{currentLabel}</span>
+         {visibleCards.length > 0 ? (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+             {completedCards.length > recentCompleted.length && (
+               <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>
+                 + {completedCards.length - recentCompleted.length} earlier steps completed
+               </div>
+             )}
+             {visibleCards.map((tc, i) => {
+               const isRunning = tc.status === 'running';
+               const isError = tc.status === 'error';
+               return (
+                 <div key={tc.tool_use_id || i} style={{
+                   display: 'flex', alignItems: 'center', gap: '8px',
+                   fontSize: '12px', lineHeight: '1.4',
+                 }}>
+                   {isRunning ? (
+                     <Loader2 className="animate-spin" style={{ width: '12px', height: '12px', color: '#f59e0b', flexShrink: 0 }} />
+                   ) : isError ? (
+                     <span style={{ color: '#ef4444', fontSize: '12px', flexShrink: 0 }}>✕</span>
+                   ) : (
+                     <span style={{ color: '#22c55e', fontSize: '12px', flexShrink: 0 }}>✓</span>
+                   )}
+                   <span style={{
+                     color: isRunning ? '#e0e0e0' : '#6b6b6b',
+                     fontWeight: isRunning ? 500 : 400,
+                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                   }}>{getToolLabel(tc.name, tc.input)}</span>
+                 </div>
+               );
+             })}
+           </div>
+         ) : (
+           <span style={{ fontSize: '12px', color: '#858585' }}>Starting investigation...</span>
+         )}
        </div>
      );
    })()}
@@ -14221,7 +14335,7 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
  onKeyDown={(e) => {
  if (e.key === 'Enter' && !e.shiftKey && currentCaseId) {
  e.preventDefault();
-   handleAgentMessage(currentCaseId, conversationInput, files);
+   dispatchMessage(currentCaseId, conversationInput, files);
  }
  e.target.style.height = 'auto';
  }}
@@ -14241,7 +14355,7 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
  <button
  onClick={() => {
    if (!currentCaseId) return;
-   handleAgentMessage(currentCaseId, conversationInput, files);
+   dispatchMessage(currentCaseId, conversationInput, files);
  }}
  disabled={!currentCaseId || (!String(conversationInput || '').trim() && files.length === 0)}
  className="katharos-send-btn"

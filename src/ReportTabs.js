@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Clock,
   PenLine,
+  Users,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -246,14 +247,25 @@ const OverallRiskSection = ({ data }) => {
 };
 
 // ── Executive Summary ──
+const renderBoldText = (text) => {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} style={{ color: TEXT_WHITE, fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
 const ExecutiveSummarySection = ({ data }) => {
   if (!data) return null;
   return (
     <>
-      <SectionHeading>Summary</SectionHeading>
+      <SectionHeading>Overview</SectionHeading>
       <Card>
         <p style={{ fontSize: 14, color: TEXT_PRIMARY, lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>
-          {data}
+          {renderBoldText(data)}
         </p>
       </Card>
     </>
@@ -317,7 +329,7 @@ const RiskBreakdownSection = ({ data, totalScore, totalLevel }) => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
         <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Risk Score Breakdown</h2>
         <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
-          {['bar', 'donut'].map(mode => (
+          {['bar', 'pie'].map(mode => (
             <button key={mode} onClick={() => setChartMode(mode)} style={{
               fontSize: 11, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
               background: chartMode === mode ? '#3a3a3a' : 'transparent',
@@ -695,24 +707,25 @@ const buildNetworkGraph = (entities, ownership, onNodeClick) => {
   return { nodes, edges };
 };
 
-const EntityNetworkSection = ({ data, forPdf, ownership }) => {
+// Types that represent individual people (associates) vs corporate entities
+const ASSOCIATE_TYPES = new Set(['associate', 'family member', 'nominee', 'director', 'intermediary', 'proxy', 'officer', 'shareholder', 'agent', 'fixer', 'enabler']);
+const isAssociateType = (type) => ASSOCIATE_TYPES.has((type || '').toLowerCase());
+
+// Shared graph + table panel used by both Entities and Associates sections
+const NetworkPanel = ({ title, data, ownership, forPdf, icon }) => {
   const [viewMode, setViewMode] = useState('graph');
   const [focusedEntity, setFocusedEntity] = useState(null);
 
-  // When a node is clicked, show a focused view of that entity's connections
   const handleNodeClick = useCallback((nodeData) => {
     if (!nodeData || nodeData.type === 'Parent') return;
     setFocusedEntity(prev => prev?.label === nodeData.label ? null : nodeData);
   }, []);
 
-  // Build focused subgraph when an entity is selected
   const focusedGraph = useMemo(() => {
     if (!focusedEntity) return null;
     const name = focusedEntity.label;
     const allEntities = data || [];
-    // Build a mini graph centered on the clicked entity showing its connections
     const miniOwnership = { parentEntity: name, owners: [], subsidiaries: [] };
-    // Show all other entities as connections from this entity
     const relatedEntities = allEntities.filter(e =>
       (e.entity || '').toLowerCase() !== name.toLowerCase()
     ).slice(0, 8);
@@ -733,7 +746,11 @@ const EntityNetworkSection = ({ data, forPdf, ownership }) => {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: forPdf ? '#111' : TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Entity Network & Ownership</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {icon}
+          <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: forPdf ? '#111' : TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>{title}</h2>
+          <span style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: "'JetBrains Mono', monospace" }}>({(data?.length || 0) + (ownership?.owners?.length || 0) + (ownership?.subsidiaries?.length || 0)})</span>
+        </div>
         {!forPdf && (
           <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
             {['graph', 'table'].map(mode => (
@@ -799,18 +816,10 @@ const EntityNetworkSection = ({ data, forPdf, ownership }) => {
             ...(ownership?.parentEntity ? [{ entity: ownership.parentEntity, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '', matchPercent: '', connection: '', source: '' }] : []),
             ...(ownership?.owners || []).map(o => ({ entity: o.name, type: 'Owner', jurisdiction: '', risk: o.flagged ? 'HIGH' : '', sanctioned: '', matchPercent: o.percentage != null ? o.percentage : '', connection: o.description || '', source: '' })),
             ...(ownership?.subsidiaries || []).map(s => ({ entity: s.name, type: 'Subsidiary', jurisdiction: s.jurisdiction || '', risk: s.risk || '', sanctioned: '', matchPercent: '', connection: s.ownership || '', source: '' })),
-            ...(data || []).filter(ent => {
-              const ownerNames = new Set([
-                ...(ownership?.parentEntity ? [ownership.parentEntity.toLowerCase()] : []),
-                ...(ownership?.owners || []).map(o => o.name.toLowerCase()),
-                ...(ownership?.subsidiaries || []).map(s => s.name.toLowerCase()),
-              ]);
-              return !ownerNames.has((ent.entity || '').toLowerCase());
-            }),
+            ...(data || []),
           ]}
         />
       )}
-      {/* Focused entity drill-down panel */}
       {focusedEntity && focusedGraph && !showTable && (
         <Card style={{ padding: 0, overflow: 'hidden', marginTop: 12, border: `1px solid ${AMBER}40` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${CARD_BORDER}`, background: '#1a1a1a' }}>
@@ -850,6 +859,35 @@ const EntityNetworkSection = ({ data, forPdf, ownership }) => {
             </ReactFlow>
           </div>
         </Card>
+      )}
+    </>
+  );
+};
+
+const EntityNetworkSection = ({ data, forPdf, ownership }) => {
+  const all = data || [];
+  const entities = all.filter(e => !isAssociateType(e.type));
+  const associates = all.filter(e => isAssociateType(e.type));
+
+  const hasOwnership = ownership?.parentEntity || ownership?.owners?.length || ownership?.subsidiaries?.length;
+  if (!all.length && !hasOwnership) return null;
+
+  return (
+    <>
+      <NetworkPanel
+        title="Entities"
+        data={entities}
+        ownership={ownership}
+        forPdf={forPdf}
+        icon={<Network style={{ width: 14, height: 14, color: TEXT_MUTED }} />}
+      />
+      {associates.length > 0 && (
+        <NetworkPanel
+          title="Associates"
+          data={associates}
+          forPdf={forPdf}
+          icon={<Users style={{ width: 14, height: 14, color: TEXT_MUTED }} />}
+        />
       )}
     </>
   );
@@ -1218,8 +1256,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
     const S = ({ children }) => <div data-pdf-section="">{children}</div>;
     return (
       <div style={{ padding: 20, width: 800 }}>
-        {/* Summary */}
-        <S><h1 style={dividerStyle}>Summary</h1></S>
+        {/* Overview */}
+        <S><h1 style={dividerStyle}>Overview</h1></S>
         <S><EntitySummarySection data={r.entitySummary} /></S>
         <S><MatchConfidenceSection data={r.matchConfidence} /></S>
         <S><MatchConfidenceDetails data={r.matchConfidence} /></S>
@@ -1321,13 +1359,25 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             )}
           </>
         );
-      case 'timeline':
+      case 'timeline': {
+        const hasTimeline = r.designationTimeline?.length || r.ownershipHistory?.length;
+        if (!hasTimeline) {
+          return (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <Clock style={{ width: 32, height: 32, color: '#4a4a4a', margin: '0 auto 12px' }} />
+              <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.6 }}>
+                No relevant timeline information to provide
+              </div>
+            </div>
+          );
+        }
         return (
           <>
             <DesignationTimelineSection data={r.designationTimeline} />
             <OwnershipHistorySection data={r.ownershipHistory} />
           </>
         );
+      }
       case 'notes':
         return (
           <div style={{ padding: '8px 0' }}>
@@ -1367,7 +1417,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       {/* Tab Bar */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10, background: '#1a1a1a',
-        borderBottom: '1px solid #2a2a2a', display: 'flex', gap: 0, padding: '0 4px', marginBottom: 8,
+        borderBottom: '1px solid #2a2a2a', display: 'flex', justifyContent: 'center', gap: 0, padding: '0 4px', marginBottom: 8,
       }}>
         {TAB_CONFIG.map(tab => {
           const isActive = activeTab === tab.id;
