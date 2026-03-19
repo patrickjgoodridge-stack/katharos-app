@@ -1043,45 +1043,46 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
       color: '#111', marginTop: 40, marginBottom: 16, paddingBottom: 8,
       borderBottom: '2px solid #d4d4d4', fontFamily: 'inherit',
     };
+    const S = ({ children }) => <div data-pdf-section="">{children}</div>;
     return (
       <div style={{ padding: 20, width: 800 }}>
         {/* Summary */}
-        <h1 style={dividerStyle}>Summary</h1>
-        <EntitySummarySection data={r.entitySummary} />
-        <MatchConfidenceSection data={r.matchConfidence} />
-        <MatchConfidenceDetails data={r.matchConfidence} />
-        <OverallRiskSection data={r.overallRisk} />
-        <CriticalFindingsSection data={r.criticalFindings} />
-        <RiskBreakdownSection data={r.riskScoreBreakdown} totalScore={r.overallRisk?.score} totalLevel={r.overallRisk?.level} />
+        <S><h1 style={dividerStyle}>Summary</h1></S>
+        <S><EntitySummarySection data={r.entitySummary} /></S>
+        <S><MatchConfidenceSection data={r.matchConfidence} /></S>
+        <S><MatchConfidenceDetails data={r.matchConfidence} /></S>
+        <S><OverallRiskSection data={r.overallRisk} /></S>
+        <S><CriticalFindingsSection data={r.criticalFindings} /></S>
+        <S><RiskBreakdownSection data={r.riskScoreBreakdown} totalScore={r.overallRisk?.score} totalLevel={r.overallRisk?.level} /></S>
 
         {/* Evidence */}
-        <h1 style={dividerStyle}>Evidence</h1>
-        <RedFlagsSection data={r.redFlags} />
-        <AdverseMediaSection data={r.adverseMedia} />
-        <DesignationTimelineSection data={r.designationTimeline} />
-        <RegulatoryContextSection data={r.regulatoryContext} />
-        <GeneralLicensesSection data={r.generalLicenses} />
+        <S><h1 style={dividerStyle}>Evidence</h1></S>
+        <S><RedFlagsSection data={r.redFlags} /></S>
+        <S><AdverseMediaSection data={r.adverseMedia} /></S>
+        <S><DesignationTimelineSection data={r.designationTimeline} /></S>
+        <S><RegulatoryContextSection data={r.regulatoryContext} /></S>
+        <S><GeneralLicensesSection data={r.generalLicenses} /></S>
 
         {/* Network */}
-        <h1 style={dividerStyle}>Network</h1>
-        <EntityNetworkSection data={r.entityNetwork} forPdf />
-        <CorporateStructureSection data={r.corporateStructure} forPdf />
-        <OwnershipHistorySection data={r.ownershipHistory} />
+        <S><h1 style={dividerStyle}>Network</h1></S>
+        <S><EntityNetworkSection data={r.entityNetwork} forPdf /></S>
+        <S><CorporateStructureSection data={r.corporateStructure} forPdf /></S>
+        <S><OwnershipHistorySection data={r.ownershipHistory} /></S>
 
         {/* Patterns */}
-        <h1 style={dividerStyle}>Patterns</h1>
-        <TypologiesSection data={r.typologies} />
+        <S><h1 style={dividerStyle}>Patterns</h1></S>
+        <S><TypologiesSection data={r.typologies} /></S>
 
         {/* Actions */}
-        <h1 style={dividerStyle}>Recommended Actions</h1>
-        <RecommendedActionsSection data={r.recommendedActions} />
-        <FinancialExposureSection data={r.financialExposure} />
-        <MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} />
+        <S><h1 style={dividerStyle}>Recommended Actions</h1></S>
+        <S><RecommendedActionsSection data={r.recommendedActions} /></S>
+        <S><FinancialExposureSection data={r.financialExposure} /></S>
+        <S><MonitoringScheduleSection data={r.monitoringSchedule} userName={userName} /></S>
 
         {/* Audit */}
-        <h1 style={dividerStyle}>Audit</h1>
-        <CoverageGapSection data={r.coverageGap} />
-        <GapsSection data={r.gapsAndLimitations} />
+        <S><h1 style={dividerStyle}>Audit</h1></S>
+        <S><CoverageGapSection data={r.coverageGap} /></S>
+        <S><GapsSection data={r.gapsAndLimitations} /></S>
       </div>
     );
   }

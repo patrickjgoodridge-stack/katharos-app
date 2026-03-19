@@ -2542,7 +2542,7 @@ Format the report professionally with clear headers, bullet points where appropr
 
 // Shared DOM-capture PDF generator — captures any element as a pixel-perfect PDF
 // Used by both chat message export and KYC screening report export
-const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#ffffff' }) => {
+const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#ffffff', sectionBreaks }) => {
   const html2canvas = (await import('html2canvas')).default;
   const { jsPDF } = await import('jspdf');
 
@@ -2649,9 +2649,28 @@ const captureDomToPdf = async (sourceEl, { subjectName, riskLevel, bgColor = '#f
   const mmPerPx = contentWidth / canvasW;
   const canvasPagePx = contentAreaH / mmPerPx;
 
-  // Smart page break: scan canvas rows for uniform-color gaps
+  // Convert section breaks from DOM pixels to canvas pixels (html2canvas uses 2x scale)
+  const canvasScale = canvasW / sourceEl.offsetWidth;
+  const sectionYs = sectionBreaks
+    ? sectionBreaks.map(y => Math.round(y * canvasScale)).filter(y => y > 0 && y < canvasH)
+    : null;
+
+  // Page break: if section breaks are provided, only break at section boundaries
   const findBestBreak = (targetY) => {
     if (targetY >= canvasH) return canvasH;
+
+    if (sectionYs) {
+      // Find the last section boundary that fits on this page
+      let bestBreak = null;
+      for (const sy of sectionYs) {
+        if (sy <= targetY && sy > targetY - canvasPagePx) {
+          bestBreak = sy;
+        }
+      }
+      if (bestBreak) return bestBreak;
+    }
+
+    // Fallback: scan canvas rows for uniform-color gaps
     const searchRange = Math.floor(canvasPagePx * 0.15);
     const startY = Math.max(0, Math.floor(targetY - searchRange));
     const endY = Math.min(canvasH - 1, Math.floor(targetY));
@@ -2822,7 +2841,12 @@ const exportFullReportAsPdf = async (reportData) => {
     // Wait for render + Recharts animations
     await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 500)));
 
-    const { pdfBlob } = await captureDomToPdf(container, { subjectName, riskLevel });
+    // Measure section boundaries for page-break-aware slicing
+    const sectionEls = container.querySelectorAll('[data-pdf-section]');
+    const containerTop = container.getBoundingClientRect().top;
+    const sectionBreaks = [...sectionEls].map(el => el.getBoundingClientRect().top - containerTop);
+
+    const { pdfBlob } = await captureDomToPdf(container, { subjectName, riskLevel, sectionBreaks });
 
     // Clean up
     root.unmount();
