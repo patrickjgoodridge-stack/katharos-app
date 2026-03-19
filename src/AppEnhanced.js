@@ -14124,7 +14124,7 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
      }}>
        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
          <UserSearch style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
-         <span style={{ fontSize: '13px', fontWeight: 600, color: '#f59e0b' }}>Agent needs your input</span>
+         <span style={{ fontSize: '13px', fontWeight: 600, color: '#f59e0b' }}>Katharos Needs Your Input</span>
        </div>
        <div style={{ fontSize: '14px', color: '#d4d4d4', marginBottom: '12px', lineHeight: '1.5' }}>{agentQuestion.question}</div>
        {agentQuestion.checkpoint_data && (
