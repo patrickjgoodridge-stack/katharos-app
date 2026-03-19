@@ -287,46 +287,111 @@ const getScoreColor = (score) => {
   return RISK_COLORS.LOW;
 };
 const RiskBreakdownSection = ({ data, totalScore, totalLevel }) => {
+  const [chartMode, setChartMode] = useState('bar');
   if (!data?.length) return null;
   const chartData = data.map(d => ({
     ...d,
     score: typeof d.score === 'number' ? d.score : parseInt(d.score) || 0,
     fill: getScoreColor(typeof d.score === 'number' ? d.score : parseInt(d.score) || 0),
-  }));
+  })).filter(d => d.score > 0);
+  const totalColor = getRiskColor(totalLevel);
+
   return (
     <>
-      <SectionHeading>Risk Score Breakdown</SectionHeading>
-      <Card style={{ padding: '20px 20px 12px' }}>
-        <div style={{ width: '100%', height: Math.max(chartData.length * 44, 180) }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-              <XAxis type="number" domain={[0, 50]} hide />
-              <YAxis
-                type="category"
-                dataKey="factor"
-                width={160}
-                tick={{ fill: TEXT_PRIMARY, fontSize: 12 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                cursor={{ fill: '#ffffff08' }}
-                contentStyle={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6, fontSize: 12 }}
-                labelStyle={{ color: TEXT_WHITE, fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: TEXT_PRIMARY }}
-                formatter={(value, _name, props) => [
-                  `${value} pts (${props.payload.weight})`,
-                  'Score',
-                ]}
-              />
-              <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={20}>
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 32, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: TEXT_WHITE, margin: 0, fontFamily: 'inherit' }}>Risk Score Breakdown</h2>
+        <div style={{ display: 'flex', gap: 2, background: '#252525', borderRadius: 6, padding: 2 }}>
+          {['bar', 'donut'].map(mode => (
+            <button key={mode} onClick={() => setChartMode(mode)} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 4, border: 'none', cursor: 'pointer',
+              background: chartMode === mode ? '#3a3a3a' : 'transparent',
+              color: chartMode === mode ? TEXT_WHITE : TEXT_MUTED,
+              fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'inherit',
+            }}>{mode}</button>
+          ))}
         </div>
+      </div>
+      <Card style={{ padding: '20px 20px 12px' }}>
+        {chartMode === 'bar' ? (
+          <div style={{ width: '100%', height: Math.max(chartData.length * 44, 180) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
+                <XAxis type="number" domain={[0, 50]} hide />
+                <YAxis
+                  type="category"
+                  dataKey="factor"
+                  width={160}
+                  tick={{ fill: TEXT_PRIMARY, fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: '#ffffff08' }}
+                  contentStyle={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6, fontSize: 12 }}
+                  labelStyle={{ color: TEXT_WHITE, fontWeight: 600, marginBottom: 4 }}
+                  itemStyle={{ color: TEXT_PRIMARY }}
+                  formatter={(value, _name, props) => [
+                    `${value} pts (${props.payload.weight})`,
+                    'Score',
+                  ]}
+                />
+                <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={20}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            <div style={{ position: 'relative', width: 200, height: 200, flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="score"
+                    nameKey="factor"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={2}
+                    strokeWidth={0}
+                  >
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6, fontSize: 12 }}
+                    labelStyle={{ color: TEXT_WHITE, fontWeight: 600, marginBottom: 4 }}
+                    itemStyle={{ color: TEXT_PRIMARY }}
+                    formatter={(value, name) => [`${value} pts`, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center label */}
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                textAlign: 'center', pointerEvents: 'none',
+              }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: totalColor, lineHeight: 1 }}>{totalScore}</div>
+                <div style={{ fontSize: 9, color: totalColor, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>{totalLevel}</div>
+              </div>
+            </div>
+            {/* Legend */}
+            <div style={{ flex: 1 }}>
+              {chartData.map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: TEXT_PRIMARY, flex: 1 }}>{d.factor}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: d.fill }}>{d.score}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Reasoning list below chart */}
         <div style={{ marginTop: 12, borderTop: `1px solid ${CARD_BORDER}`, paddingTop: 12 }}>
           {data.map((d, i) => (
@@ -344,7 +409,7 @@ const RiskBreakdownSection = ({ data, totalScore, totalLevel }) => {
           <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${CARD_BORDER}`, fontSize: 13, fontWeight: 600 }}>
             <span style={{ color: TEXT_WHITE, minWidth: 28, textAlign: 'right' }}>{totalScore}</span>
             <span style={{ color: TEXT_MUTED }}>100%</span>
-            <span style={{ color: getRiskColor(totalLevel) }}>TOTAL — {totalLevel}</span>
+            <span style={{ color: totalColor }}>TOTAL — {totalLevel}</span>
           </div>
         </div>
       </Card>
