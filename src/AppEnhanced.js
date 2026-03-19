@@ -7453,8 +7453,8 @@ ${evidenceContext ? `\n\nEvidence documents:\n${evidenceContext}` : ''}`;
    const hasExistingResults = priorMessages.some(msg => msg.role === 'assistant' && (msg.content?.length > 200 || msg.reportData));
 
    // Sentence-structure words that don't appear in entity names
-   const sentenceWords = /\b(the|this|that|these|those|they|their|them|me|you|your|our|my|his|her|its|it|is|are|was|were|has|have|do|does|did|be|been|can|could|would|should|will|shall|just|also|only|even|very|too|still|here|there|now|about|into|please|not|no)\b/i;
-   const wordCount = trimmed.split(/\s+/).length;
+   const sentenceWords = /\b(the|this|that|these|those|they|their|them|me|you|your|our|my|his|her|its|it|is|are|was|were|has|have|do|does|did|be|been|can|could|would|should|will|shall|just|also|only|even|very|too|still|here|there|now|about|into|please|not|no)\b/i; // eslint-disable-line no-unused-vars
+   const wordCount = trimmed.split(/\s+/).length; // eslint-disable-line no-unused-vars
 
    // Detect wallet addresses
    const walletPatterns = [
