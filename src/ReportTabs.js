@@ -1030,8 +1030,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
   // Count non-empty sections per tab for badges
   const tabCounts = {};
   tabCounts.summary = [r.entitySummary, r.matchConfidence, r.overallRisk, r.criticalFindings?.length, r.riskScoreBreakdown?.length].filter(Boolean).length;
-  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.generalLicenses?.length].filter(Boolean).length;
-  tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length, r.regulatoryContext?.length].filter(Boolean).length;
+  tabCounts.evidence = [r.redFlags?.length, r.adverseMedia?.length, r.designationTimeline?.length, r.regulatoryContext?.length, r.generalLicenses?.length].filter(Boolean).length;
+  tabCounts.network = [r.entityNetwork?.length, r.corporateStructure, r.ownershipHistory?.length].filter(Boolean).length;
   tabCounts.patterns = r.typologies?.length || 0;
   tabCounts.actions = [r.recommendedActions, r.financialExposure, r.monitoringSchedule].filter(Boolean).length;
   tabCounts.audit = [r.coverageGap, r.gapsAndLimitations].filter(Boolean).length;
@@ -1059,6 +1059,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         <RedFlagsSection data={r.redFlags} />
         <AdverseMediaSection data={r.adverseMedia} />
         <DesignationTimelineSection data={r.designationTimeline} />
+        <RegulatoryContextSection data={r.regulatoryContext} />
         <GeneralLicensesSection data={r.generalLicenses} />
 
         {/* Network */}
@@ -1066,7 +1067,6 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         <EntityNetworkSection data={r.entityNetwork} forPdf />
         <CorporateStructureSection data={r.corporateStructure} forPdf />
         <OwnershipHistorySection data={r.ownershipHistory} />
-        <RegulatoryContextSection data={r.regulatoryContext} />
 
         {/* Patterns */}
         <h1 style={dividerStyle}>Patterns</h1>
@@ -1107,6 +1107,7 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <RedFlagsSection data={r.redFlags} />
             <AdverseMediaSection data={r.adverseMedia} />
             <DesignationTimelineSection data={r.designationTimeline} />
+            <RegulatoryContextSection data={r.regulatoryContext} />
             <GeneralLicensesSection data={r.generalLicenses} />
             {kycData && (
               <>
@@ -1123,7 +1124,6 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
             <EntityNetworkSection data={r.entityNetwork} />
             <CorporateStructureSection data={r.corporateStructure} />
             <OwnershipHistorySection data={r.ownershipHistory} />
-            <RegulatoryContextSection data={r.regulatoryContext} />
             {kycData && <KYCOwnershipSection data={kycData} />}
             {networkGraphs && networkGraphs.length > 0 && (
               <div style={{ marginTop: 16 }}>{networkGraphs}</div>
