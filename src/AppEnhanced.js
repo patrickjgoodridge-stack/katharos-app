@@ -4569,7 +4569,30 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
      setConversationInput('');
      setFiles([]);
 
-     apiMessages = [...priorMessages, { role: 'user', content: userMessage }];
+     // Build user message with file content if attachments present
+     let userContent = userMessage;
+     if (attachedFiles.length > 0) {
+       const textFiles = attachedFiles.filter(f => f.content && !f.imageData);
+       const imageFiles = attachedFiles.filter(f => f.imageData);
+       if (textFiles.length > 0) {
+         const fileContext = textFiles.map((file, idx) =>
+           `[Attached Document ${idx + 1}: ${file.name}]\n${file.content.substring(0, 30000)}`
+         ).join('\n\n---\n\n');
+         userContent = `${userMessage}\n\n[UPLOADED DOCUMENTS — ANALYZE THESE]\n\n${fileContext}`;
+       }
+       // For image files, build multi-part content blocks
+       if (imageFiles.length > 0) {
+         const contentBlocks = [{ type: 'text', text: userContent }];
+         for (const img of imageFiles) {
+           contentBlocks.push({
+             type: 'image',
+             source: { type: 'base64', media_type: img.mediaType || 'image/png', data: img.imageData }
+           });
+         }
+         userContent = contentBlocks;
+       }
+     }
+     apiMessages = [...priorMessages, { role: 'user', content: userContent }];
    }
 
    // Set streaming state
