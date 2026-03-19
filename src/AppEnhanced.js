@@ -3605,7 +3605,7 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
  }
  };
 
- const loadSampleDocument = async (url, fileName) => {
+ const loadSampleDocument = async (url, fileName, prompt) => {
    try {
      const response = await fetch(url);
      if (!response.ok) throw new Error('Failed to fetch');
@@ -3614,8 +3614,7 @@ ${selectedHistoryItem?.yearOfBirth ? `- Year of Birth: ${selectedHistoryItem.yea
      const file = new File([blob], fileName, { type: mimeType });
      await processFiles([file]);
      setSamplesExpanded(false);
-     const isLpPacket = fileName.toLowerCase().includes('onboarding') || fileName.toLowerCase().includes('lp_');
-     setConversationInput(isLpPacket ? 'Screen all the individuals in this LP onboarding packet' : 'Analyze this document');
+     setConversationInput(prompt || 'Analyze this document');
    } catch (err) {
      console.error('Error loading sample document:', err);
    }
@@ -13572,7 +13571,7 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
      Complex Laundering Network
    </button>
    <button
-     onClick={() => loadSampleDocument('/samples/lp_onboarding_packet.docx', 'LP Onboarding Packet.docx')}
+     onClick={() => loadSampleDocument('/samples/lp_onboarding_packet.docx', 'LP Onboarding Packet.docx', 'Screen all the individuals in this LP onboarding packet')}
      className={`text-sm ${darkMode ? 'bg-gray-800 border-gray-600 hover:border-gray-600 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-300 hover:border-gray-500 hover:bg-gray-100 text-gray-600'} border px-4 py-2 rounded-full transition-colors text-center whitespace-nowrap cursor-pointer`}
    >
      LP Onboarding Packet
