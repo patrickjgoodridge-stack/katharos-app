@@ -13752,7 +13752,7 @@ if (hasMultipleReports && !isCurrentlyStreaming) {
    // Hide agent narration text when structured reports exist (covers old + new investigations)
    const _caseForCheck = cases.find(c => c.id === currentCaseId);
    const caseHasReports = allReports.length > 0 || !!_caseForCheck?.reportData;
-   if (msg.isAgent && !msg.reportData && caseHasReports) return null;
+   if (!msg.reportData && caseHasReports) return null;
    return (
  <div>
  <div id={`chat-message-${idx}`} className="pdf-capture-target">
