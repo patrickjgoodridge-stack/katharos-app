@@ -1082,8 +1082,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
         <S><h1 style={dividerStyle}>Evidence</h1></S>
         <S><RedFlagsSection data={r.redFlags} /></S>
         <S><AdverseMediaSection data={r.adverseMedia} /></S>
-        <S><DesignationTimelineSection data={r.designationTimeline} /></S>
         <S><RegulatoryContextSection data={r.regulatoryContext} /></S>
+        <S><DesignationTimelineSection data={r.designationTimeline} /></S>
         <S><GeneralLicensesSection data={r.generalLicenses} /></S>
 
         {/* Network */}
@@ -1129,8 +1129,8 @@ const ReportTabs = React.memo(({ content, darkMode = true, networkGraphs, kycDat
           <>
             <RedFlagsSection data={r.redFlags} />
             <AdverseMediaSection data={r.adverseMedia} />
-            <DesignationTimelineSection data={r.designationTimeline} />
             <RegulatoryContextSection data={r.regulatoryContext} />
+            <DesignationTimelineSection data={r.designationTimeline} />
             <GeneralLicensesSection data={r.generalLicenses} />
             {kycData && (
               <>
