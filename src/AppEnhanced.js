@@ -13603,70 +13603,49 @@ item.result?.overallRisk === 'LOW' ? 'text-emerald-500' :
  <div className="flex justify-center">
  <div style={{ maxWidth: '672px', width: '100%' }}>
 
-   {/* Investigation Progress Card with tool steps */}
-   <div style={{
-     background: '#242424',
-     border: '1px solid #3a3a3a',
-     borderRadius: '12px',
-     padding: '20px 24px',
-     marginBottom: '16px',
-   }}>
-     {/* Header */}
-     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: agentToolCards.length > 0 ? '16px' : '0' }}>
-       <Loader2 className="animate-spin" style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
-       <span style={{
-         fontSize: '11px',
-         fontWeight: 700,
-         letterSpacing: '2px',
-         textTransform: 'uppercase',
-         color: '#f59e0b',
-         fontFamily: "'Inter', -apple-system, sans-serif",
-       }}>INVESTIGATING</span>
-     </div>
-
-     {/* Progress steps — deduplicated by tool type, clean labels only */}
-     {agentToolCards.length > 0 && (() => {
-       const stepMap = new Map();
-       for (const tc of agentToolCards) {
-         const label = getToolLabel(tc.name, tc.input);
-         const existing = stepMap.get(tc.name);
-         if (!existing || tc.status === 'running') {
-           stepMap.set(tc.name, { label, status: tc.status });
-         } else if (existing.status !== 'running') {
-           existing.status = tc.status;
-         }
-       }
-       return (
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-           {[...stepMap.values()].map((step, i) => (
-             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
-               {step.status === 'running' ? (
-                 <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b', flexShrink: 0 }} />
-               ) : step.status === 'error' ? (
-                 <XCircle style={{ width: '14px', height: '14px', color: '#ef4444', flexShrink: 0 }} />
-               ) : (
-                 <CheckCircle2 style={{ width: '14px', height: '14px', color: '#10b981', flexShrink: 0 }} />
-               )}
-               <span style={{
-                 fontSize: '13px',
-                 color: step.status === 'running' ? '#d4d4d4' : '#6b6b6b',
-                 fontFamily: "'Inter', -apple-system, sans-serif",
-               }}>
-                 {step.label}
-               </span>
-             </div>
-           ))}
+   {/* Investigation Progress Bar */}
+   {(() => {
+     const total = agentToolCards.length;
+     const done = agentToolCards.filter(tc => tc.status === 'done' || tc.status === 'error').length;
+     const running = agentToolCards.find(tc => tc.status === 'running');
+     const currentLabel = running ? getToolLabel(running.name, running.input) : (total === 0 ? 'Starting investigation...' : 'Processing...');
+     const pct = total > 0 ? Math.round((done / total) * 100) : 5;
+     return (
+       <div style={{
+         background: '#242424',
+         border: '1px solid #3a3a3a',
+         borderRadius: '12px',
+         padding: '16px 24px',
+         marginBottom: '16px',
+       }}>
+         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+             <Loader2 className="animate-spin" style={{ width: '14px', height: '14px', color: '#f59e0b' }} />
+             <span style={{
+               fontSize: '11px', fontWeight: 700, letterSpacing: '2px',
+               textTransform: 'uppercase', color: '#f59e0b',
+             }}>INVESTIGATING</span>
+           </div>
+           <span style={{
+             fontSize: '11px', color: '#858585',
+             fontFamily: "'JetBrains Mono', monospace",
+           }}>{total > 0 ? `${done}/${total}` : ''}</span>
          </div>
-       );
-     })()}
-
-     {/* Animated dots */}
-     <div style={{ padding: '12px 0 4px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-       <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f59e0b', animation: 'agentDot 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
-     </div>
-   </div>
+         <div style={{ height: '4px', background: '#3a3a3a', borderRadius: '2px', overflow: 'hidden', marginBottom: '10px' }}>
+           <div style={{
+             width: `${pct}%`, height: '100%',
+             background: 'linear-gradient(90deg, #b8860b, #eab308)',
+             borderRadius: '2px',
+             transition: 'width 0.5s ease-out',
+           }} />
+         </div>
+         <span style={{
+           fontSize: '12px', color: '#858585',
+           fontFamily: "'Inter', -apple-system, sans-serif",
+         }}>{currentLabel}</span>
+       </div>
+     );
+   })()}
 
    {/* Show streaming text */}
    {String(getCaseStreamingState(currentCaseId).streamingText || '').trim() && (() => {
