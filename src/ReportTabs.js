@@ -263,7 +263,13 @@ const CriticalFindingsSection = ({ data }) => {
             </div>
             {f.source && (
               <div style={{ fontSize: 11, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
-                Source: <span style={{ color: AMBER }}>{f.source}</span>
+                Source: {f.sourceUrl ? (
+                  <a href={f.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: AMBER, textDecoration: 'none' }}>
+                    {f.source} ↗
+                  </a>
+                ) : (
+                  <span style={{ color: AMBER }}>{f.source}</span>
+                )}
               </div>
             )}
           </div>
@@ -368,6 +374,17 @@ const RedFlagsSection = ({ data }) => {
             </div>
             <div style={{ fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.6 }}>{flag.impact}</div>
           </div>
+          {flag.source && (
+            <div style={{ fontSize: 11, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 1, marginTop: 10 }}>
+              Source: {flag.sourceUrl ? (
+                <a href={flag.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: AMBER, textDecoration: 'none' }}>
+                  {flag.source} ↗
+                </a>
+              ) : (
+                <span style={{ color: AMBER }}>{flag.source}</span>
+              )}
+            </div>
+          )}
         </Card>
       ))}
     </>
@@ -645,241 +662,6 @@ const BADGE_COLORS = {
   'HIGH RISK': RISK_COLORS.HIGH,
 };
 
-// Custom node for react-flow ownership graph
-const OwnershipNode = ({ data: d }) => {
-  const borderColor = d.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER;
-  const bg = d.flagged ? `${RISK_COLORS.CRITICAL}10` : d.isParent ? '#252525' : '#1e1e1e';
-  const riskColor = d.risk ? getRiskColor(d.risk) : null;
-  return (
-    <div style={{
-      border: `${d.isParent ? 2 : 1}px solid ${borderColor}`,
-      borderRadius: 8,
-      padding: '10px 16px',
-      minWidth: d.isParent ? 180 : 140,
-      textAlign: 'center',
-      background: bg,
-      position: 'relative',
-    }}>
-      {d.hasParent && <Handle type="target" position={Position.Top} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />}
-      <div style={{
-        fontSize: d.isParent ? 14 : 12,
-        fontWeight: 600,
-        color: d.flagged ? RISK_COLORS.CRITICAL : TEXT_WHITE,
-        marginBottom: d.subtitle ? 4 : 0,
-      }}>{d.label}</div>
-      {d.subtitle && (
-        <div style={{ fontSize: 10, color: d.flagged ? RISK_COLORS.CRITICAL : TEXT_MUTED, marginTop: 2 }}>
-          {d.subtitle}
-        </div>
-      )}
-      {d.badges?.length > 0 && (
-        <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-          {d.badges.map((badge, i) => (
-            <span key={i} style={{
-              fontSize: 8, padding: '1px 5px', borderRadius: 3, fontWeight: 700, letterSpacing: 0.5,
-              background: `${BADGE_COLORS[badge] || TEXT_MUTED}20`,
-              color: BADGE_COLORS[badge] || TEXT_MUTED,
-              textTransform: 'uppercase',
-            }}>{badge}</span>
-          ))}
-        </div>
-      )}
-      {riskColor && (
-        <div style={{
-          position: 'absolute', top: -3, right: -3, width: 8, height: 8,
-          borderRadius: '50%', background: riskColor,
-        }} />
-      )}
-      {d.hasChildren && <Handle type="source" position={Position.Bottom} style={{ background: CARD_BORDER, width: 6, height: 6, border: 'none' }} />}
-    </div>
-  );
-};
-
-const ownershipNodeTypes = { ownership: OwnershipNode };
-
-const buildOwnershipGraph = (data) => {
-  const nodes = [];
-  const edges = [];
-  const owners = data.owners || [];
-  const subsidiaries = data.subsidiaries || [];
-  const NODE_W = 180;
-  const GAP_X = 40;
-  const GAP_Y = 100;
-
-  // Parent node at top center
-  if (data.parentEntity) {
-    const totalOwners = Math.max(owners.length, 1);
-    const parentX = ((totalOwners - 1) * (NODE_W + GAP_X)) / 2;
-    nodes.push({
-      id: 'parent',
-      type: 'ownership',
-      position: { x: parentX, y: 0 },
-      data: {
-        label: data.parentEntity,
-        isParent: true,
-        hasParent: false,
-        hasChildren: owners.length > 0 || subsidiaries.length > 0,
-      },
-    });
-  }
-
-  // Owner nodes below parent
-  owners.forEach((owner, i) => {
-    const id = `owner-${i}`;
-    nodes.push({
-      id,
-      type: 'ownership',
-      position: { x: i * (NODE_W + GAP_X), y: GAP_Y },
-      data: {
-        label: owner.name,
-        subtitle: [
-          owner.percentage != null ? `${owner.percentage}%` : null,
-          owner.description,
-        ].filter(Boolean).join(' — '),
-        flagged: owner.flagged,
-        hasParent: !!data.parentEntity,
-        hasChildren: false,
-      },
-    });
-    if (data.parentEntity) {
-      edges.push({
-        id: `e-parent-${id}`,
-        source: 'parent',
-        target: id,
-        label: owner.percentage != null ? `${owner.percentage}%` : '',
-        style: { stroke: owner.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER, strokeWidth: 1.5 },
-        labelStyle: { fill: TEXT_MUTED, fontSize: 10, fontWeight: 600 },
-        labelBgStyle: { fill: '#1a1a1a', fillOpacity: 0.9 },
-        labelBgPadding: [4, 6],
-        labelBgBorderRadius: 3,
-      });
-    }
-  });
-
-  // Subsidiary nodes below parent (if no owners, or offset below owners)
-  const subY = owners.length > 0 ? GAP_Y * 2 : GAP_Y;
-  subsidiaries.forEach((sub, i) => {
-    const id = `sub-${i}`;
-    nodes.push({
-      id,
-      type: 'ownership',
-      position: { x: i * (NODE_W + GAP_X), y: subY },
-      data: {
-        label: sub.name,
-        subtitle: [sub.jurisdiction, sub.ownership].filter(Boolean).join(' · '),
-        flagged: false,
-        risk: sub.risk,
-        badges: sub.badges,
-        hasParent: !!data.parentEntity,
-        hasChildren: false,
-      },
-    });
-    if (data.parentEntity) {
-      edges.push({
-        id: `e-parent-${id}`,
-        source: 'parent',
-        target: id,
-        label: sub.ownership || '',
-        style: { stroke: CARD_BORDER, strokeWidth: 1 },
-        labelStyle: { fill: TEXT_MUTED, fontSize: 10 },
-        labelBgStyle: { fill: '#1a1a1a', fillOpacity: 0.9 },
-        labelBgPadding: [4, 6],
-        labelBgBorderRadius: 3,
-      });
-    }
-  });
-
-  return { nodes, edges };
-};
-
-const CorporateStructureSection = ({ data, forPdf }) => {
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => buildOwnershipGraph(data || { parentEntity: '', owners: [], subsidiaries: [] }), [data]);
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
-  if (!data) return null;
-
-  const owners = data.owners || [];
-  const subsidiaries = data.subsidiaries || [];
-
-  if (forPdf) {
-    const rows = [
-      ...owners.map(o => ({ name: o.name, role: 'Owner', detail: o.percentage != null ? `${o.percentage}%` : o.description || '', flagged: o.flagged ? 'Yes' : '' })),
-      ...subsidiaries.map(s => ({ name: s.name, role: 'Subsidiary', detail: [s.jurisdiction, s.ownership].filter(Boolean).join(' · '), flagged: '' })),
-    ];
-    return (
-      <>
-        <SectionHeading forPdf>Ownership Structure — {data.parentEntity}</SectionHeading>
-        <DarkTable
-          columns={[
-            { key: 'name', label: 'Entity', bold: true },
-            { key: 'role', label: 'Role' },
-            { key: 'detail', label: 'Detail' },
-            { key: 'flagged', label: 'Flagged' },
-          ]}
-          rows={rows}
-          forPdf={forPdf}
-          colorRules={{ flagged: (v) => v === 'Yes' ? RISK_COLORS.CRITICAL : undefined }}
-        />
-      </>
-    );
-  }
-
-  const layers = 1 + (owners.length > 0 ? 1 : 0) + (subsidiaries.length > 0 ? 1 : 0);
-  const graphHeight = Math.max(layers * 120 + 40, 200);
-
-  return (
-    <>
-      <SectionHeading>Ownership Structure</SectionHeading>
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${CARD_BORDER}` }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: AMBER }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_WHITE }}>Ultimate beneficial owners</span>
-          {data.structureType && (
-            <span style={{
-              fontSize: 10, padding: '2px 8px', borderRadius: 4,
-              background: '#2a2a2a', color: TEXT_MUTED, fontWeight: 500,
-            }}>{data.structureType}</span>
-          )}
-        </div>
-        {/* React Flow graph */}
-        <div style={{ height: graphHeight, background: '#141414' }}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={ownershipNodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.5}
-            maxZoom={1.5}
-            proOptions={{ hideAttribution: true }}
-            nodesDraggable={true}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            panOnDrag={true}
-            zoomOnScroll={true}
-          >
-            <Background color="#2a2a2a" gap={20} size={1} />
-            <Controls
-              showInteractive={false}
-              style={{ background: '#252525', border: `1px solid ${CARD_BORDER}`, borderRadius: 6 }}
-            />
-          </ReactFlow>
-        </div>
-        {/* Notes */}
-        {data.notes && (
-          <div style={{
-            padding: '12px 20px', borderTop: `1px solid ${CARD_BORDER}`,
-            fontSize: 13, color: TEXT_PRIMARY, lineHeight: 1.6,
-          }}>{data.notes}</div>
-        )}
-      </Card>
-    </>
-  );
-};
-
 // ── Regulatory Context ──
 const RegulatoryContextSection = ({ data }) => {
   if (!data?.length) return null;
@@ -918,6 +700,17 @@ const TypologiesSection = ({ data }) => {
           <KVRow label="Pattern" value={t.pattern} />
           <KVRow label="Evidence in this case" value={t.evidence} />
           <KVRow label="Compliance implication" value={t.complianceImplication} />
+          {t.source && (
+            <div style={{ fontSize: 11, color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 1, marginTop: 8 }}>
+              Source: {t.sourceUrl ? (
+                <a href={t.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: AMBER, textDecoration: 'none' }}>
+                  {t.source} ↗
+                </a>
+              ) : (
+                <span style={{ color: AMBER }}>{t.source}</span>
+              )}
+            </div>
+          )}
         </Card>
       ))}
     </>

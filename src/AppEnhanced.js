@@ -4583,12 +4583,22 @@ IMPORTANT: DO NOT suggest database screening, sanctions checking, or ownership v
 
    try {
      const existingCase = cases.find(c => c.id === caseId);
+     // Classify intent so the backend can restrict tools for non-screening messages
+     const _trimmed = userMessage.trim().toLowerCase();
+     const _priorMsgs = existingCase?.conversationTranscript || [];
+     const _hasResults = _priorMsgs.some(m => m.role === 'assistant' && m.content?.length > 200);
+     // If there are existing results AND the input doesn't look like a bare entity name (short, alpha-only),
+     // treat as follow-up to prevent triggering a new investigation
+     const _looksLikeNewEntity = /^[A-Za-z\s,.\-']{2,60}$/.test(_trimmed) && _trimmed.split(/\s+/).length <= 4;
+     const _intentForBackend = (_hasResults && !_looksLikeNewEntity) ? 'FOLLOW_UP' : 'SCREEN';
+
      const response = await fetch(`${API_BASE}/api/agent`, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
          messages: apiMessages,
-         caseContext: { name: existingCase?.name, subject: existingCase?.name, type: 'investigation' }
+         caseContext: { name: existingCase?.name, subject: existingCase?.name, type: 'investigation' },
+         intent: _intentForBackend,
        }),
        signal: abortController.signal,
      });

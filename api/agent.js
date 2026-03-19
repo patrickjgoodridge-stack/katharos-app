@@ -678,7 +678,8 @@ When the investigation is complete, output your final report as a SINGLE JSON co
       "severity": "CRITICAL or HIGH or MEDIUM",
       "title": "Finding title",
       "description": "What standard screening misses and why it matters",
-      "source": "OFAC SDN List / OCCRP / ICIJ / Companies House / etc."
+      "source": "OFAC SDN List / OCCRP / ICIJ / Companies House / etc.",
+      "sourceUrl": "https://example.com/source"
     }
   ],
   "riskScoreBreakdown": [
@@ -693,7 +694,9 @@ When the investigation is complete, output your final report as a SINGLE JSON co
     {
       "title": "OFAC SDN Designation — Subsidiary Entity",
       "description": "Entity designated under Iran sanctions program with comprehensive blocking provisions including foreign exchange restrictions, banking transaction prohibitions, and investment bans.",
-      "impact": "Any transaction with this subsidiary violates U.S. sanctions law and subjects U.S. persons to civil and criminal penalties."
+      "impact": "Any transaction with this subsidiary violates U.S. sanctions law and subjects U.S. persons to civil and criminal penalties.",
+      "source": "OFAC SDN List / DOJ Filing / etc.",
+      "sourceUrl": "https://example.com/source"
     }
   ],
   "entityNetwork": [
@@ -744,7 +747,9 @@ When the investigation is complete, output your final report as a SINGLE JSON co
       "name": "Sanctions Evasion via Subsidiary Restructuring",
       "pattern": "One-sentence description of the general typology",
       "evidence": "How this pattern manifests specifically — entity names, dates, jurisdictions",
-      "complianceImplication": "What this means for transaction screening and due diligence"
+      "complianceImplication": "What this means for transaction screening and due diligence",
+      "source": "FATF Typologies Report 2023 / OFAC Guidance / DOJ Filing / etc.",
+      "sourceUrl": "https://example.com/source-document"
     }
   ],
   "adverseMedia": [
@@ -822,10 +827,11 @@ RULES:
 - Set optional arrays to [] (not null) when not applicable: adverseMedia, ownershipHistory, designationTimeline, generalLicenses.
 - corporateStructure uses \\n for newlines in the tree string.
 - Include 3-5 redFlags maximum. Each must be concrete and actionable.
-- Include all typologies supported by evidence.
+- Include ALL typologies supported by evidence — typically 4-8 for a corporate entity. Each must cite a source (regulatory guidance, enforcement action, or FATF typology report) with a URL when available.
 - criticalFindings ordered by severity: CRITICAL first, then HIGH, then MEDIUM.
 - Every factor in riskScoreBreakdown MUST have a corresponding entry in criticalFindings. If you scored it, it's a finding.
 - All string values may contain plain text only — no markdown formatting (no ** bold, no links).
+- Every claim in criticalFindings, redFlags, typologies, and adverseMedia MUST include a source citation and sourceUrl when a public URL exists. Use real URLs from OFAC, DOJ, FinCEN, FATF, ICIJ, SEC, court filing databases, or news outlets. If no public URL exists, set sourceUrl to "".
 
 ## INVESTIGATION PROTOCOL — EXECUTE ON EVERY SEARCH
 
@@ -1060,7 +1066,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
-  const { messages = [], caseContext } = req.body;
+  const { messages = [], caseContext, intent } = req.body;
 
   // Build system prompt with optional case context
   let systemPrompt = AGENT_SYSTEM_PROMPT;
@@ -1071,8 +1077,40 @@ export default async function handler(req, res) {
     }
   }
 
+  // Intent-based tool restriction: follow-up messages should NOT trigger new investigations
+  const isFollowUp = intent === 'FOLLOW_UP';
+  if (isFollowUp) {
+    systemPrompt += `\n\n═══════════════════════════════════════════════════════════════
+FOLLOW-UP MODE — DO NOT INVESTIGATE
+═══════════════════════════════════════════════════════════════
+The user is asking a follow-up question about an EXISTING investigation report.
+They are NOT requesting a new screening or investigation.
+
+YOU MUST:
+- Answer their question using the conversation history and your expertise
+- Reference findings from the previous investigation report in the conversation
+- Draft documents, memos, summaries, or analyses if requested
+- Provide expert compliance guidance and recommendations
+- Be conversational and responsive to their specific question
+
+YOU MUST NOT:
+- Call screen_entity or any screening/investigation tools
+- Run a new investigation or screening
+- Produce a new structured report with risk scores
+- Ignore their question and start a new screening
+
+The user has already received their investigation report. Now they want to discuss it, ask questions about it, or request deliverables based on it. Respond as a senior compliance analyst having a conversation about the case.`;
+  }
+
   // Claude tools = our custom tools + web search
-  const tools = [...AGENT_TOOLS, WEB_SEARCH_TOOL];
+  // For follow-up messages, remove investigation tools to prevent unwanted new screenings
+  let tools;
+  if (isFollowUp) {
+    const followUpBlockedTools = new Set(['screen_entity', 'search_sanctions', 'search_adverse_media', 'search_corporate_records', 'search_court_records', 'trace_ownership']);
+    tools = [...AGENT_TOOLS.filter(t => !followUpBlockedTools.has(t.name)), WEB_SEARCH_TOOL];
+  } else {
+    tools = [...AGENT_TOOLS, WEB_SEARCH_TOOL];
+  }
 
   // Agentic loop — max 25 iterations to allow deep investigations
   const MAX_ITERATIONS = 25;
