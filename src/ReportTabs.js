@@ -402,7 +402,7 @@ const NetworkNode = ({ data: d }) => {
     <div
       style={{
         border: `${isSanctioned || d.flagged ? 2 : 1}px solid ${isSanctioned || d.flagged ? RISK_COLORS.CRITICAL : riskColor}`,
-        borderRadius: 8, padding: '8px 14px', minWidth: 120, maxWidth: 180, textAlign: 'center',
+        borderRadius: 8, padding: '10px 16px', minWidth: 140, maxWidth: 220, textAlign: 'center',
         background: isSanctioned || d.flagged ? `${RISK_COLORS.CRITICAL}10` : '#1e1e1e',
         cursor: isClickable ? 'pointer' : 'default',
         position: 'relative',
@@ -485,135 +485,126 @@ const networkNodeTypes = { network: NetworkNode };
 const buildNetworkGraph = (entities, ownership, onNodeClick) => {
   const nodes = [];
   const edges = [];
-  const GAP_X = 220;
-  const GAP_Y = 130;
+  const GAP_X = 240;
+  const GAP_Y = 160;
   const usedNames = new Set();
 
-  // --- Ownership layer (top) ---
+  // Helper: center a row of N items horizontally
+  const centerRow = (count, rowY) => {
+    const totalW = (count - 1) * GAP_X;
+    const startX = -totalW / 2;
+    return (i) => ({ x: startX + i * GAP_X, y: rowY });
+  };
+
+  const edgeStyle = (color) => ({
+    style: { stroke: color || CARD_BORDER, strokeWidth: 1 },
+    labelStyle: { fill: TEXT_MUTED, fontSize: 9, fontWeight: 500 },
+    labelBgStyle: { fill: '#141414', fillOpacity: 0.95 },
+    labelBgPadding: [3, 6],
+    labelBgBorderRadius: 3,
+    type: 'smoothstep',
+  });
+
+  // --- Row 0: Subject / Parent entity ---
   const owners = ownership?.owners || [];
   const subsidiaries = ownership?.subsidiaries || [];
   const parentName = ownership?.parentEntity || '';
-  let ownershipRows = 0;
+  let currentRow = 0;
 
   if (parentName) {
-    const totalOwners = Math.max(owners.length, 1);
-    const parentX = ((totalOwners - 1) * GAP_X) / 2;
     nodes.push({
       id: 'own-parent',
       type: 'network',
-      position: { x: parentX, y: 0 },
-      data: { label: parentName, type: 'Parent', jurisdiction: '', risk: '', sanctioned: '', onNodeClick },
+      position: { x: 0, y: 0 },
+      data: { label: parentName, type: 'Subject', jurisdiction: '', risk: '', sanctioned: '', onNodeClick },
     });
     usedNames.add(parentName.toLowerCase());
-    ownershipRows = 1;
+    currentRow = 1;
 
-    owners.forEach((owner, i) => {
-      const id = `own-o-${i}`;
-      const subtitle = owner.percentage != null ? `${owner.percentage}%` : owner.description || '';
-      nodes.push({
-        id,
-        type: 'network',
-        position: { x: i * GAP_X, y: GAP_Y },
-        data: {
-          label: owner.name,
-          type: 'Owner',
-          jurisdiction: '',
-          risk: owner.flagged ? 'HIGH' : '',
-          sanctioned: '',
-          flagged: owner.flagged,
-          connection: owner.description || '',
-          matchPercent: owner.percentage,
-          onNodeClick,
-        },
+    // --- Row 1: Owners (centered below parent) ---
+    if (owners.length > 0) {
+      const pos = centerRow(owners.length, currentRow * GAP_Y);
+      owners.forEach((owner, i) => {
+        const id = `own-o-${i}`;
+        nodes.push({
+          id, type: 'network', position: pos(i),
+          data: {
+            label: owner.name, type: 'Owner', jurisdiction: '',
+            risk: owner.flagged ? 'HIGH' : '', sanctioned: '', flagged: owner.flagged,
+            connection: owner.description || '', matchPercent: owner.percentage, onNodeClick,
+          },
+        });
+        usedNames.add(owner.name.toLowerCase());
+        edges.push({
+          id: `e-own-p-${i}`, source: 'own-parent', target: id,
+          label: owner.percentage != null ? `${owner.percentage}%` : '',
+          ...edgeStyle(owner.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER),
+        });
       });
-      usedNames.add(owner.name.toLowerCase());
-      edges.push({
-        id: `e-own-p-${i}`,
-        source: 'own-parent',
-        target: id,
-        label: subtitle,
-        style: { stroke: owner.flagged ? RISK_COLORS.CRITICAL : CARD_BORDER, strokeWidth: 1.5 },
-        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
-        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
-        labelBgPadding: [3, 5],
-        labelBgBorderRadius: 3,
-      });
-    });
-    if (owners.length > 0) ownershipRows = 2;
+      currentRow++;
+    }
 
-    subsidiaries.forEach((sub, i) => {
-      const id = `own-s-${i}`;
-      const subY = (ownershipRows) * GAP_Y;
-      nodes.push({
-        id,
-        type: 'network',
-        position: { x: i * GAP_X, y: subY },
-        data: {
-          label: sub.name,
-          type: 'Subsidiary',
-          jurisdiction: sub.jurisdiction || '',
-          risk: sub.risk || '',
-          sanctioned: '',
-          badges: sub.badges || [],
-          connection: sub.ownership || '',
-          onNodeClick,
-        },
+    // --- Row 2: Subsidiaries (centered below owners/parent) ---
+    if (subsidiaries.length > 0) {
+      const pos = centerRow(subsidiaries.length, currentRow * GAP_Y);
+      subsidiaries.forEach((sub, i) => {
+        const id = `own-s-${i}`;
+        nodes.push({
+          id, type: 'network', position: pos(i),
+          data: {
+            label: sub.name, type: 'Subsidiary', jurisdiction: sub.jurisdiction || '',
+            risk: sub.risk || '', sanctioned: '', badges: sub.badges || [],
+            connection: sub.ownership || '', onNodeClick,
+          },
+        });
+        usedNames.add(sub.name.toLowerCase());
+        edges.push({
+          id: `e-own-ps-${i}`, source: 'own-parent', target: id,
+          label: sub.ownership || '',
+          ...edgeStyle(CARD_BORDER),
+        });
       });
-      usedNames.add(sub.name.toLowerCase());
-      edges.push({
-        id: `e-own-ps-${i}`,
-        source: 'own-parent',
-        target: id,
-        label: sub.ownership || '',
-        style: { stroke: CARD_BORDER, strokeWidth: 1 },
-        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
-        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
-        labelBgPadding: [3, 5],
-        labelBgBorderRadius: 3,
-      });
-    });
-    if (subsidiaries.length > 0) ownershipRows++;
+      currentRow++;
+    }
   }
 
-  // --- Entity network layer (below ownership) ---
+  // --- Remaining rows: Entity network grouped by risk tier ---
   const networkEntities = (entities || []).filter(ent => !usedNames.has((ent.entity || '').toLowerCase()));
-  const startY = ownershipRows * GAP_Y + (ownershipRows > 0 ? 40 : 0);
-  const cols = Math.min(networkEntities.length || 1, 4);
+  if (networkEntities.length === 0) return { nodes, edges };
 
-  networkEntities.forEach((ent, i) => {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-    const totalInRow = Math.min(networkEntities.length - row * cols, cols);
-    const offsetX = ((cols - totalInRow) * GAP_X) / 2;
+  // Group entities by risk for cleaner tiered layout
+  const riskOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const sorted = [...networkEntities].sort((a, b) => (riskOrder[a.risk] ?? 4) - (riskOrder[b.risk] ?? 4));
+
+  // Layout in rows of max 3 entities, centered
+  const COLS = 3;
+  const startY = currentRow * GAP_Y + (currentRow > 0 ? 40 : 0);
+
+  sorted.forEach((ent, i) => {
+    const row = Math.floor(i / COLS);
+    const colsInRow = Math.min(sorted.length - row * COLS, COLS);
+    const pos = centerRow(colsInRow, startY + row * GAP_Y);
+    const col = i % COLS;
+
     nodes.push({
-      id: `net-${i}`,
-      type: 'network',
-      position: { x: offsetX + col * GAP_X, y: startY + row * GAP_Y },
+      id: `net-${i}`, type: 'network', position: pos(col),
       data: {
-        label: ent.entity,
-        type: ent.type,
-        jurisdiction: ent.jurisdiction,
-        risk: ent.risk,
-        sanctioned: ent.sanctioned,
-        connection: ent.connection,
-        matchPercent: ent.matchPercent,
-        source: ent.source,
-        onNodeClick,
+        label: ent.entity, type: ent.type, jurisdiction: ent.jurisdiction,
+        risk: ent.risk, sanctioned: ent.sanctioned, connection: ent.connection,
+        matchPercent: ent.matchPercent, source: ent.source, onNodeClick,
       },
     });
-    // Connect to parent node or first entity
+
+    // Connect to parent — use short labels to avoid overlap
     const sourceId = parentName ? 'own-parent' : (i > 0 ? 'net-0' : null);
-    if (sourceId && ent.connection) {
+    if (sourceId) {
+      const shortLabel = ent.connection
+        ? (ent.connection.length > 25 ? ent.connection.substring(0, 25) + '...' : ent.connection)
+        : '';
       edges.push({
-        id: `e-net-${sourceId}-${i}`,
-        source: sourceId,
-        target: `net-${i}`,
-        label: ent.connection?.length > 30 ? ent.connection.substring(0, 30) + '...' : ent.connection,
-        style: { stroke: getRiskColor(ent.risk) || CARD_BORDER, strokeWidth: 1 },
-        labelStyle: { fill: TEXT_MUTED, fontSize: 9 },
-        labelBgStyle: { fill: '#141414', fillOpacity: 0.9 },
-        labelBgPadding: [3, 5],
-        labelBgBorderRadius: 3,
+        id: `e-net-${i}`, source: sourceId, target: `net-${i}`,
+        label: shortLabel,
+        ...edgeStyle(getRiskColor(ent.risk) || CARD_BORDER),
       });
     }
   });
